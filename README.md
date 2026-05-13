@@ -24,8 +24,9 @@ Olla Nest adds a company layer on top of Ollama:
 - Local-first Ollama integration with graceful fallback when Ollama is not running
 - Audit trail for routed requests and admin changes
 - Clean browser-based interface for the first MVP
-- Google-style React UI built with MUI, Tailwind CSS, and Material Symbols
+- TailAdmin-style React UI built with Tailwind CSS and Material Symbols
 - Model discovery from a local Ollama server
+- Admin-configurable model sources for Ollama and future API providers
 - Production architecture target: PostgreSQL + MongoDB + Redis
 - Local development fallback: SQLite + JSON document store + in-memory realtime state
 
@@ -140,6 +141,8 @@ Ollama should run on your host laptop. Docker uses:
 ```text
 http://host.docker.internal:11434
 ```
+
+If the dashboard shows `Ollama offline`, open Admin -> Model Sources and test the Ollama URL. For Docker on macOS, use `http://host.docker.internal:11434`. For a direct local `npm start`, use `http://localhost:11434`.
 
 ## Run Locally Without Docker
 

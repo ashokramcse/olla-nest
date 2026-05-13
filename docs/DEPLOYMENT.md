@@ -30,6 +30,8 @@ Ollama should run on the host machine. The container reaches it through:
 http://host.docker.internal:11434
 ```
 
+If model discovery fails in Docker but `ollama list` works on the laptop, the app container is probably pointing at the wrong host. Sign in as admin, open **Model Sources**, set Ollama URL to `http://host.docker.internal:11434`, click **Test Source**, then **Save Source**.
+
 Set a real admin password before sharing the app:
 
 ```bash
@@ -101,6 +103,8 @@ Ollama should be running locally:
 http://localhost:11434
 ```
 
+In local developer mode, Admin -> Model Sources should use `http://localhost:11434`.
+
 ## 3. Company/Production Mode
 
 Use PostgreSQL + MongoDB + Redis.
@@ -122,6 +126,8 @@ MONGODB_URI=mongodb://localhost:27017/olla_nest
 REDIS_URL=redis://localhost:6379
 OLLAMA_URL=http://localhost:11434
 ```
+
+This value is the boot default. Admins can change and test the active Ollama URL later from **Admin -> Model Sources** without rebuilding the app.
 
 Start app:
 

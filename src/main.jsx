@@ -553,6 +553,7 @@ function AdminPage() {
   const [form, setForm] = useState({ name: "", email: "", role: "user", departmentId: "dept-general", password: "" });
   const [settings, setSettings] = useState(null);
   const [notice, setNotice] = useState("");
+  const [sourceNotice, setSourceNotice] = useState("");
 
   useEffect(() => {
     if (state?.settings) setSettings({ ...state.settings });
@@ -605,6 +606,20 @@ function AdminPage() {
     });
     setNotice("Settings saved.");
     await reload();
+  }
+
+  async function testModelSources() {
+    setSourceNotice("Testing Ollama connection...");
+    const result = await api("/api/admin/model-sources/test", {
+      method: "POST",
+      body: JSON.stringify({ ollamaUrl: settings.ollamaUrl }),
+    });
+    if (result.ok) {
+      setSourceNotice(`Connected. Found ${result.count} local model${result.count === 1 ? "" : "s"}.`);
+      await refreshModels();
+    } else {
+      setSourceNotice(`Connection failed: ${result.error}`);
+    }
   }
 
   return (
@@ -666,6 +681,37 @@ function AdminPage() {
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{copy}</p>
               </div>
             ))}
+          </div>
+        </ComponentCard>
+
+        <ComponentCard title="Model Sources" desc="Configure Ollama and future API model providers." className="scroll-mt-24 xl:col-span-4" id="sources">
+          <div className="space-y-4">
+            <Input
+              label="Ollama URL"
+              value={settings.ollamaUrl || ""}
+              onChange={(event) => setSettings({ ...settings, ollamaUrl: event.target.value })}
+              placeholder="http://localhost:11434"
+            />
+            <Select
+              label="API model provider"
+              value={settings.apiModelProvider || "not-configured"}
+              onChange={(event) => setSettings({ ...settings, apiModelProvider: event.target.value })}
+            >
+              <option value="not-configured">Not configured</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="custom">Custom API endpoint</option>
+            </Select>
+            <div className="rounded-xl border border-brand-100 bg-brand-25 p-4 text-sm text-gray-600 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-gray-300">
+              Docker default: <span className="font-medium text-gray-800 dark:text-white/90">http://host.docker.internal:11434</span>
+              <br />
+              Local npm default: <span className="font-medium text-gray-800 dark:text-white/90">http://localhost:11434</span>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Button variant="outline" type="button" onClick={testModelSources}>Test Source</Button>
+              <Button type="button" onClick={saveSettings}>Save Source</Button>
+            </div>
+            <Alert>{sourceNotice}</Alert>
           </div>
         </ComponentCard>
 

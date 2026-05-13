@@ -135,6 +135,8 @@ function seedSql(db) {
       ["routerEnabled", "true"],
       ["allowApiModels", "false"],
       ["localOnlyDefault", "true"],
+      ["ollamaUrl", OLLAMA_URL],
+      ["apiModelProvider", "not-configured"],
       ["sqlProvider", STORAGE_MODE === "production" ? "postgresql" : "sqlite"],
       ["documentProvider", STORAGE_MODE === "production" ? "mongodb" : "json-document-store"],
       ["realtimeProvider", STORAGE_MODE === "production" ? "redis" : "in-memory"],
@@ -230,15 +232,24 @@ function upsertModel(db, model) {
   );
 }
 
-async function fetchOllamaModels() {
-  const response = await fetch(`${OLLAMA_URL}/api/tags`);
+function cleanBaseUrl(value) {
+  return String(value || "").replace(/\/+$/, "");
+}
+
+function ollamaUrl(db) {
+  return cleanBaseUrl(setting(db, "ollamaUrl", OLLAMA_URL));
+}
+
+async function fetchOllamaModels(url = OLLAMA_URL) {
+  const baseUrl = cleanBaseUrl(url);
+  const response = await fetch(`${baseUrl}/api/tags`);
   if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
   const data = await response.json();
   return data.models || [];
 }
 
 async function syncOllamaModels(db) {
-  const installed = await fetchOllamaModels();
+  const installed = await fetchOllamaModels(ollamaUrl(db));
   const seenIds = [];
   for (const item of installed) {
     const modelRef = item.name;
@@ -409,11 +420,11 @@ function routeModel(db, user, message, mode) {
   };
 }
 
-async function ollamaGenerate(model, prompt) {
+async function ollamaGenerate(db, model, prompt) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
   try {
-    const response = await fetch(`${OLLAMA_URL}/api/generate`, {
+    const response = await fetch(`${ollamaUrl(db)}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
@@ -472,6 +483,8 @@ function settingsState(db) {
     routerEnabled: setting(db, "routerEnabled", true),
     allowApiModels: setting(db, "allowApiModels", false),
     localOnlyDefault: setting(db, "localOnlyDefault", true),
+    ollamaUrl: ollamaUrl(db),
+    apiModelProvider: setting(db, "apiModelProvider", "not-configured"),
     sqlProvider: setting(db, "sqlProvider", "sqlite"),
     documentProvider: setting(db, "documentProvider", "json-document-store"),
     realtimeProvider: setting(db, "realtimeProvider", "in-memory"),
@@ -686,7 +699,7 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     let live = true;
     try {
       if (route.selected.provider !== "ollama") throw new Error("API connector is not configured in this MVP.");
-      content = await ollamaGenerate(route.selected.model, message);
+      content = await ollamaGenerate(db, route.selected.model, message);
     } catch (error) {
       live = false;
       content = `Auto Router selected ${route.selected.name}, but the model call did not complete.\n\nReason: ${error.message}\n\nThe route itself is valid; check model availability, startup time, or admin configuration.`;
@@ -733,13 +746,29 @@ app.post("/api/admin/settings", requireAdmin, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
-    ["routerEnabled", "allowApiModels", "localOnlyDefault"].forEach((key) => {
+    ["routerEnabled", "allowApiModels", "localOnlyDefault", "apiModelProvider"].forEach((key) => {
       if (typeof req.body[key] !== "undefined") setSetting(db, key, req.body[key]);
     });
+    if (typeof req.body.ollamaUrl !== "undefined") {
+      const nextUrl = cleanBaseUrl(req.body.ollamaUrl);
+      if (!/^https?:\/\/[^ "]+$/.test(nextUrl)) return res.status(400).json({ error: "Ollama URL must start with http:// or https://" });
+      setSetting(db, "ollamaUrl", nextUrl);
+    }
     appendAudit(user.name, "admin.settings.save", "Updated system settings");
     res.json({ ok: true, settings: settingsState(db) });
   } finally {
     db.close();
+  }
+});
+
+app.post("/api/admin/model-sources/test", requireAdmin, async (req, res) => {
+  try {
+    const testUrl = cleanBaseUrl(req.body.ollamaUrl || OLLAMA_URL);
+    if (!/^https?:\/\/[^ "]+$/.test(testUrl)) return res.status(400).json({ error: "Ollama URL must start with http:// or https://" });
+    const models = await fetchOllamaModels(testUrl);
+    res.json({ ok: true, count: models.length, models });
+  } catch (error) {
+    res.json({ ok: false, error: error.message, count: 0, models: [] });
   }
 });
 
