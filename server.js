@@ -820,7 +820,7 @@ app.get("/admin", (req, res) => {
   res.sendFile(path.join(STATIC_DIR, "index.html"));
 });
 
-app.get("*", (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(STATIC_DIR, "index.html"));
 });
 
