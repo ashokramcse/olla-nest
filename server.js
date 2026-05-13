@@ -9,6 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const DATA_DIR = path.join(__dirname, "data");
+const DEFAULT_WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || path.join(DATA_DIR, "workspace");
 const STORAGE_MODE = process.env.STORAGE_MODE || "local";
 const DATABASE_URL = process.env.DATABASE_URL || "postgresql://olla_nest:olla_nest@localhost:5432/olla_nest";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/olla_nest";
@@ -135,6 +136,8 @@ function seedSql(db) {
       ["routerEnabled", "true"],
       ["allowApiModels", "false"],
       ["localOnlyDefault", "true"],
+      ["localWritesEnabled", "true"],
+      ["workspaceRoot", DEFAULT_WORKSPACE_ROOT],
       ["ollamaUrl", OLLAMA_URL],
       ["apiModelProvider", "not-configured"],
       ["sqlProvider", STORAGE_MODE === "production" ? "postgresql" : "sqlite"],
@@ -454,12 +457,83 @@ function modelPrompt(message, mode, route) {
   ];
   const modeInstructions = {
     ask: "Give a clear, useful answer with enough detail to be acted on.",
-    build: "Build the requested output. If the request is for UI or code, provide a practical implementation plan and concrete code or component structure. Include file-level guidance when useful.",
+    build: "Build the requested output. Return the implementation as one complete, runnable file in a fenced code block. For UI pages, prefer a complete React JSX component when React is implied, otherwise a complete HTML file with embedded CSS and JavaScript. Do not return only a plan.",
     review: "Review the request for issues, risks, improvements, and missing pieces. Lead with actionable findings.",
     fix: "Diagnose the problem and provide the fix with exact steps or code changes. Be specific.",
     learn: "Teach the concept clearly with examples and simple explanation.",
   };
   return `${base.join("\n")}\nMode: ${mode}\nInstruction: ${modeInstructions[mode] || modeInstructions.ask}\n\nUser request:\n${message.trim()}`;
+}
+
+function slugify(value, fallback = "artifact") {
+  const slug = String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return slug || fallback;
+}
+
+function artifactBaseName(message) {
+  const text = String(message || "").toLowerCase();
+  if (/sign[\s-]?in|login/.test(text)) return "signin-page";
+  if (/dashboard/.test(text)) return "dashboard";
+  if (/landing/.test(text)) return "landing-page";
+  if (/component/.test(text)) return "component";
+  return slugify(text.split(/\n/)[0], "generated-output");
+}
+
+function extensionForFence(language, content) {
+  const lang = String(language || "").toLowerCase();
+  if (["jsx", "tsx", "ts", "js", "html", "css", "json", "md"].includes(lang)) return lang;
+  if (/^\s*<!doctype html|<html[\s>]/i.test(content)) return "html";
+  if (/import\s+React|from\s+['"]react['"]|useState|className=|function\s+[A-Z]\w+|const\s+[A-Z]\w+\s*=/.test(content)) return "jsx";
+  return "txt";
+}
+
+function extractArtifacts(content, message) {
+  const artifacts = [];
+  const fencePattern = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+  let match;
+  while ((match = fencePattern.exec(content))) {
+    const body = match[2].trim();
+    if (!body) continue;
+    const ext = extensionForFence(match[1], body);
+    artifacts.push({ ext, content: body });
+  }
+  if (!artifacts.length && /<!doctype html|<html[\s>]|import React|from\s+['"]react['"]|useState|className=|function\s+\w+|const\s+\w+\s*=/.test(content)) {
+    const ext = extensionForFence("", content);
+    artifacts.push({ ext, content: content.trim() });
+  }
+  return artifacts.map((artifact, index) => ({
+    ...artifact,
+    name: `${artifactBaseName(message)}${artifacts.length > 1 ? `-${index + 1}` : ""}.${artifact.ext}`,
+  }));
+}
+
+function workspaceRoot(db) {
+  const configured = setting(db, "workspaceRoot", DEFAULT_WORKSPACE_ROOT);
+  return path.resolve(String(configured || DEFAULT_WORKSPACE_ROOT));
+}
+
+function writeLocalArtifacts(db, message, mode, content) {
+  if (!["build", "fix"].includes(mode)) return [];
+  if (!setting(db, "localWritesEnabled", true)) return [];
+  const artifacts = extractArtifacts(content, message);
+  if (!artifacts.length) return [];
+  const root = workspaceRoot(db);
+  const targetDir = path.join(root, "olla-nest-output");
+  fs.mkdirSync(targetDir, { recursive: true });
+  return artifacts.map((artifact) => {
+    const filePath = path.join(targetDir, artifact.name);
+    fs.writeFileSync(filePath, `${artifact.content}\n`, "utf8");
+    return {
+      name: artifact.name,
+      path: filePath,
+      relativePath: path.relative(root, filePath),
+      bytes: Buffer.byteLength(artifact.content, "utf8"),
+    };
+  });
 }
 
 function appendAudit(actor, action, detail, extra = {}) {
@@ -502,6 +576,8 @@ function settingsState(db) {
     routerEnabled: setting(db, "routerEnabled", true),
     allowApiModels: setting(db, "allowApiModels", false),
     localOnlyDefault: setting(db, "localOnlyDefault", true),
+    localWritesEnabled: setting(db, "localWritesEnabled", true),
+    workspaceRoot: setting(db, "workspaceRoot", DEFAULT_WORKSPACE_ROOT),
     ollamaUrl: ollamaUrl(db),
     apiModelProvider: setting(db, "apiModelProvider", "not-configured"),
     sqlProvider: setting(db, "sqlProvider", "sqlite"),
@@ -724,6 +800,11 @@ app.post("/api/chat", requireAuth, async (req, res) => {
       content = `Auto Router selected ${route.selected.name}, but the model call did not complete.\n\nReason: ${error.message}\n\nThe route itself is valid; check model availability, startup time, or admin configuration.`;
     }
 
+    const artifacts = live ? writeLocalArtifacts(db, message, mode, content) : [];
+    if (artifacts.length) {
+      content += `\n\nLocal files updated:\n${artifacts.map((artifact) => `- ${artifact.path}`).join("\n")}`;
+    }
+
     const docs = readDocs();
     const chat = chatFor(user.id);
     const now = new Date().toISOString();
@@ -735,13 +816,14 @@ app.post("/api/chat", requireAuth, async (req, res) => {
       modelName: route.selected.name,
       routeReason: route.reason,
       live,
+      artifacts,
       createdAt: now,
     });
     docs.chats[user.id] = chat;
     writeDocs(docs);
-    appendTrace({ userId: user.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live });
-    appendAudit(user.name, "chat.request", `${mode.toUpperCase()} routed to ${route.selected.name}`, { live });
-    res.json({ content, route, model: route.selected, live, chat });
+    appendTrace({ userId: user.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live, artifacts });
+    appendAudit(user.name, "chat.request", `${mode.toUpperCase()} routed to ${route.selected.name}`, { live, artifacts });
+    res.json({ content, route, model: route.selected, live, artifacts, chat });
   } finally {
     db.close();
   }
@@ -765,9 +847,14 @@ app.post("/api/admin/settings", requireAdmin, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
-    ["routerEnabled", "allowApiModels", "localOnlyDefault", "apiModelProvider"].forEach((key) => {
+    ["routerEnabled", "allowApiModels", "localOnlyDefault", "localWritesEnabled", "apiModelProvider"].forEach((key) => {
       if (typeof req.body[key] !== "undefined") setSetting(db, key, req.body[key]);
     });
+    if (typeof req.body.workspaceRoot !== "undefined") {
+      const nextRoot = path.resolve(String(req.body.workspaceRoot || DEFAULT_WORKSPACE_ROOT));
+      setSetting(db, "workspaceRoot", nextRoot);
+      fs.mkdirSync(nextRoot, { recursive: true });
+    }
     if (typeof req.body.ollamaUrl !== "undefined") {
       const nextUrl = cleanBaseUrl(req.body.ollamaUrl);
       if (!/^https?:\/\/[^ "]+$/.test(nextUrl)) return res.status(400).json({ error: "Ollama URL must start with http:// or https://" });

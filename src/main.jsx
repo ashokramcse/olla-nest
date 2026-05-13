@@ -483,6 +483,16 @@ function WorkspacePage() {
                   <div className={cn("max-w-[780px] rounded-2xl border px-4 py-3", item.role === "user" ? "border-brand-100 bg-brand-50 text-gray-800 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-white/90" : "border-gray-200 bg-white text-gray-800 dark:border-gray-800 dark:bg-white/[0.03] dark:text-white/90")}>
                     <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">{item.role === "assistant" ? item.modelName || "Assistant" : `${state.activeUser.name} · ${item.mode || mode}`}</p>
                     <p className="whitespace-pre-wrap text-sm leading-6">{item.content}</p>
+                    {item.artifacts?.length ? (
+                      <div className="mt-3 rounded-xl border border-brand-100 bg-brand-25 p-3 dark:border-brand-500/20 dark:bg-brand-500/10">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">Local files updated</p>
+                        <div className="mt-2 space-y-1">
+                          {item.artifacts.map((artifact) => (
+                            <p key={artifact.path} className="break-all text-xs text-gray-700 dark:text-gray-300">{artifact.path}</p>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               )) : (
@@ -773,6 +783,13 @@ function AdminPage() {
             <ToggleRow label="Auto Router enabled" checked={settings.routerEnabled} onChange={(value) => setSettings({ ...settings, routerEnabled: value })} />
             <ToggleRow label="Allow API models" checked={settings.allowApiModels} onChange={(value) => setSettings({ ...settings, allowApiModels: value })} />
             <ToggleRow label="Local-first by default" checked={settings.localOnlyDefault} onChange={(value) => setSettings({ ...settings, localOnlyDefault: value })} />
+            <ToggleRow label="Write Build/Fix outputs locally" checked={settings.localWritesEnabled} onChange={(value) => setSettings({ ...settings, localWritesEnabled: value })} />
+            <Input
+              label="Local workspace folder"
+              value={settings.workspaceRoot || ""}
+              onChange={(event) => setSettings({ ...settings, workspaceRoot: event.target.value })}
+              placeholder="/Users/you/Projects/olla-nest-workspace"
+            />
             <Button onClick={saveSystemSettings} type="button" className="w-full">Save Settings</Button>
             <Alert>{settingsNotice}</Alert>
           </div>
