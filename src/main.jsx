@@ -417,9 +417,21 @@ function WorkspacePage() {
   const [mode, setMode] = useState("ask");
   const [message, setMessage] = useState("");
   const [manualModelId, setManualModelId] = useState("");
+  const [workspaceDraft, setWorkspaceDraft] = useState(null);
+  const [writeToWorkspace, setWriteToWorkspace] = useState(false);
+  const [workspaceNotice, setWorkspaceNotice] = useState("");
   const [router, setRouter] = useState("Send a message and Olla Nest will choose the best approved model.");
   const [accountMessage, setAccountMessage] = useState("");
   const [passwords, setPasswords] = useState({ currentPassword: "", newPassword: "" });
+
+  useEffect(() => {
+    if (!state?.workspace) return;
+    setWorkspaceDraft({
+      workspaceRoot: state.workspace.workspaceRoot || "",
+      permissionMode: state.workspace.permissionMode || "default",
+    });
+    setWriteToWorkspace(state.workspace.permissionMode === "full");
+  }, [state?.workspace?.workspaceRoot, state?.workspace?.permissionMode]);
 
   if (!state) return <LoadingPage />;
 
@@ -427,6 +439,8 @@ function WorkspacePage() {
   const chat = state.chats.find((item) => item.userId === state.activeUser.id) || state.chats[0];
   const department = state.departments.find((item) => item.id === state.activeUser.departmentId);
   const messages = chat?.messages || [];
+  const localWorkMode = ["build", "fix"].includes(mode);
+  const outputFolder = state.workspace?.outputFolder || `${workspaceDraft?.workspaceRoot || ""}/olla-nest-output`;
 
   async function send(event) {
     event.preventDefault();
@@ -434,7 +448,7 @@ function WorkspacePage() {
     setRouter("Routing request...");
     const result = await api("/api/chat", {
       method: "POST",
-      body: JSON.stringify({ message, mode, manualModelId: manualModelId || null }),
+      body: JSON.stringify({ message, mode, manualModelId: manualModelId || null, writeToWorkspace: localWorkMode ? writeToWorkspace : false }),
     });
     setMessage("");
     setRouter(`${result.model.name}: ${result.route.reason}`);
@@ -455,6 +469,27 @@ function WorkspacePage() {
       setAccountMessage("Password updated.");
     } catch (err) {
       setAccountMessage(err.message);
+    }
+  }
+
+  async function saveWorkspaceSettings() {
+    setWorkspaceNotice("");
+    try {
+      const result = await api("/api/workspace/local-settings", {
+        method: "POST",
+        body: JSON.stringify(workspaceDraft),
+      });
+      if (result?.workspace) {
+        setWorkspaceDraft({
+          workspaceRoot: result.workspace.workspaceRoot,
+          permissionMode: result.workspace.permissionMode,
+        });
+        setWriteToWorkspace(result.workspace.permissionMode === "full");
+      }
+      setWorkspaceNotice("Local workspace saved.");
+      await reload();
+    } catch (err) {
+      setWorkspaceNotice(err.message);
     }
   }
 
@@ -509,6 +544,22 @@ function WorkspacePage() {
             </div>
             <form className="space-y-3" onSubmit={send}>
               <Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Message Olla Nest..." />
+              {localWorkMode ? (
+                <div className="rounded-2xl border border-brand-100 bg-brand-25 p-4 dark:border-brand-500/20 dark:bg-brand-500/10">
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1 size-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                      checked={writeToWorkspace}
+                      onChange={(event) => setWriteToWorkspace(event.target.checked)}
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-gray-800 dark:text-white/90">Write this {mode} result to local files</span>
+                      <span className="mt-1 block break-all text-xs leading-5 text-gray-500 dark:text-gray-400">{outputFolder}</span>
+                    </span>
+                  </label>
+                </div>
+              ) : null}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <select value={manualModelId} onChange={(event) => setManualModelId(event.target.value)} className="h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm text-gray-700 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                   <option value="">Auto Router</option>
@@ -534,6 +585,34 @@ function WorkspacePage() {
           </ComponentCard>
           <ComponentCard title="Router" desc="Latest routing decision" className="scroll-mt-24" id="router">
             <p className="text-sm leading-6 text-gray-600 dark:text-gray-400">{router}</p>
+          </ComponentCard>
+          <ComponentCard title="Work locally" desc="Choose where Build/Fix creates files." className="scroll-mt-24">
+            <div className="space-y-4">
+              <Input
+                label="Workspace folder"
+                value={workspaceDraft?.workspaceRoot || ""}
+                onChange={(event) => setWorkspaceDraft({ ...(workspaceDraft || {}), workspaceRoot: event.target.value })}
+                placeholder="/Users/you/Projects/my-workspace"
+              />
+              <Select
+                label="Folder and file permission"
+                value={workspaceDraft?.permissionMode || "default"}
+                onChange={(event) => {
+                  const permissionMode = event.target.value;
+                  setWorkspaceDraft({ ...(workspaceDraft || {}), permissionMode });
+                  setWriteToWorkspace(permissionMode === "full");
+                }}
+              >
+                <option value="default">Default permissions</option>
+                <option value="review">Auto-review</option>
+                <option value="full">Full access</option>
+              </Select>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs leading-5 text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
+                Default asks before writing. Auto-review keeps the approval visible. Full access writes Build/Fix outputs automatically.
+              </div>
+              <Button type="button" className="w-full" onClick={saveWorkspaceSettings}>Save local workspace</Button>
+              <Alert>{workspaceNotice}</Alert>
+            </div>
           </ComponentCard>
           <ComponentCard title="Account" desc={state.activeUser.email} className="scroll-mt-24">
             <form className="space-y-4" onSubmit={changePassword}>
@@ -784,6 +863,15 @@ function AdminPage() {
             <ToggleRow label="Allow API models" checked={settings.allowApiModels} onChange={(value) => setSettings({ ...settings, allowApiModels: value })} />
             <ToggleRow label="Local-first by default" checked={settings.localOnlyDefault} onChange={(value) => setSettings({ ...settings, localOnlyDefault: value })} />
             <ToggleRow label="Write Build/Fix outputs locally" checked={settings.localWritesEnabled} onChange={(value) => setSettings({ ...settings, localWritesEnabled: value })} />
+            <Select
+              label="Default file permission"
+              value={settings.localPermissionMode || "default"}
+              onChange={(event) => setSettings({ ...settings, localPermissionMode: event.target.value })}
+            >
+              <option value="default">Default permissions</option>
+              <option value="review">Auto-review</option>
+              <option value="full">Full access</option>
+            </Select>
             <Input
               label="Local workspace folder"
               value={settings.workspaceRoot || ""}
