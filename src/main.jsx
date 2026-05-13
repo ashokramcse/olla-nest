@@ -127,9 +127,9 @@ function Alert({ children, type = "info" }) {
   return <div className={cn("rounded-xl border px-4 py-3 text-sm font-medium", styles[type])}>{children}</div>;
 }
 
-function ComponentCard({ title, desc, children, className = "", actions }) {
+function ComponentCard({ title, desc, children, className = "", actions, ...props }) {
   return (
-    <div className={cn("rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]", className)}>
+    <div className={cn("rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]", className)} {...props}>
       <div className="flex items-start justify-between gap-4 px-5 py-4 sm:px-6">
         <div>
           <h3 className="text-base font-medium text-gray-800 dark:text-white/90">{title}</h3>
@@ -142,9 +142,9 @@ function ComponentCard({ title, desc, children, className = "", actions }) {
   );
 }
 
-function BrandLogo({ compact = false }) {
-  return (
-    <div className={cn("flex items-center", compact ? "justify-center" : "gap-3")}>
+function BrandLogo({ compact = false, href }) {
+  const content = (
+    <>
       <div className="flex size-10 items-center justify-center rounded-xl bg-brand-500 text-sm font-black text-white shadow-theme-xs">ON</div>
       {!compact && (
         <div>
@@ -152,6 +152,18 @@ function BrandLogo({ compact = false }) {
           <p className="text-xs text-gray-500 dark:text-gray-400">AI Workspace</p>
         </div>
       )}
+    </>
+  );
+  if (href) {
+    return (
+      <a href={href} className={cn("flex items-center rounded-xl outline-none focus:ring-3 focus:ring-brand-500/10", compact ? "justify-center" : "gap-3")}>
+        {content}
+      </a>
+    );
+  }
+  return (
+    <div className={cn("flex items-center", compact ? "justify-center" : "gap-3")}>
+      {content}
     </div>
   );
 }
@@ -270,20 +282,24 @@ function allowedModels(state) {
 }
 
 function Sidebar({ active, state }) {
-  const nav = [
-    { href: "/app", label: "Workspace", icon: "forum", key: "workspace" },
-    ...(state?.activeUser?.role === "admin" ? [{ href: "/admin", label: "Admin", icon: "dashboard", key: "admin" }] : []),
-  ];
+  const isAdmin = state?.activeUser?.role === "admin";
+  const homeHref = isAdmin ? "/admin" : "/app";
+  const nav = isAdmin
+    ? [
+        { href: "/admin", label: "Admin", icon: "dashboard", key: "admin" },
+        { href: "/app", label: "Workspace", icon: "forum", key: "workspace" },
+      ]
+    : [{ href: "/app", label: "Workspace", icon: "forum", key: "workspace" }];
   const secondary = [
-    { label: "Model Router", icon: "route" },
-    { label: "Access Control", icon: "verified_user" },
-    { label: "Data Stores", icon: "database" },
+    { label: "Model Router", icon: "route", href: isAdmin ? "/admin#models" : "/app#router" },
+    { label: "Access Control", icon: "verified_user", href: isAdmin ? "/admin#access" : "/app#access" },
+    { label: "Data Stores", icon: "database", href: "/admin#storage" },
   ];
 
   return (
     <aside className="fixed left-0 top-0 z-50 hidden h-screen w-[290px] flex-col border-r border-gray-200 bg-white px-5 dark:border-gray-800 dark:bg-gray-900 lg:flex">
       <div className="py-8">
-        <BrandLogo />
+        <BrandLogo href={homeHref} />
       </div>
       <nav className="flex flex-1 flex-col overflow-y-auto no-scrollbar">
         <div>
@@ -304,10 +320,10 @@ function Sidebar({ active, state }) {
           <ul className="flex flex-col gap-4">
             {secondary.map((item) => (
               <li key={item.label}>
-                <div className="menu-item menu-item-inactive group">
+                <a href={item.href} className="menu-item menu-item-inactive group">
                   <Icon name={item.icon} className="menu-item-icon-size menu-item-icon-inactive" />
                   <span className="menu-item-text">{item.label}</span>
-                </div>
+                </a>
               </li>
             ))}
           </ul>
@@ -397,7 +413,7 @@ function MetricCard({ icon, label, value, sub }) {
 }
 
 function WorkspacePage() {
-  const { state, ollama, reload } = useAppState();
+  const { state, ollama, reload, refreshModels } = useAppState();
   const [mode, setMode] = useState("ask");
   const [message, setMessage] = useState("");
   const [manualModelId, setManualModelId] = useState("");
@@ -451,7 +467,7 @@ function WorkspacePage() {
       ollama={ollama}
       rightSlot={<Button variant="soft" onClick={clearChat}><Icon name="add" /> New chat</Button>}
     >
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <ComponentCard title="AI Workspace" desc="Use auto routing or select one approved model manually." className="min-h-[calc(100vh-154px)]">
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap gap-2">
@@ -495,19 +511,25 @@ function WorkspacePage() {
         </ComponentCard>
 
         <div className="space-y-6">
-          <ComponentCard title="Access" desc={`${department?.name || "General"} department`}>
+          <ComponentCard
+            title="Access"
+            desc={`${department?.name || "General"} department`}
+            className="scroll-mt-24"
+            id="access"
+            actions={<Button variant="soft" onClick={refreshModels}><Icon name="refresh" /> Refresh</Button>}
+          >
             <div className="flex flex-wrap gap-2">
               {models.length ? models.map((model) => <Badge key={model.id} color="gray">{model.name}</Badge>) : <Badge color="warning">No approved local models</Badge>}
             </div>
           </ComponentCard>
-          <ComponentCard title="Router" desc="Latest routing decision">
+          <ComponentCard title="Router" desc="Latest routing decision" className="scroll-mt-24" id="router">
             <p className="text-sm leading-6 text-gray-600 dark:text-gray-400">{router}</p>
           </ComponentCard>
-          <ComponentCard title="Account" desc={state.activeUser.email}>
+          <ComponentCard title="Account" desc={state.activeUser.email} className="scroll-mt-24">
             <form className="space-y-4" onSubmit={changePassword}>
               <Input label="Current password" type="password" value={passwords.currentPassword} onChange={(event) => setPasswords({ ...passwords, currentPassword: event.target.value })} />
               <Input label="New password" type="password" value={passwords.newPassword} onChange={(event) => setPasswords({ ...passwords, newPassword: event.target.value })} />
-              <Button variant="outline" type="submit" className="w-full">Change password</Button>
+              <Button variant="outline" type="submit" className="h-12 w-full">Change password</Button>
               <Alert>{accountMessage}</Alert>
             </form>
           </ComponentCard>
@@ -598,7 +620,8 @@ function AdminPage() {
         <ComponentCard
           title="Available Local Models"
           desc="Live discovery from your local Ollama service."
-          className="xl:col-span-8"
+          className="scroll-mt-24 xl:col-span-8"
+          id="models"
           actions={<Button variant="soft" onClick={refreshModels}><Icon name="refresh" /> Refresh</Button>}
         >
           {localModels.length ? (
@@ -630,7 +653,7 @@ function AdminPage() {
           )}
         </ComponentCard>
 
-        <ComponentCard title="Access Model" desc="How eligibility is decided." className="xl:col-span-4">
+        <ComponentCard title="Access Model" desc="How eligibility is decided." className="scroll-mt-24 xl:col-span-4" id="access">
           <div className="space-y-3">
             {[
               ["User grants", "Direct allow or restrict list."],
@@ -638,7 +661,7 @@ function AdminPage() {
               ["Department grants", "Default access by company function."],
               ["Storage", "PostgreSQL · MongoDB · Redis"],
             ].map(([title, copy]) => (
-              <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800" key={title}>
+              <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800" key={title} id={title === "Storage" ? "storage" : undefined}>
                 <p className="font-medium text-gray-800 dark:text-white/90">{title}</p>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{copy}</p>
               </div>
