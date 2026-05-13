@@ -57,13 +57,21 @@ Commands:
 ```bash
 npm install
 cp .env.example .env
-npm start
+npm run dev:api
+npm run dev
 ```
 
 Open:
 
 ```text
-http://localhost:3000/login
+http://localhost:5173/login
+```
+
+To test the production bundle without Docker:
+
+```bash
+npm run build
+npm start
 ```
 
 Default first boot admin:
@@ -128,7 +136,7 @@ The web app should remain the primary UI surface. The desktop app should wrap an
 Recommended path:
 
 1. Keep the backend API separate from UI concerns.
-2. Move frontend to React + Vite when UI complexity increases.
+2. Keep the frontend in React + Vite with MUI and Tailwind CSS.
 3. Package desktop with Tauri for macOS, Windows, and Linux.
 4. Let desktop builds manage local Ollama connection, local workspace permissions, and file access.
 5. Keep the same API contracts for future mobile apps.

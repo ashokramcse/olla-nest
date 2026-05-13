@@ -14,13 +14,25 @@
     "open-source-ai"
   ],
   "scripts": {
+    "build": "vite build",
     "start": "node server.js",
-    "dev": "node server.js",
+    "dev": "vite --host 0.0.0.0",
+    "dev:api": "node server.js",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.0.1",
+    "@mui/material": "^9.0.1",
+    "@tailwindcss/vite": "^4.3.0",
+    "@vitejs/plugin-react": "^6.0.1",
     "bcryptjs": "^2.4.3",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "tailwindcss": "^4.3.0",
+    "vite": "^8.0.12"
   }
 }
