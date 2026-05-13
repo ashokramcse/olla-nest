@@ -18,10 +18,11 @@ const DOC_PATH = process.env.DOCUMENT_DB_PATH || path.join(DATA_DIR, "documents.
 const DEFAULT_ADMIN_EMAIL = process.env.DEFAULT_ADMIN_EMAIL || "admin@ollanest.local";
 const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || "ChangeMe!CreateARealPassword123";
 const DEFAULT_USER_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "UserDemo!12345";
+const STATIC_DIR = fs.existsSync(path.join(__dirname, "dist")) ? path.join(__dirname, "dist") : path.join(__dirname, "public");
 const sessions = new Map();
 
 app.use(express.json({ limit: "2mb" }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(STATIC_DIR));
 
 function uid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -804,23 +805,23 @@ app.post("/api/admin/users/:id/reset-password", requireAdmin, (req, res) => {
 });
 
 app.get(["/", "/login"], (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "login.html"));
+  res.sendFile(path.join(STATIC_DIR, "index.html"));
 });
 
 app.get("/app", (req, res) => {
   if (!sessionUser(req)) return res.redirect("/login");
-  res.sendFile(path.join(__dirname, "public", "app.html"));
+  res.sendFile(path.join(STATIC_DIR, "index.html"));
 });
 
 app.get("/admin", (req, res) => {
   const user = sessionUser(req);
   if (!user) return res.redirect("/login");
   if (user.role !== "admin") return res.redirect("/app");
-  res.sendFile(path.join(__dirname, "public", "admin.html"));
+  res.sendFile(path.join(STATIC_DIR, "index.html"));
 });
 
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(STATIC_DIR, "index.html"));
 });
 
 app.listen(PORT, async () => {

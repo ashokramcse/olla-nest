@@ -1,6 +1,10 @@
 node_modules/
 .npm-cache/
+.env
+dist/
 data/db.json
 data/*.sqlite
 data/*.sqlite-*
 data/documents.json
+
+.env
