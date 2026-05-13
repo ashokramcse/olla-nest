@@ -9,133 +9,21 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
+  if (response.status === 401) {
+    window.location.href = "/login";
+    return null;
+  }
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
-function currentPolicy() {
-  return state.departments.find((d) => d.id === state.activeUser.departmentId);
-}
-
 function allowedModels() {
-  return state.models.filter((m) => {
-    if (!state.allowedModelIds.includes(m.id) || m.status === "disabled") return false;
-    if (m.provider === "api" && !state.settings.allowApiModels) return false;
+  return state.models.filter((model) => {
+    if (!state.allowedModelIds.includes(model.id) || model.status === "disabled") return false;
+    if (model.provider === "api" && !state.settings.allowApiModels) return false;
     return true;
   });
-}
-
-function renderUsers() {
-  const select = $("#userSwitch");
-  select.innerHTML = state.users
-    .map((user) => `<option value="${user.id}" ${user.id === state.activeUser.id ? "selected" : ""}>${user.name} (${user.role})</option>`)
-    .join("");
-}
-
-function renderApprovedModels() {
-  const list = $("#approvedModels");
-  const models = allowedModels();
-  list.innerHTML = models.length
-    ? models.map((m) => `<div class="mini-item"><span>${m.name}</span><span>${m.privacy}</span></div>`).join("")
-    : `<div class="muted">No active models approved.</div>`;
-
-  const manual = $("#manualModel");
-  manual.innerHTML = `<option value="">Auto Router</option>` + models.map((m) => `<option value="${m.id}">${m.name}</option>`).join("");
-}
-
-function renderMessages() {
-  const messages = $("#messages");
-  const chat = state.chats.find((c) => c.userId === state.activeUser.id) || state.chats[0];
-  const items = chat?.messages || [];
-  messages.innerHTML = items
-    .map((message) => {
-      const meta = message.role === "assistant"
-        ? `${message.modelName || "Assistant"}${message.live === false ? " · setup needed" : ""}`
-        : `${state.activeUser.name}${message.mode ? ` · ${message.mode}` : ""}`;
-      return `<article class="message ${message.role}">
-        <div class="message-meta">${meta}</div>
-        <div class="message-content">${escapeHtml(message.content)}</div>
-      </article>`;
-    })
-    .join("");
-  messages.scrollTop = messages.scrollHeight;
-}
-
-function renderPolicySummary() {
-  const department = currentPolicy();
-  $("#policySummary").innerHTML = department
-    ? `<p class="muted"><strong>${department.name}</strong><br>Access is calculated from user, group, and department grants.</p>
-       <div class="tag-list">${allowedModels().map((m) => `<span>${m.name}</span>`).join("")}</div>`
-    : `<p class="muted">No department assigned.</p>`;
-}
-
-function renderAdmin() {
-  $("#routerEnabled").checked = state.settings.routerEnabled;
-  $("#allowApiModels").checked = state.settings.allowApiModels;
-  $("#localOnlyDefault").checked = state.settings.localOnlyDefault;
-
-  $("#modelTable").innerHTML = `
-    <div class="table-row header"><div>Model</div><div>Provider</div><div>Status</div><div>Strengths</div></div>
-    ${state.models.map((m) => `<div class="table-row">
-      <div><strong>${m.name}</strong><br><span class="muted">${m.model}</span></div>
-      <div><span class="badge">${m.provider}</span></div>
-      <div><span class="badge">${m.status}</span></div>
-      <div class="muted">${(m.capabilities || m.strengths || []).join(", ")}</div>
-    </div>`).join("")}
-  `;
-
-  $("#policyList").innerHTML = [
-    `<div class="policy-card"><strong>User grants</strong><span>Direct access for specific employees.</span></div>`,
-    `<div class="policy-card"><strong>Group grants</strong><span>Shared access for teams such as All Employees or Builders.</span></div>`,
-    `<div class="policy-card"><strong>Department grants</strong><span>Company departments can receive model access independently.</span></div>`,
-    `<div class="policy-card"><strong>Production storage</strong><span>SQL: ${state.dbConfig.recommendedProduction.sql.provider}<br>NoSQL: ${state.dbConfig.recommendedProduction.document.provider}<br>Realtime: ${state.dbConfig.recommendedProduction.realtime.provider}</span></div>`,
-    `<div class="policy-card"><strong>Local fallback</strong><span>SQL: ${state.dbConfig.localDevelopment.sql.provider}<br>Document: ${state.dbConfig.localDevelopment.document.provider}<br>Realtime: ${state.dbConfig.localDevelopment.realtime.provider}</span></div>`,
-  ].join("");
-
-  $("#userList").innerHTML = state.users
-    .map((u) => {
-      const dept = state.departments.find((d) => d.id === u.departmentId);
-      return `<div class="user-card"><strong>${u.name}</strong><span>${u.role} · ${dept?.name || "No department"}</span></div>`;
-    })
-    .join("");
-
-  $("#auditList").innerHTML = state.audit.length
-    ? state.audit.map((a) => `<div class="audit-card">${a.actor}: ${a.detail}</div>`).join("")
-    : `<div class="muted">No audit events yet.</div>`;
-}
-
-function renderAll() {
-  renderUsers();
-  renderApprovedModels();
-  renderMessages();
-  renderPolicySummary();
-  renderAdmin();
-  const adminButton = document.querySelector('[data-view="admin"]');
-  adminButton.style.display = state.activeUser.role === "admin" ? "block" : "none";
-  if (state.activeUser.role !== "admin" && $("#adminView").classList.contains("active")) {
-    document.querySelector('[data-view="workspace"]').click();
-  }
-  $("#pageTitle").textContent = state.activeUser.role === "admin" ? "Admin Workspace" : "Employee Workspace";
-}
-
-async function loadState() {
-  state = await api("/api/state");
-  renderAll();
-}
-
-async function checkOllama() {
-  const status = $("#ollamaStatus");
-  const data = await api("/api/ollama/models");
-  if (data.ok) {
-    const names = new Set(data.models.map((model) => model.name));
-    const configured = state.models.filter((model) => model.provider === "ollama" && names.has(model.model)).length;
-    status.textContent = `${configured}/${state.models.filter((model) => model.provider === "ollama").length} configured local models ready`;
-    status.className = "status-pill ok";
-  } else {
-    status.textContent = "Ollama not connected";
-    status.className = "status-pill off";
-  }
 }
 
 function escapeHtml(value) {
@@ -147,29 +35,62 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function renderMessages() {
+  const messages = $("#messages");
+  const chat = state.chats.find((item) => item.userId === state.activeUser.id) || state.chats[0];
+  const items = chat?.messages || [];
+  messages.innerHTML = items
+    .map((message) => {
+      const meta = message.role === "assistant"
+        ? `${message.modelName || "Assistant"}${message.live === false ? " · setup needed" : ""}`
+        : `${state.activeUser.name}${message.mode ? ` · ${message.mode}` : ""}`;
+      return `<article class="message ${message.role}">
+        <div class="message-meta">${escapeHtml(meta)}</div>
+        <div class="message-content">${escapeHtml(message.content)}</div>
+      </article>`;
+    })
+    .join("");
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function renderAccess() {
+  const department = state.departments.find((item) => item.id === state.activeUser.departmentId);
+  $("#userSubtitle").textContent = `${state.activeUser.name} · ${department?.name || "Workspace"}`;
+  $("#policySummary").innerHTML = `<p class="muted"><strong>${department?.name || "General"}</strong><br>Model access comes from your user, group, and department grants.</p>
+    <div class="tag-list">${allowedModels().map((model) => `<span>${escapeHtml(model.name)}</span>`).join("")}</div>`;
+  $("#manualModel").innerHTML = `<option value="">Auto Router</option>` + allowedModels().map((model) => `<option value="${model.id}">${escapeHtml(model.name)}</option>`).join("");
+  $("#adminLink").style.display = state.activeUser.role === "admin" ? "inline-flex" : "none";
+}
+
+function renderAll() {
+  renderMessages();
+  renderAccess();
+}
+
+async function loadState() {
+  state = await api("/api/state");
+  if (!state) return;
+  renderAll();
+}
+
+async function checkOllama() {
+  const status = $("#ollamaStatus");
+  const data = await api("/api/ollama/models");
+  if (!data) return;
+  if (data.ok) {
+    status.textContent = `${data.models.length} local model${data.models.length === 1 ? "" : "s"} available`;
+    status.className = "status-pill ok";
+  } else {
+    status.textContent = "Ollama not connected";
+    status.className = "status-pill off";
+  }
+}
+
 function bindEvents() {
-  $("#userSwitch").addEventListener("change", async (event) => {
-    await api("/api/switch-user", {
-      method: "POST",
-      body: JSON.stringify({ userId: event.target.value }),
-    });
-    await loadState();
-  });
-
-  $$(".nav-item").forEach((button) => {
-    button.addEventListener("click", () => {
-      $$(".nav-item").forEach((x) => x.classList.remove("active"));
-      $$(".view").forEach((x) => x.classList.remove("active"));
-      button.classList.add("active");
-      $(`#${button.dataset.view}View`).classList.add("active");
-      $("#pageTitle").textContent = button.textContent;
-    });
-  });
-
   $$(".mode").forEach((button) => {
     button.addEventListener("click", () => {
       activeMode = button.dataset.mode;
-      $$(".mode").forEach((x) => x.classList.remove("active"));
+      $$(".mode").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
     });
   });
@@ -190,14 +111,12 @@ function bindEvents() {
           manualModelId: $("#manualModel").value || null,
         }),
       });
-      $("#routerDecision").innerHTML = `<p class="muted"><strong>${result.model.name}</strong><br>${result.route.reason}<br>Detected: ${result.route.tags.join(", ")}</p>`;
+      $("#routerDecision").innerHTML = `<p class="muted"><strong>${escapeHtml(result.model.name)}</strong><br>${escapeHtml(result.route.reason)}<br>Detected: ${escapeHtml(result.route.tags.join(", "))}</p>`;
       await loadState();
     } catch (error) {
       $("#routerDecision").innerHTML = `<p class="muted"><strong>Request failed</strong><br>${escapeHtml(error.message)}</p>`;
     }
   });
-
-  $("#syncOllama").addEventListener("click", checkOllama);
 
   $("#clearChat").addEventListener("click", async () => {
     await api("/api/chat/clear", { method: "POST", body: "{}" });
@@ -205,16 +124,9 @@ function bindEvents() {
     await loadState();
   });
 
-  $("#saveSettings").addEventListener("click", async () => {
-    await api("/api/admin/settings", {
-      method: "POST",
-      body: JSON.stringify({
-        routerEnabled: $("#routerEnabled").checked,
-        allowApiModels: $("#allowApiModels").checked,
-        localOnlyDefault: $("#localOnlyDefault").checked,
-      }),
-    });
-    await loadState();
+  $("#logout").addEventListener("click", async () => {
+    await api("/api/auth/logout", { method: "POST", body: "{}" });
+    window.location.href = "/login";
   });
 }
 

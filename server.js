@@ -1,6 +1,8 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const { DatabaseSync } = require("node:sqlite");
 
 const app = express();
@@ -13,6 +15,9 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/olla_n
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const SQL_PATH = process.env.SQLITE_PATH || path.join(DATA_DIR, "olla-nest.sqlite");
 const DOC_PATH = process.env.DOCUMENT_DB_PATH || path.join(DATA_DIR, "documents.json");
+const DEFAULT_ADMIN_EMAIL = process.env.DEFAULT_ADMIN_EMAIL || "admin@ollanest.local";
+const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || "CHANGE_ME_ON_FIRST_BOOT";
+const sessions = new Map();
 
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static(path.join(__dirname, "public")));
@@ -44,6 +49,8 @@ function openSql() {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      email TEXT UNIQUE,
+      password_hash TEXT,
       role TEXT NOT NULL,
       department_id TEXT,
       active INTEGER NOT NULL DEFAULT 1
@@ -148,12 +155,14 @@ function seedSql(db) {
   }
 
   if (tableCount(db, "users") === 0) {
+    const adminHash = bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, 12);
+    const userHash = bcrypt.hashSync("CHANGE_ME_ON_FIRST_BOOT", 12);
     [
-      ["u-admin", "Admin", "admin", "dept-product"],
-      ["u-user", "Employee", "user", "dept-general"],
-      ["u-builder", "Builder Employee", "user", "dept-product"],
-      ["u-support", "Support Employee", "user", "dept-support"],
-    ].forEach((row) => db.prepare("INSERT INTO users (id, name, role, department_id) VALUES (?, ?, ?, ?)").run(...row));
+      ["u-admin", "Admin", DEFAULT_ADMIN_EMAIL, adminHash, "admin", "dept-product"],
+      ["u-user", "Employee", "employee@ollanest.local", userHash, "user", "dept-general"],
+      ["u-builder", "Builder Employee", "builder@ollanest.local", userHash, "user", "dept-product"],
+      ["u-support", "Support Employee", "support@ollanest.local", userHash, "user", "dept-support"],
+    ].forEach((row) => db.prepare("INSERT INTO users (id, name, email, password_hash, role, department_id) VALUES (?, ?, ?, ?, ?, ?)").run(...row));
     [
       ["u-admin", "group-admins"],
       ["u-admin", "group-all"],
@@ -162,6 +171,14 @@ function seedSql(db) {
       ["u-builder", "group-builders"],
       ["u-support", "group-all"],
     ].forEach((row) => db.prepare("INSERT INTO user_groups (user_id, group_id) VALUES (?, ?)").run(...row));
+  }
+
+  const userColumns = db.prepare("PRAGMA table_info(users)").all().map((row) => row.name);
+  if (!userColumns.includes("email")) db.exec("ALTER TABLE users ADD COLUMN email TEXT");
+  if (!userColumns.includes("password_hash")) db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+  const admin = db.prepare("SELECT id, email, password_hash FROM users WHERE id = 'u-admin'").get();
+  if (admin && (!admin.email || !admin.password_hash)) {
+    db.prepare("UPDATE users SET email = ?, password_hash = ? WHERE id = 'u-admin'").run(DEFAULT_ADMIN_EMAIL, bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, 12));
   }
 }
 
@@ -279,13 +296,25 @@ function parseModel(row) {
   };
 }
 
+function publicUser(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    departmentId: row.departmentId || row.department_id,
+    active: row.active,
+  };
+}
+
 function getUsers(db) {
-  return rows(db, "SELECT id, name, role, department_id AS departmentId, active FROM users ORDER BY role, name");
+  return rows(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users ORDER BY role, name").map(publicUser);
 }
 
 function activeUser(db) {
   const id = setting(db, "activeUserId", "u-admin");
-  return one(db, "SELECT id, name, role, department_id AS departmentId, active FROM users WHERE id = ?", id) || one(db, "SELECT id, name, role, department_id AS departmentId, active FROM users LIMIT 1");
+  return publicUser(one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users WHERE id = ?", id) || one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users LIMIT 1"));
 }
 
 function userGroupIds(db, userId) {
@@ -467,11 +496,94 @@ function storageConfig() {
   };
 }
 
-app.get("/api/state", async (req, res) => {
+function parseCookies(req) {
+  return Object.fromEntries(
+    String(req.headers.cookie || "")
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const index = part.indexOf("=");
+        return [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+      })
+  );
+}
+
+function sessionUser(req) {
+  const token = parseCookies(req).olla_nest_session;
+  if (!token) return null;
+  const session = sessions.get(token);
+  if (!session || session.expiresAt < Date.now()) {
+    sessions.delete(token);
+    return null;
+  }
+  return session.user;
+}
+
+function requireAuth(req, res, next) {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ error: "Login required" });
+  req.user = user;
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ error: "Login required" });
+  if (user.role !== "admin") return res.status(403).json({ error: "Admin access required" });
+  req.user = user;
+  next();
+}
+
+function setSession(res, user) {
+  const token = crypto.randomBytes(32).toString("hex");
+  sessions.set(token, { user, expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
+  res.setHeader("Set-Cookie", `olla_nest_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200`);
+}
+
+app.post("/api/auth/login", (req, res) => {
   const db = openSql();
   try {
+    const { email, password } = req.body;
+    const row = one(db, "SELECT id, name, email, password_hash, role, department_id AS departmentId, active FROM users WHERE email = ? AND active = 1", email);
+    if (!row || !row.password_hash || !bcrypt.compareSync(String(password || ""), row.password_hash)) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+    const user = publicUser(row);
+    setSetting(db, "activeUserId", user.id);
+    setSession(res, user);
+    appendAudit(user.name, "auth.login", "User signed in");
+    res.json({ ok: true, user, redirectTo: user.role === "admin" ? "/admin" : "/app" });
+  } finally {
+    db.close();
+  }
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  const token = parseCookies(req).olla_nest_session;
+  if (token) sessions.delete(token);
+  res.setHeader("Set-Cookie", "olla_nest_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+  res.json({ ok: true });
+});
+
+app.get("/api/auth/me", (req, res) => {
+  const user = sessionUser(req);
+  res.json({ authenticated: Boolean(user), user });
+});
+
+app.get("/api/bootstrap", (req, res) => {
+  res.json({
+    adminEmail: DEFAULT_ADMIN_EMAIL,
+    defaultPasswordHint: DEFAULT_ADMIN_PASSWORD === "CHANGE_ME_ON_FIRST_BOOT" ? "CHANGE_ME_ON_FIRST_BOOT" : "Configured by DEFAULT_ADMIN_PASSWORD",
+  });
+});
+
+app.get("/api/state", requireAuth, async (req, res) => {
+  const db = openSql();
+  try {
+    setSetting(db, "activeUserId", req.user.id);
     await syncOllamaModels(db).catch(() => []);
-    const user = activeUser(db);
+    const user = publicUser(one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id));
     const docs = readDocs();
     const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
     res.json({
@@ -491,23 +603,24 @@ app.get("/api/state", async (req, res) => {
   }
 });
 
-app.get("/api/storage/architecture", (req, res) => {
+app.get("/api/storage/architecture", requireAuth, (req, res) => {
   res.json(storageConfig());
 });
 
-app.post("/api/switch-user", (req, res) => {
+app.post("/api/switch-user", requireAdmin, (req, res) => {
   const db = openSql();
   try {
-    const user = one(db, "SELECT id FROM users WHERE id = ?", req.body.userId);
+    const user = one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users WHERE id = ?", req.body.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
     setSetting(db, "activeUserId", user.id);
+    req.user = publicUser(user);
     res.json({ ok: true });
   } finally {
     db.close();
   }
 });
 
-app.get("/api/ollama/models", async (req, res) => {
+app.get("/api/ollama/models", requireAuth, async (req, res) => {
   const db = openSql();
   try {
     const installed = await syncOllamaModels(db);
@@ -519,10 +632,10 @@ app.get("/api/ollama/models", async (req, res) => {
   }
 });
 
-app.post("/api/chat", async (req, res) => {
+app.post("/api/chat", requireAuth, async (req, res) => {
   const db = openSql();
   try {
-    const user = activeUser(db);
+    const user = publicUser(one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id));
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ error: "Message is required" });
     await syncOllamaModels(db).catch(() => []);
@@ -567,10 +680,10 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-app.post("/api/chat/clear", (req, res) => {
+app.post("/api/chat/clear", requireAuth, (req, res) => {
   const db = openSql();
   try {
-    const user = activeUser(db);
+    const user = req.user;
     const docs = readDocs();
     delete docs.chats[user.id];
     writeDocs(docs);
@@ -581,11 +694,10 @@ app.post("/api/chat/clear", (req, res) => {
   }
 });
 
-app.post("/api/admin/settings", (req, res) => {
+app.post("/api/admin/settings", requireAdmin, (req, res) => {
   const db = openSql();
   try {
-    const user = activeUser(db);
-    if (user.role !== "admin") return res.status(403).json({ error: "Admin access required" });
+    const user = req.user;
     ["routerEnabled", "allowApiModels", "localOnlyDefault"].forEach((key) => {
       if (typeof req.body[key] !== "undefined") setSetting(db, key, req.body[key]);
     });
@@ -594,6 +706,22 @@ app.post("/api/admin/settings", (req, res) => {
   } finally {
     db.close();
   }
+});
+
+app.get(["/", "/login"], (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+
+app.get("/app", (req, res) => {
+  if (!sessionUser(req)) return res.redirect("/login");
+  res.sendFile(path.join(__dirname, "public", "app.html"));
+});
+
+app.get("/admin", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.redirect("/login");
+  if (user.role !== "admin") return res.redirect("/app");
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
 app.get("*", (req, res) => {

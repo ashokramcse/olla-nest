@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Olla Nest Login</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="auth-body">
+    <main class="auth-shell">
+      <section class="auth-card">
+        <div class="brand auth-brand">
+          <div class="mark">ON</div>
+          <div>
+            <strong>Olla Nest</strong>
+            <span>Company AI Workspace</span>
+          </div>
+        </div>
+        <h1>Sign in</h1>
+        <p class="muted">Use your company account. The first boot creates a default admin from environment variables.</p>
+        <form id="loginForm" class="auth-form">
+          <label>
+            <span>Email</span>
+            <input id="email" type="email" autocomplete="username" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button class="primary full" type="submit">Sign in</button>
+        </form>
+        <div id="bootstrapHint" class="auth-hint"></div>
+        <div id="loginError" class="error-text"></div>
+      </section>
+    </main>
+    <script src="/login.js"></script>
+  </body>
+</html>
