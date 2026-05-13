@@ -432,15 +432,34 @@ async function ollamaGenerate(db, model, prompt) {
         model,
         prompt,
         stream: false,
-        options: { temperature: 0.6, num_predict: 220 },
+        think: false,
+        options: { temperature: 0.5, num_predict: 900 },
       }),
     });
     if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
     const data = await response.json();
-    return data.response || "";
+    return data.response || data.message?.content || data.output || "";
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function modelPrompt(message, mode, route) {
+  const base = [
+    "You are Olla Nest, a company AI workspace assistant.",
+    "Answer the user's request directly and completely.",
+    "Do not answer with only the selected model name.",
+    `Selected model route: ${route.selected?.name || "auto"}.`,
+    `Routing reason: ${route.reason}`,
+  ];
+  const modeInstructions = {
+    ask: "Give a clear, useful answer with enough detail to be acted on.",
+    build: "Build the requested output. If the request is for UI or code, provide a practical implementation plan and concrete code or component structure. Include file-level guidance when useful.",
+    review: "Review the request for issues, risks, improvements, and missing pieces. Lead with actionable findings.",
+    fix: "Diagnose the problem and provide the fix with exact steps or code changes. Be specific.",
+    learn: "Teach the concept clearly with examples and simple explanation.",
+  };
+  return `${base.join("\n")}\nMode: ${mode}\nInstruction: ${modeInstructions[mode] || modeInstructions.ask}\n\nUser request:\n${message.trim()}`;
 }
 
 function appendAudit(actor, action, detail, extra = {}) {
@@ -699,7 +718,7 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     let live = true;
     try {
       if (route.selected.provider !== "ollama") throw new Error("API connector is not configured in this MVP.");
-      content = await ollamaGenerate(db, route.selected.model, message);
+      content = await ollamaGenerate(db, route.selected.model, modelPrompt(message, mode, route));
     } catch (error) {
       live = false;
       content = `Auto Router selected ${route.selected.name}, but the model call did not complete.\n\nReason: ${error.message}\n\nThe route itself is valid; check model availability, startup time, or admin configuration.`;

@@ -553,6 +553,7 @@ function AdminPage() {
   const [form, setForm] = useState({ name: "", email: "", role: "user", departmentId: "dept-general", password: "" });
   const [settings, setSettings] = useState(null);
   const [notice, setNotice] = useState("");
+  const [settingsNotice, setSettingsNotice] = useState("");
   const [sourceNotice, setSourceNotice] = useState("");
 
   useEffect(() => {
@@ -599,24 +600,40 @@ function AdminPage() {
     await reload();
   }
 
-  async function saveSettings() {
-    await api("/api/admin/settings", {
+  async function persistSettings(nextSettings) {
+    const result = await api("/api/admin/settings", {
       method: "POST",
-      body: JSON.stringify(settings),
+      body: JSON.stringify(nextSettings),
     });
-    setNotice("Settings saved.");
+    if (result?.settings) setSettings(result.settings);
     await reload();
+    return result;
+  }
+
+  async function saveSystemSettings() {
+    setSettingsNotice("");
+    await persistSettings(settings);
+    setSettingsNotice("System settings saved.");
+  }
+
+  async function saveModelSources() {
+    setSourceNotice("");
+    const result = await persistSettings(settings);
+    await refreshModels();
+    const savedUrl = result?.settings?.ollamaUrl || settings.ollamaUrl;
+    setSourceNotice(`Model source saved: ${savedUrl}`);
   }
 
   async function testModelSources() {
+    const typedOllamaUrl = settings.ollamaUrl;
     setSourceNotice("Testing Ollama connection...");
     const result = await api("/api/admin/model-sources/test", {
       method: "POST",
-      body: JSON.stringify({ ollamaUrl: settings.ollamaUrl }),
+      body: JSON.stringify({ ollamaUrl: typedOllamaUrl }),
     });
+    setSettings((current) => ({ ...current, ollamaUrl: typedOllamaUrl }));
     if (result.ok) {
       setSourceNotice(`Connected. Found ${result.count} local model${result.count === 1 ? "" : "s"}.`);
-      await refreshModels();
     } else {
       setSourceNotice(`Connection failed: ${result.error}`);
     }
@@ -709,13 +726,13 @@ function AdminPage() {
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Button variant="outline" type="button" onClick={testModelSources}>Test Source</Button>
-              <Button type="button" onClick={saveSettings}>Save Source</Button>
+              <Button type="button" onClick={saveModelSources}>Save Source</Button>
             </div>
             <Alert>{sourceNotice}</Alert>
           </div>
         </ComponentCard>
 
-        <ComponentCard title="Create User" desc="Add employees with company-controlled rights." className="xl:col-span-5">
+        <ComponentCard title="Create User" desc="Add employees with company-controlled rights." className="xl:col-span-8">
           <form className="space-y-4" onSubmit={createUser}>
             <Input label="Name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
             <Input label="Email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
@@ -734,7 +751,7 @@ function AdminPage() {
           </form>
         </ComponentCard>
 
-        <ComponentCard title="Users" desc="Manage employee access and account status." className="xl:col-span-7">
+        <ComponentCard title="Users" desc="Manage employee access and account status." className="xl:col-span-8">
           <div className="space-y-3">
             {state.users.map((user) => (
               <div className="grid grid-cols-[42px_minmax(0,1fr)_auto_auto_auto] items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800" key={user.id}>
@@ -756,11 +773,12 @@ function AdminPage() {
             <ToggleRow label="Auto Router enabled" checked={settings.routerEnabled} onChange={(value) => setSettings({ ...settings, routerEnabled: value })} />
             <ToggleRow label="Allow API models" checked={settings.allowApiModels} onChange={(value) => setSettings({ ...settings, allowApiModels: value })} />
             <ToggleRow label="Local-first by default" checked={settings.localOnlyDefault} onChange={(value) => setSettings({ ...settings, localOnlyDefault: value })} />
-            <Button onClick={saveSettings} type="button" className="w-full">Save Settings</Button>
+            <Button onClick={saveSystemSettings} type="button" className="w-full">Save Settings</Button>
+            <Alert>{settingsNotice}</Alert>
           </div>
         </ComponentCard>
 
-        <ComponentCard title="Audit Trail" desc="Recent admin and account activity." className="xl:col-span-8">
+        <ComponentCard title="Audit Trail" desc="Recent admin and account activity." className="xl:col-span-12">
           <div className="space-y-1">
             {state.audit.length ? state.audit.map((item) => (
               <div className="flex gap-3 border-b border-gray-100 py-4 last:border-0 dark:border-gray-800" key={item.id}>
