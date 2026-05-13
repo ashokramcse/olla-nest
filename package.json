@@ -24,8 +24,8 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
     "@vitejs/plugin-react": "^6.0.1",
-    "bcryptjs": "^2.4.3",
-    "express": "^4.19.2",
+    "bcryptjs": "^3.0.3",
+    "express": "^5.2.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "tailwindcss": "^4.3.0",
