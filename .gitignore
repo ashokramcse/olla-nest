@@ -1,3 +1,6 @@
 node_modules/
 .npm-cache/
 data/db.json
+data/*.sqlite
+data/*.sqlite-*
+data/documents.json

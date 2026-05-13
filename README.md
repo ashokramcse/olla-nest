@@ -20,24 +20,27 @@ Olla Nest adds a company layer on top of Ollama:
 - Employee AI workspace with Ask, Build, Review, Fix, and Learn modes
 - Auto Model Router that selects the best approved model for the request
 - Admin panel for company models, users, departments, policies, and settings
-- Department-based model access control
+- User, group, and department-based model access control
 - Local-first Ollama integration with graceful fallback when Ollama is not running
 - Audit trail for routed requests and admin changes
 - Clean browser-based interface for the first MVP
 - Model discovery from a local Ollama server
+- SQLite + document-store backend foundation
 
-## Supported Local Models in This MVP
+## Model Discovery
 
-The current seed catalog is configured for these Ollama models:
+Olla Nest does not require a hardcoded model list.
 
-- `qwen3.5:9b`
-- `gemma4:26b`
-- `granite4.1:3b`
-- `lfm2.5-thinking:1.2b`
-- `medgemma:4b`
-- `glm-ocr:bf16`
+On startup and during app use, it calls the local Ollama server at `/api/tags`, discovers installed models, stores them in the model registry, and infers practical capabilities from model names.
 
-You can adapt the model catalog in `server.js` for your own installed models.
+Examples:
+
+- Models with names like `coder`, `code`, `qwen`, or `deepseek` are treated as stronger candidates for coding work.
+- Models with names like `ocr`, `vision`, or `vl` are treated as stronger candidates for image/document extraction.
+- Models with names like `med`, `clinical`, or `health` are treated as stronger candidates for medical-domain requests.
+- General models are still available for normal writing, summary, learning, and reasoning tasks.
+
+Admins can later refine this with explicit model metadata and access grants.
 
 ## Product Concept
 
@@ -75,10 +78,30 @@ It checks:
 - What the user is asking
 - Which department or role the user belongs to
 - Which models are installed locally
-- Which models the user is allowed to access
+- Which models the user is allowed to access through user, group, or department grants
 - Whether the task is coding, writing, medical, OCR, review, summary, or general reasoning
+- Model speed and quality estimates
+- Local/privacy preference
 
 Then it selects the best approved model for the job.
+
+The route is not hardcoded to a department or model. Access decides what the user may use; the request decides which approved model is best.
+
+## Database Architecture
+
+Olla Nest uses a mandatory SQL + NoSQL-style combination by default:
+
+- SQL: SQLite for relational company data such as users, groups, departments, models, settings, and access grants.
+- Document store: JSON document database for chats, audit events, and router traces.
+
+Default local files:
+
+```text
+data/olla-nest.sqlite
+data/documents.json
+```
+
+The goal is to support configurable company database backends later, such as PostgreSQL/MySQL for SQL and MongoDB/CouchDB-compatible stores for document data.
 
 ## Run Locally
 
@@ -115,11 +138,12 @@ OLLAMA_URL=http://localhost:11434 npm start
 ## Project Structure
 
 ```text
-server.js            Express backend, seed data, routing logic, Ollama API integration
+server.js            Express backend, SQL schema, document store, routing logic, Ollama integration
 public/index.html    Browser app shell
 public/styles.css    Minimal dashboard styling
 public/app.js        Frontend state, UI rendering, chat, admin actions
-data/db.json         Local generated data store, ignored by Git
+data/*.sqlite        Local generated SQLite database, ignored by Git
+data/documents.json  Local generated document store, ignored by Git
 ```
 
 ## Current Status
@@ -128,6 +152,7 @@ This is an MVP prototype. It is intentionally simple and local-first:
 
 - No production authentication yet
 - No external database yet
+- Configurable external database adapters are not implemented yet
 - No multi-tenant deployment yet
 - No real API model connector yet
 - No file/project editing tools yet

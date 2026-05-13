@@ -15,8 +15,7 @@ async function api(path, options = {}) {
 }
 
 function currentPolicy() {
-  const dept = state.departments.find((d) => d.id === state.activeUser.departmentId);
-  return state.policies.find((p) => p.id === dept?.policyId);
+  return state.departments.find((d) => d.id === state.activeUser.departmentId);
 }
 
 function allowedModels() {
@@ -64,11 +63,11 @@ function renderMessages() {
 }
 
 function renderPolicySummary() {
-  const policy = currentPolicy();
-  $("#policySummary").innerHTML = policy
-    ? `<p class="muted"><strong>${policy.name}</strong><br>${policy.description}</p>
-       <div class="tag-list">${policy.allowedModes.map((m) => `<span>${m}</span>`).join("")}</div>`
-    : `<p class="muted">No department policy assigned.</p>`;
+  const department = currentPolicy();
+  $("#policySummary").innerHTML = department
+    ? `<p class="muted"><strong>${department.name}</strong><br>Access is calculated from user, group, and department grants.</p>
+       <div class="tag-list">${allowedModels().map((m) => `<span>${m.name}</span>`).join("")}</div>`
+    : `<p class="muted">No department assigned.</p>`;
 }
 
 function renderAdmin() {
@@ -82,19 +81,16 @@ function renderAdmin() {
       <div><strong>${m.name}</strong><br><span class="muted">${m.model}</span></div>
       <div><span class="badge">${m.provider}</span></div>
       <div><span class="badge">${m.status}</span></div>
-      <div class="muted">${m.strengths.join(", ")}</div>
+      <div class="muted">${(m.capabilities || m.strengths || []).join(", ")}</div>
     </div>`).join("")}
   `;
 
-  $("#policyList").innerHTML = state.policies
-    .map((p) => {
-      const names = p.allowedModelIds
-        .map((id) => state.models.find((m) => m.id === id)?.name)
-        .filter(Boolean)
-        .join(", ");
-      return `<div class="policy-card"><strong>${p.name}</strong><span>${p.description}<br>Models: ${names}</span></div>`;
-    })
-    .join("");
+  $("#policyList").innerHTML = [
+    `<div class="policy-card"><strong>User grants</strong><span>Direct access for specific employees.</span></div>`,
+    `<div class="policy-card"><strong>Group grants</strong><span>Shared access for teams such as All Employees or Builders.</span></div>`,
+    `<div class="policy-card"><strong>Department grants</strong><span>Company departments can receive model access independently.</span></div>`,
+    `<div class="policy-card"><strong>Database</strong><span>SQL: ${state.dbConfig.sql.provider}<br>NoSQL: ${state.dbConfig.document.provider}</span></div>`,
+  ].join("");
 
   $("#userList").innerHTML = state.users
     .map((u) => {
