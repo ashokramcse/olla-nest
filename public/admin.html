@@ -64,6 +64,18 @@
 
           <section class="card">
             <div class="card-title">Users</div>
+            <form id="createUserForm" class="stack-form">
+              <input id="newUserName" placeholder="Name" />
+              <input id="newUserEmail" type="email" placeholder="Email" />
+              <select id="newUserRole">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+              <select id="newUserDepartment"></select>
+              <input id="newUserPassword" type="password" placeholder="Temporary password" />
+              <button class="primary full" type="submit">Create User</button>
+            </form>
+            <div id="userMessage" class="form-message"></div>
             <div id="userList" class="user-list"></div>
           </section>
 

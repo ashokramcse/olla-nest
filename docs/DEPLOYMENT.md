@@ -2,7 +2,47 @@
 
 Olla Nest supports two deployment modes.
 
-## 1. Local Developer Mode
+## 1. Docker Production-Like Mode
+
+Docker is the default setup for a company-like environment.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Open:
+
+```text
+http://localhost:3000/login
+```
+
+Services:
+
+- `app`: Olla Nest web app and API
+- `postgres`: PostgreSQL with pgvector
+- `mongo`: MongoDB
+- `redis`: Redis
+
+Ollama should run on the host machine. The container reaches it through:
+
+```text
+http://host.docker.internal:11434
+```
+
+Set a real admin password before sharing the app:
+
+```bash
+DEFAULT_ADMIN_PASSWORD="your-strong-password" docker compose up --build
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+## 2. Local Developer Mode
 
 Use this when developing the MVP on a laptop.
 
@@ -53,7 +93,7 @@ Ollama should be running locally:
 http://localhost:11434
 ```
 
-## 2. Company/Production Mode
+## 3. Company/Production Mode
 
 Use PostgreSQL + MongoDB + Redis.
 

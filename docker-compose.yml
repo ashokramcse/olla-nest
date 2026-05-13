@@ -1,4 +1,33 @@
 services:
+  app:
+    build: .
+    container_name: olla-nest-app
+    environment:
+      PORT: 3000
+      STORAGE_MODE: production
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@ollanest.local}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-CHANGE_ME_ON_FIRST_BOOT}
+      DEFAULT_USER_PASSWORD: ${DEFAULT_USER_PASSWORD:-CHANGE_ME_ON_FIRST_BOOT}
+      DATABASE_URL: postgresql://olla_nest:olla_nest@postgres:5432/olla_nest
+      MONGODB_URI: mongodb://mongo:27017/olla_nest
+      REDIS_URL: redis://redis:6379
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      SQLITE_PATH: /app/data/olla-nest.sqlite
+      DOCUMENT_DB_PATH: /app/data/documents.json
+    ports:
+      - "3000:3000"
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      - postgres
+      - mongo
+      - redis
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/bootstrap').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   postgres:
     image: pgvector/pgvector:pg16
     container_name: olla-nest-postgres
@@ -30,6 +59,7 @@ services:
       - redis-data:/data
 
 volumes:
+  app-data:
   postgres-data:
   mongo-data:
   redis-data:

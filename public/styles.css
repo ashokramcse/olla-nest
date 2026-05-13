@@ -59,6 +59,40 @@ body {
   margin-top: 24px;
 }
 
+.stack-form {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0;
+}
+
+.stack-form input,
+.stack-form select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: #fff;
+}
+
+.form-message {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 6px 0 10px;
+}
+
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.small {
+  padding: 7px 9px;
+  font-size: 12px;
+}
+
 .auth-form label span {
   display: block;
   color: var(--muted);
