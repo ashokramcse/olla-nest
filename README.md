@@ -199,6 +199,23 @@ App URLs:
 /admin  Admin dashboard
 ```
 
+## Work Locally
+
+Build and Fix mode can create real files on your laptop or server workspace. The user workspace now shows a `Work locally` panel where each employee can choose:
+
+- Workspace folder
+- Default permissions
+- Auto-review
+- Full access
+
+With Default permissions and Auto-review, Build/Fix asks for approval in the composer before files are written. With Full access, approved Build/Fix outputs are written automatically to:
+
+```text
+<workspace folder>/olla-nest-output
+```
+
+Admins can set the company default folder and default file permission from Admin -> System Settings.
+
 Ollama is expected at:
 
 ```text

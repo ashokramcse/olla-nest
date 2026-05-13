@@ -100,13 +100,23 @@ function readDocs() {
           chats: {},
           audit: [],
           routerTraces: [],
+          workspacePrefs: {},
         },
         null,
         2
       )
     );
   }
-  return JSON.parse(fs.readFileSync(DOC_PATH, "utf8"));
+  const docs = JSON.parse(fs.readFileSync(DOC_PATH, "utf8"));
+  let changed = false;
+  for (const [key, fallback] of Object.entries({ chats: {}, audit: [], routerTraces: [], workspacePrefs: {} })) {
+    if (!docs[key]) {
+      docs[key] = fallback;
+      changed = true;
+    }
+  }
+  if (changed) writeDocs(docs);
+  return docs;
 }
 
 function writeDocs(docs) {
@@ -138,6 +148,7 @@ function seedSql(db) {
       ["localOnlyDefault", "true"],
       ["localWritesEnabled", "true"],
       ["workspaceRoot", DEFAULT_WORKSPACE_ROOT],
+      ["localPermissionMode", "default"],
       ["ollamaUrl", OLLAMA_URL],
       ["apiModelProvider", "not-configured"],
       ["sqlProvider", STORAGE_MODE === "production" ? "postgresql" : "sqlite"],
@@ -441,10 +452,23 @@ async function ollamaGenerate(db, model, prompt) {
     });
     if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
     const data = await response.json();
-    return data.response || data.message?.content || data.output || "";
+    return cleanModelOutput(data.response || data.message?.content || data.output || "");
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function cleanModelOutput(content) {
+  let output = String(content || "")
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/^\s*<\/think>\s*/i, "")
+    .trim();
+  if (/^<think>/i.test(output)) {
+    const lower = output.toLowerCase();
+    const markers = ["```", "<!doctype html", "<html", "import react", "export default"].map((marker) => lower.indexOf(marker)).filter((index) => index > 0);
+    output = markers.length ? output.slice(Math.min(...markers)).trim() : output.replace(/^<think>/i, "").trim();
+  }
+  return output;
 }
 
 function modelPrompt(message, mode, route) {
@@ -452,6 +476,7 @@ function modelPrompt(message, mode, route) {
     "You are Olla Nest, a company AI workspace assistant.",
     "Answer the user's request directly and completely.",
     "Do not answer with only the selected model name.",
+    "Do not include hidden thinking, <think> blocks, or internal reasoning traces.",
     `Selected model route: ${route.selected?.name || "auto"}.`,
     `Routing reason: ${route.reason}`,
   ];
@@ -501,6 +526,10 @@ function extractArtifacts(content, message) {
     const ext = extensionForFence(match[1], body);
     artifacts.push({ ext, content: body });
   }
+  if (!artifacts.length) {
+    const htmlMatch = String(content).match(/(?:<!doctype html>\s*)?<html[\s\S]*?<\/html>/i);
+    if (htmlMatch) artifacts.push({ ext: "html", content: htmlMatch[0].trim() });
+  }
   if (!artifacts.length && /<!doctype html|<html[\s>]|import React|from\s+['"]react['"]|useState|className=|function\s+\w+|const\s+\w+\s*=/.test(content)) {
     const ext = extensionForFence("", content);
     artifacts.push({ ext, content: content.trim() });
@@ -516,12 +545,28 @@ function workspaceRoot(db) {
   return path.resolve(String(configured || DEFAULT_WORKSPACE_ROOT));
 }
 
-function writeLocalArtifacts(db, message, mode, content) {
+function normalizePermissionMode(mode) {
+  return ["default", "review", "full"].includes(mode) ? mode : "default";
+}
+
+function workspaceForUser(db, userId) {
+  const docs = readDocs();
+  const prefs = docs.workspacePrefs?.[userId] || {};
+  const root = path.resolve(String(prefs.workspaceRoot || workspaceRoot(db)));
+  return {
+    workspaceRoot: root,
+    outputFolder: path.join(root, "olla-nest-output"),
+    permissionMode: normalizePermissionMode(prefs.permissionMode || setting(db, "localPermissionMode", "default")),
+    localWritesEnabled: setting(db, "localWritesEnabled", true),
+  };
+}
+
+function writeLocalArtifacts(db, workspace, message, mode, content) {
   if (!["build", "fix"].includes(mode)) return [];
   if (!setting(db, "localWritesEnabled", true)) return [];
   const artifacts = extractArtifacts(content, message);
   if (!artifacts.length) return [];
-  const root = workspaceRoot(db);
+  const root = path.resolve(String(workspace?.workspaceRoot || workspaceRoot(db)));
   const targetDir = path.join(root, "olla-nest-output");
   fs.mkdirSync(targetDir, { recursive: true });
   return artifacts.map((artifact) => {
@@ -578,6 +623,7 @@ function settingsState(db) {
     localOnlyDefault: setting(db, "localOnlyDefault", true),
     localWritesEnabled: setting(db, "localWritesEnabled", true),
     workspaceRoot: setting(db, "workspaceRoot", DEFAULT_WORKSPACE_ROOT),
+    localPermissionMode: setting(db, "localPermissionMode", "default"),
     ollamaUrl: ollamaUrl(db),
     apiModelProvider: setting(db, "apiModelProvider", "not-configured"),
     sqlProvider: setting(db, "sqlProvider", "sqlite"),
@@ -739,6 +785,7 @@ app.get("/api/state", requireAuth, async (req, res) => {
       audit: docs.audit.slice(-30).reverse(),
       allowedModelIds: allowedModelIds(db, user),
       dbConfig: storageConfig(),
+      workspace: workspaceForUser(db, user.id),
     });
   } finally {
     db.close();
@@ -774,6 +821,28 @@ app.get("/api/ollama/models", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const workspaceRootInput = String(req.body.workspaceRoot || "").trim();
+    if (!workspaceRootInput) return res.status(400).json({ error: "Workspace folder is required" });
+    const nextRoot = path.resolve(workspaceRootInput);
+    const permissionMode = normalizePermissionMode(req.body.permissionMode);
+    fs.mkdirSync(nextRoot, { recursive: true });
+    const docs = readDocs();
+    docs.workspacePrefs[req.user.id] = {
+      workspaceRoot: nextRoot,
+      permissionMode,
+      updatedAt: new Date().toISOString(),
+    };
+    writeDocs(docs);
+    appendAudit(req.user.name, "workspace.local.save", `Updated local workspace folder to ${nextRoot}`, { permissionMode });
+    res.json({ ok: true, workspace: workspaceForUser(db, req.user.id) });
+  } finally {
+    db.close();
+  }
+});
+
 app.post("/api/chat", requireAuth, async (req, res) => {
   const db = openSql();
   try {
@@ -800,9 +869,17 @@ app.post("/api/chat", requireAuth, async (req, res) => {
       content = `Auto Router selected ${route.selected.name}, but the model call did not complete.\n\nReason: ${error.message}\n\nThe route itself is valid; check model availability, startup time, or admin configuration.`;
     }
 
-    const artifacts = live ? writeLocalArtifacts(db, message, mode, content) : [];
+    const workspace = workspaceForUser(db, user.id);
+    const localWorkMode = ["build", "fix"].includes(mode);
+    const writeApproved = Boolean(req.body.writeToWorkspace) || workspace.permissionMode === "full";
+    const shouldWriteLocal = live && localWorkMode && workspace.localWritesEnabled && writeApproved;
+    const artifacts = shouldWriteLocal ? writeLocalArtifacts(db, workspace, message, mode, content) : [];
     if (artifacts.length) {
-      content += `\n\nLocal files updated:\n${artifacts.map((artifact) => `- ${artifact.path}`).join("\n")}`;
+      content = `Done. I created the local file${artifacts.length === 1 ? "" : "s"} in your selected workspace.\n\nLocal files updated:\n${artifacts.map((artifact) => `- ${artifact.path}`).join("\n")}`;
+    } else if (live && localWorkMode && !writeApproved) {
+      content += `\n\nLocal files not written. Choose a workspace folder and approve local file writes for this request.`;
+    } else if (live && localWorkMode && !workspace.localWritesEnabled) {
+      content += `\n\nLocal files not written. Admin has disabled local Build/Fix writes.`;
     }
 
     const docs = readDocs();
@@ -821,7 +898,7 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     });
     docs.chats[user.id] = chat;
     writeDocs(docs);
-    appendTrace({ userId: user.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live, artifacts });
+    appendTrace({ userId: user.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live, artifacts, workspace });
     appendAudit(user.name, "chat.request", `${mode.toUpperCase()} routed to ${route.selected.name}`, { live, artifacts });
     res.json({ content, route, model: route.selected, live, artifacts, chat });
   } finally {
@@ -847,7 +924,7 @@ app.post("/api/admin/settings", requireAdmin, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
-    ["routerEnabled", "allowApiModels", "localOnlyDefault", "localWritesEnabled", "apiModelProvider"].forEach((key) => {
+    ["routerEnabled", "allowApiModels", "localOnlyDefault", "localWritesEnabled", "localPermissionMode", "apiModelProvider"].forEach((key) => {
       if (typeof req.body[key] !== "undefined") setSetting(db, key, req.body[key]);
     });
     if (typeof req.body.workspaceRoot !== "undefined") {
