@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Olla Nest Workspace</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="user-shell">
+      <header class="user-topbar">
+        <div class="brand">
+          <div class="mark">ON</div>
+          <div>
+            <strong>Olla Nest</strong>
+            <span id="userSubtitle">Workspace</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <div class="status-pill" id="ollamaStatus">Checking Ollama</div>
+          <a id="adminLink" class="secondary link-button" href="/admin">Admin</a>
+          <button id="logout" class="secondary">Logout</button>
+        </div>
+      </header>
+
+      <main class="user-main">
+        <section class="assistant-panel">
+          <div class="mode-row" role="tablist" aria-label="Work modes">
+            <button class="mode active" data-mode="ask">Ask</button>
+            <button class="mode" data-mode="build">Build</button>
+            <button class="mode" data-mode="review">Review</button>
+            <button class="mode" data-mode="fix">Fix</button>
+            <button class="mode" data-mode="learn">Learn</button>
+            <button id="clearChat" class="mode utility" type="button">New Chat</button>
+          </div>
+          <div id="messages" class="messages smooth"></div>
+          <form id="chatForm" class="composer floating-composer">
+            <textarea id="messageInput" placeholder="Message Olla Nest..." rows="3"></textarea>
+            <div class="composer-actions">
+              <select id="manualModel" class="select compact">
+                <option value="">Auto Router</option>
+              </select>
+              <button class="primary" type="submit">Send</button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="user-context">
+          <section class="card">
+            <div class="card-title">Access</div>
+            <div id="policySummary"></div>
+          </section>
+          <section class="card">
+            <div class="card-title">Router</div>
+            <div id="routerDecision" class="muted">Send a request to see routing logic.</div>
+          </section>
+        </aside>
+      </main>
+    </div>
+    <script src="/app.js"></script>
+  </body>
+</html>

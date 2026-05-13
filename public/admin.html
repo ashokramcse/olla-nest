@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Olla Nest Admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="sidebar admin-sidebar">
+        <div class="brand">
+          <div class="mark">ON</div>
+          <div>
+            <strong>Olla Nest</strong>
+            <span>Admin Console</span>
+          </div>
+        </div>
+        <nav class="nav">
+          <a class="nav-item active" href="/admin">Dashboard</a>
+          <a class="nav-item" href="/app">User Workspace</a>
+        </nav>
+        <section class="side-panel">
+          <span class="panel-kicker">Signed in</span>
+          <div id="adminIdentity" class="mini-list"></div>
+        </section>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Admin Control</p>
+            <h1>Company Dashboard</h1>
+          </div>
+          <div class="top-actions">
+            <div class="status-pill" id="ollamaStatus">Checking Ollama</div>
+            <button id="logout" class="secondary">Logout</button>
+          </div>
+        </header>
+
+        <section class="metric-grid">
+          <div class="metric-card"><span>Local Models</span><strong id="modelCount">0</strong></div>
+          <div class="metric-card"><span>Users</span><strong id="userCount">0</strong></div>
+          <div class="metric-card"><span>Groups</span><strong id="groupCount">0</strong></div>
+          <div class="metric-card"><span>Departments</span><strong id="departmentCount">0</strong></div>
+        </section>
+
+        <section class="admin-grid">
+          <section class="card wide">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Live from Ollama</p>
+                <h2>Available Local Models</h2>
+              </div>
+              <button id="syncOllama" class="secondary">Refresh Models</button>
+            </div>
+            <div id="modelTable" class="table"></div>
+          </section>
+
+          <section class="card">
+            <div class="card-title">Access Model</div>
+            <div id="policyList" class="policy-list"></div>
+          </section>
+
+          <section class="card">
+            <div class="card-title">Users</div>
+            <div id="userList" class="user-list"></div>
+          </section>
+
+          <section class="card">
+            <div class="card-title">System Settings</div>
+            <label class="toggle"><input id="routerEnabled" type="checkbox" /> Auto Router enabled</label>
+            <label class="toggle"><input id="allowApiModels" type="checkbox" /> Allow API models</label>
+            <label class="toggle"><input id="localOnlyDefault" type="checkbox" /> Local-first by default</label>
+            <button id="saveSettings" class="primary full">Save Settings</button>
+          </section>
+
+          <section class="card">
+            <div class="card-title">Audit Trail</div>
+            <div id="auditList" class="audit-list"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+    <script src="/admin.js"></script>
+  </body>
+</html>

@@ -23,7 +23,28 @@ npm start
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:3000/login
+```
+
+Default first boot admin:
+
+```text
+Email: admin@ollanest.local
+Password: ChangeMe!CreateARealPassword123
+```
+
+Use a strong password:
+
+```bash
+DEFAULT_ADMIN_PASSWORD="your-strong-password" npm start
+```
+
+Main routes:
+
+```text
+/login  Sign in
+/app    Employee workspace
+/admin  Admin dashboard
 ```
 
 Ollama should be running locally:
@@ -46,6 +67,8 @@ Configure `.env`:
 
 ```bash
 STORAGE_MODE=production
+DEFAULT_ADMIN_EMAIL=admin@yourcompany.com
+DEFAULT_ADMIN_PASSWORD=replace-with-a-strong-password
 DATABASE_URL=postgresql://olla_nest:olla_nest@localhost:5432/olla_nest
 MONGODB_URI=mongodb://localhost:27017/olla_nest
 REDIS_URL=redis://localhost:6379

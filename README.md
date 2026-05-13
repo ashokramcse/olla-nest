@@ -129,7 +129,28 @@ npm start
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:3000/login
+```
+
+Default first boot admin:
+
+```text
+Email: admin@ollanest.local
+Password: ChangeMe!CreateARealPassword123
+```
+
+Set a real password before sharing the app:
+
+```bash
+DEFAULT_ADMIN_PASSWORD="your-strong-password" npm start
+```
+
+App URLs:
+
+```text
+/login  Sign in
+/app    User workspace
+/admin  Admin dashboard
 ```
 
 Ollama is expected at:
@@ -176,7 +197,8 @@ data/documents.json  Local generated document store, ignored by Git
 
 This is an MVP prototype. It is intentionally simple and local-first:
 
-- No production authentication yet
+- MVP authentication exists with default admin bootstrap
+- Production authentication/SSO is not implemented yet
 - PostgreSQL, MongoDB, and Redis are defined as production defaults
 - Runtime adapters still use the local fallback implementation in this MVP
 - No multi-tenant deployment yet
