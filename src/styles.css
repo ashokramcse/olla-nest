@@ -5,6 +5,14 @@ body {
   background: #f8f9fa;
 }
 
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  -webkit-text-fill-color: #202124 !important;
+  transition: background-color 9999s ease-out;
+}
+
 .material-symbols-rounded {
   font-family: "Material Symbols Rounded";
   font-weight: normal;
@@ -23,13 +31,13 @@ body {
 }
 
 .rail {
-  width: 260px;
+  width: 232px;
   border-right: 1px solid #e8eaed !important;
   background: #fff !important;
 }
 
 .content-with-rail {
-  margin-left: 260px;
+  margin-left: 232px;
   min-height: 100vh;
 }
 
@@ -39,8 +47,17 @@ body {
   backdrop-filter: blur(14px);
 }
 
+.dense-toolbar {
+  min-height: 76px !important;
+}
+
+.page-title {
+  font-size: 30px !important;
+  line-height: 1.08 !important;
+}
+
 .page-wrap {
-  padding: 24px;
+  padding: 18px 22px 28px;
 }
 
 .nav-pill {
@@ -54,8 +71,8 @@ body {
 }
 
 .search-pill {
-  height: 42px;
-  min-width: 280px;
+  height: 40px;
+  min-width: 250px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -64,10 +81,15 @@ body {
   background: #fff;
 }
 
+.compact-search {
+  box-shadow: none !important;
+}
+
 .auth-canvas {
   min-height: 100vh;
   display: grid;
-  place-items: center;
+  align-items: center;
+  justify-items: center;
   background:
     radial-gradient(circle at top left, rgba(26, 115, 232, 0.08), transparent 32%),
     #f8f9fa;
@@ -75,7 +97,18 @@ body {
 }
 
 .auth-card-m3 {
-  width: min(440px, 100%);
+  width: min(420px, 100%);
+  transform: translateY(-4vh);
+}
+
+.auth-title {
+  font-size: 30px !important;
+}
+
+.clean-input .MuiOutlinedInput-root,
+.MuiOutlinedInput-root {
+  border-radius: 14px !important;
+  background: #fff;
 }
 
 .workspace-layout {
@@ -125,13 +158,13 @@ body {
 .metric-grid-react {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .admin-grid-react {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .span-4 { grid-column: span 4; }
@@ -148,20 +181,34 @@ body {
   grid-template-columns: minmax(180px, 1fr) 120px minmax(260px, 1.4fr);
   gap: 16px;
   align-items: center;
-  padding: 14px 0;
+  padding: 11px 0;
   border-top: 1px solid #e8eaed;
+}
+
+.empty-state {
+  min-height: 132px;
+  border-radius: 16px !important;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+  color: #5f6368;
 }
 
 .access-tile,
 .user-list-row {
   border-radius: 16px !important;
-  padding: 14px;
+  padding: 12px;
+}
+
+.compact-tile {
+  padding: 10px 12px !important;
 }
 
 .user-list-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .timeline-item {

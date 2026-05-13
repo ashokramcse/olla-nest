@@ -73,6 +73,11 @@ const theme = createTheme({
     MuiTextField: {
       defaultProps: { variant: "outlined", size: "small" },
     },
+    MuiCardContent: {
+      styleOverrides: {
+        root: { padding: 18, "&:last-child": { paddingBottom: 18 } },
+      },
+    },
   },
 });
 
@@ -124,12 +129,12 @@ function Shell({ children, title, subtitle, nav, actions }) {
       </Drawer>
       <Box className="content-with-rail">
         <AppBar color="transparent" elevation={0} position="sticky" className="top-appbar">
-          <Toolbar className="gap-4">
+          <Toolbar className="gap-4 dense-toolbar">
             <Box flex={1}>
               <Typography variant="caption" color="secondary" fontWeight={800} letterSpacing=".12em">{subtitle}</Typography>
-              <Typography variant="h4">{title}</Typography>
+              <Typography variant="h4" className="page-title">{title}</Typography>
             </Box>
-            <Paper className="search-pill" variant="outlined">
+            <Paper className="search-pill compact-search" variant="outlined">
               <Icon>search</Icon>
               <Typography color="text.secondary" fontSize={14}>Search Olla Nest</Typography>
             </Paper>
@@ -176,19 +181,19 @@ function LoginPage() {
   return (
     <Box className="auth-canvas">
       <Card className="auth-card-m3">
-        <CardContent className="p-8">
-          <Stack direction="row" spacing={1.5} alignItems="center" mb={4}>
+        <CardContent>
+          <Stack direction="row" spacing={1.5} alignItems="center" mb={2.25}>
             <Avatar sx={{ bgcolor: "#202124", fontWeight: 800 }}>ON</Avatar>
             <Box>
               <Typography fontWeight={800}>Olla Nest</Typography>
               <Typography variant="caption" color="text.secondary">Company AI Workspace</Typography>
             </Box>
           </Stack>
-          <Typography variant="h4" mb={1}>Sign in</Typography>
-          <Typography color="text.secondary" mb={3}>Use your company account to access the workspace.</Typography>
+          <Typography variant="h4" mb={0.5} className="auth-title">Sign in</Typography>
+          <Typography color="text.secondary" mb={2}>Use your company account to access the workspace.</Typography>
           <Stack component="form" spacing={2} onSubmit={submit}>
-            <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
-            <TextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+            <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" className="clean-input" />
+            <TextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className="clean-input" />
             <Button type="submit" variant="contained" size="large">Sign in</Button>
           </Stack>
           {hint && <Typography mt={2} variant="body2" color="text.secondary">{hint}</Typography>}
@@ -222,7 +227,7 @@ function allowedModels(state) {
 }
 
 function WorkspacePage() {
-  const { state, ollama, reload, refreshModels } = useAppState();
+  const { state, ollama, reload } = useAppState();
   const [mode, setMode] = useState("ask");
   const [message, setMessage] = useState("");
   const [manualModelId, setManualModelId] = useState("");
@@ -273,7 +278,7 @@ function WorkspacePage() {
         { href: "/app", label: "Workspace", icon: "chat", active: true },
         ...(state.activeUser.role === "admin" ? [{ href: "/admin", label: "Admin", icon: "admin_panel_settings" }] : []),
       ]}
-      actions={<><Chip label={`${ollama?.models?.length ?? 0} local models`} color="success" variant="outlined" /><Button onClick={logout} variant="outlined">Logout</Button></>}
+      actions={<><Chip label={ollama?.ok === false ? "Ollama offline" : `${ollama?.models?.length ?? 0} local models`} color={ollama?.ok === false ? "warning" : "success"} variant="outlined" /><Button onClick={logout} variant="outlined">Logout</Button></>}
     >
       <Box className="workspace-layout">
         <Card className="chat-surface">
@@ -382,9 +387,9 @@ function AdminPage() {
         { href: "/admin", label: "Dashboard", icon: "dashboard", active: true },
         { href: "/app", label: "Workspace", icon: "chat" },
       ]}
-      actions={<><Chip label={`${ollama?.models?.length ?? 0} local models`} color="success" variant="outlined" /><Button onClick={logout} variant="outlined">Logout</Button></>}
+      actions={<><Chip label={ollama?.ok === false ? "Ollama offline" : `${ollama?.models?.length ?? 0} local models`} color={ollama?.ok === false ? "warning" : "success"} variant="outlined" /><Button onClick={logout} variant="outlined">Logout</Button></>}
     >
-      <Stack spacing={3}>
+      <Stack spacing={2}>
         <Box className="metric-grid-react">
           <MetricCard icon="memory" label="Local Models" value={state.models.filter((m) => m.provider === "ollama" && m.status === "available").length} />
           <MetricCard icon="group" label="Users" value={state.users.length} />
@@ -392,9 +397,9 @@ function AdminPage() {
           <MetricCard icon="domain" label="Departments" value={state.departments.length} />
         </Box>
         <Box className="admin-grid-react">
-          <Card className="span-8"><CardContent><Stack direction="row" alignItems="center" mb={2}><Box flex={1}><Typography variant="h6">Available Local Models</Typography><Typography color="text.secondary">Discovered live from Ollama.</Typography></Box><Button onClick={refreshModels} variant="contained">Refresh Models</Button></Stack><Box className="model-table">{state.models.filter((m) => m.provider === "ollama").map((m) => <Box key={m.id} className="model-row"><Box><Typography fontWeight={750}>{m.name}</Typography><Typography variant="caption" color="text.secondary">{m.model}</Typography></Box><Chip size="small" label={m.status} /><Typography color="text.secondary">{(m.capabilities || []).join(", ")}</Typography></Box>)}</Box></CardContent></Card>
-          <Card className="span-4"><CardContent><Typography variant="h6">Access Model</Typography><Stack spacing={1.3} mt={2}>{["User grants", "Group grants", "Department grants"].map((x) => <Paper key={x} variant="outlined" className="access-tile"><Typography fontWeight={700}>{x}</Typography><Typography variant="body2" color="text.secondary">Controls model eligibility.</Typography></Paper>)}<Paper variant="outlined" className="access-tile"><Typography fontWeight={700}>Storage</Typography><Typography variant="body2" color="text.secondary">PostgreSQL · MongoDB · Redis</Typography></Paper></Stack></CardContent></Card>
-          <Card className="span-5"><CardContent><Typography variant="h6">Create User</Typography><Stack component="form" spacing={2} mt={2} onSubmit={createUser}><TextField label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><TextField label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /><Select size="small" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><MenuItem value="user">User</MenuItem><MenuItem value="admin">Admin</MenuItem></Select><Select size="small" value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>{state.departments.map((d) => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}</Select><TextField label="Temporary password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><Button type="submit" variant="contained">Create User</Button></Stack>{notice && <Alert sx={{ mt: 2 }} severity="info">{notice}</Alert>}</CardContent></Card>
+          <Card className="span-8"><CardContent><Stack direction="row" alignItems="center" mb={1.5}><Box flex={1}><Typography variant="h6">Available Local Models</Typography><Typography color="text.secondary" variant="body2">Discovered live from Ollama.</Typography></Box><Button onClick={refreshModels} variant="contained" size="small">Refresh</Button></Stack><Box className="model-table">{state.models.filter((m) => m.provider === "ollama").length ? state.models.filter((m) => m.provider === "ollama").map((m) => <Box key={m.id} className="model-row"><Box><Typography fontWeight={750}>{m.name}</Typography><Typography variant="caption" color="text.secondary">{m.model}</Typography></Box><Chip size="small" label={m.status} color={m.status === "available" ? "success" : "default"} /><Typography color="text.secondary" variant="body2">{(m.capabilities || []).join(", ")}</Typography></Box>) : <Paper variant="outlined" className="empty-state"><Icon>cloud_off</Icon><Box><Typography fontWeight={750}>No local models found</Typography><Typography variant="body2" color="text.secondary">Start Ollama on your laptop and click Refresh.</Typography></Box></Paper>}</Box></CardContent></Card>
+          <Card className="span-4"><CardContent><Typography variant="h6">Access Model</Typography><Stack spacing={1} mt={1.5}>{["User grants", "Group grants", "Department grants"].map((x) => <Paper key={x} variant="outlined" className="access-tile compact-tile"><Typography fontWeight={700}>{x}</Typography><Typography variant="body2" color="text.secondary">Controls model eligibility.</Typography></Paper>)}<Paper variant="outlined" className="access-tile compact-tile"><Typography fontWeight={700}>Storage</Typography><Typography variant="body2" color="text.secondary">PostgreSQL · MongoDB · Redis</Typography></Paper></Stack></CardContent></Card>
+          <Card className="span-5"><CardContent><Typography variant="h6">Create User</Typography><Stack component="form" spacing={1.25} mt={1.5} onSubmit={createUser}><TextField label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="clean-input" /><TextField label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="clean-input" /><Select size="small" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><MenuItem value="user">User</MenuItem><MenuItem value="admin">Admin</MenuItem></Select><Select size="small" value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>{state.departments.map((d) => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}</Select><TextField label="Temporary password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="clean-input" /><Button type="submit" variant="contained">Create User</Button></Stack>{notice && <Alert sx={{ mt: 1.5 }} severity="info">{notice}</Alert>}</CardContent></Card>
           <Card className="span-7"><CardContent><Typography variant="h6">Users</Typography><Stack spacing={1.2} mt={2}>{state.users.map((u) => <Paper key={u.id} variant="outlined" className="user-list-row"><Box flex={1}><Typography fontWeight={750}>{u.name}</Typography><Typography variant="body2" color="text.secondary">{u.email} · {u.role} · {(u.rights || []).join(", ")}</Typography></Box><Chip size="small" color={u.active ? "success" : "default"} label={u.active ? "active" : "inactive"} /><Button size="small" onClick={() => resetPassword(u.id)}>Reset</Button><Button size="small" onClick={() => toggleUser(u)}>{u.active ? "Deactivate" : "Activate"}</Button></Paper>)}</Stack></CardContent></Card>
           <Card className="span-4"><CardContent><Typography variant="h6">System Settings</Typography><Stack mt={1}><FormControlLabel control={<Switch checked={state.settings.routerEnabled} onChange={(e) => state.settings.routerEnabled = e.target.checked} />} label="Auto Router enabled" /><FormControlLabel control={<Switch checked={state.settings.allowApiModels} onChange={(e) => state.settings.allowApiModels = e.target.checked} />} label="Allow API models" /><FormControlLabel control={<Switch checked={state.settings.localOnlyDefault} onChange={(e) => state.settings.localOnlyDefault = e.target.checked} />} label="Local-first by default" /><Button onClick={saveSettings} variant="contained">Save Settings</Button></Stack></CardContent></Card>
           <Card className="span-8"><CardContent><Typography variant="h6">Audit Trail</Typography><Stack mt={2} spacing={1}>{state.audit.length ? state.audit.map((a) => <Box key={a.id} className="timeline-item"><Icon>history</Icon><Box><Typography fontWeight={700}>{a.detail}</Typography><Typography variant="caption" color="text.secondary">{a.actor} · {new Date(a.createdAt).toLocaleString()}</Typography></Box></Box>) : <Typography color="text.secondary">No audit events yet.</Typography>}</Stack></CardContent></Card>
