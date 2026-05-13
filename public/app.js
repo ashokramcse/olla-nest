@@ -89,7 +89,8 @@ function renderAdmin() {
     `<div class="policy-card"><strong>User grants</strong><span>Direct access for specific employees.</span></div>`,
     `<div class="policy-card"><strong>Group grants</strong><span>Shared access for teams such as All Employees or Builders.</span></div>`,
     `<div class="policy-card"><strong>Department grants</strong><span>Company departments can receive model access independently.</span></div>`,
-    `<div class="policy-card"><strong>Database</strong><span>SQL: ${state.dbConfig.sql.provider}<br>NoSQL: ${state.dbConfig.document.provider}</span></div>`,
+    `<div class="policy-card"><strong>Production storage</strong><span>SQL: ${state.dbConfig.recommendedProduction.sql.provider}<br>NoSQL: ${state.dbConfig.recommendedProduction.document.provider}<br>Realtime: ${state.dbConfig.recommendedProduction.realtime.provider}</span></div>`,
+    `<div class="policy-card"><strong>Local fallback</strong><span>SQL: ${state.dbConfig.localDevelopment.sql.provider}<br>Document: ${state.dbConfig.localDevelopment.document.provider}<br>Realtime: ${state.dbConfig.localDevelopment.realtime.provider}</span></div>`,
   ].join("");
 
   $("#userList").innerHTML = state.users

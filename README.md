@@ -25,7 +25,8 @@ Olla Nest adds a company layer on top of Ollama:
 - Audit trail for routed requests and admin changes
 - Clean browser-based interface for the first MVP
 - Model discovery from a local Ollama server
-- SQLite + document-store backend foundation
+- Production architecture target: PostgreSQL + MongoDB + Redis
+- Local development fallback: SQLite + JSON document store + in-memory realtime state
 
 ## Model Discovery
 
@@ -89,19 +90,27 @@ The route is not hardcoded to a department or model. Access decides what the use
 
 ## Database Architecture
 
-Olla Nest uses a mandatory SQL + NoSQL-style combination by default:
+Olla Nest uses polyglot persistence.
 
-- SQL: SQLite for relational company data such as users, groups, departments, models, settings, and access grants.
-- Document store: JSON document database for chats, audit events, and router traces.
+The production default is:
 
-Default local files:
+- PostgreSQL for relational source-of-truth data
+- MongoDB for AI chat history, traces, and flexible tool outputs
+- Redis for token streaming, live session state, queues, and rate limiting
+
+For local developer mode, the app can run without Docker:
 
 ```text
 data/olla-nest.sqlite
 data/documents.json
 ```
 
-The goal is to support configurable company database backends later, such as PostgreSQL/MySQL for SQL and MongoDB/CouchDB-compatible stores for document data.
+SQLite and JSON are local fallbacks only. The company-grade default is PostgreSQL + MongoDB + Redis.
+
+Read more:
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Deployment](docs/DEPLOYMENT.md)
 
 ## Run Locally
 
@@ -135,6 +144,20 @@ You can override the Ollama URL:
 OLLAMA_URL=http://localhost:11434 npm start
 ```
 
+## Run With Production Databases
+
+Start PostgreSQL, MongoDB, and Redis:
+
+```bash
+docker compose up -d postgres mongo redis
+```
+
+Set production storage mode:
+
+```bash
+STORAGE_MODE=production npm start
+```
+
 ## Project Structure
 
 ```text
@@ -142,6 +165,9 @@ server.js            Express backend, SQL schema, document store, routing logic,
 public/index.html    Browser app shell
 public/styles.css    Minimal dashboard styling
 public/app.js        Frontend state, UI rendering, chat, admin actions
+docs/ARCHITECTURE.md Product architecture and database strategy
+docs/DEPLOYMENT.md   Local and production deployment procedure
+docker-compose.yml   PostgreSQL + MongoDB + Redis local services
 data/*.sqlite        Local generated SQLite database, ignored by Git
 data/documents.json  Local generated document store, ignored by Git
 ```
@@ -151,8 +177,8 @@ data/documents.json  Local generated document store, ignored by Git
 This is an MVP prototype. It is intentionally simple and local-first:
 
 - No production authentication yet
-- No external database yet
-- Configurable external database adapters are not implemented yet
+- PostgreSQL, MongoDB, and Redis are defined as production defaults
+- Runtime adapters still use the local fallback implementation in this MVP
 - No multi-tenant deployment yet
 - No real API model connector yet
 - No file/project editing tools yet
@@ -171,6 +197,8 @@ Those are expected next steps as the product matures.
 - API model connectors
 - Usage analytics and billing controls
 - Enterprise deployment options
+- Tauri desktop app for macOS, Windows, and Linux
+- Mobile app using shared API contracts
 
 ## Open Source Direction
 
