@@ -1,88 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  Alert,
-  AppBar,
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CssBaseline,
-  Divider,
-  Drawer,
-  FormControlLabel,
-  IconButton,
-  InputAdornment,
-  LinearProgress,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Switch,
-  Tab,
-  Tabs,
-  TextField,
-  ThemeProvider,
-  Toolbar,
-  Tooltip,
-  Typography,
-  createTheme,
-} from "@mui/material";
 import "./styles.css";
 
-const googleBlue = "#1a73e8";
-const brandTeal = "#117a8b";
+const DEFAULT_ADMIN_PASSWORD = "ChangeMe!CreateARealPassword123";
 
-const theme = createTheme({
-  palette: {
-    mode: "light",
-    primary: { main: googleBlue },
-    secondary: { main: brandTeal },
-    background: { default: "#F8F9FA", paper: "#FFFFFF" },
-    text: { primary: "#202124", secondary: "#5F6368" },
-  },
-  shape: { borderRadius: 16 },
-  typography: {
-    fontFamily: "Inter, Roboto, Arial, sans-serif",
-    h4: { fontWeight: 750, letterSpacing: "-0.02em" },
-    h5: { fontWeight: 750, letterSpacing: "-0.01em" },
-    h6: { fontWeight: 700 },
-    button: { textTransform: "none", fontWeight: 700 },
-  },
-  components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-          boxShadow: "0 1px 3px rgba(60,64,67,.18)",
-          border: "1px solid #E8EAED",
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: { borderRadius: 999, boxShadow: "none" },
-      },
-    },
-    MuiTextField: {
-      defaultProps: { variant: "outlined", size: "small" },
-    },
-    MuiCardContent: {
-      styleOverrides: {
-        root: { padding: 18, "&:last-child": { paddingBottom: 18 } },
-      },
-    },
-  },
-});
-
-function Icon({ children, filled = false }) {
-  return <span className={`material-symbols-rounded ${filled ? "icon-filled" : ""}`}>{children}</span>;
+function Icon({ name, filled = false, className = "" }) {
+  return (
+    <span className={`material-symbols-rounded ${filled ? "icon-filled" : ""} ${className}`}>
+      {name}
+    </span>
+  );
 }
 
 async function api(path, options = {}) {
@@ -103,47 +30,82 @@ async function api(path, options = {}) {
   return data;
 }
 
-function Shell({ children, title, subtitle, nav, actions }) {
+function cx(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
+function Pill({ children, tone = "default" }) {
+  return <span className={`pill pill-${tone}`}>{children}</span>;
+}
+
+function Button({ children, variant = "primary", className = "", ...props }) {
   return (
-    <Box className="min-h-screen bg-[#F8F9FA]">
-      <Drawer variant="permanent" PaperProps={{ className: "rail" }}>
-        <Stack spacing={3} className="h-full px-3 py-5">
-          <Stack direction="row" spacing={1.5} alignItems="center" className="px-2">
-            <Avatar sx={{ bgcolor: "#202124", width: 38, height: 38, fontSize: 13, fontWeight: 800 }}>ON</Avatar>
-            <Box>
-              <Typography fontWeight={800} lineHeight={1}>Olla Nest</Typography>
-              <Typography variant="caption" color="text.secondary">AI Workspace</Typography>
-            </Box>
-          </Stack>
-          <List className="space-y-1">
-            {nav.map((item) => (
-              <ListItemButton key={item.href} component="a" href={item.href} selected={item.active} className="nav-pill">
-                <ListItemIcon sx={{ minWidth: 36 }}><Icon filled={item.active}>{item.icon}</Icon></ListItemIcon>
-                <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 700, fontSize: 14 }} />
-              </ListItemButton>
-            ))}
-          </List>
-          <Box flex={1} />
-          <Typography variant="caption" color="text.secondary" className="px-3">Local-first. Company-controlled.</Typography>
-        </Stack>
-      </Drawer>
-      <Box className="content-with-rail">
-        <AppBar color="transparent" elevation={0} position="sticky" className="top-appbar">
-          <Toolbar className="gap-4 dense-toolbar">
-            <Box flex={1}>
-              <Typography variant="caption" color="secondary" fontWeight={800} letterSpacing=".12em">{subtitle}</Typography>
-              <Typography variant="h4" className="page-title">{title}</Typography>
-            </Box>
-            <Paper className="search-pill compact-search" variant="outlined">
-              <Icon>search</Icon>
-              <Typography color="text.secondary" fontSize={14}>Search Olla Nest</Typography>
-            </Paper>
-            {actions}
-          </Toolbar>
-        </AppBar>
-        <Box className="page-wrap">{children}</Box>
-      </Box>
-    </Box>
+    <button className={`btn btn-${variant} ${className}`} {...props}>
+      {children}
+    </button>
+  );
+}
+
+function Field({ label, className = "", ...props }) {
+  return (
+    <label className={`field ${className}`}>
+      <span>{label}</span>
+      <input {...props} />
+    </label>
+  );
+}
+
+function SelectField({ label, children, className = "", ...props }) {
+  return (
+    <label className={`field ${className}`}>
+      <span>{label}</span>
+      <select {...props}>{children}</select>
+    </label>
+  );
+}
+
+function Notice({ children, tone = "info" }) {
+  if (!children) return null;
+  return <div className={`notice notice-${tone}`}>{children}</div>;
+}
+
+function LoadingPage() {
+  return (
+    <div className="loading-page">
+      <div className="loading-card">
+        <div className="brand-mark">ON</div>
+        <span>Loading Olla Nest</span>
+      </div>
+    </div>
+  );
+}
+
+function AuthShell({ children }) {
+  return (
+    <main className="auth-shell">
+      <section className="auth-panel">
+        <div className="auth-copy">
+          <div className="brand-lockup">
+            <div className="brand-mark">ON</div>
+            <div>
+              <strong>Olla Nest</strong>
+              <span>Company AI Workspace</span>
+            </div>
+          </div>
+          <h1>Local AI, controlled by your company.</h1>
+          <p>
+            A clean workspace for teams to use Ollama models with admin access,
+            routing rules, and local-first governance.
+          </p>
+          <div className="auth-points">
+            <span><Icon name="router" /> Auto model routing</span>
+            <span><Icon name="admin_panel_settings" /> Admin controlled access</span>
+            <span><Icon name="database" /> Polyglot storage ready</span>
+          </div>
+        </div>
+      </section>
+      <section className="auth-form-wrap">{children}</section>
+    </main>
   );
 }
 
@@ -179,28 +141,31 @@ function LoginPage() {
   }
 
   return (
-    <Box className="auth-canvas">
-      <Card className="auth-card-m3">
-        <CardContent>
-          <Stack direction="row" spacing={1.5} alignItems="center" mb={2.25}>
-            <Avatar sx={{ bgcolor: "#202124", fontWeight: 800 }}>ON</Avatar>
-            <Box>
-              <Typography fontWeight={800}>Olla Nest</Typography>
-              <Typography variant="caption" color="text.secondary">Company AI Workspace</Typography>
-            </Box>
-          </Stack>
-          <Typography variant="h4" mb={0.5} className="auth-title">Sign in</Typography>
-          <Typography color="text.secondary" mb={2}>Use your company account to access the workspace.</Typography>
-          <Stack component="form" spacing={2} onSubmit={submit}>
-            <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" className="clean-input" />
-            <TextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className="clean-input" />
-            <Button type="submit" variant="contained" size="large">Sign in</Button>
-          </Stack>
-          {hint && <Typography mt={2} variant="body2" color="text.secondary">{hint}</Typography>}
-          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-        </CardContent>
-      </Card>
-    </Box>
+    <AuthShell>
+      <form className="login-card" onSubmit={submit}>
+        <div className="mobile-brand">
+          <div className="brand-mark">ON</div>
+          <div>
+            <strong>Olla Nest</strong>
+            <span>Company AI Workspace</span>
+          </div>
+        </div>
+        <div>
+          <p className="eyebrow">Welcome back</p>
+          <h2>Sign in</h2>
+          <p className="muted">Use your company account to continue.</p>
+        </div>
+        <Field label="Email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" />
+        <Field label="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+        <Button type="submit" className="w-full">Sign in</Button>
+        <div className="credential-hint">
+          <span>Default admin</span>
+          <strong>{hint || "Configured on first boot"}</strong>
+          <span>Password: {DEFAULT_ADMIN_PASSWORD}</span>
+        </div>
+        <Notice tone="error">{error}</Notice>
+      </form>
+    </AuthShell>
   );
 }
 
@@ -226,19 +191,80 @@ function allowedModels(state) {
   return state.models.filter((model) => state.allowedModelIds.includes(model.id) && model.status !== "disabled");
 }
 
+function AppFrame({ title, subtitle, active, state, ollama, children, rightSlot }) {
+  async function logout() {
+    await api("/api/auth/logout", { method: "POST", body: "{}" });
+    window.location.href = "/login";
+  }
+
+  const nav = [
+    { href: "/app", label: "Workspace", icon: "forum", key: "workspace" },
+    ...(state?.activeUser?.role === "admin" ? [{ href: "/admin", label: "Admin", icon: "dashboard", key: "admin" }] : []),
+  ];
+
+  return (
+    <div className="app-frame">
+      <aside className="sidebar">
+        <div className="brand-lockup">
+          <div className="brand-mark">ON</div>
+          <div>
+            <strong>Olla Nest</strong>
+            <span>AI Workspace</span>
+          </div>
+        </div>
+        <nav className="side-nav">
+          {nav.map((item) => (
+            <a key={item.key} className={cx("side-link", active === item.key && "active")} href={item.href}>
+              <Icon name={item.icon} filled={active === item.key} />
+              {item.label}
+            </a>
+          ))}
+        </nav>
+        <div className="sidebar-card">
+          <span>Local-first mode</span>
+          <strong>{state?.settings?.localOnlyDefault ? "Enabled" : "Optional"}</strong>
+          <p>Company admins decide who can use which model.</p>
+        </div>
+      </aside>
+      <div className="main-shell">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">{subtitle}</p>
+            <h1>{title}</h1>
+          </div>
+          <div className="topbar-actions">
+            <div className="search-box">
+              <Icon name="search" />
+              <span>Search Olla Nest</span>
+            </div>
+            <Pill tone={ollama?.ok === false ? "warning" : "success"}>
+              {ollama?.ok === false ? "Ollama offline" : `${ollama?.models?.length ?? 0} local models`}
+            </Pill>
+            {rightSlot}
+            <Button variant="outline" onClick={logout}>Logout</Button>
+          </div>
+        </header>
+        <main className="main-content">{children}</main>
+      </div>
+    </div>
+  );
+}
+
 function WorkspacePage() {
   const { state, ollama, reload } = useAppState();
   const [mode, setMode] = useState("ask");
   const [message, setMessage] = useState("");
   const [manualModelId, setManualModelId] = useState("");
-  const [router, setRouter] = useState("Send a request to see routing logic.");
+  const [router, setRouter] = useState("Send a message and Olla Nest will pick the best approved model.");
   const [accountMessage, setAccountMessage] = useState("");
   const [passwords, setPasswords] = useState({ currentPassword: "", newPassword: "" });
 
-  if (!state) return <LinearProgress />;
+  if (!state) return <LoadingPage />;
+
   const models = allowedModels(state);
   const chat = state.chats.find((item) => item.userId === state.activeUser.id) || state.chats[0];
   const department = state.departments.find((item) => item.id === state.activeUser.departmentId);
+  const messages = chat?.messages || [];
 
   async function send(event) {
     event.preventDefault();
@@ -265,81 +291,149 @@ function WorkspacePage() {
     }
   }
 
-  async function logout() {
-    await api("/api/auth/logout", { method: "POST", body: "{}" });
-    window.location.href = "/login";
+  async function clearChat() {
+    await api("/api/chat/clear", { method: "POST", body: "{}" });
+    await reload();
   }
 
   return (
-    <Shell
+    <AppFrame
       title="Workspace"
       subtitle={`${state.activeUser.name} · ${department?.name || "General"}`}
-      nav={[
-        { href: "/app", label: "Workspace", icon: "chat", active: true },
-        ...(state.activeUser.role === "admin" ? [{ href: "/admin", label: "Admin", icon: "admin_panel_settings" }] : []),
-      ]}
-      actions={<><Chip label={ollama?.ok === false ? "Ollama offline" : `${ollama?.models?.length ?? 0} local models`} color={ollama?.ok === false ? "warning" : "success"} variant="outlined" /><Button onClick={logout} variant="outlined">Logout</Button></>}
+      active="workspace"
+      state={state}
+      ollama={ollama}
+      rightSlot={<Button variant="soft" onClick={clearChat}><Icon name="add" /> New chat</Button>}
     >
-      <Box className="workspace-layout">
-        <Card className="chat-surface">
-          <Stack direction="row" alignItems="center" spacing={1.2} className="px-5 pt-4">
-            <Tabs value={mode} onChange={(_, value) => setMode(value)} variant="scrollable">
-              {["ask", "build", "review", "fix", "learn"].map((item) => <Tab key={item} value={item} label={item[0].toUpperCase() + item.slice(1)} />)}
-            </Tabs>
-            <Box flex={1} />
-            <Button onClick={async () => { await api("/api/chat/clear", { method: "POST", body: "{}" }); await reload(); }} startIcon={<Icon>add</Icon>}>New chat</Button>
-          </Stack>
-          <Divider />
-          <Box className="chat-scroll">
-            {(chat?.messages || []).map((item, index) => (
-              <Box key={index} className={`bubble-row ${item.role === "user" ? "justify-end" : "justify-start"}`}>
-                <Paper className={`message-bubble-m3 ${item.role === "user" ? "user-bubble" : ""}`} variant="outlined">
-                  <Typography variant="caption" color="text.secondary">{item.role === "assistant" ? item.modelName || "Assistant" : `${state.activeUser.name} · ${item.mode || mode}`}</Typography>
-                  <Typography whiteSpace="pre-wrap" mt={0.75}>{item.content}</Typography>
-                </Paper>
-              </Box>
-            ))}
-          </Box>
-          <Box component="form" onSubmit={send} className="composer-m3">
-            <TextField multiline minRows={3} fullWidth label="Message Olla Nest" value={message} onChange={(e) => setMessage(e.target.value)} />
-            <Stack direction="row" spacing={1.5} alignItems="center" mt={1.5}>
-              <Select size="small" value={manualModelId} onChange={(e) => setManualModelId(e.target.value)} displayEmpty sx={{ minWidth: 220 }}>
-                <MenuItem value="">Auto Router</MenuItem>
-                {models.map((model) => <MenuItem key={model.id} value={model.id}>{model.name}</MenuItem>)}
-              </Select>
-              <Box flex={1} />
-              <Button type="submit" variant="contained" endIcon={<Icon>send</Icon>}>Send</Button>
-            </Stack>
-          </Box>
-        </Card>
-        <Stack spacing={2}>
-          <Card><CardContent><Typography variant="h6">Access</Typography><Typography color="text.secondary" mt={1}>{department?.name || "General"} grants plus user/group rights.</Typography><Stack direction="row" gap={1} flexWrap="wrap" mt={2}>{models.map((m) => <Chip key={m.id} size="small" label={m.name} />)}</Stack></CardContent></Card>
-          <Card><CardContent><Typography variant="h6">Router</Typography><Typography color="text.secondary" mt={1}>{router}</Typography></CardContent></Card>
-          <Card><CardContent><Typography variant="h6">Account</Typography><Typography color="text.secondary" mt={1}>{state.activeUser.email}</Typography><Typography variant="caption" color="text.secondary">Rights: {(state.activeUser.rights || []).join(", ")}</Typography><Stack component="form" spacing={1.5} mt={2} onSubmit={changePassword}><TextField label="Current password" type="password" value={passwords.currentPassword} onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })} /><TextField label="New password" type="password" value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} /><Button type="submit" variant="outlined">Change password</Button></Stack>{accountMessage && <Typography mt={1} variant="body2" color="text.secondary">{accountMessage}</Typography>}</CardContent></Card>
-        </Stack>
-      </Box>
-    </Shell>
+      <div className="workspace-grid">
+        <section className="chat-card">
+          <div className="chat-toolbar">
+            <div className="mode-tabs">
+              {["ask", "build", "review", "fix", "learn"].map((item) => (
+                <button key={item} className={cx(mode === item && "active")} onClick={() => setMode(item)} type="button">
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="chat-scroll">
+            {messages.length ? (
+              messages.map((item, index) => (
+                <div key={`${item.role}-${index}`} className={cx("message-row", item.role === "user" && "from-user")}>
+                  <div className={cx("message-bubble", item.role === "user" && "user-bubble")}>
+                    <span>{item.role === "assistant" ? item.modelName || "Assistant" : `${state.activeUser.name} · ${item.mode || mode}`}</span>
+                    <p>{item.content}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="empty-chat">
+                <Icon name="auto_awesome" />
+                <h2>Ask anything your approved models can handle.</h2>
+                <p>The router will choose from models allowed for your user, group, and department.</p>
+              </div>
+            )}
+          </div>
+          <form className="composer" onSubmit={send}>
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Message Olla Nest..."
+              rows={4}
+            />
+            <div className="composer-actions">
+              <select value={manualModelId} onChange={(event) => setManualModelId(event.target.value)}>
+                <option value="">Auto Router</option>
+                {models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
+              </select>
+              <Button type="submit"><Icon name="send" /> Send</Button>
+            </div>
+          </form>
+        </section>
+        <aside className="workspace-panel">
+          <div className="panel-card">
+            <div className="panel-heading">
+              <Icon name="verified_user" />
+              <div>
+                <h3>Access</h3>
+                <p>{department?.name || "General"} department</p>
+              </div>
+            </div>
+            <div className="tag-list">
+              {models.length ? models.map((model) => <span key={model.id}>{model.name}</span>) : <span>No approved local models</span>}
+            </div>
+          </div>
+          <div className="panel-card">
+            <div className="panel-heading">
+              <Icon name="route" />
+              <div>
+                <h3>Router</h3>
+                <p>Latest routing decision</p>
+              </div>
+            </div>
+            <p className="panel-copy">{router}</p>
+          </div>
+          <form className="panel-card" onSubmit={changePassword}>
+            <div className="panel-heading">
+              <Icon name="account_circle" />
+              <div>
+                <h3>Account</h3>
+                <p>{state.activeUser.email}</p>
+              </div>
+            </div>
+            <Field label="Current password" type="password" value={passwords.currentPassword} onChange={(event) => setPasswords({ ...passwords, currentPassword: event.target.value })} />
+            <Field label="New password" type="password" value={passwords.newPassword} onChange={(event) => setPasswords({ ...passwords, newPassword: event.target.value })} />
+            <Button variant="outline" type="submit">Change password</Button>
+            <Notice>{accountMessage}</Notice>
+          </form>
+        </aside>
+      </div>
+    </AppFrame>
   );
 }
 
-function MetricCard({ icon, label, value }) {
-  return <Card><CardContent><Stack direction="row" alignItems="center" spacing={1.5}><Avatar sx={{ bgcolor: "#E8F0FE", color: googleBlue }}><Icon>{icon}</Icon></Avatar><Box><Typography variant="caption" color="text.secondary" fontWeight={800}>{label}</Typography><Typography variant="h5">{value}</Typography></Box></Stack></CardContent></Card>;
+function MetricCard({ icon, label, value, sub }) {
+  return (
+    <div className="metric-card">
+      <div className="metric-icon"><Icon name={icon} /></div>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        {sub && <p>{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({ label, checked, onChange }) {
+  return (
+    <label className="toggle-row">
+      <span>{label}</span>
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <i />
+    </label>
+  );
 }
 
 function AdminPage() {
   const { state, ollama, reload, refreshModels } = useAppState();
   const [form, setForm] = useState({ name: "", email: "", role: "user", departmentId: "dept-general", password: "" });
+  const [settings, setSettings] = useState(null);
   const [notice, setNotice] = useState("");
 
-  if (!state) return <LinearProgress />;
+  useEffect(() => {
+    if (state?.settings) setSettings({ ...state.settings });
+  }, [state?.settings]);
+
+  const localModels = useMemo(() => {
+    if (!state) return [];
+    return state.models.filter((model) => model.provider === "ollama");
+  }, [state]);
+
+  if (!state || !settings) return <LoadingPage />;
   if (state.activeUser.role !== "admin") {
     window.location.href = "/app";
     return null;
-  }
-
-  async function logout() {
-    await api("/api/auth/logout", { method: "POST", body: "{}" });
-    window.location.href = "/login";
   }
 
   async function createUser(event) {
@@ -374,38 +468,175 @@ function AdminPage() {
   async function saveSettings() {
     await api("/api/admin/settings", {
       method: "POST",
-      body: JSON.stringify(state.settings),
+      body: JSON.stringify(settings),
     });
+    setNotice("Settings saved.");
     await reload();
   }
 
   return (
-    <Shell
+    <AppFrame
       title="Company Dashboard"
-      subtitle="ADMIN CONTROL"
-      nav={[
-        { href: "/admin", label: "Dashboard", icon: "dashboard", active: true },
-        { href: "/app", label: "Workspace", icon: "chat" },
-      ]}
-      actions={<><Chip label={ollama?.ok === false ? "Ollama offline" : `${ollama?.models?.length ?? 0} local models`} color={ollama?.ok === false ? "warning" : "success"} variant="outlined" /><Button onClick={logout} variant="outlined">Logout</Button></>}
+      subtitle="Admin control"
+      active="admin"
+      state={state}
+      ollama={ollama}
     >
-      <Stack spacing={2}>
-        <Box className="metric-grid-react">
-          <MetricCard icon="memory" label="Local Models" value={state.models.filter((m) => m.provider === "ollama" && m.status === "available").length} />
-          <MetricCard icon="group" label="Users" value={state.users.length} />
-          <MetricCard icon="hub" label="Groups" value={state.groups.length} />
-          <MetricCard icon="domain" label="Departments" value={state.departments.length} />
-        </Box>
-        <Box className="admin-grid-react">
-          <Card className="span-8"><CardContent><Stack direction="row" alignItems="center" mb={1.5}><Box flex={1}><Typography variant="h6">Available Local Models</Typography><Typography color="text.secondary" variant="body2">Discovered live from Ollama.</Typography></Box><Button onClick={refreshModels} variant="contained" size="small">Refresh</Button></Stack><Box className="model-table">{state.models.filter((m) => m.provider === "ollama").length ? state.models.filter((m) => m.provider === "ollama").map((m) => <Box key={m.id} className="model-row"><Box><Typography fontWeight={750}>{m.name}</Typography><Typography variant="caption" color="text.secondary">{m.model}</Typography></Box><Chip size="small" label={m.status} color={m.status === "available" ? "success" : "default"} /><Typography color="text.secondary" variant="body2">{(m.capabilities || []).join(", ")}</Typography></Box>) : <Paper variant="outlined" className="empty-state"><Icon>cloud_off</Icon><Box><Typography fontWeight={750}>No local models found</Typography><Typography variant="body2" color="text.secondary">Start Ollama on your laptop and click Refresh.</Typography></Box></Paper>}</Box></CardContent></Card>
-          <Card className="span-4"><CardContent><Typography variant="h6">Access Model</Typography><Stack spacing={1} mt={1.5}>{["User grants", "Group grants", "Department grants"].map((x) => <Paper key={x} variant="outlined" className="access-tile compact-tile"><Typography fontWeight={700}>{x}</Typography><Typography variant="body2" color="text.secondary">Controls model eligibility.</Typography></Paper>)}<Paper variant="outlined" className="access-tile compact-tile"><Typography fontWeight={700}>Storage</Typography><Typography variant="body2" color="text.secondary">PostgreSQL · MongoDB · Redis</Typography></Paper></Stack></CardContent></Card>
-          <Card className="span-5"><CardContent><Typography variant="h6">Create User</Typography><Stack component="form" spacing={1.25} mt={1.5} onSubmit={createUser}><TextField label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="clean-input" /><TextField label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="clean-input" /><Select size="small" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><MenuItem value="user">User</MenuItem><MenuItem value="admin">Admin</MenuItem></Select><Select size="small" value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>{state.departments.map((d) => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}</Select><TextField label="Temporary password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="clean-input" /><Button type="submit" variant="contained">Create User</Button></Stack>{notice && <Alert sx={{ mt: 1.5 }} severity="info">{notice}</Alert>}</CardContent></Card>
-          <Card className="span-7"><CardContent><Typography variant="h6">Users</Typography><Stack spacing={1.2} mt={2}>{state.users.map((u) => <Paper key={u.id} variant="outlined" className="user-list-row"><Box flex={1}><Typography fontWeight={750}>{u.name}</Typography><Typography variant="body2" color="text.secondary">{u.email} · {u.role} · {(u.rights || []).join(", ")}</Typography></Box><Chip size="small" color={u.active ? "success" : "default"} label={u.active ? "active" : "inactive"} /><Button size="small" onClick={() => resetPassword(u.id)}>Reset</Button><Button size="small" onClick={() => toggleUser(u)}>{u.active ? "Deactivate" : "Activate"}</Button></Paper>)}</Stack></CardContent></Card>
-          <Card className="span-4"><CardContent><Typography variant="h6">System Settings</Typography><Stack mt={1}><FormControlLabel control={<Switch checked={state.settings.routerEnabled} onChange={(e) => state.settings.routerEnabled = e.target.checked} />} label="Auto Router enabled" /><FormControlLabel control={<Switch checked={state.settings.allowApiModels} onChange={(e) => state.settings.allowApiModels = e.target.checked} />} label="Allow API models" /><FormControlLabel control={<Switch checked={state.settings.localOnlyDefault} onChange={(e) => state.settings.localOnlyDefault = e.target.checked} />} label="Local-first by default" /><Button onClick={saveSettings} variant="contained">Save Settings</Button></Stack></CardContent></Card>
-          <Card className="span-8"><CardContent><Typography variant="h6">Audit Trail</Typography><Stack mt={2} spacing={1}>{state.audit.length ? state.audit.map((a) => <Box key={a.id} className="timeline-item"><Icon>history</Icon><Box><Typography fontWeight={700}>{a.detail}</Typography><Typography variant="caption" color="text.secondary">{a.actor} · {new Date(a.createdAt).toLocaleString()}</Typography></Box></Box>) : <Typography color="text.secondary">No audit events yet.</Typography>}</Stack></CardContent></Card>
-        </Box>
-      </Stack>
-    </Shell>
+      <section className="metrics-grid">
+        <MetricCard icon="memory" label="Local Models" value={state.models.filter((m) => m.provider === "ollama" && m.status === "available").length} sub="Discovered from Ollama" />
+        <MetricCard icon="group" label="Users" value={state.users.length} sub="Admin and employees" />
+        <MetricCard icon="hub" label="Groups" value={state.groups.length} sub="Shared access rules" />
+        <MetricCard icon="domain" label="Departments" value={state.departments.length} sub="Company structure" />
+      </section>
+
+      <section className="admin-grid">
+        <div className="card span-8">
+          <div className="card-heading">
+            <div>
+              <h2>Available Local Models</h2>
+              <p>Live discovery from your local Ollama service.</p>
+            </div>
+            <Button onClick={refreshModels} variant="soft"><Icon name="refresh" /> Refresh</Button>
+          </div>
+          {localModels.length ? (
+            <div className="model-table">
+              <div className="table-head"><span>Model</span><span>Status</span><span>Capabilities</span></div>
+              {localModels.map((model) => (
+                <div className="table-row" key={model.id}>
+                  <div>
+                    <strong>{model.name}</strong>
+                    <small>{model.model}</small>
+                  </div>
+                  <Pill tone={model.status === "available" ? "success" : "default"}>{model.status}</Pill>
+                  <span className="muted">{(model.capabilities || []).join(", ") || "General"}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state compact">
+              <Icon name="cloud_off" />
+              <div>
+                <h3>No local models found</h3>
+                <p>Start Ollama on your laptop and click Refresh.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="card span-4">
+          <div className="card-heading">
+            <div>
+              <h2>Access Model</h2>
+              <p>How eligibility is decided.</p>
+            </div>
+          </div>
+          <div className="access-list">
+            {[
+              ["User grants", "Direct allow or restrict list."],
+              ["Group grants", "Shared access for project teams."],
+              ["Department grants", "Default access by company function."],
+              ["Storage", "PostgreSQL · MongoDB · Redis"],
+            ].map(([title, copy]) => (
+              <div className="access-card" key={title}>
+                <strong>{title}</strong>
+                <span>{copy}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <form className="card span-5" onSubmit={createUser}>
+          <div className="card-heading">
+            <div>
+              <h2>Create User</h2>
+              <p>Add employees with company-controlled rights.</p>
+            </div>
+          </div>
+          <div className="form-grid one">
+            <Field label="Name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+            <Field label="Email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+            <div className="form-grid two">
+              <SelectField label="Role" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </SelectField>
+              <SelectField label="Department" value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}>
+                {state.departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+              </SelectField>
+            </div>
+            <Field label="Temporary password" type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+            <Button type="submit" className="w-full">Create User</Button>
+            <Notice>{notice}</Notice>
+          </div>
+        </form>
+
+        <div className="card span-7">
+          <div className="card-heading">
+            <div>
+              <h2>Users</h2>
+              <p>Manage employee access and account status.</p>
+            </div>
+          </div>
+          <div className="user-list">
+            {state.users.map((user) => (
+              <div className="user-row" key={user.id}>
+                <div className="avatar">{user.name.slice(0, 2).toUpperCase()}</div>
+                <div>
+                  <strong>{user.name}</strong>
+                  <span>{user.email} · {user.role} · {(user.rights || []).join(", ")}</span>
+                </div>
+                <Pill tone={user.active ? "success" : "default"}>{user.active ? "active" : "inactive"}</Pill>
+                <Button variant="ghost" onClick={() => resetPassword(user.id)}>Reset</Button>
+                <Button variant="ghost" onClick={() => toggleUser(user)}>{user.active ? "Deactivate" : "Activate"}</Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card span-4">
+          <div className="card-heading">
+            <div>
+              <h2>System Settings</h2>
+              <p>Default company AI behavior.</p>
+            </div>
+          </div>
+          <div className="settings-list">
+            <ToggleRow label="Auto Router enabled" checked={settings.routerEnabled} onChange={(value) => setSettings({ ...settings, routerEnabled: value })} />
+            <ToggleRow label="Allow API models" checked={settings.allowApiModels} onChange={(value) => setSettings({ ...settings, allowApiModels: value })} />
+            <ToggleRow label="Local-first by default" checked={settings.localOnlyDefault} onChange={(value) => setSettings({ ...settings, localOnlyDefault: value })} />
+            <Button onClick={saveSettings} type="button" className="w-full">Save Settings</Button>
+          </div>
+        </div>
+
+        <div className="card span-8">
+          <div className="card-heading">
+            <div>
+              <h2>Audit Trail</h2>
+              <p>Recent admin and account activity.</p>
+            </div>
+          </div>
+          <div className="timeline">
+            {state.audit.length ? state.audit.map((item) => (
+              <div className="timeline-row" key={item.id}>
+                <Icon name="history" />
+                <div>
+                  <strong>{item.detail}</strong>
+                  <span>{item.actor} · {new Date(item.createdAt).toLocaleString()}</span>
+                </div>
+              </div>
+            )) : (
+              <div className="empty-state inline">
+                <Icon name="history" />
+                <div>
+                  <h3>No audit events yet</h3>
+                  <p>Activity will appear here as admins and users work.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    </AppFrame>
   );
 }
 
@@ -416,9 +647,4 @@ function Root() {
   return <LoginPage />;
 }
 
-createRoot(document.getElementById("root")).render(
-  <ThemeProvider theme={theme}>
-    <CssBaseline />
-    <Root />
-  </ThemeProvider>
-);
+createRoot(document.getElementById("root")).render(<Root />);
