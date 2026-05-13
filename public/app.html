@@ -47,6 +47,16 @@
 
         <aside class="user-context">
           <section class="card">
+            <div class="card-title">Account</div>
+            <div id="accountSummary" class="muted"></div>
+            <form id="passwordForm" class="stack-form">
+              <input id="currentPassword" type="password" placeholder="Current password" autocomplete="current-password" />
+              <input id="newPassword" type="password" placeholder="New password" autocomplete="new-password" />
+              <button class="secondary full" type="submit">Change Password</button>
+            </form>
+            <div id="accountMessage" class="form-message"></div>
+          </section>
+          <section class="card">
             <div class="card-title">Access</div>
             <div id="policySummary"></div>
           </section>

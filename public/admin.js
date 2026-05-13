@@ -45,10 +45,18 @@ function renderModels() {
 }
 
 function renderUsers() {
+  $("#newUserDepartment").innerHTML = state.departments.map((dept) => `<option value="${dept.id}">${escapeHtml(dept.name)}</option>`).join("");
   $("#userList").innerHTML = state.users
     .map((user) => {
       const dept = state.departments.find((item) => item.id === user.departmentId);
-      return `<div class="user-card"><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(user.email || "")}<br>${escapeHtml(user.role)} · ${escapeHtml(dept?.name || "No department")}</span></div>`;
+      return `<div class="user-card">
+        <strong>${escapeHtml(user.name)}</strong>
+        <span>${escapeHtml(user.email || "")}<br>${escapeHtml(user.role)} · ${escapeHtml(dept?.name || "No department")} · ${user.active ? "active" : "inactive"}<br>Rights: ${escapeHtml((user.rights || []).join(", "))}</span>
+        <div class="inline-actions">
+          <button class="secondary small" data-reset-password="${user.id}">Reset Password</button>
+          <button class="secondary small" data-toggle-active="${user.id}" data-active="${user.active ? "0" : "1"}">${user.active ? "Deactivate" : "Activate"}</button>
+        </div>
+      </div>`;
     })
     .join("");
 }
@@ -132,6 +140,50 @@ function bindEvents() {
   $("#logout").addEventListener("click", async () => {
     await api("/api/auth/logout", { method: "POST", body: "{}" });
     window.location.href = "/login";
+  });
+
+  $("#createUserForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const msg = $("#userMessage");
+    msg.textContent = "";
+    try {
+      await api("/api/admin/users", {
+        method: "POST",
+        body: JSON.stringify({
+          name: $("#newUserName").value.trim(),
+          email: $("#newUserEmail").value.trim(),
+          role: $("#newUserRole").value,
+          departmentId: $("#newUserDepartment").value,
+          password: $("#newUserPassword").value || undefined,
+          rights: $("#newUserRole").value === "admin" ? ["admin:manage", "chat:use", "models:manage", "users:manage"] : ["chat:use"],
+        }),
+      });
+      event.target.reset();
+      msg.textContent = "User created.";
+      await loadState();
+    } catch (error) {
+      msg.textContent = error.message;
+    }
+  });
+
+  $("#userList").addEventListener("click", async (event) => {
+    const resetId = event.target.dataset.resetPassword;
+    const toggleId = event.target.dataset.toggleActive;
+    if (resetId) {
+      await api(`/api/admin/users/${resetId}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify({ password: "UserDemo!12345" }),
+      });
+      $("#userMessage").textContent = "Password reset to UserDemo!12345.";
+    }
+    if (toggleId) {
+      await api(`/api/admin/users/${toggleId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: event.target.dataset.active === "1" }),
+      });
+      $("#userMessage").textContent = "User status updated.";
+      await loadState();
+    }
   });
 }
 

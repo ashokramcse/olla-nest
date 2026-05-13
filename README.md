@@ -112,7 +112,35 @@ Read more:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Deployment](docs/DEPLOYMENT.md)
 
-## Run Locally
+## Run With Docker
+
+Docker is the default production-like setup.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Open:
+
+```text
+http://localhost:3000/login
+```
+
+This starts:
+
+- Olla Nest app
+- PostgreSQL with pgvector
+- MongoDB
+- Redis
+
+Ollama should run on your host laptop. Docker uses:
+
+```text
+http://host.docker.internal:11434
+```
+
+## Run Locally Without Docker
 
 Install dependencies:
 

@@ -17,6 +17,7 @@ const SQL_PATH = process.env.SQLITE_PATH || path.join(DATA_DIR, "olla-nest.sqlit
 const DOC_PATH = process.env.DOCUMENT_DB_PATH || path.join(DATA_DIR, "documents.json");
 const DEFAULT_ADMIN_EMAIL = process.env.DEFAULT_ADMIN_EMAIL || "admin@ollanest.local";
 const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || "ChangeMe!CreateARealPassword123";
+const DEFAULT_USER_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "UserDemo!12345";
 const sessions = new Map();
 
 app.use(express.json({ limit: "2mb" }));
@@ -52,6 +53,7 @@ function openSql() {
       email TEXT UNIQUE,
       password_hash TEXT,
       role TEXT NOT NULL,
+      rights TEXT NOT NULL DEFAULT '["chat:use"]',
       department_id TEXT,
       active INTEGER NOT NULL DEFAULT 1
     );
@@ -156,13 +158,13 @@ function seedSql(db) {
 
   if (tableCount(db, "users") === 0) {
     const adminHash = bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, 12);
-    const userHash = bcrypt.hashSync("UserDemo!12345", 12);
+    const userHash = bcrypt.hashSync(DEFAULT_USER_PASSWORD, 12);
     [
-      ["u-admin", "Admin", DEFAULT_ADMIN_EMAIL, adminHash, "admin", "dept-product"],
-      ["u-user", "Employee", "employee@ollanest.local", userHash, "user", "dept-general"],
-      ["u-builder", "Builder Employee", "builder@ollanest.local", userHash, "user", "dept-product"],
-      ["u-support", "Support Employee", "support@ollanest.local", userHash, "user", "dept-support"],
-    ].forEach((row) => db.prepare("INSERT INTO users (id, name, email, password_hash, role, department_id) VALUES (?, ?, ?, ?, ?, ?)").run(...row));
+      ["u-admin", "Admin", DEFAULT_ADMIN_EMAIL, adminHash, "admin", JSON.stringify(["admin:manage", "chat:use", "models:manage", "users:manage"]), "dept-product"],
+      ["u-user", "Employee", "employee@ollanest.local", userHash, "user", JSON.stringify(["chat:use"]), "dept-general"],
+      ["u-builder", "Builder Employee", "builder@ollanest.local", userHash, "user", JSON.stringify(["chat:use", "workspace:build"]), "dept-product"],
+      ["u-support", "Support Employee", "support@ollanest.local", userHash, "user", JSON.stringify(["chat:use", "workspace:review"]), "dept-support"],
+    ].forEach((row) => db.prepare("INSERT INTO users (id, name, email, password_hash, role, rights, department_id) VALUES (?, ?, ?, ?, ?, ?, ?)").run(...row));
     [
       ["u-admin", "group-admins"],
       ["u-admin", "group-all"],
@@ -176,6 +178,7 @@ function seedSql(db) {
   const userColumns = db.prepare("PRAGMA table_info(users)").all().map((row) => row.name);
   if (!userColumns.includes("email")) db.exec("ALTER TABLE users ADD COLUMN email TEXT");
   if (!userColumns.includes("password_hash")) db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+  if (!userColumns.includes("rights")) db.exec("ALTER TABLE users ADD COLUMN rights TEXT NOT NULL DEFAULT '[\"chat:use\"]'");
   const admin = db.prepare("SELECT id, email, password_hash FROM users WHERE id = 'u-admin'").get();
   if (admin && (!admin.email || !admin.password_hash)) {
     db.prepare("UPDATE users SET email = ?, password_hash = ? WHERE id = 'u-admin'").run(DEFAULT_ADMIN_EMAIL, bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, 12));
@@ -303,18 +306,27 @@ function publicUser(row) {
     name: row.name,
     email: row.email,
     role: row.role,
+    rights: safeJson(row.rights, []),
     departmentId: row.departmentId || row.department_id,
     active: row.active,
   };
 }
 
+function safeJson(value, fallback) {
+  try {
+    return JSON.parse(value || "");
+  } catch {
+    return fallback;
+  }
+}
+
 function getUsers(db) {
-  return rows(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users ORDER BY role, name").map(publicUser);
+  return rows(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users ORDER BY role, name").map(publicUser);
 }
 
 function activeUser(db) {
   const id = setting(db, "activeUserId", "u-admin");
-  return publicUser(one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users WHERE id = ?", id) || one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users LIMIT 1"));
+  return publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", id) || one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users LIMIT 1"));
 }
 
 function userGroupIds(db, userId) {
@@ -535,6 +547,10 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function hasRight(user, right) {
+  return user.role === "admin" || (user.rights || []).includes(right);
+}
+
 function setSession(res, user) {
   const token = crypto.randomBytes(32).toString("hex");
   sessions.set(token, { user, expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
@@ -545,7 +561,7 @@ app.post("/api/auth/login", (req, res) => {
   const db = openSql();
   try {
     const { email, password } = req.body;
-    const row = one(db, "SELECT id, name, email, password_hash, role, department_id AS departmentId, active FROM users WHERE email = ? AND active = 1", email);
+    const row = one(db, "SELECT id, name, email, password_hash, role, rights, department_id AS departmentId, active FROM users WHERE email = ? AND active = 1", email);
     if (!row || !row.password_hash || !bcrypt.compareSync(String(password || ""), row.password_hash)) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
@@ -578,12 +594,29 @@ app.get("/api/bootstrap", (req, res) => {
   });
 });
 
+app.post("/api/account/password", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || String(newPassword).length < 12) return res.status(400).json({ error: "New password must be at least 12 characters" });
+    const row = one(db, "SELECT id, name, email, password_hash, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id);
+    if (!row || !bcrypt.compareSync(String(currentPassword || ""), row.password_hash || "")) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(bcrypt.hashSync(String(newPassword), 12), req.user.id);
+    appendAudit(req.user.name, "account.password.change", "Changed own password");
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
 app.get("/api/state", requireAuth, async (req, res) => {
   const db = openSql();
   try {
     setSetting(db, "activeUserId", req.user.id);
     await syncOllamaModels(db).catch(() => []);
-    const user = publicUser(one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id));
+    const user = publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id));
     const docs = readDocs();
     const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
     res.json({
@@ -635,7 +668,8 @@ app.get("/api/ollama/models", requireAuth, async (req, res) => {
 app.post("/api/chat", requireAuth, async (req, res) => {
   const db = openSql();
   try {
-    const user = publicUser(one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id));
+    const user = publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id));
+    if (!hasRight(user, "chat:use")) return res.status(403).json({ error: "Chat access is not enabled for this account" });
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ error: "Message is required" });
     await syncOllamaModels(db).catch(() => []);
@@ -703,6 +737,67 @@ app.post("/api/admin/settings", requireAdmin, (req, res) => {
     });
     appendAudit(user.name, "admin.settings.save", "Updated system settings");
     res.json({ ok: true, settings: settingsState(db) });
+  } finally {
+    db.close();
+  }
+});
+
+app.post("/api/admin/users", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const { name, email, role = "user", departmentId = "dept-general", rights = ["chat:use"], password } = req.body;
+    if (!name || !email) return res.status(400).json({ error: "Name and email are required" });
+    const id = uid("u");
+    const passwordHash = bcrypt.hashSync(String(password || DEFAULT_USER_PASSWORD), 12);
+    db.prepare("INSERT INTO users (id, name, email, password_hash, role, rights, department_id, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)").run(
+      id,
+      name,
+      email,
+      passwordHash,
+      role,
+      JSON.stringify(rights),
+      departmentId
+    );
+    db.prepare("INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)").run(id, "group-all");
+    appendAudit(req.user.name, "admin.user.create", `Created user ${email}`);
+    res.json({ ok: true, user: publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", id)) });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.patch("/api/admin/users/:id", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const existing = one(db, "SELECT id FROM users WHERE id = ?", req.params.id);
+    if (!existing) return res.status(404).json({ error: "User not found" });
+    const { name, email, role, departmentId, active, rights } = req.body;
+    if (typeof name !== "undefined") db.prepare("UPDATE users SET name = ? WHERE id = ?").run(name, req.params.id);
+    if (typeof email !== "undefined") db.prepare("UPDATE users SET email = ? WHERE id = ?").run(email, req.params.id);
+    if (typeof role !== "undefined") db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, req.params.id);
+    if (typeof departmentId !== "undefined") db.prepare("UPDATE users SET department_id = ? WHERE id = ?").run(departmentId, req.params.id);
+    if (typeof active !== "undefined") db.prepare("UPDATE users SET active = ? WHERE id = ?").run(active ? 1 : 0, req.params.id);
+    if (Array.isArray(rights)) db.prepare("UPDATE users SET rights = ? WHERE id = ?").run(JSON.stringify(rights), req.params.id);
+    appendAudit(req.user.name, "admin.user.update", `Updated user ${req.params.id}`);
+    res.json({ ok: true, user: publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", req.params.id)) });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.post("/api/admin/users/:id/reset-password", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const newPassword = String(req.body.password || DEFAULT_USER_PASSWORD);
+    if (newPassword.length < 12) return res.status(400).json({ error: "Password must be at least 12 characters" });
+    const result = db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(bcrypt.hashSync(newPassword, 12), req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: "User not found" });
+    appendAudit(req.user.name, "admin.user.reset_password", `Reset password for ${req.params.id}`);
+    res.json({ ok: true });
   } finally {
     db.close();
   }

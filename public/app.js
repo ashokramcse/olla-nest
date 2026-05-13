@@ -56,6 +56,7 @@ function renderMessages() {
 function renderAccess() {
   const department = state.departments.find((item) => item.id === state.activeUser.departmentId);
   $("#userSubtitle").textContent = `${state.activeUser.name} · ${department?.name || "Workspace"}`;
+  $("#accountSummary").innerHTML = `<strong>${escapeHtml(state.activeUser.email || "")}</strong><br>${escapeHtml(state.activeUser.role)} · Rights: ${escapeHtml((state.activeUser.rights || []).join(", "))}`;
   $("#policySummary").innerHTML = `<p class="muted"><strong>${department?.name || "General"}</strong><br>Model access comes from your user, group, and department grants.</p>
     <div class="tag-list">${allowedModels().map((model) => `<span>${escapeHtml(model.name)}</span>`).join("")}</div>`;
   $("#manualModel").innerHTML = `<option value="">Auto Router</option>` + allowedModels().map((model) => `<option value="${model.id}">${escapeHtml(model.name)}</option>`).join("");
@@ -127,6 +128,26 @@ function bindEvents() {
   $("#logout").addEventListener("click", async () => {
     await api("/api/auth/logout", { method: "POST", body: "{}" });
     window.location.href = "/login";
+  });
+
+  $("#passwordForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = $("#accountMessage");
+    message.textContent = "";
+    try {
+      await api("/api/account/password", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: $("#currentPassword").value,
+          newPassword: $("#newPassword").value,
+        }),
+      });
+      $("#currentPassword").value = "";
+      $("#newPassword").value = "";
+      message.textContent = "Password updated.";
+    } catch (error) {
+      message.textContent = error.message;
+    }
   });
 }
 
