@@ -1,0 +1,23 @@
+{
+  "name": "olla-nest",
+  "version": "1.0.0",
+  "description": "Company-ready local AI workspace for Ollama with admin controls and automatic model routing.",
+  "main": "server.js",
+  "license": "MIT",
+  "author": "Ashok Ram",
+  "keywords": [
+    "ollama",
+    "local-ai",
+    "ai-workspace",
+    "model-router",
+    "admin-dashboard",
+    "open-source-ai"
+  ],
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
