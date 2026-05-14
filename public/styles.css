@@ -1,5 +1,5 @@
 /* ============================================================
-   OLLA NEST — Crextio-Inspired Design System
+   OLLA NEST — Design System
    ============================================================ */
 
 /* ---------- Tokens ---------- */
@@ -45,7 +45,7 @@
 body {
   font-family: var(--font);
   background: var(--bg);
-  /* Crextio gradient: warm yellow radiates from top-right */
+  /* gradient: warm yellow radiates from top-right */
   background-image:
     radial-gradient(ellipse 60% 55% at 90% 10%, rgba(245,201,62,0.22) 0%, transparent 70%),
     radial-gradient(ellipse 40% 40% at 100% 60%, rgba(245,201,62,0.10) 0%, transparent 60%);
