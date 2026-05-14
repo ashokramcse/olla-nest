@@ -87,6 +87,27 @@ function renderSidebar() {
   `;
 }
 
+function renderMarkdown(content) {
+  if (typeof marked === "undefined") return `<pre style="white-space:pre-wrap;">${esc(content)}</pre>`;
+  marked.setOptions({ breaks: true, gfm: true });
+  // Use marked with a custom renderer for code blocks to add copy button
+  const renderer = new marked.Renderer();
+  renderer.code = ({ text, lang }) => {
+    const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const label = lang ? `<span class="code-lang-label">${esc(lang)}</span>` : "";
+    return `<div class="md-code-block">${label}<button class="md-copy-btn" onclick="copyCode(this)">Copy</button><pre><code>${escaped}</code></pre></div>`;
+  };
+  return marked.parse(content, { renderer });
+}
+
+function copyCode(btn) {
+  const code = btn.parentElement.querySelector("code").innerText;
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = "Copied!";
+    setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+  });
+}
+
 function renderMessages() {
   const chat = state.chats?.find(c => c.userId === state.activeUser.id) || state.chats?.[0];
   const msgs = chat?.messages || [];
@@ -111,9 +132,13 @@ function renderMessages() {
         ${(msg.artifacts || []).map(a => `<span class="artifact-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>${esc(a.name)}</span>`).join("")}
       </div>` : "";
 
+    const bubbleContent = isUser
+      ? `<div class="message-bubble user-bubble">${esc(msg.content)}</div>`
+      : `<div class="message-bubble assistant-bubble md-body">${renderMarkdown(msg.content)}</div>`;
+
     return `<div class="message-wrap ${msg.role}">
       <div class="message-meta">${meta}</div>
-      <div class="message-bubble">${esc(msg.content)}</div>
+      ${bubbleContent}
       ${footer}
     </div>`;
   }).join("");
