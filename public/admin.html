@@ -434,10 +434,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         <span class="status-dot off" id="ollamaStatusDot"></span>
         <span id="ollamaStatus">Checking…</span>
       </div>
-      <a href="/" class="pill-btn" style="text-decoration:none;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        Dashboard
-      </a>
+
       <button class="pill-btn" id="refreshBtn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Refresh
@@ -458,6 +455,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     <!-- Tab bar -->
     <div class="tab-bar">
       <button class="nav-item active" data-tab="overview">Overview</button>
+      <button class="nav-item" data-tab="chat">Chat</button>
       <button class="nav-item" data-tab="models">Models</button>
       <button class="nav-item" data-tab="users">Users</button>
       <button class="nav-item" data-tab="access">Access Control</button>
@@ -468,6 +466,17 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
     <!-- Content (full width) -->
     <div>
+
+
+      <!-- ── CHAT ── -->
+      <div class="tab-view" id="tab-chat">
+        <iframe
+          src="/"
+          id="chatFrame"
+          style="width:100%;height:780px;border:none;border-radius:28px;display:block;box-shadow:0 12px 40px -16px #00000018;"
+          allow="clipboard-write"
+        ></iframe>
+      </div>
 
       <!-- ── OVERVIEW ── -->
       <div class="tab-view active" id="tab-overview">
@@ -863,6 +872,20 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     </form>
   </div>
 </div>
+
+
+<script>
+// Lazy-load chat iframe on first tab click
+document.querySelector('.nav-item[data-tab="chat"]').addEventListener('click', function() {
+  const frame = document.getElementById('chatFrame');
+  if (frame && !frame.dataset.loaded) {
+    frame.src = '/';
+    frame.dataset.loaded = '1';
+  }
+}, { once: false });
+// Prevent loading on init — clear src until clicked
+(function(){ const f = document.getElementById('chatFrame'); if(f) f.src=''; })();
+</script>
 
 <script src="/dropdown.js"></script>
 <script src="/admin.js"></script>
