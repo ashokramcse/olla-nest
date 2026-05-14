@@ -84,6 +84,29 @@ function openSql() {
       model_id TEXT NOT NULL,
       can_use INTEGER NOT NULL DEFAULT 1
     );
+    CREATE TABLE IF NOT EXISTS role_catalog (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      permissions TEXT NOT NULL DEFAULT '[]',
+      system_role INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS permission_catalog (
+      key TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      description TEXT NOT NULL,
+      risk_level TEXT NOT NULL DEFAULT 'low'
+    );
+    CREATE TABLE IF NOT EXISTS user_overrides (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      permission_key TEXT NOT NULL,
+      model_id TEXT,
+      effect TEXT NOT NULL,
+      reason TEXT,
+      expires_at TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
   seedSql(db);
   return db;
@@ -139,7 +162,44 @@ function tableCount(db, table) {
   return db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count;
 }
 
+function ensureColumn(db, table, column, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((row) => row.name);
+  if (!columns.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
 function seedSql(db) {
+  [
+    ["employee_id", "TEXT"],
+    ["designation", "TEXT"],
+    ["team", "TEXT"],
+    ["branch", "TEXT"],
+    ["manager", "TEXT"],
+    ["organization", "TEXT NOT NULL DEFAULT 'Olla Nest'"],
+    ["ai_access_tier", "TEXT NOT NULL DEFAULT 'standard'"],
+    ["daily_token_limit", "INTEGER NOT NULL DEFAULT 50000"],
+    ["monthly_token_limit", "INTEGER NOT NULL DEFAULT 1000000"],
+    ["gpu_quota_minutes", "INTEGER NOT NULL DEFAULT 120"],
+    ["vram_limit_mb", "INTEGER NOT NULL DEFAULT 8192"],
+    ["concurrent_model_limit", "INTEGER NOT NULL DEFAULT 1"],
+    ["api_rate_limit_per_minute", "INTEGER NOT NULL DEFAULT 30"],
+    ["max_context_size", "INTEGER NOT NULL DEFAULT 8192"],
+    ["mfa_enabled", "INTEGER NOT NULL DEFAULT 0"],
+    ["security_risk_score", "INTEGER NOT NULL DEFAULT 10"],
+    ["access_status", "TEXT NOT NULL DEFAULT 'active'"],
+    ["access_expires_at", "TEXT"],
+    ["last_active_at", "TEXT"],
+  ].forEach(([column, definition]) => ensureColumn(db, "users", column, definition));
+
+  [
+    ["governance_tier", "TEXT NOT NULL DEFAULT 'approved-local'"],
+    ["resource_tier", "TEXT NOT NULL DEFAULT 'standard'"],
+    ["gpu_required", "INTEGER NOT NULL DEFAULT 0"],
+    ["max_concurrency", "INTEGER NOT NULL DEFAULT 2"],
+    ["max_context_size", "INTEGER"],
+    ["external_cost_tier", "TEXT NOT NULL DEFAULT 'local-free'"],
+    ["sensitive_allowed", "INTEGER NOT NULL DEFAULT 1"],
+  ].forEach(([column, definition]) => ensureColumn(db, "models", column, definition));
+
   if (tableCount(db, "settings") === 0) {
     [
       ["activeUserId", "u-admin"],
@@ -171,6 +231,45 @@ function seedSql(db) {
       ["group-builders", "Builders"],
       ["group-admins", "Admins"],
     ].forEach((row) => db.prepare("INSERT INTO groups (id, name) VALUES (?, ?)").run(...row));
+  }
+
+  if (tableCount(db, "permission_catalog") === 0) {
+    [
+      ["chat:use", "AI Usage", "Use the AI workspace", "low"],
+      ["models:local:use", "Model Usage", "Use approved Ollama/local models", "low"],
+      ["models:external:use", "Model Usage", "Use external premium AI providers", "high"],
+      ["models:coding:use", "Model Usage", "Use coding models and coding workflows", "medium"],
+      ["models:reasoning:use", "Model Usage", "Use reasoning models", "medium"],
+      ["ollama:models:pull", "Ollama Governance", "Pull models into Ollama", "high"],
+      ["ollama:models:import", "Ollama Governance", "Import custom/GGUF models", "high"],
+      ["ollama:modelfile:create", "Ollama Governance", "Create models with Modelfiles", "high"],
+      ["workspace:build", "Local Work", "Create local workspace files", "medium"],
+      ["files:upload", "AI Workflow", "Upload files to AI workflows", "medium"],
+      ["tools:call", "AI Workflow", "Use tool calling", "high"],
+      ["internet:use", "AI Workflow", "Use internet-enabled agents", "high"],
+      ["agents:run", "AI Workflow", "Run AI agents", "high"],
+      ["api:use", "Developer Access", "Use Olla Nest APIs", "medium"],
+      ["audit:read", "Governance", "Read audit logs", "medium"],
+      ["users:manage", "Administration", "Manage users", "high"],
+      ["models:manage", "Administration", "Manage model governance", "high"],
+      ["admin:manage", "Administration", "Manage platform settings", "critical"],
+    ].forEach((row) => db.prepare("INSERT INTO permission_catalog (key, category, description, risk_level) VALUES (?, ?, ?, ?)").run(...row));
+  }
+
+  if (tableCount(db, "role_catalog") === 0) {
+    [
+      ["platform-owner", "Platform Owner", "Full control over the AI platform", ["admin:manage", "users:manage", "models:manage", "audit:read", "chat:use", "models:local:use", "models:external:use", "ollama:models:pull", "ollama:models:import", "ollama:modelfile:create", "api:use", "agents:run"], 1],
+      ["ai-infra-admin", "AI Infrastructure Admin", "Manage Ollama infrastructure and model sources", ["models:manage", "models:local:use", "ollama:models:pull", "ollama:models:import", "ollama:modelfile:create", "audit:read"], 1],
+      ["security-admin", "Security Admin", "Manage governance, audit, and risk", ["users:manage", "audit:read", "admin:manage"], 1],
+      ["department-admin", "Department Admin", "Manage department users and access requests", ["users:manage", "audit:read", "chat:use"], 1],
+      ["ai-developer", "AI Developer", "Build with coding models, tools, and local files", ["chat:use", "models:local:use", "models:coding:use", "workspace:build", "files:upload", "tools:call", "api:use"], 1],
+      ["ai-analyst", "AI Analyst", "Use analysis and reasoning workflows", ["chat:use", "models:local:use", "models:reasoning:use", "files:upload"], 1],
+      ["engineering-user", "Engineering User", "Use coding and local AI models", ["chat:use", "models:local:use", "models:coding:use", "workspace:build"], 1],
+      ["research-user", "Research User", "Use reasoning models and knowledge workflows", ["chat:use", "models:local:use", "models:reasoning:use", "files:upload"], 1],
+      ["viewer", "Viewer", "Read-only AI workspace visibility", ["chat:use"], 1],
+    ].forEach(([id, name, description, permissions, systemRole]) => {
+      db.prepare("INSERT INTO role_catalog (id, name, description, permissions, system_role) VALUES (?, ?, ?, ?, ?)").run(id, name, description, JSON.stringify(permissions), systemRole);
+    });
   }
 
   if (tableCount(db, "users") === 0) {
@@ -228,9 +327,20 @@ function inferScores(modelName, sizeBytes = 0) {
 
 function upsertModel(db, model) {
   db.prepare(
-    `INSERT OR REPLACE INTO models
+    `INSERT INTO models
       (id, name, provider, model_ref, status, capabilities, speed_score, quality_score, privacy, context_size, last_seen_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      + ` ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        provider = excluded.provider,
+        model_ref = excluded.model_ref,
+        status = excluded.status,
+        capabilities = excluded.capabilities,
+        speed_score = excluded.speed_score,
+        quality_score = excluded.quality_score,
+        privacy = excluded.privacy,
+        context_size = excluded.context_size,
+        last_seen_at = excluded.last_seen_at`
   ).run(
     model.id,
     model.name,
@@ -322,6 +432,13 @@ function parseModel(row) {
     qualityScore: row.quality_score,
     privacy: row.privacy,
     lastSeenAt: row.last_seen_at,
+    governanceTier: row.governance_tier || "approved-local",
+    resourceTier: row.resource_tier || "standard",
+    gpuRequired: Boolean(row.gpu_required),
+    maxConcurrency: Number(row.max_concurrency || 0),
+    maxContextSize: Number(row.max_context_size || row.context_size || 0),
+    externalCostTier: row.external_cost_tier || "local-free",
+    sensitiveAllowed: row.sensitive_allowed !== 0,
   };
 }
 
@@ -335,6 +452,25 @@ function publicUser(row) {
     rights: safeJson(row.rights, []),
     departmentId: row.departmentId || row.department_id,
     active: row.active,
+    employeeId: row.employeeId || row.employee_id || "",
+    designation: row.designation || "",
+    team: row.team || "",
+    branch: row.branch || "",
+    manager: row.manager || "",
+    organization: row.organization || "Olla Nest",
+    aiAccessTier: row.aiAccessTier || row.ai_access_tier || "standard",
+    dailyTokenLimit: Number(row.dailyTokenLimit || row.daily_token_limit || 0),
+    monthlyTokenLimit: Number(row.monthlyTokenLimit || row.monthly_token_limit || 0),
+    gpuQuotaMinutes: Number(row.gpuQuotaMinutes || row.gpu_quota_minutes || 0),
+    vramLimitMb: Number(row.vramLimitMb || row.vram_limit_mb || 0),
+    concurrentModelLimit: Number(row.concurrentModelLimit || row.concurrent_model_limit || 0),
+    apiRateLimitPerMinute: Number(row.apiRateLimitPerMinute || row.api_rate_limit_per_minute || 0),
+    maxContextSize: Number(row.maxContextSize || row.max_context_size || 0),
+    mfaEnabled: Boolean(row.mfaEnabled || row.mfa_enabled),
+    securityRiskScore: Number(row.securityRiskScore || row.security_risk_score || 0),
+    accessStatus: row.accessStatus || row.access_status || (row.active ? "active" : "suspended"),
+    accessExpiresAt: row.accessExpiresAt || row.access_expires_at || "",
+    lastActiveAt: row.lastActiveAt || row.last_active_at || "",
   };
 }
 
@@ -346,17 +482,79 @@ function safeJson(value, fallback) {
   }
 }
 
+const USER_SELECT = `id, name, email, role, rights, department_id AS departmentId, active,
+  employee_id AS employeeId, designation, team, branch, manager, organization,
+  ai_access_tier AS aiAccessTier, daily_token_limit AS dailyTokenLimit,
+  monthly_token_limit AS monthlyTokenLimit, gpu_quota_minutes AS gpuQuotaMinutes,
+  vram_limit_mb AS vramLimitMb, concurrent_model_limit AS concurrentModelLimit,
+  api_rate_limit_per_minute AS apiRateLimitPerMinute, max_context_size AS maxContextSize,
+  mfa_enabled AS mfaEnabled, security_risk_score AS securityRiskScore,
+  access_status AS accessStatus, access_expires_at AS accessExpiresAt, last_active_at AS lastActiveAt`;
+
 function getUsers(db) {
-  return rows(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users ORDER BY role, name").map(publicUser);
+  return rows(db, `SELECT ${USER_SELECT} FROM users ORDER BY role, name`).map(publicUser);
 }
 
 function activeUser(db) {
   const id = setting(db, "activeUserId", "u-admin");
-  return publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", id) || one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users LIMIT 1"));
+  return publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, id) || one(db, `SELECT ${USER_SELECT} FROM users LIMIT 1`));
 }
 
 function userGroupIds(db, userId) {
   return rows(db, "SELECT group_id AS id FROM user_groups WHERE user_id = ?", userId).map((row) => row.id);
+}
+
+function roleCatalog(db) {
+  return rows(db, "SELECT id, name, description, permissions, system_role AS systemRole FROM role_catalog ORDER BY name").map((role) => ({
+    ...role,
+    permissions: safeJson(role.permissions, []),
+    systemRole: Boolean(role.systemRole),
+  }));
+}
+
+function permissionCatalog(db) {
+  return rows(db, "SELECT key, category, description, risk_level AS riskLevel FROM permission_catalog ORDER BY category, key");
+}
+
+function departmentDefaults(departmentId) {
+  const defaults = {
+    "dept-product": ["chat:use", "models:local:use", "models:coding:use", "workspace:build", "files:upload"],
+    "dept-support": ["chat:use", "models:local:use", "models:reasoning:use", "files:upload"],
+    "dept-general": ["chat:use", "models:local:use"],
+  };
+  return defaults[departmentId] || defaults["dept-general"];
+}
+
+function userOverrides(db, userId) {
+  return rows(db, "SELECT id, user_id AS userId, permission_key AS permissionKey, model_id AS modelId, effect, reason, expires_at AS expiresAt, created_at AS createdAt FROM user_overrides WHERE user_id = ? ORDER BY created_at DESC", userId);
+}
+
+function effectiveAccess(db, user) {
+  const role = one(db, "SELECT permissions FROM role_catalog WHERE id = ?", user.role) || null;
+  const permissions = new Set([...(user.rights || []), ...departmentDefaults(user.departmentId), ...safeJson(role?.permissions, [])]);
+  const denied = new Set();
+  for (const override of userOverrides(db, user.id)) {
+    if (override.expiresAt && new Date(override.expiresAt).getTime() < Date.now()) continue;
+    if (override.effect === "deny") denied.add(override.permissionKey);
+    if (override.effect === "allow") permissions.add(override.permissionKey);
+  }
+  denied.forEach((permission) => permissions.delete(permission));
+  return {
+    permissions: Array.from(permissions).sort(),
+    denied: Array.from(denied).sort(),
+    allowedModelIds: allowedModelIds(db, user),
+    groups: userGroupIds(db, user.id),
+    sourcePriority: ["user override", "department policy", "role permission", "organization default"],
+    quotas: {
+      dailyTokenLimit: user.dailyTokenLimit,
+      monthlyTokenLimit: user.monthlyTokenLimit,
+      gpuQuotaMinutes: user.gpuQuotaMinutes,
+      vramLimitMb: user.vramLimitMb,
+      concurrentModelLimit: user.concurrentModelLimit,
+      apiRateLimitPerMinute: user.apiRateLimitPerMinute,
+      maxContextSize: user.maxContextSize,
+    },
+  };
 }
 
 function allowedModelIds(db, user) {
@@ -373,6 +571,12 @@ function allowedModelIds(db, user) {
   const stmt = db.prepare("SELECT model_id FROM access_grants WHERE subject_type = ? AND subject_id = ? AND can_use = 1");
   for (const [type, id] of subjects) {
     stmt.all(type, id).forEach((row) => ids.add(row.model_id));
+  }
+  for (const override of userOverrides(db, user.id)) {
+    if (!override.modelId) continue;
+    if (override.expiresAt && new Date(override.expiresAt).getTime() < Date.now()) continue;
+    if (override.effect === "allow") ids.add(override.modelId);
+    if (override.effect === "deny") ids.delete(override.modelId);
   }
   return Array.from(ids);
 }
@@ -626,15 +830,15 @@ function settingsState(db) {
     localPermissionMode: setting(db, "localPermissionMode", "default"),
     ollamaUrl: ollamaUrl(db),
     apiModelProvider: setting(db, "apiModelProvider", "not-configured"),
-    anthropicEnabled: setting(db, "anthropicEnabled", "false") === "true",
+    anthropicEnabled: Boolean(setting(db, "anthropicEnabled", false)),
     anthropicApiKey: setting(db, "anthropicApiKey", "") ? "set" : "",
     anthropicBaseUrl: setting(db, "anthropicBaseUrl", ""),
-    openaiEnabled: setting(db, "openaiEnabled", "false") === "true",
+    openaiEnabled: Boolean(setting(db, "openaiEnabled", false)),
     openaiApiKey: setting(db, "openaiApiKey", "") ? "set" : "",
     openaiBaseUrl: setting(db, "openaiBaseUrl", ""),
-    groqEnabled: setting(db, "groqEnabled", "false") === "true",
+    groqEnabled: Boolean(setting(db, "groqEnabled", false)),
     groqApiKey: setting(db, "groqApiKey", "") ? "set" : "",
-    customEnabled: setting(db, "customEnabled", "false") === "true",
+    customEnabled: Boolean(setting(db, "customEnabled", false)),
     customName: setting(db, "customName", ""),
     customApiKey: setting(db, "customApiKey", "") ? "set" : "",
     customBaseUrl: setting(db, "customBaseUrl", ""),
@@ -728,7 +932,7 @@ app.post("/api/auth/login", (req, res) => {
   const db = openSql();
   try {
     const { email, password } = req.body;
-    const row = one(db, "SELECT id, name, email, password_hash, role, rights, department_id AS departmentId, active FROM users WHERE email = ? AND active = 1", email);
+    const row = one(db, `SELECT ${USER_SELECT}, password_hash FROM users WHERE email = ? AND active = 1`, email);
     if (!row || !row.password_hash || !bcrypt.compareSync(String(password || ""), row.password_hash)) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
@@ -766,7 +970,7 @@ app.post("/api/account/password", requireAuth, (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!newPassword || String(newPassword).length < 12) return res.status(400).json({ error: "New password must be at least 12 characters" });
-    const row = one(db, "SELECT id, name, email, password_hash, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id);
+    const row = one(db, `SELECT ${USER_SELECT}, password_hash FROM users WHERE id = ?`, req.user.id);
     if (!row || !bcrypt.compareSync(String(currentPassword || ""), row.password_hash || "")) {
       return res.status(401).json({ error: "Current password is incorrect" });
     }
@@ -783,7 +987,7 @@ app.get("/api/state", requireAuth, async (req, res) => {
   try {
     setSetting(db, "activeUserId", req.user.id);
     await syncOllamaModels(db).catch(() => []);
-    const user = publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id));
+    const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
     const docs = readDocs();
     const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
     res.json({
@@ -796,6 +1000,9 @@ app.get("/api/state", requireAuth, async (req, res) => {
       chats: user.role === "admin" ? Object.values(docs.chats) : [chatFor(user.id)],
       audit: docs.audit.slice(-30).reverse(),
       allowedModelIds: allowedModelIds(db, user),
+      roles: roleCatalog(db),
+      permissions: permissionCatalog(db),
+      effectiveAccess: effectiveAccess(db, user),
       dbConfig: storageConfig(),
       workspace: workspaceForUser(db, user.id),
     });
@@ -811,7 +1018,7 @@ app.get("/api/storage/architecture", requireAuth, (req, res) => {
 app.post("/api/switch-user", requireAdmin, (req, res) => {
   const db = openSql();
   try {
-    const user = one(db, "SELECT id, name, email, role, department_id AS departmentId, active FROM users WHERE id = ?", req.body.userId);
+    const user = one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.body.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
     setSetting(db, "activeUserId", user.id);
     req.user = publicUser(user);
@@ -858,7 +1065,7 @@ app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
 app.post("/api/chat", requireAuth, async (req, res) => {
   const db = openSql();
   try {
-    const user = publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", req.user.id));
+    const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
     if (!hasRight(user, "chat:use")) return res.status(403).json({ error: "Chat access is not enabled for this account" });
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ error: "Message is required" });
@@ -975,22 +1182,53 @@ app.post("/api/admin/model-sources/test", requireAdmin, async (req, res) => {
 app.post("/api/admin/users", requireAdmin, (req, res) => {
   const db = openSql();
   try {
-    const { name, email, role = "user", departmentId = "dept-general", rights = ["chat:use"], password } = req.body;
+    const {
+      name, email, role = "user", departmentId = "dept-general", rights = ["chat:use"], password,
+      employeeId = "", designation = "", team = "", branch = "", manager = "", organization = "Olla Nest",
+      aiAccessTier = "standard", dailyTokenLimit = 50000, monthlyTokenLimit = 1000000,
+      gpuQuotaMinutes = 120, vramLimitMb = 8192, concurrentModelLimit = 1,
+      apiRateLimitPerMinute = 30, maxContextSize = 8192, mfaEnabled = false,
+      securityRiskScore = 10, accessStatus = "active", accessExpiresAt = "",
+    } = req.body;
     if (!name || !email) return res.status(400).json({ error: "Name and email are required" });
     const id = uid("u");
     const passwordHash = bcrypt.hashSync(String(password || DEFAULT_USER_PASSWORD), 12);
-    db.prepare("INSERT INTO users (id, name, email, password_hash, role, rights, department_id, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)").run(
+    db.prepare(`INSERT INTO users
+      (id, name, email, password_hash, role, rights, department_id, active,
+       employee_id, designation, team, branch, manager, organization, ai_access_tier,
+       daily_token_limit, monthly_token_limit, gpu_quota_minutes, vram_limit_mb,
+       concurrent_model_limit, api_rate_limit_per_minute, max_context_size,
+       mfa_enabled, security_risk_score, access_status, access_expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       id,
       name,
       email,
       passwordHash,
       role,
       JSON.stringify(rights),
-      departmentId
+      departmentId,
+      employeeId,
+      designation,
+      team,
+      branch,
+      manager,
+      organization,
+      aiAccessTier,
+      Number(dailyTokenLimit),
+      Number(monthlyTokenLimit),
+      Number(gpuQuotaMinutes),
+      Number(vramLimitMb),
+      Number(concurrentModelLimit),
+      Number(apiRateLimitPerMinute),
+      Number(maxContextSize),
+      mfaEnabled ? 1 : 0,
+      Number(securityRiskScore),
+      accessStatus,
+      accessExpiresAt
     );
     db.prepare("INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)").run(id, "group-all");
     appendAudit(req.user.name, "admin.user.create", `Created user ${email}`);
-    res.json({ ok: true, user: publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", id)) });
+    res.json({ ok: true, user: publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, id)) });
   } catch (error) {
     res.status(400).json({ error: error.message });
   } finally {
@@ -1013,8 +1251,33 @@ app.patch("/api/admin/users/:id", requireAdmin, (req, res) => {
     if (typeof departmentId !== "undefined") db.prepare("UPDATE users SET department_id = ? WHERE id = ?").run(departmentId, req.params.id);
     if (typeof active !== "undefined") db.prepare("UPDATE users SET active = ? WHERE id = ?").run(active ? 1 : 0, req.params.id);
     if (Array.isArray(rights)) db.prepare("UPDATE users SET rights = ? WHERE id = ?").run(JSON.stringify(rights), req.params.id);
+    const mapped = {
+      employeeId: "employee_id",
+      designation: "designation",
+      team: "team",
+      branch: "branch",
+      manager: "manager",
+      organization: "organization",
+      aiAccessTier: "ai_access_tier",
+      dailyTokenLimit: "daily_token_limit",
+      monthlyTokenLimit: "monthly_token_limit",
+      gpuQuotaMinutes: "gpu_quota_minutes",
+      vramLimitMb: "vram_limit_mb",
+      concurrentModelLimit: "concurrent_model_limit",
+      apiRateLimitPerMinute: "api_rate_limit_per_minute",
+      maxContextSize: "max_context_size",
+      mfaEnabled: "mfa_enabled",
+      securityRiskScore: "security_risk_score",
+      accessStatus: "access_status",
+      accessExpiresAt: "access_expires_at",
+    };
+    for (const [bodyKey, column] of Object.entries(mapped)) {
+      if (typeof req.body[bodyKey] === "undefined") continue;
+      const value = bodyKey === "mfaEnabled" ? (req.body[bodyKey] ? 1 : 0) : req.body[bodyKey];
+      db.prepare(`UPDATE users SET ${column} = ? WHERE id = ?`).run(value, req.params.id);
+    }
     appendAudit(req.user.name, "admin.user.update", `Updated user ${req.params.id}`);
-    res.json({ ok: true, user: publicUser(one(db, "SELECT id, name, email, role, rights, department_id AS departmentId, active FROM users WHERE id = ?", req.params.id)) });
+    res.json({ ok: true, user: publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.params.id)) });
   } catch (error) {
     res.status(400).json({ error: error.message });
   } finally {
@@ -1031,6 +1294,82 @@ app.post("/api/admin/users/:id/reset-password", requireAdmin, (req, res) => {
     if (result.changes === 0) return res.status(404).json({ error: "User not found" });
     appendAudit(req.user.name, "admin.user.reset_password", `Reset password for ${req.params.id}`);
     res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+app.get("/api/admin/users/:id/effective-access", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.params.id));
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ ok: true, user, effectiveAccess: effectiveAccess(db, user), overrides: userOverrides(db, user.id) });
+  } finally {
+    db.close();
+  }
+});
+
+app.post("/api/admin/users/:id/overrides", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.params.id));
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const permissionKey = String(req.body.permissionKey || "").trim();
+    const effect = String(req.body.effect || "allow");
+    if (!permissionKey) return res.status(400).json({ error: "Permission is required" });
+    if (!["allow", "deny"].includes(effect)) return res.status(400).json({ error: "Effect must be allow or deny" });
+    db.prepare("INSERT INTO user_overrides (id, user_id, permission_key, model_id, effect, reason, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
+      uid("override"),
+      user.id,
+      permissionKey,
+      req.body.modelId || null,
+      effect,
+      req.body.reason || "",
+      req.body.expiresAt || "",
+      new Date().toISOString()
+    );
+    appendAudit(req.user.name, "admin.access.override", `${effect.toUpperCase()} ${permissionKey} for ${user.email}`);
+    res.json({ ok: true, effectiveAccess: effectiveAccess(db, user), overrides: userOverrides(db, user.id) });
+  } finally {
+    db.close();
+  }
+});
+
+app.delete("/api/admin/overrides/:id", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const result = db.prepare("DELETE FROM user_overrides WHERE id = ?").run(req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: "Override not found" });
+    appendAudit(req.user.name, "admin.access.override.delete", `Deleted override ${req.params.id}`);
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+app.patch("/api/admin/models/:id/governance", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const model = one(db, "SELECT id FROM models WHERE id = ?", req.params.id);
+    if (!model) return res.status(404).json({ error: "Model not found" });
+    const fields = {
+      status: "status",
+      governanceTier: "governance_tier",
+      resourceTier: "resource_tier",
+      gpuRequired: "gpu_required",
+      maxConcurrency: "max_concurrency",
+      maxContextSize: "max_context_size",
+      externalCostTier: "external_cost_tier",
+      sensitiveAllowed: "sensitive_allowed",
+    };
+    for (const [bodyKey, column] of Object.entries(fields)) {
+      if (typeof req.body[bodyKey] === "undefined") continue;
+      const value = ["gpuRequired", "sensitiveAllowed"].includes(bodyKey) ? (req.body[bodyKey] ? 1 : 0) : req.body[bodyKey];
+      db.prepare(`UPDATE models SET ${column} = ? WHERE id = ?`).run(value, req.params.id);
+    }
+    appendAudit(req.user.name, "admin.model.governance", `Updated governance for ${req.params.id}`);
+    res.json({ ok: true, model: parseModel(one(db, "SELECT * FROM models WHERE id = ?", req.params.id)) });
   } finally {
     db.close();
   }

@@ -48,6 +48,10 @@ function renderOverview() {
   $("metricUsers").textContent = state.users.length;
   $("metricGroups").textContent = state.groups.length;
   $("metricDepts").textContent = state.departments.length;
+  if ($("metricRoles")) $("metricRoles").textContent = state.roles?.length || 0;
+  if ($("metricPermissions")) $("metricPermissions").textContent = state.permissions?.length || 0;
+  if ($("metricGovernedModels")) $("metricGovernedModels").textContent = state.models.filter(m => m.governanceTier).length;
+  if ($("metricExternalAccess")) $("metricExternalAccess").textContent = state.settings.allowApiModels ? "On" : "Off";
 }
 
 function capBadges(caps) {
@@ -65,7 +69,7 @@ function capBadges(caps) {
 function renderModels() {
   const models = state.models.filter(m => m.provider === "ollama");
   if (!models.length) {
-    $("modelTableBody").innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:24px;">No local models discovered. Check Ollama connection in Settings.</td></tr>`;
+    $("modelTableBody").innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--muted); padding:24px;">No local models discovered. Check Ollama connection in Settings.</td></tr>`;
     return;
   }
   $("modelTableBody").innerHTML = models.map(m => {
@@ -98,6 +102,17 @@ function renderModels() {
       <td>${statusBadge}</td>
       <td>${speedBar}</td>
       <td>${qualityBar}</td>
+      <td>
+        <select class="select-input input-sm" data-model-tier="${esc(m.id)}" style="min-width:140px;">
+          ${["approved-local", "restricted", "offline-only", "gpu-restricted", "experimental", "deprecated"].map(t => `<option value="${t}" ${m.governanceTier === t ? "selected" : ""}>${t}</option>`).join("")}
+        </select>
+        ${m.sensitiveAllowed ? "" : `<span class="badge badge-red" style="font-size:10px; margin-left:4px;">no sensitive prompts</span>`}
+      </td>
+      <td>
+        <div class="table-sub">${esc(m.resourceTier || "standard")} · ${m.gpuRequired ? "GPU" : "CPU/GPU"}</div>
+        <div class="table-sub">Concurrency ${esc(m.maxConcurrency || 2)}</div>
+        <button class="btn btn-ghost btn-xs" data-save-model="${esc(m.id)}">Save policy</button>
+      </td>
       <td>${capBadges(m.capabilities)}</td>
     </tr>`;
   }).join("");
@@ -122,7 +137,7 @@ function renderUsers() {
       <div class="user-item-avatar" style="${isActive ? "" : "opacity:0.5;"}">${esc(av)}</div>
       <div class="user-item-info">
         <div class="user-item-name">${esc(u.name)} ${isAdmin ? '<span class="badge badge-indigo" style="font-size:10px;">admin</span>' : ""} ${!isActive ? '<span class="badge badge-amber" style="font-size:10px;">inactive</span>' : ""}</div>
-        <div class="user-item-meta">${esc(u.email || "")} · ${esc(dept?.name || "No dept")}</div>
+        <div class="user-item-meta">${esc(u.email || "")} · ${esc(dept?.name || "No dept")} · ${esc(u.aiAccessTier || "standard")} · ${esc(u.dailyTokenLimit || 0)} daily tokens</div>
       </div>
       <div class="user-item-actions">
         <button class="btn btn-secondary btn-xs" data-change-pw="${esc(u.id)}" data-name="${esc(u.name)}">Change Password</button>
@@ -130,6 +145,59 @@ function renderUsers() {
       </div>
     </div>`;
   }).join("");
+}
+
+function renderAccessControl() {
+  if (!$("accessUserSelect")) return;
+  $("accessUserSelect").innerHTML = state.users.map(u => `<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.email)}</option>`).join("");
+  $("overridePermission").innerHTML = (state.permissions || []).map(p => `<option value="${esc(p.key)}">${esc(p.key)} · ${esc(p.riskLevel)}</option>`).join("");
+  $("roleMatrixBody").innerHTML = (state.roles || []).map(role => `
+    <tr>
+      <td><div class="table-name">${esc(role.name)}</div><div class="table-sub">${esc(role.id)}</div></td>
+      <td>${esc(role.description || "")}</td>
+      <td>${(role.permissions || []).map(p => `<span class="badge badge-default" style="font-size:10px; margin:2px;">${esc(p)}</span>`).join("")}</td>
+    </tr>
+  `).join("");
+  renderEffectiveAccess();
+}
+
+async function renderEffectiveAccess() {
+  if (!$("effectiveAccessPanel")) return;
+  const user = state.users.find(u => u.id === $("accessUserSelect").value) || state.users[0];
+  if (!user) {
+    $("effectiveAccessPanel").innerHTML = `<div class="empty-state">No users found.</div>`;
+    return;
+  }
+  const dept = state.departments.find(d => d.id === user.departmentId);
+  let access = null;
+  try {
+    const result = await api(`/api/admin/users/${encodeURIComponent(user.id)}/effective-access`);
+    access = result?.effectiveAccess;
+  } catch {
+    access = null;
+  }
+  const allowedIds = new Set(access?.allowedModelIds || []);
+  const allowedModels = state.models.filter(m => allowedIds.has(m.id));
+  const permissions = new Set(access?.permissions || user.rights || []);
+  $("effectiveAccessPanel").innerHTML = `
+    <div class="access-summary">
+      <div><span class="access-label">Department</span><strong>${esc(dept?.name || "No department")}</strong></div>
+      <div><span class="access-label">Tier</span><strong>${esc(user.aiAccessTier || "standard")}</strong></div>
+      <div><span class="access-label">GPU quota</span><strong>${esc(user.gpuQuotaMinutes || 0)} min</strong></div>
+      <div><span class="access-label">Risk</span><strong>${esc(user.securityRiskScore || 0)}/100</strong></div>
+    </div>
+    <div class="access-section-title">AI Usage Permissions</div>
+    <div class="badge-wrap">${Array.from(permissions).sort().map(p => `<span class="badge badge-green">${esc(p)}</span>`).join("")}</div>
+    <div class="access-section-title">Approved Models</div>
+    <div class="badge-wrap">${allowedModels.slice(0, 12).map(m => `<span class="badge badge-blue">${esc(m.name)}</span>`).join("") || `<span class="badge badge-amber">No approved models</span>`}</div>
+    <div class="access-section-title">Resource Limits</div>
+    <div class="quota-grid">
+      <div>Daily tokens <strong>${esc(user.dailyTokenLimit || 0)}</strong></div>
+      <div>Monthly tokens <strong>${esc(user.monthlyTokenLimit || 0)}</strong></div>
+      <div>VRAM limit <strong>${esc(user.vramLimitMb || 0)} MB</strong></div>
+      <div>Context <strong>${esc(user.maxContextSize || 0)}</strong></div>
+    </div>
+  `;
 }
 
 function maskKey(el, isSet) {
@@ -198,6 +266,7 @@ function renderAll() {
   renderOverview();
   renderModels();
   renderUsers();
+  renderAccessControl();
   renderSettings();
   renderAudit();
 }
@@ -231,6 +300,7 @@ const tabTitles = {
   overview: "Company Dashboard",
   models: "Local Models",
   users: "User Management",
+  access: "Access Control",
   settings: "System Settings",
   audit: "Audit Trail",
 };
@@ -273,6 +343,29 @@ $("syncModelsBtn").addEventListener("click", async () => {
   }
 });
 
+$("modelTableBody").addEventListener("click", async (e) => {
+  const modelId = e.target.dataset.saveModel;
+  if (!modelId) return;
+  const tier = document.querySelector(`[data-model-tier="${CSS.escape(modelId)}"]`)?.value || "approved-local";
+  e.target.disabled = true;
+  e.target.textContent = "Saving…";
+  try {
+    await api(`/api/admin/models/${encodeURIComponent(modelId)}/governance`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        governanceTier: tier,
+        gpuRequired: tier === "gpu-restricted",
+        resourceTier: tier === "gpu-restricted" ? "gpu-heavy" : tier === "offline-only" ? "private" : "standard",
+        sensitiveAllowed: tier !== "experimental",
+      }),
+    });
+    await loadState();
+  } finally {
+    e.target.disabled = false;
+    e.target.textContent = "Save policy";
+  }
+});
+
 // Save router/model settings
 $("saveSettingsBtn").addEventListener("click", async () => {
   const msg = $("settingsMsg");
@@ -288,7 +381,6 @@ $("saveSettingsBtn").addEventListener("click", async () => {
         localWritesEnabled: $("localWritesEnabled").checked,
         localPermissionMode: $("localPermissionMode").value,
         workspaceRoot: $("workspaceRoot").value.trim() || undefined,
-        apiModelProvider: $("apiModelProvider").value,
       }),
     });
     msg.className = "form-message success";
@@ -393,9 +485,15 @@ $("createUserForm").addEventListener("submit", async (e) => {
         role,
         departmentId: $("newUserDept").value,
         password: $("newUserPassword").value || undefined,
+        designation: $("newUserDesignation").value.trim(),
+        team: $("newUserTeam").value.trim(),
+        aiAccessTier: $("newUserTier").value,
+        dailyTokenLimit: Number($("newUserDailyTokens").value || 50000),
         rights: role === "admin"
           ? ["admin:manage", "chat:use", "models:manage", "users:manage"]
-          : ["chat:use"],
+          : $("newUserTier").value === "developer"
+            ? ["chat:use", "models:local:use", "models:coding:use", "workspace:build"]
+            : ["chat:use", "models:local:use"],
       }),
     });
     e.target.reset();
@@ -409,6 +507,38 @@ $("createUserForm").addEventListener("submit", async (e) => {
     msg.textContent = err.message;
   }
 });
+
+if ($("accessUserSelect")) {
+  $("accessUserSelect").addEventListener("change", renderEffectiveAccess);
+}
+
+if ($("saveOverrideBtn")) {
+  $("saveOverrideBtn").addEventListener("click", async () => {
+    const msg = $("overrideMsg");
+    const userId = $("accessUserSelect").value;
+    msg.className = "form-message";
+    msg.textContent = "";
+    try {
+      await api(`/api/admin/users/${userId}/overrides`, {
+        method: "POST",
+        body: JSON.stringify({
+          permissionKey: $("overridePermission").value,
+          effect: $("overrideEffect").value,
+          reason: $("overrideReason").value.trim(),
+          expiresAt: $("overrideExpires").value,
+        }),
+      });
+      msg.className = "form-message success";
+      msg.textContent = "Override applied.";
+      $("overrideReason").value = "";
+      $("overrideExpires").value = "";
+      await loadState();
+    } catch (err) {
+      msg.className = "form-message error";
+      msg.textContent = err.message;
+    }
+  });
+}
 
 // User list actions (change password / toggle active)
 $("userList").addEventListener("click", async (e) => {

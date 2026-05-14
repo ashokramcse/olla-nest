@@ -34,6 +34,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Users
         </button>
+        <button class="nav-item" data-tab="access">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          Access Control
+        </button>
         <button class="nav-item" data-tab="settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           Settings
@@ -144,6 +148,8 @@
                 <th>Status</th>
                 <th>Speed</th>
                 <th>Quality</th>
+                <th>Governance</th>
+                <th>Resources</th>
                 <th>Capabilities</th>
               </tr></thead>
               <tbody id="modelTableBody"></tbody>
@@ -195,6 +201,28 @@
                     <label class="input-label">Temporary password</label>
                     <input class="input input-sm" id="newUserPassword" type="password" placeholder="Min 12 characters" />
                   </div>
+                  <div class="input-group">
+                    <label class="input-label">Designation</label>
+                    <input class="input input-sm" id="newUserDesignation" placeholder="AI Developer" />
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Team</label>
+                    <input class="input input-sm" id="newUserTeam" placeholder="Platform" />
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">AI access tier</label>
+                    <select class="select-input input-sm" id="newUserTier">
+                      <option value="standard">Standard</option>
+                      <option value="developer">Developer</option>
+                      <option value="research">Research</option>
+                      <option value="restricted">Restricted</option>
+                      <option value="executive">Executive</option>
+                    </select>
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Daily token limit</label>
+                    <input class="input input-sm" id="newUserDailyTokens" type="number" value="50000" />
+                  </div>
                 </div>
                 <div style="margin-top:4px;">
                   <button class="btn btn-primary" type="submit">Create Account</button>
@@ -211,6 +239,87 @@
           <div class="card-body" style="padding-top:8px;">
             <div id="userMsg2" class="form-message" style="margin-bottom:8px;"></div>
             <div id="userList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Access Control tab -->
+      <div class="tab-view page-content" id="tab-access">
+        <div class="page-header">
+          <p class="eyebrow">Enterprise Governance</p>
+          <h1>User Management &amp; Access Control</h1>
+        </div>
+
+        <div class="metrics-row">
+          <div class="metric-card">
+            <div class="metric-label">RBAC Roles</div>
+            <div class="metric-value" id="metricRoles">0</div>
+            <div class="metric-sub">Enterprise role templates</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Permissions</div>
+            <div class="metric-value" id="metricPermissions">0</div>
+            <div class="metric-sub">AI usage controls</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Governed Models</div>
+            <div class="metric-value" id="metricGovernedModels">0</div>
+            <div class="metric-sub">With model policies</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">External AI</div>
+            <div class="metric-value" id="metricExternalAccess">Off</div>
+            <div class="metric-sub">Cloud provider access</div>
+          </div>
+        </div>
+
+        <div class="section-grid grid-2" style="margin-top:20px;">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Effective Access Viewer</span></div>
+            <div class="card-body">
+              <div class="input-group">
+                <label class="input-label">Employee</label>
+                <select class="select-input" id="accessUserSelect"></select>
+              </div>
+              <div id="effectiveAccessPanel" class="access-panel"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">User Override</span></div>
+            <div class="card-body">
+              <div class="input-group">
+                <label class="input-label">Permission</label>
+                <select class="select-input" id="overridePermission"></select>
+              </div>
+              <div class="input-group">
+                <label class="input-label">Effect</label>
+                <select class="select-input" id="overrideEffect">
+                  <option value="allow">Allow</option>
+                  <option value="deny">Deny</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <label class="input-label">Reason</label>
+                <input class="input" id="overrideReason" placeholder="Temporary project access, security restriction, etc." />
+              </div>
+              <div class="input-group">
+                <label class="input-label">Expires at</label>
+                <input class="input" id="overrideExpires" type="date" />
+              </div>
+              <button class="btn btn-primary" id="saveOverrideBtn">Apply Override</button>
+              <div id="overrideMsg" class="form-message mt-2"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header"><span class="card-title">Permission Matrix</span></div>
+          <div class="card-body" style="padding:0; overflow-x:auto;">
+            <table class="data-table">
+              <thead><tr><th>Role</th><th>Description</th><th>Permissions</th></tr></thead>
+              <tbody id="roleMatrixBody"></tbody>
+            </table>
           </div>
         </div>
       </div>

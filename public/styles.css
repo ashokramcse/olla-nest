@@ -805,6 +805,63 @@ h3 { font-size: 15px; font-weight: 600; line-height: 1.4; }
 .user-item-meta { font-size: 12px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .user-item-actions { display: flex; gap: 5px; flex-shrink: 0; }
 
+.access-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.access-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.access-summary > div,
+.quota-grid > div {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: #FAFBFC;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.access-label {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 4px;
+}
+
+.access-section-title {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-top: 4px;
+}
+
+.badge-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quota-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quota-grid strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+}
+
 /* Audit */
 .audit-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid #F1F5F9; }
 .audit-item:last-child { border-bottom: 0; }
