@@ -156,15 +156,16 @@ async function checkOllama() {
     const data = await api("/api/ollama/models");
     if (!data) return;
     if (data.ok) {
-      pill.textContent = `${data.models.length} local model${data.models.length === 1 ? "" : "s"}`;
+      pill.textContent = `${data.models.length} model${data.models.length === 1 ? "" : "s"} live`;
       pill.className = "status-pill ok";
     } else {
-      pill.textContent = "Ollama not connected";
+      const cached = state?.models?.filter(m => m.provider === "ollama").length || 0;
+      pill.textContent = cached ? `Ollama offline · ${cached} cached` : "Ollama not connected";
       pill.className = "status-pill off";
     }
   } catch {
-    pill.textContent = "Ollama error";
-    pill.className = "status-pill error";
+    pill.textContent = "Ollama not connected";
+    pill.className = "status-pill off";
   }
 }
 

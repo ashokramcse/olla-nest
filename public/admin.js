@@ -43,42 +43,11 @@ function renderIdentity() {
 }
 
 function renderOverview() {
-  // Metrics
   const localModels = state.models.filter(m => m.provider === "ollama" && m.status === "available");
   $("metricModels").textContent = localModels.length;
   $("metricUsers").textContent = state.users.length;
   $("metricGroups").textContent = state.groups.length;
   $("metricDepts").textContent = state.departments.length;
-
-  // Access policy
-  $("overviewPolicy").innerHTML = [
-    { title: "User grants", desc: "Direct model access for specific employees." },
-    { title: "Group grants", desc: "Shared access for teams and roles like Builders or All Employees." },
-    { title: "Department grants", desc: "Company departments receive model access independently." },
-    { title: "Auto Router", desc: "Matches each request to the best approved model by capability, speed, quality, and privacy score." },
-  ].map(p => `<div class="policy-item">
-    <div class="policy-title">${esc(p.title)}</div>
-    <div class="policy-desc">${esc(p.desc)}</div>
-  </div>`).join("");
-
-  // Storage
-  const db = state.dbConfig;
-  const curr = db.localDevelopment;
-  const prod = db.recommendedProduction;
-  $("overviewStorage").innerHTML = `
-    <p class="text-sm text-muted mb-3">Current mode: <span class="badge badge-indigo">${esc(db.mode)}</span></p>
-    <div class="policy-item">
-      <div class="policy-title">SQL layer <span class="badge badge-default" style="margin-left:6px;">${esc(curr.sql.provider)}</span></div>
-      <div class="policy-desc">Production: ${esc(prod.sql.provider)} — users, groups, models, permissions</div>
-    </div>
-    <div class="policy-item">
-      <div class="policy-title">Document layer <span class="badge badge-default" style="margin-left:6px;">${esc(curr.document.provider)}</span></div>
-      <div class="policy-desc">Production: ${esc(prod.document.provider)} — chat history, AI traces</div>
-    </div>
-    <div class="policy-item">
-      <div class="policy-title">Realtime layer <span class="badge badge-default" style="margin-left:6px;">${esc(curr.realtime.provider)}</span></div>
-      <div class="policy-desc">Production: ${esc(prod.realtime.provider)} — streaming, sessions, queues</div>
-    </div>`;
 }
 
 function capBadges(caps) {
@@ -161,6 +130,11 @@ function renderUsers() {
   }).join("");
 }
 
+function maskKey(el, isSet) {
+  el.value = isSet ? "••••••••" : "";
+  el.dataset.masked = isSet ? "1" : "0";
+}
+
 function renderSettings() {
   const s = state.settings;
   $("routerEnabled").checked = !!s.routerEnabled;
@@ -169,8 +143,35 @@ function renderSettings() {
   $("localWritesEnabled").checked = !!s.localWritesEnabled;
   $("localPermissionMode").value = s.localPermissionMode || "default";
   $("workspaceRoot").value = s.workspaceRoot || "";
-  $("ollamaUrl").value = s.ollamaUrl || "http://localhost:11434";
-  $("apiModelProvider").value = s.apiModelProvider || "not-configured";
+  $("ollamaUrl").value = s.ollamaUrl || "http://host.docker.internal:11434";
+  // Provider fields
+  $("anthropicEnabled").checked = !!s.anthropicEnabled;
+  maskKey($("anthropicApiKey"), s.anthropicApiKey === "set");
+  $("anthropicBaseUrl").value = s.anthropicBaseUrl || "";
+  $("openaiEnabled").checked = !!s.openaiEnabled;
+  maskKey($("openaiApiKey"), s.openaiApiKey === "set");
+  $("openaiBaseUrl").value = s.openaiBaseUrl || "";
+  $("groqEnabled").checked = !!s.groqEnabled;
+  maskKey($("groqApiKey"), s.groqApiKey === "set");
+  $("customEnabled").checked = !!s.customEnabled;
+  $("customName").value = s.customName || "";
+  maskKey($("customApiKey"), s.customApiKey === "set");
+  $("customBaseUrl").value = s.customBaseUrl || "";
+  renderSourcePills();
+}
+
+function renderSourcePills() {
+  const s = state.settings;
+  const active = [
+    { name: "Ollama", cls: "badge-green" },
+    s.anthropicEnabled && { name: "Anthropic", cls: "badge-blue" },
+    s.openaiEnabled && { name: "OpenAI", cls: "badge-blue" },
+    s.groqEnabled && { name: "Groq", cls: "badge-blue" },
+    s.customEnabled && { name: s.customName || "Custom", cls: "badge-default" },
+  ].filter(Boolean);
+  $("activeSourcePills").innerHTML = active.map(p =>
+    `<span class="badge ${p.cls}" style="font-size:10px;">${esc(p.name)}</span>`
+  ).join("");
 }
 
 function renderAudit() {
@@ -211,15 +212,16 @@ async function checkOllama() {
     const data = await api("/api/ollama/models");
     if (!data) return;
     if (data.ok) {
-      pill.textContent = `${data.models.length} local model${data.models.length === 1 ? "" : "s"}`;
+      pill.textContent = `${data.models.length} model${data.models.length === 1 ? "" : "s"} live`;
       pill.className = "status-pill ok";
     } else {
-      pill.textContent = "Ollama not connected";
+      const cached = state?.models?.filter(m => m.provider === "ollama").length || 0;
+      pill.textContent = cached ? `Ollama offline · ${cached} cached` : "Ollama not connected";
       pill.className = "status-pill off";
     }
   } catch {
-    pill.textContent = "Ollama error";
-    pill.className = "status-pill error";
+    pill.textContent = "Ollama not connected";
+    pill.className = "status-pill off";
   }
 }
 
@@ -345,6 +347,20 @@ $("saveModelSourceBtn").addEventListener("click", async () => {
   }
 });
 
+// Add Employee toggle
+$("toggleAddUserBtn").addEventListener("click", () => {
+  const panel = $("addUserPanel");
+  const open = panel.style.display !== "none";
+  panel.style.display = open ? "none" : "block";
+  $("toggleAddUserBtn").textContent = open ? "+ Add Employee" : "− Cancel";
+});
+
+$("cancelAddUserBtn").addEventListener("click", () => {
+  $("addUserPanel").style.display = "none";
+  $("toggleAddUserBtn").textContent = "+ Add Employee";
+  $("createUserForm").reset();
+});
+
 // Create user
 $("createUserForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -367,6 +383,8 @@ $("createUserForm").addEventListener("submit", async (e) => {
       }),
     });
     e.target.reset();
+    $("addUserPanel").style.display = "none";
+    $("toggleAddUserBtn").textContent = "+ Add Employee";
     msg.className = "form-message success";
     msg.textContent = "Account created successfully.";
     await loadState();
@@ -378,7 +396,7 @@ $("createUserForm").addEventListener("submit", async (e) => {
 
 // User list actions (reset password / toggle active)
 $("userList").addEventListener("click", async (e) => {
-  const msg = $("userMsg");
+  const msg = $("userMsg2");
   const resetId = e.target.dataset.reset;
   const toggleId = e.target.dataset.toggle;
 
@@ -403,13 +421,67 @@ $("userList").addEventListener("click", async (e) => {
         body: JSON.stringify({ active: e.target.dataset.next === "1" }),
       });
       await loadState();
-      msg.className = "form-message success";
-      msg.textContent = "User status updated.";
     } catch (err) {
       msg.className = "form-message error";
       msg.textContent = err.message;
     }
   }
+});
+
+// Model Sources toggle
+$("toggleSourcesBtn").addEventListener("click", () => {
+  const panel = $("modelSourcesPanel");
+  const open = panel.style.display !== "none";
+  panel.style.display = open ? "none" : "block";
+  $("toggleSourcesBtn").textContent = open ? "Configure Sources" : "Close";
+});
+
+// Clear masked key on focus so user can type a new value
+["anthropicApiKey", "openaiApiKey", "groqApiKey", "customApiKey"].forEach(id => {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("focus", () => {
+    if (el.dataset.masked === "1") { el.value = ""; el.dataset.masked = "0"; }
+  });
+});
+
+async function saveProvider(fields, msgId) {
+  const msg = $(msgId);
+  msg.className = "form-message";
+  msg.textContent = "";
+  try {
+    await api("/api/admin/settings", { method: "POST", body: JSON.stringify(fields) });
+    msg.className = "form-message success";
+    msg.textContent = "Saved.";
+    await loadState();
+  } catch (err) {
+    msg.className = "form-message error";
+    msg.textContent = err.message;
+  }
+}
+
+$("saveAnthropicBtn").addEventListener("click", () => {
+  const fields = { anthropicEnabled: $("anthropicEnabled").checked, anthropicBaseUrl: $("anthropicBaseUrl").value.trim() };
+  if ($("anthropicApiKey").dataset.masked !== "1") fields.anthropicApiKey = $("anthropicApiKey").value;
+  saveProvider(fields, "anthropicMsg");
+});
+
+$("saveOpenaiBtn").addEventListener("click", () => {
+  const fields = { openaiEnabled: $("openaiEnabled").checked, openaiBaseUrl: $("openaiBaseUrl").value.trim() };
+  if ($("openaiApiKey").dataset.masked !== "1") fields.openaiApiKey = $("openaiApiKey").value;
+  saveProvider(fields, "openaiMsg");
+});
+
+$("saveGroqBtn").addEventListener("click", () => {
+  const fields = { groqEnabled: $("groqEnabled").checked };
+  if ($("groqApiKey").dataset.masked !== "1") fields.groqApiKey = $("groqApiKey").value;
+  saveProvider(fields, "groqMsg");
+});
+
+$("saveCustomBtn").addEventListener("click", () => {
+  const fields = { customEnabled: $("customEnabled").checked, customName: $("customName").value.trim(), customBaseUrl: $("customBaseUrl").value.trim() };
+  if ($("customApiKey").dataset.masked !== "1") fields.customApiKey = $("customApiKey").value;
+  saveProvider(fields, "customMsg");
 });
 
 loadState().then(checkOllama);
