@@ -10,16 +10,12 @@ const PORT = process.env.PORT || 3000;
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://host.docker.internal:11434";
 const DATA_DIR = path.join(__dirname, "data");
 const DEFAULT_WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || path.join(DATA_DIR, "workspace");
-const STORAGE_MODE = process.env.STORAGE_MODE || "local";
-const DATABASE_URL = process.env.DATABASE_URL || "postgresql://olla_nest:olla_nest@localhost:5432/olla_nest";
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/olla_nest";
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const SQL_PATH = process.env.SQLITE_PATH || path.join(DATA_DIR, "olla-nest.sqlite");
 const DOC_PATH = process.env.DOCUMENT_DB_PATH || path.join(DATA_DIR, "documents.json");
 const DEFAULT_ADMIN_EMAIL = process.env.DEFAULT_ADMIN_EMAIL || "admin@ollanest.local";
 const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || "ChangeMe!CreateARealPassword123";
 const DEFAULT_USER_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "UserDemo!12345";
-const STATIC_DIR = fs.existsSync(path.join(__dirname, "dist")) ? path.join(__dirname, "dist") : path.join(__dirname, "public");
+const STATIC_DIR = path.join(__dirname, "public");
 const sessions = new Map();
 
 function enforceDockerRuntime() {
@@ -853,40 +849,6 @@ function settingsState(db) {
     customName: setting(db, "customName", ""),
     customApiKey: setting(db, "customApiKey", "") ? "set" : "",
     customBaseUrl: setting(db, "customBaseUrl", ""),
-    sqlProvider: setting(db, "sqlProvider", "sqlite"),
-    documentProvider: setting(db, "documentProvider", "json-document-store"),
-    realtimeProvider: setting(db, "realtimeProvider", "in-memory"),
-  };
-}
-
-function storageConfig() {
-  return {
-    mode: STORAGE_MODE,
-    recommendedProduction: {
-      sql: {
-        provider: "postgresql",
-        role: "Structural core and source of truth",
-        url: DATABASE_URL.replace(/:\/\/([^:]+):([^@]+)@/, "://$1:***@"),
-        responsibilities: ["users", "groups", "departments", "permissions", "model registry", "agent state", "billing", "pgvector RAG"],
-      },
-      document: {
-        provider: "mongodb",
-        role: "Cognitive archive and long-term memory",
-        uri: MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, "://$1:***@"),
-        responsibilities: ["chat history", "thought traces", "tool outputs", "unstructured AI artifacts"],
-      },
-      realtime: {
-        provider: "redis",
-        role: "Real-time nerve system",
-        url: REDIS_URL.replace(/:\/\/([^:]+):([^@]+)@/, "://$1:***@"),
-        responsibilities: ["token streaming", "session state", "rate limits", "queues", "pub/sub"],
-      },
-    },
-    localDevelopment: {
-      sql: { provider: "sqlite", path: SQL_PATH },
-      document: { provider: "json-document-store", path: DOC_PATH },
-      realtime: { provider: "in-memory" },
-    },
   };
 }
 
@@ -1014,26 +976,8 @@ app.get("/api/state", requireAuth, async (req, res) => {
       roles: roleCatalog(db),
       permissions: permissionCatalog(db),
       effectiveAccess: effectiveAccess(db, user),
-      dbConfig: storageConfig(),
       workspace: workspaceForUser(db, user.id),
     });
-  } finally {
-    db.close();
-  }
-});
-
-app.get("/api/storage/architecture", requireAuth, (req, res) => {
-  res.json(storageConfig());
-});
-
-app.post("/api/switch-user", requireAdmin, (req, res) => {
-  const db = openSql();
-  try {
-    const user = one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.body.userId);
-    if (!user) return res.status(404).json({ error: "User not found" });
-    setSetting(db, "activeUserId", user.id);
-    req.user = publicUser(user);
-    res.json({ ok: true });
   } finally {
     db.close();
   }
