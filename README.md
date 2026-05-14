@@ -23,6 +23,8 @@ Most AI dashboards make users choose the model. Olla Nest adds a company control
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose v2
 - [Ollama](https://ollama.com) running on the host machine with at least one model pulled
 
+Olla Nest is **Docker-only**. The app intentionally does not support `npm start`, `node server.js`, or a local frontend dev server on the host machine. Docker is the product runtime, so every user, contributor, and deployment follows the same path.
+
 ---
 
 ## Quick Start
@@ -99,15 +101,6 @@ docker compose down && docker compose up --build
 | `docker compose restart app` | Restart the app container only |
 | `docker compose pull` | Pull latest base images |
 
-Or use the npm shortcuts (requires Node locally only to run the shortcut — Docker does the actual work):
-
-```bash
-npm run docker:up       # docker compose up --build
-npm run docker:down     # docker compose down
-npm run docker:logs     # docker compose logs -f app
-npm run docker:restart  # docker compose restart app
-```
-
 ---
 
 ## App Routes
@@ -172,7 +165,7 @@ Olla Nest uses local SQLite and a JSON document store inside the Docker volume �
 
 | Store | File | Contains |
 |---|---|---|
-| SQLite | `/app/data/olla-nest.sqlite` | Users, groups, departments, models, permissions, settings |
+| SQLite | `/app/data/olla-nest.sqlite` | Users, roles, permissions, departments, groups, model governance, user overrides, settings |
 | JSON | `/app/data/documents.json` | Chat history, audit log, router traces, workspace prefs |
 | Volume | `app-data` | Persistent data across container restarts |
 
@@ -188,6 +181,7 @@ docker compose down -v   # removes the volume — destructive
 
 ```text
 server.js               Express backend — API, auth, routing logic, Ollama integration, file writes
+package.json            Docker helper scripts and container-only start command
 public/
   login.html            Sign-in page
   login.js
@@ -207,6 +201,8 @@ Dockerfile              Node 24 Alpine image
 .env.example            Environment variable reference
 docs/
   ARCHITECTURE.md       Database strategy and product stack direction
+  ENTERPRISE_ACCESS_CONTROL.md
+                        Enterprise user management and governance design
   DEPLOYMENT.md         Deployment reference
 ```
 

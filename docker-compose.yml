@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3000
+      OLLA_NEST_DOCKER_RUNTIME: "true"
       STORAGE_MODE: local
       DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@ollanest.local}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-CHANGE_ME_ON_FIRST_BOOT}

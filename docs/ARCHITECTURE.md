@@ -27,6 +27,12 @@ Host machine
 | AI inference | Ollama (host) | Local model execution |
 | Container | Docker + Docker Compose | Only supported runtime |
 
+### Docker-Only Runtime Contract
+
+The application is designed to run only in Docker. `server.js` checks for Docker runtime signals (`/.dockerenv` or `OLLA_NEST_DOCKER_RUNTIME=true`) during startup. Host-machine starts are blocked by default so production, demos, and contributor testing all use the same container path.
+
+The Docker image sets `OLLA_NEST_DOCKER_RUNTIME=true`, and `docker-compose.yml` repeats it for clarity. The container starts with `npm run container:start`; the public `npm start` command is intentionally disabled to avoid accidental local runs.
+
 ---
 
 ## Request Flow
@@ -42,7 +48,7 @@ Express (server.js)
   ├── /api/state        → load user, models, settings, chat
   ├── /api/chat         → classify → route → Ollama → response → optional file write
   ├── /api/ollama/*     → model discovery and sync
-  ├── /api/admin/*      → user management, settings, model sources
+  ├── /api/admin/*      → user management, RBAC, settings, model governance, model sources
   └── /api/account/*    → password change
   │
   ▼
@@ -72,12 +78,15 @@ All relational data lives in a single SQLite database at `/app/data/olla-nest.sq
 
 | Table | Contents |
 |---|---|
-| `users` | Accounts, email, password hash, role, rights, department |
+| `users` | Accounts, profile fields, password hash, role, rights, department, AI access tier, quotas, security status |
 | `groups` | Named access groups |
 | `departments` | Company departments |
 | `user_groups` | User-to-group membership |
-| `models` | Discovered Ollama models with scores and capabilities |
+| `models` | Discovered Ollama models with scores, capabilities, governance status, sensitivity, runtime limits |
 | `access_grants` | Model access by user / group / department |
+| `role_catalog` | Enterprise RBAC role templates and permission sets |
+| `permission_catalog` | AI usage, admin, model, workflow, and infrastructure permissions |
+| `user_overrides` | Individual user access overrides that outrank department and role defaults |
 | `settings` | Key-value configuration (router toggle, Ollama URL, workspace root, etc.) |
 
 ### JSON Document Store (cognitive archive)
@@ -99,6 +108,17 @@ Flexible document data lives in `/app/data/documents.json`:
 - Sessions expire after 12 hours
 - Passwords are hashed with bcrypt (cost factor 12)
 - No external auth provider in MVP — admin creates accounts manually
+
+## Enterprise Access Model
+
+Access is evaluated in this order:
+
+1. User override
+2. Department policy
+3. Role permission template
+4. Organization default
+
+The current MVP implements the data foundation and admin screens for users, roles, permissions, model governance, and overrides. Future enterprise connectors such as SSO, SCIM, LDAP, Google Workspace, and Microsoft Entra should attach to the same access model instead of bypassing it.
 
 ---
 
@@ -142,9 +162,9 @@ These are not used in the current Docker image. The `infra/postgres/init.sql` fi
 | Layer | Current | Target |
 |---|---|---|
 | Backend | Node.js JS | Node.js TypeScript |
-| Frontend | Plain HTML/CSS/JS | React + Vite |
-| Desktop | — | Tauri (wraps the web UI) |
-| Mobile | — | React Native / Expo |
+| Frontend | Docker-served HTML/CSS/JS | React + Vite served only through Docker |
+| Desktop | — | Tauri wrapper around the Docker-backed web UI |
+| Mobile | — | React Native / Expo against the same APIs |
 | SQL | SQLite | PostgreSQL + pgvector |
 | Document | JSON | MongoDB |
 | Realtime | In-memory | Redis |

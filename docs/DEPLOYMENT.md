@@ -1,6 +1,8 @@
 # Deployment
 
-Olla Nest runs exclusively via Docker. There is no local Node.js development mode.
+Olla Nest runs exclusively via Docker. There is no local Node.js development mode and no host-machine frontend dev server.
+
+The server enforces this at startup. `npm start` intentionally exits with a Docker-only message, and `node server.js` exits unless it is running inside the container. The only supported way to run the product is Docker Compose.
 
 ---
 
@@ -30,6 +32,8 @@ Open: **http://localhost:3000**
 
 The login page will appear. Use the credentials from `.env` (defaults shown below).
 
+Do not start the app with `npm start` or `node server.js` on the host. For rare one-off diagnostics, maintainers can set `ALLOW_NON_DOCKER=1`, but that path is unsupported for normal use and should not be documented as a user setup.
+
 ---
 
 ## Environment Variables
@@ -44,6 +48,8 @@ All configuration is done via `.env`. Copy `.env.example` to `.env` and edit bef
 | `OLLAMA_URL` | `http://host.docker.internal:11434` | URL the container uses to reach Ollama |
 
 > Credentials set in `.env` are only used during the **first boot** to seed the database. Changing them after first boot requires resetting the database (see below) or updating via the Admin dashboard.
+
+`OLLA_NEST_DOCKER_RUNTIME=true` is set by the Docker image and Compose file. Do not move it into local host workflows.
 
 ---
 
@@ -92,7 +98,7 @@ All data is stored inside the `app-data` named Docker volume:
 
 | Path in container | Contents |
 |---|---|
-| `/app/data/olla-nest.sqlite` | Users, groups, departments, models, permissions, settings |
+| `/app/data/olla-nest.sqlite` | Users, roles, permissions, departments, groups, model governance, user overrides, settings |
 | `/app/data/documents.json` | Chat history, audit log, router traces, workspace preferences |
 | `/app/data/workspace/` | Default local output folder for Build/Fix file writes |
 
@@ -124,6 +130,21 @@ docker compose up --build
 ```
 
 The app migrates the SQLite schema automatically on startup (additive changes only). Existing data is preserved.
+
+## Validation
+
+Before publishing a change, validate the Docker setup:
+
+```bash
+docker compose config --quiet
+docker compose build app
+docker compose up -d
+docker compose ps
+docker compose logs --tail=80 app
+docker compose down
+```
+
+The container command is `npm run container:start`, which starts `server.js` inside Docker after the Docker-only runtime flag is set.
 
 ---
 
