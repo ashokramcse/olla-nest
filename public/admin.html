@@ -64,7 +64,7 @@ body{
   background:#ffffff80;backdrop-filter:blur(8px);
   border:1px solid var(--line-soft);
   padding:5px;border-radius:999px;
-  margin-bottom:24px;flex-wrap:wrap;
+  margin:0 auto 24px;width:fit-content;flex-wrap:wrap;
 }
 .nav-item{
   display:inline-flex;align-items:center;
@@ -442,6 +442,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Refresh
       </button>
+      <div class="admin-identity">
+        <div class="admin-av" id="adminAvatar">A</div>
+        <div class="admin-name-sm" id="adminName">Admin</div>
+      </div>
       <button class="icon-btn" id="logoutBtn" title="Sign out">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
@@ -460,11 +464,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       <button class="nav-item" data-tab="settings">Settings</button>
       <button class="nav-item" data-tab="audit" style="display:none;">Audit Log</button>
 
-      <!-- Admin identity pill -->
-      <div class="admin-identity">
-        <div class="admin-av" id="adminAvatar">A</div>
-        <div class="admin-name-sm" id="adminName">Admin</div>
-      </div>
     </div>
 
     <!-- Content (full width) -->
