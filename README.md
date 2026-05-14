@@ -142,7 +142,9 @@ Admins access `/admin` and can:
 
 - **Overview** — model count, user count, group count, department count
 - **Local Models** — sync and inspect discovered Ollama models with speed/quality scores
-- **Users** — create accounts, reset passwords, activate/deactivate employees
+- **Users** — create accounts with enterprise profile fields, reset passwords, activate/deactivate employees
+- **Access Control** — review RBAC role templates, inspect effective access, apply user overrides, and govern AI usage permissions
+- **Model Governance** — tag models as approved, restricted, offline-only, GPU-restricted, experimental, or deprecated
 - **Settings** — configure Auto Router, API model access, local file write permissions, Ollama URL, workspace root
 - **Audit Trail** — timestamped log of all routing decisions and admin changes
 
