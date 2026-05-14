@@ -45,6 +45,11 @@
 body {
   font-family: var(--font);
   background: var(--bg);
+  /* Crextio gradient: warm yellow radiates from top-right */
+  background-image:
+    radial-gradient(ellipse 60% 55% at 90% 10%, rgba(245,201,62,0.22) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 100% 60%, rgba(245,201,62,0.10) 0%, transparent 60%);
+  background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
   font-size: 14px;
@@ -58,7 +63,9 @@ input, select, textarea { font: inherit; }
 /* ---------- Top Nav ---------- */
 .topnav {
   height: 62px;
-  background: var(--card);
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -655,7 +662,10 @@ input, select, textarea { font: inherit; }
 
 .login-right {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #F8F8F5 0%, #FFF8DC 100%);
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 70% 60% at 85% 20%, rgba(245,201,62,0.28) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 50% at 100% 80%, rgba(245,201,62,0.12) 0%, transparent 60%);
   padding: 40px;
 }
 .login-card {
