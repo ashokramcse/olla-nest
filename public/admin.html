@@ -258,6 +258,47 @@ tbody tr:hover{background:#fefdf5}
   border-radius:6px!important;
 }
 
+
+/* ── Global button size fixes ── */
+.btn{width:auto;align-self:flex-start}
+.btn.full{width:100%;align-self:stretch;justify-content:center}
+
+/* Apply Override button */
+#saveOverrideBtn{padding:10px 26px;font-size:14px}
+
+/* Sync Ollama button */
+#syncModelsBtn{padding:9px 18px}
+
+/* Save Settings */
+#saveSettingsBtn{padding:9px 18px}
+
+/* Form buttons inside flex-column parents shouldn't stretch */
+.card form .btn,.card > .btn,.card > div > .btn{align-self:flex-start}
+
+/* Override card form stack */
+#tab-access .card > div > .btn{width:auto}
+
+/* "Apply Override" full-width CTA override */
+#saveOverrideBtn{display:inline-flex;width:auto}
+
+/* Compat .ap-btn.dark — keep full width only in app.html forms */
+.ap-btn{border-radius:12px;padding:11px 20px;font-size:14px;font-family:inherit;cursor:pointer;border:none;font-weight:500}
+.ap-btn.dark{background:var(--ink);color:#fff}
+.ap-btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+
+/* Provider card save buttons */
+.provider-card .btn{margin-top:10px;width:auto}
+
+/* Modal actions */
+.modal-actions .btn{align-self:auto}
+
+/* Metrics grid cards — equal height */
+.metrics-grid{align-items:stretch}
+.metric-card{display:flex;flex-direction:column;justify-content:flex-end}
+
+/* Two-col grids — stretch children */
+[style*="grid-template-columns:1fr 1fr"]{align-items:stretch}
+
 @keyframes spin{to{transform:rotate(360deg)}}
 /* ── Custom Tier Dropdown ── */
 .tier-dd{position:relative;display:inline-block;min-width:148px}
@@ -476,7 +517,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         </div>
 
         <!-- Access governance + External access -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch;">
           <div class="card">
             <div class="card-head"><div class="card-title">Access Governance</div></div>
             <div class="mini-bar-row">
@@ -638,7 +679,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                 <label class="form-label">Expires</label>
                 <input class="input input-sm" id="overrideExpires" type="datetime-local" />
               </div>
-              <button class="btn dark sm" id="saveOverrideBtn">Apply Override</button>
+              <div style="padding-top:4px;"><button class="btn dark sm" id="saveOverrideBtn" style="width:auto;padding:10px 24px;">Apply Override</button></div>
               <div id="overrideMsg" class="form-msg"></div>
             </div>
           </div>
