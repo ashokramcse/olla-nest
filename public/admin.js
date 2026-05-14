@@ -155,7 +155,11 @@ function renderAccessControl() {
     <tr>
       <td><div class="table-name">${esc(role.name)}</div><div class="table-sub">${esc(role.id)}</div></td>
       <td>${esc(role.description || "")}</td>
-      <td>${(role.permissions || []).map(p => `<span class="badge badge-default" style="font-size:10px; margin:2px;">${esc(p)}</span>`).join("")}</td>
+      <td>${(role.permissions || []).map(p => {
+        const cat = p.split(":")[0];
+        const cls = {models:"badge-blue",chat:"badge-green",files:"badge-amber",workspace:"badge-indigo",admin:"badge-red",users:"badge-indigo",audit:"badge-gray",api:"badge-blue",agents:"badge-blue",ollama:"badge-blue"}[cat] || "badge-gray";
+        return `<span class="badge ${cls}" style="font-size:11px;margin:2px;">${esc(p)}</span>`;
+      }).join("")}</td>
     </tr>
   `).join("");
   renderEffectiveAccess();
