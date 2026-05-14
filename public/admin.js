@@ -313,10 +313,13 @@ const tabTitles = {
 function switchTab(tab) {
   activeTab = tab;
   $all(".tab-view").forEach(v => v.classList.remove("active"));
-  $(`tab-${tab}`).classList.add("active");
+  const tabEl = document.getElementById("tab-" + tab);
+  if (tabEl) tabEl.classList.add("active");
   $all(".nav-item[data-tab]").forEach(b => b.classList.remove("active"));
-  document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add("active");
-  $("tabTitle").textContent = tabTitles[tab] || tab;
+  const navEl = document.querySelector(".nav-item[data-tab=\"" + tab + "\"]");
+  if (navEl) navEl.classList.add("active");
+  const titleEl = $("tabTitle");
+  if (titleEl) titleEl.textContent = tabTitles[tab] || tab;
 }
 
 $all(".nav-item[data-tab]").forEach(btn => {
