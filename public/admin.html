@@ -104,22 +104,96 @@
           </div>
         </div>
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-          <div class="metric-card">
-            <div class="metric-card-label" style="margin-bottom:6px;">Roles defined</div>
-            <div class="metric-card-value" style="font-size:26px;" id="metricRoles">—</div>
+        <!-- Second row: infographic cards -->
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:20px;">
+          <!-- Model health gauge -->
+          <div class="metric-card" style="display:flex;flex-direction:column;align-items:center;padding:20px 16px;">
+            <div class="metric-card-label" style="margin-bottom:12px;align-self:flex-start;">System Health</div>
+            <div class="ring-chart" style="width:80px;height:80px;margin-bottom:8px;">
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="6"/>
+                <circle cx="40" cy="40" r="32" fill="none" stroke="#F5C93E" stroke-width="6"
+                  stroke-dasharray="160 201" stroke-dashoffset="-50" stroke-linecap="round"/>
+                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(34,197,94,0.5)" stroke-width="6"
+                  stroke-dasharray="40 201" stroke-dashoffset="-210" stroke-linecap="round"/>
+              </svg>
+              <div class="ring-chart-label">
+                <div style="font-size:16px;font-weight:800;">78%</div>
+                <div class="ring-chart-sub">healthy</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;font-size:10px;color:var(--muted);">
+              <span style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:#F5C93E;display:inline-block;"></span>Models</span>
+              <span style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:rgba(34,197,94,0.7);display:inline-block;"></span>Users</span>
+            </div>
           </div>
+
+          <!-- Roles & Permissions -->
           <div class="metric-card">
-            <div class="metric-card-label" style="margin-bottom:6px;">Permissions catalog</div>
-            <div class="metric-card-value" style="font-size:26px;" id="metricPermissions">—</div>
+            <div class="metric-card-label" style="margin-bottom:10px;">Access Governance</div>
+            <div style="margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+                <span style="color:var(--muted);">Roles</span>
+                <span id="metricRoles" style="font-weight:700;">—</span>
+              </div>
+              <div class="mini-bar-track" style="height:4px;"><div class="mini-bar-fill" style="width:60%"></div></div>
+            </div>
+            <div style="margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+                <span style="color:var(--muted);">Permissions</span>
+                <span id="metricPermissions" style="font-weight:700;">—</span>
+              </div>
+              <div class="mini-bar-track" style="height:4px;"><div class="mini-bar-fill green" style="width:75%"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+                <span style="color:var(--muted);">Governed models</span>
+                <span id="metricGovernedModels" style="font-weight:700;">—</span>
+              </div>
+              <div class="mini-bar-track" style="height:4px;"><div class="mini-bar-fill dark" style="width:40%"></div></div>
+            </div>
           </div>
-          <div class="metric-card">
-            <div class="metric-card-label" style="margin-bottom:6px;">Governed models</div>
-            <div class="metric-card-value" style="font-size:26px;" id="metricGovernedModels">—</div>
+
+          <!-- External + Activity -->
+          <div class="metric-card glass-dark" style="background:rgba(14,14,22,0.80);">
+            <div class="metric-card-label" style="color:rgba(255,255,255,0.45);margin-bottom:10px;">External API Access</div>
+            <div class="metric-card-value" style="font-size:28px;" id="metricExternalAccess">—</div>
+            <div style="margin-top:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,0.3);margin-bottom:6px;">Activity</div>
+              <div class="activity-grid" style="grid-template-columns:repeat(12,1fr);gap:2px;">
+                <div class="activity-dot l1"></div><div class="activity-dot l2"></div>
+                <div class="activity-dot l3"></div><div class="activity-dot l1"></div>
+                <div class="activity-dot l4"></div><div class="activity-dot l2"></div>
+                <div class="activity-dot l3"></div><div class="activity-dot l4"></div>
+                <div class="activity-dot l2"></div><div class="activity-dot l1"></div>
+                <div class="activity-dot l3"></div><div class="activity-dot l4"></div>
+              </div>
+            </div>
           </div>
-          <div class="metric-card">
-            <div class="metric-card-label" style="margin-bottom:6px;">External API access</div>
-            <div class="metric-card-value" style="font-size:26px;" id="metricExternalAccess">—</div>
+        </div>
+
+        <!-- Sparkline overview card -->
+        <div class="metric-card" style="padding:20px 24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div class="metric-card-label">Model Usage Distribution</div>
+            <span class="badge badge-yellow">Ollama Local</span>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:4px;height:48px;margin-bottom:10px;">
+            <div style="flex:1;background:linear-gradient(180deg,#F5C93E,#E8A800);border-radius:3px 3px 0 0;height:70%;opacity:0.9;"></div>
+            <div style="flex:1;background:linear-gradient(180deg,#F5C93E,#E8A800);border-radius:3px 3px 0 0;height:50%;opacity:0.9;"></div>
+            <div style="flex:1;background:linear-gradient(180deg,#F5C93E,#E8A800);border-radius:3px 3px 0 0;height:85%;opacity:0.9;"></div>
+            <div style="flex:1;background:linear-gradient(180deg,#F5C93E,#E8A800);border-radius:3px 3px 0 0;height:40%;opacity:0.9;"></div>
+            <div style="flex:1;background:linear-gradient(180deg,#F5C93E,#E8A800);border-radius:3px 3px 0 0;height:95%;"></div>
+            <div style="flex:1;background:linear-gradient(180deg,#F5C93E,#E8A800);border-radius:3px 3px 0 0;height:60%;opacity:0.9;"></div>
+            <div style="flex:1;background:linear-gradient(180deg,#22C55E,#16A34A);border-radius:3px 3px 0 0;height:30%;opacity:0.7;"></div>
+            <div style="flex:1;background:linear-gradient(180deg,#22C55E,#16A34A);border-radius:3px 3px 0 0;height:20%;opacity:0.7;"></div>
+            <div style="flex:1;background:rgba(0,0,0,0.12);border-radius:3px 3px 0 0;height:15%;"></div>
+            <div style="flex:1;background:rgba(0,0,0,0.12);border-radius:3px 3px 0 0;height:10%;"></div>
+          </div>
+          <div style="display:flex;gap:16px;font-size:11px;color:var(--muted);">
+            <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:4px;border-radius:2px;background:var(--yellow);display:inline-block;"></span>Ollama local</span>
+            <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:4px;border-radius:2px;background:#22C55E;display:inline-block;"></span>API models</span>
+            <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:4px;border-radius:2px;background:rgba(0,0,0,0.15);display:inline-block;"></span>Inactive</span>
           </div>
         </div>
       </div>
