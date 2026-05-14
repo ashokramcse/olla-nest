@@ -874,127 +874,174 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 </style>
 
 
+
+
+
 <script>
-/* ── Inline Chat for Admin ── */
 (function(){
   var chatMode = "ask";
-  var chatMarked = typeof marked !== "undefined";
 
-  function esc(v){ return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function chatEsc(v){
+    return String(v == null ? "" : v)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
 
-  function renderMarkdown(text){
-    if(typeof marked==="undefined") return "<pre style='white-space:pre-wrap'>"+esc(text)+"</pre>";
-    marked.setOptions({breaks:true,gfm:true});
-    var r=new marked.Renderer();
-    r.code=function(o){
-      var escaped=(o.text||o).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      var label=o.lang?'<span style="position:absolute;top:10px;left:14px;font-size:11px;color:#ffffff60;font-family:monospace">'+esc(o.lang)+'</span>':"";
-      return '<div style="position:relative;margin:10px 0;">'+label+'<button onclick="this.nextElementSibling.querySelector('code')&&navigator.clipboard.writeText(this.nextElementSibling.querySelector('code').innerText).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)})" style="position:absolute;top:10px;right:10px;background:#ffffff20;border:none;color:#ffffffaa;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">Copy</button><pre style="background:#15140f;border-radius:14px;padding:16px;overflow-x:auto;margin:0;"><code style="color:#f5f3ed;font-size:13px;font-family:'Fira Code',monospace;">'+escaped+'</code></pre></div>';
+  function copyAdminCode(btn){
+    var code = btn.parentElement.querySelector("code");
+    if(!code) return;
+    navigator.clipboard.writeText(code.innerText).then(function(){
+      btn.textContent = "Copied!";
+      setTimeout(function(){ btn.textContent = "Copy"; }, 2000);
+    });
+  }
+  window.copyAdminCode = copyAdminCode;
+
+  function renderMd(text){
+    if(typeof marked === "undefined"){
+      return "<pre style='white-space:pre-wrap'>" + chatEsc(text) + "</pre>";
+    }
+    marked.setOptions({breaks:true, gfm:true});
+    var r = new marked.Renderer();
+    r.code = function(token){
+      var raw = typeof token === "object" ? token.text : token;
+      var lang = typeof token === "object" ? (token.lang || "") : "";
+      var escaped = raw.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      var labelHtml = lang
+        ? '<span style="position:absolute;top:10px;left:14px;font-size:11px;color:#ffffff60;">' + chatEsc(lang) + '</span>'
+        : "";
+      return '<div style="position:relative;margin:10px 0;">'
+        + labelHtml
+        + '<button onclick="copyAdminCode(this)" style="position:absolute;top:10px;right:10px;background:#ffffff20;border:none;color:#ffffffaa;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">Copy</button>'
+        + '<pre style="background:#15140f;border-radius:14px;padding:16px;overflow-x:auto;margin:0;">'
+        + '<code style="color:#f5f3ed;font-size:13px;">' + escaped + '</code>'
+        + '</pre></div>';
     };
-    return marked.parse(text,{renderer:r});
+    return marked.parse(text, {renderer: r});
   }
 
   function renderChatMessages(){
-    var el=document.getElementById("chatMessages");
+    var el = document.getElementById("chatMessages");
     if(!el) return;
-    // reuse state from admin.js if loaded
-    var stateRef=typeof state!=="undefined"?state:null;
-    if(!stateRef){ el.innerHTML='<div style="text-align:center;padding:40px;color:var(--mute);">Loading…</div>'; return; }
-    var chat=stateRef.chats&&stateRef.chats.find(function(ch){return ch.userId===stateRef.activeUser.id;})||stateRef.chats&&stateRef.chats[0];
-    var msgs=chat&&chat.messages||[];
-    if(!msgs.length){
-      el.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--mute);"><div style="font-size:28px;margin-bottom:12px;">✦</div><div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:6px;">Ready when you are</div><div style="font-size:13px;">Ask anything · Build · Review · Fix · Learn</div></div>';
+    if(typeof state === "undefined"){
+      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mute);">Loading...</div>';
       return;
     }
-    el.innerHTML=msgs.map(function(msg){
-      var isUser=msg.role==="user";
-      if(isUser){
-        return '<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:16px;"><div style="font-size:12px;color:var(--mute);margin-bottom:4px;">'+esc(stateRef.activeUser.name)+'</div><div style="background:var(--ink);color:#fff;border-radius:18px 18px 4px 18px;padding:12px 16px;font-size:15px;line-height:1.6;max-width:85%;">'+esc(msg.content)+'</div></div>';
-      } else {
-        return '<div style="margin-bottom:16px;"><div style="font-size:12px;color:var(--mute);margin-bottom:4px;">'+esc(msg.modelName||"Olla Nest")+'</div><div style="background:#fff;border:1px solid var(--line-soft);border-radius:18px;padding:12px 16px;font-size:15px;line-height:1.65;">'+renderMarkdown(msg.content)+'</div></div>';
+    var chat = (state.chats || []).find(function(ch){ return ch.userId === state.activeUser.id; })
+               || (state.chats || [])[0];
+    var msgs = (chat && chat.messages) || [];
+    if(!msgs.length){
+      el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--mute);">'
+        + '<div style="font-size:28px;margin-bottom:12px;">&#10022;</div>'
+        + '<div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:6px;">Ready when you are</div>'
+        + '<div style="font-size:13px;">Ask anything &middot; Build &middot; Review &middot; Fix</div></div>';
+      return;
+    }
+    el.innerHTML = msgs.map(function(msg){
+      if(msg.role === "user"){
+        return '<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:16px;">'
+          + '<div style="font-size:12px;color:var(--mute);margin-bottom:4px;">' + chatEsc(state.activeUser.name) + '</div>'
+          + '<div style="background:var(--ink);color:#fff;border-radius:18px 18px 4px 18px;padding:12px 16px;font-size:15px;line-height:1.6;max-width:85%;">' + chatEsc(msg.content) + '</div>'
+          + '</div>';
       }
+      return '<div style="margin-bottom:16px;">'
+        + '<div style="font-size:12px;color:var(--mute);margin-bottom:4px;">' + chatEsc(msg.modelName || "Olla Nest") + '</div>'
+        + '<div style="background:#fff;border:1px solid var(--line-soft);border-radius:18px;padding:12px 16px;font-size:15px;line-height:1.65;">' + renderMd(msg.content) + '</div>'
+        + '</div>';
     }).join("");
-    el.scrollTop=el.scrollHeight;
+    el.scrollTop = el.scrollHeight;
   }
 
   function populateChatModels(){
-    var sel=document.getElementById("chatModelSelect");
-    if(!sel||typeof state==="undefined") return;
-    var models=state.models.filter(function(m){return state.allowedModelIds.includes(m.id)&&m.status!=="disabled";});
-    sel.innerHTML='<option value="">Auto Router</option>'+models.map(function(m){return'<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>';}).join("");
+    var sel = document.getElementById("chatModelSelect");
+    if(!sel || typeof state === "undefined") return;
+    var models = state.models.filter(function(m){
+      return state.allowedModelIds.includes(m.id) && m.status !== "disabled";
+    });
+    sel.innerHTML = '<option value="">Auto Router</option>'
+      + models.map(function(m){ return '<option value="' + chatEsc(m.id) + '">' + chatEsc(m.name) + '</option>'; }).join("");
   }
 
   function renderChatRouter(route){
-    var el=document.getElementById("chatRouterContent");
+    var el = document.getElementById("chatRouterContent");
     if(!el) return;
-    if(!route||!route.selected){
-      el.innerHTML='<div style="font-size:14px;color:var(--mute);">Send a message to see routing details.</div>';
+    if(!route || !route.selected){
+      el.innerHTML = '<div style="font-size:14px;color:var(--mute);">Send a message to see routing details.</div>';
       return;
     }
-    var top=(route.candidates||[]).slice(0,5);
-    el.innerHTML='<div style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:6px;">'+esc(route.selected.name)+'</div>'
-      +'<div style="font-size:13px;color:var(--mute);line-height:1.5;margin-bottom:10px;">'+esc(route.reason)+'</div>'
-      +(route.tags&&route.tags.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">'+route.tags.map(function(t){return'<span style="padding:5px 12px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);font-size:12px;">'+esc(t)+'</span>';}).join("")+'</div>':"")
-      +(top.length>1?'<div style="font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Candidates</div>'+top.map(function(c){return'<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line-soft);font-size:13px;"><span>'+esc(c.name)+'</span><span style="color:var(--mute);font-family:monospace;">'+c.score+'</span></div>';}).join(""):"");
+    var html = '<div style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:6px;">' + chatEsc(route.selected.name) + '</div>'
+      + '<div style="font-size:13px;color:var(--mute);line-height:1.5;margin-bottom:10px;">' + chatEsc(route.reason) + '</div>';
+    if(route.tags && route.tags.length){
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">'
+        + route.tags.map(function(t){ return '<span style="padding:5px 12px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);font-size:12px;">' + chatEsc(t) + '</span>'; }).join("")
+        + '</div>';
+    }
+    el.innerHTML = html;
   }
 
   // Mode buttons
   document.querySelectorAll(".chat-mode-btn").forEach(function(btn){
-    btn.addEventListener("click",function(){
-      chatMode=btn.dataset.mode;
-      document.querySelectorAll(".chat-mode-btn").forEach(function(b){b.classList.remove("active");});
+    btn.addEventListener("click", function(){
+      chatMode = btn.dataset.mode;
+      document.querySelectorAll(".chat-mode-btn").forEach(function(b){ b.classList.remove("active"); });
       btn.classList.add("active");
     });
   });
 
   // New chat
-  var newBtn=document.getElementById("chatNewBtn");
-  if(newBtn) newBtn.addEventListener("click",async function(){
-    await fetch("/api/chat/clear",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
-    renderChatRouter(null);
-    if(typeof loadState==="function") await loadState();
-    renderChatMessages();
+  var newBtn = document.getElementById("chatNewBtn");
+  if(newBtn) newBtn.addEventListener("click", function(){
+    fetch("/api/chat/clear", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"})
+      .then(function(){
+        renderChatRouter(null);
+        if(typeof loadState === "function") loadState().then(renderChatMessages);
+      });
   });
 
   // Send
-  var sendBtn=document.getElementById("chatSendBtn");
-  var inputEl=document.getElementById("chatInput");
-
   async function sendChat(){
-    if(!inputEl) return;
-    var msg=inputEl.value.trim();
+    var inputEl = document.getElementById("chatInput");
+    var sendBtn = document.getElementById("chatSendBtn");
+    if(!inputEl || !sendBtn) return;
+    var msg = inputEl.value.trim();
     if(!msg) return;
-    sendBtn.disabled=true; sendBtn.textContent="Sending…";
-    inputEl.value="";
-    var modelId=document.getElementById("chatModelSelect")&&document.getElementById("chatModelSelect").value||"";
-    try{
-      var res=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:msg,mode:chatMode,manualModelId:modelId||null})});
-      var data=await res.json();
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Sending...";
+    inputEl.value = "";
+    var modelId = (document.getElementById("chatModelSelect") || {}).value || "";
+    try {
+      var res = await fetch("/api/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({message: msg, mode: chatMode, manualModelId: modelId || null})
+      });
+      var data = await res.json();
       renderChatRouter(data.route);
-      if(typeof loadState==="function") await loadState();
+      if(typeof loadState === "function") await loadState();
       renderChatMessages();
-    } catch(e){
-      document.getElementById("chatRouterContent").innerHTML='<div style="color:var(--danger);font-size:13px;">'+esc(e.message)+'</div>';
+    } catch(e) {
+      var el = document.getElementById("chatRouterContent");
+      if(el) el.innerHTML = '<div style="color:var(--danger);font-size:13px;">' + chatEsc(e.message) + '</div>';
     } finally {
-      sendBtn.disabled=false; sendBtn.textContent="Send";
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Send";
     }
   }
 
-  if(sendBtn) sendBtn.addEventListener("click",sendChat);
-  if(inputEl) inputEl.addEventListener("keydown",function(e){
-    if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}
+  var sendBtn = document.getElementById("chatSendBtn");
+  if(sendBtn) sendBtn.addEventListener("click", sendChat);
+
+  var inputEl = document.getElementById("chatInput");
+  if(inputEl) inputEl.addEventListener("keydown", function(e){
+    if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendChat(); }
   });
 
-  // Hook into admin.js loadState to refresh chat when tab becomes active
-  document.querySelector('.nav-item[data-tab="chat"]').addEventListener("click",function(){
-    setTimeout(function(){
-      renderChatMessages();
-      populateChatModels();
-    }, 50);
+  // Refresh when Chat tab is clicked
+  var chatTab = document.querySelector('.nav-item[data-tab="chat"]');
+  if(chatTab) chatTab.addEventListener("click", function(){
+    setTimeout(function(){ renderChatMessages(); populateChatModels(); }, 80);
   });
 
-  // Also expose so admin.js loadState can refresh
-  window.adminChatRefresh=function(){renderChatMessages();populateChatModels();};
+  window.adminChatRefresh = function(){ renderChatMessages(); populateChatModels(); };
 })();
 </script>
 
