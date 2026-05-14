@@ -443,6 +443,31 @@
     </div>
   </div>
 </div>
+<!-- Change Password Modal -->
+<div id="changePwModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:14px; padding:32px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,.2); position:relative;">
+    <button id="closePwModal" style="position:absolute; top:14px; right:16px; background:none; border:none; font-size:20px; cursor:pointer; color:#6B7785;">✕</button>
+    <h2 style="margin:0 0 4px; font-size:18px;">Change Password</h2>
+    <p class="text-muted text-sm" id="changePwTarget" style="margin:0 0 20px;"></p>
+    <form id="changePwForm" class="form-stack">
+      <div class="input-group">
+        <label class="input-label">New password</label>
+        <input class="input" id="changePwNew" type="password" placeholder="Min 12 characters" autocomplete="new-password" />
+      </div>
+      <div class="input-group">
+        <label class="input-label">Confirm password</label>
+        <input class="input" id="changePwConfirm" type="password" placeholder="Repeat new password" autocomplete="new-password" />
+      </div>
+      <div class="input-group">
+        <label class="input-label" id="captchaLabel">Security check: what is …?</label>
+        <input class="input" id="captchaAnswer" type="text" placeholder="Your answer" autocomplete="off" />
+      </div>
+      <button class="btn btn-primary btn-full" type="submit">Save Password</button>
+      <div id="changePwMsg" class="form-message mt-2"></div>
+    </form>
+  </div>
+</div>
+
 <script src="/admin.js"></script>
 </body>
 </html>
