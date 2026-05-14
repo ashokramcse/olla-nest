@@ -7,7 +7,7 @@ const { DatabaseSync } = require("node:sqlite");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
+const OLLAMA_URL = process.env.OLLAMA_URL || "http://host.docker.internal:11434";
 const DATA_DIR = path.join(__dirname, "data");
 const DEFAULT_WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || path.join(DATA_DIR, "workspace");
 const STORAGE_MODE = process.env.STORAGE_MODE || "local";

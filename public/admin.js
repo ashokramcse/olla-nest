@@ -212,11 +212,10 @@ async function checkOllama() {
     const data = await api("/api/ollama/models");
     if (!data) return;
     if (data.ok) {
-      pill.textContent = `${data.models.length} model${data.models.length === 1 ? "" : "s"} live`;
+      pill.textContent = "Ollama connected";
       pill.className = "status-pill ok";
     } else {
-      const cached = state?.models?.filter(m => m.provider === "ollama").length || 0;
-      pill.textContent = cached ? `Ollama offline · ${cached} cached` : "Ollama not connected";
+      pill.textContent = "Ollama not connected";
       pill.className = "status-pill off";
     }
   } catch {
@@ -303,10 +302,13 @@ $("saveSettingsBtn").addEventListener("click", async () => {
 $("testOllamaBtn").addEventListener("click", async () => {
   const btn = $("testOllamaBtn");
   const msg = $("modelSourceMsg");
+  const modelList = $("ollamaTestModels");
   btn.disabled = true;
   btn.textContent = "Testing…";
   msg.className = "form-message";
   msg.textContent = "";
+  modelList.style.display = "none";
+  modelList.innerHTML = "";
   try {
     const result = await api("/api/admin/model-sources/test", {
       method: "POST",
@@ -315,9 +317,21 @@ $("testOllamaBtn").addEventListener("click", async () => {
     if (result.ok) {
       msg.className = "form-message success";
       msg.textContent = `Connected — ${result.count} model${result.count === 1 ? "" : "s"} found.`;
+      if (result.models?.length) {
+        modelList.style.display = "block";
+        modelList.innerHTML = `
+          <div style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.05em;">Models on this server</div>
+          <div style="display:grid; gap:6px;">
+            ${result.models.map(m => `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--bg,#F8F9FB); border:1px solid var(--border); border-radius:8px;">
+                <span style="font-size:13px; font-weight:500;">${esc(m.name || m.model || m)}</span>
+                <span class="badge badge-green" style="font-size:10px;">available</span>
+              </div>`).join("")}
+          </div>`;
+      }
     } else {
       msg.className = "form-message error";
-      msg.textContent = `Cannot connect: ${result.error}`;
+      msg.textContent = "Cannot connect to Ollama at this URL.";
     }
   } catch (err) {
     msg.className = "form-message error";
