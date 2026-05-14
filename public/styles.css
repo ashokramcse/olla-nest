@@ -1045,9 +1045,6 @@ h3 { font-size: 15px; font-weight: 600; line-height: 1.4; }
   gap: 12px;
 }
 
-.badge-green  { background: #ecfdf5; color: #059669; border-color: #a7f3d0 !important; }
-.badge-amber  { background: #fffbeb; color: #d97706; border-color: #fde68a !important; }
-.badge-red    { background: #fef2f2; color: #dc2626; border-color: #fecaca !important; }
 
 .mt-2 { margin-top: 8px; }
 
