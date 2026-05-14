@@ -1,100 +1,151 @@
-# Olla Nest Architecture
+# Architecture
 
-Olla Nest should use polyglot persistence for company and production deployments.
+## Overview
 
-The default production architecture is:
+Olla Nest is a single-container web application that runs via Docker. The backend is a Node.js Express server. The frontend is plain HTML, CSS, and JavaScript served as static files — no build step required.
 
-- PostgreSQL for the structural source of truth
-- MongoDB for the cognitive archive
-- Redis for the real-time nerve system
+```
+Docker container
+├── Node.js 24 (Express)     ← API, routing logic, auth, Ollama integration
+├── public/                  ← Static frontend (login, workspace, admin)
+└── /app/data/               ← SQLite database + JSON document store (volume mount)
 
-The local MVP can run without Docker by using SQLite, a JSON document store, and in-memory realtime state. That fallback is for developer convenience only.
+Host machine
+└── Ollama                   ← Local model inference (reached via host.docker.internal)
+```
 
-## Database Choice
+---
 
-### PostgreSQL vs SQLite vs MySQL
+## Runtime Stack
 
-PostgreSQL is the best default SQL database for Olla Nest.
+| Layer | Technology | Purpose |
+|---|---|---|
+| Runtime | Node.js 24 Alpine | Express API server |
+| Frontend | HTML / CSS / JS | Served as static files from `public/` |
+| SQL | SQLite (`node:sqlite`) | Users, groups, models, permissions, settings |
+| Document | JSON file | Chat history, audit log, router traces, workspace preferences |
+| AI inference | Ollama (host) | Local model execution |
+| Container | Docker + Docker Compose | Only supported runtime |
 
-SQLite is excellent for local development and desktop-first prototypes because it is embedded, simple, and has no server. It is not the best company default for multi-user collaboration, access control, audit trails, billing, and future RAG.
-
-MySQL is stable and widely used, but PostgreSQL is a better strategic choice here because it has stronger support for complex relational workloads, JSONB, extensions, and pgvector.
-
-PostgreSQL also lets us keep RAG embeddings close to user, workspace, permission, and document metadata.
-
-## Production Persistence Roles
-
-### PostgreSQL: Structural Core
-
-PostgreSQL is the source of truth.
-
-Use it for:
-
-- Users
-- Groups
-- Departments
-- Workspaces
-- Permissions
-- Model registry
-- Agent state machine
-- Billing and quota records
-- RAG metadata and embeddings with pgvector
-
-### MongoDB: Cognitive Archive
-
-MongoDB stores flexible AI interaction data.
-
-Use it for:
-
-- Chat history
-- Thought traces
-- Tool outputs
-- Raw JSON artifacts
-- Multi-modal response metadata
-- Unpredictable AI output shapes
-
-### Redis: Real-Time Nerve System
-
-Redis handles fast, temporary, real-time state.
-
-Use it for:
-
-- Token streaming buffers
-- WebSocket fanout
-- User session presence
-- Typing status
-- Rate limiting
-- Job queues
-- Pub/Sub events
+---
 
 ## Request Flow
 
-1. User sends a request.
-2. PostgreSQL verifies the user, workspace, permissions, and model access.
-3. The router selects the best approved model for the request.
-4. Redis tracks the live task state and token stream.
-5. MongoDB stores thought traces, tool outputs, and the final chat message.
-6. PostgreSQL stores final task status and any billing or audit-critical state.
+```
+Browser
+  │
+  ▼
+Express (server.js)
+  │
+  ├── Auth middleware (cookie session)
+  │
+  ├── /api/state        → load user, models, settings, chat
+  ├── /api/chat         → classify → route → Ollama → response → optional file write
+  ├── /api/ollama/*     → model discovery and sync
+  ├── /api/admin/*      → user management, settings, model sources
+  └── /api/account/*    → password change
+  │
+  ▼
+Ollama (host:11434)
+  └── /api/generate     → model inference
+```
 
-## Application Stack Direction
+---
 
-The current MVP is a simple Express and browser app. It is intentionally small.
+## Auto Router
 
-The recommended product stack direction is:
+The router runs on every `/api/chat` request:
 
-- Backend: Node.js TypeScript API
-- Web: React + Vite
-- Desktop: Tauri wrapping the web app for macOS, Windows, and Linux
-- Mobile: React Native or Expo using shared API contracts
-- Local AI: Ollama connector
-- Production SQL: PostgreSQL with pgvector
-- Production NoSQL document store: MongoDB
-- Production realtime/cache: Redis
+1. **Classify** — detect request type from message text and mode (coding, writing, OCR, medical, review, general)
+2. **Filter** — collect models the user is approved to access via user, group, and department grants
+3. **Score** — rank each candidate by: capability match × 35pts, specialist bonus × 45pts, speed weight, quality weight, privacy score
+4. **Select** — pick the highest-scoring approved model
+5. **Generate** — call Ollama `/api/generate` with a mode-specific system prompt
 
-Why this direction:
+---
 
-- The same web UI can power browser and desktop.
-- Tauri is lighter than Electron for a local-first app.
-- Node/TypeScript keeps backend and frontend types shareable.
-- React Native or Expo gives a practical mobile path later.
-- PostgreSQL + MongoDB + Redis scales better than forcing all AI data into one database.
+## Data Layer
+
+### SQLite (structural source of truth)
+
+All relational data lives in a single SQLite database at `/app/data/olla-nest.sqlite`.
+
+| Table | Contents |
+|---|---|
+| `users` | Accounts, email, password hash, role, rights, department |
+| `groups` | Named access groups |
+| `departments` | Company departments |
+| `user_groups` | User-to-group membership |
+| `models` | Discovered Ollama models with scores and capabilities |
+| `access_grants` | Model access by user / group / department |
+| `settings` | Key-value configuration (router toggle, Ollama URL, workspace root, etc.) |
+
+### JSON Document Store (cognitive archive)
+
+Flexible document data lives in `/app/data/documents.json`:
+
+| Key | Contents |
+|---|---|
+| `chats` | Per-user chat history with messages, model attribution, artifacts |
+| `audit` | Rolling 200-event audit log (actor, action, detail, timestamp) |
+| `routerTraces` | Rolling 200-trace log of routing decisions |
+| `workspacePrefs` | Per-user workspace folder and permission mode |
+
+---
+
+## Authentication
+
+- Sessions use a secure random token stored in an `HttpOnly`, `SameSite=Lax` cookie
+- Sessions expire after 12 hours
+- Passwords are hashed with bcrypt (cost factor 12)
+- No external auth provider in MVP — admin creates accounts manually
+
+---
+
+## Local File Output
+
+Build and Fix modes can write generated files to the host filesystem via the Docker volume:
+
+```
+Container: /app/data/workspace/olla-nest-output/
+Volume:    app-data → /app/data/
+```
+
+Users configure their workspace path from the workspace panel. Admins set the company default from Settings.
+
+Permission modes:
+
+| Mode | Behaviour |
+|---|---|
+| `default` | User must check "Write to workspace" on each Build/Fix request |
+| `review` | Same as default — approval visible and required |
+| `full` | Files are written automatically on every Build/Fix request |
+
+---
+
+## Production Database Direction
+
+The current MVP uses SQLite and JSON for simplicity. The intended production architecture for company-scale deployment is:
+
+| Layer | Production target | Reason |
+|---|---|---|
+| SQL | PostgreSQL + pgvector | Multi-user, RBAC, RAG embeddings, audit at scale |
+| Document | MongoDB | Flexible AI artifacts, chat history, tool outputs |
+| Realtime | Redis | Token streaming, sessions, rate limiting, pub/sub |
+
+These are not used in the current Docker image. The `infra/postgres/init.sql` file contains the schema foundation for the future PostgreSQL migration.
+
+---
+
+## Product Stack Direction
+
+| Layer | Current | Target |
+|---|---|---|
+| Backend | Node.js JS | Node.js TypeScript |
+| Frontend | Plain HTML/CSS/JS | React + Vite |
+| Desktop | — | Tauri (wraps the web UI) |
+| Mobile | — | React Native / Expo |
+| SQL | SQLite | PostgreSQL + pgvector |
+| Document | JSON | MongoDB |
+| Realtime | In-memory | Redis |
+| Auth | Simple session | SSO / OIDC |

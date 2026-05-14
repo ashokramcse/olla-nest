@@ -1016,24 +1016,27 @@ app.post("/api/admin/users/:id/reset-password", requireAdmin, (req, res) => {
   }
 });
 
-app.get(["/", "/login"], (req, res) => {
-  res.sendFile(path.join(STATIC_DIR, "index.html"));
+app.get("/", (req, res) => res.redirect("/login"));
+
+app.get("/login", (req, res) => {
+  if (sessionUser(req)) return res.redirect("/app");
+  res.sendFile(path.join(STATIC_DIR, "login.html"));
 });
 
 app.get("/app", (req, res) => {
   if (!sessionUser(req)) return res.redirect("/login");
-  res.sendFile(path.join(STATIC_DIR, "index.html"));
+  res.sendFile(path.join(STATIC_DIR, "app.html"));
 });
 
 app.get("/admin", (req, res) => {
   const user = sessionUser(req);
   if (!user) return res.redirect("/login");
   if (user.role !== "admin") return res.redirect("/app");
-  res.sendFile(path.join(STATIC_DIR, "index.html"));
+  res.sendFile(path.join(STATIC_DIR, "admin.html"));
 });
 
 app.use((req, res) => {
-  res.sendFile(path.join(STATIC_DIR, "index.html"));
+  res.redirect("/login");
 });
 
 app.listen(PORT, async () => {

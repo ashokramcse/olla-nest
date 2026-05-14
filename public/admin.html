@@ -1,99 +1,342 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Olla Nest Admin</title>
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-  <body>
-    <div class="admin-shell">
-      <aside class="sidebar admin-sidebar">
-        <div class="brand">
-          <div class="mark">ON</div>
-          <div>
-            <strong>Olla Nest</strong>
-            <span>Admin Console</span>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Olla Nest — Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">ON</div>
+      <div class="brand-text">
+        <div class="brand-name">Olla Nest</div>
+        <div class="brand-sub">Admin Console</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Control</div>
+      <nav>
+        <button class="nav-item active" data-tab="overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Overview
+        </button>
+        <button class="nav-item" data-tab="models">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          Local Models
+        </button>
+        <button class="nav-item" data-tab="users">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </button>
+        <button class="nav-item" data-tab="audit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Audit Trail
+        </button>
+      </nav>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Workspace</div>
+      <nav>
+        <a class="nav-item" href="/app">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          User Workspace
+        </a>
+      </nav>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="adminAvatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="adminName">Admin</div>
+          <div class="user-meta">Administrator</div>
+        </div>
+      </div>
+      <div style="padding: 0 8px 4px;">
+        <button id="logoutBtn" class="btn btn-ghost btn-sm btn-full" style="color:#6B7785; border-color:#1E2130; font-size:11px;">Sign out</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title" id="tabTitle">Company Dashboard</div>
+        <div class="topbar-sub">Olla Nest Admin Control</div>
+      </div>
+      <div class="topbar-right">
+        <div class="status-pill" id="ollamaStatus">Checking Ollama…</div>
+        <button id="refreshBtn" class="btn btn-secondary btn-sm">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab content -->
+    <div style="flex:1; overflow-y:auto;">
+
+      <!-- Overview tab -->
+      <div class="tab-view active page-content" id="tab-overview">
+        <div class="page-header">
+          <p class="eyebrow">Admin Control</p>
+          <h1>Company Dashboard</h1>
+        </div>
+
+        <div class="metrics-row">
+          <div class="metric-card">
+            <div class="metric-label">Local Models</div>
+            <div class="metric-value" id="metricModels">0</div>
+            <div class="metric-sub">Available via Ollama</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Users</div>
+            <div class="metric-value" id="metricUsers">0</div>
+            <div class="metric-sub">Total accounts</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Groups</div>
+            <div class="metric-value" id="metricGroups">0</div>
+            <div class="metric-sub">Access groups</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Departments</div>
+            <div class="metric-value" id="metricDepts">0</div>
+            <div class="metric-sub">Company units</div>
           </div>
         </div>
-        <nav class="nav">
-          <a class="nav-item active" href="/admin">Dashboard</a>
-          <a class="nav-item" href="/app">User Workspace</a>
-        </nav>
-        <section class="side-panel">
-          <span class="panel-kicker">Signed in</span>
-          <div id="adminIdentity" class="mini-list"></div>
-        </section>
-      </aside>
 
-      <main class="main">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow">Admin Control</p>
-            <h1>Company Dashboard</h1>
-          </div>
-          <div class="top-actions">
-            <div class="status-pill" id="ollamaStatus">Checking Ollama</div>
-            <button id="logout" class="secondary">Logout</button>
-          </div>
-        </header>
-
-        <section class="metric-grid">
-          <div class="metric-card"><span>Local Models</span><strong id="modelCount">0</strong></div>
-          <div class="metric-card"><span>Users</span><strong id="userCount">0</strong></div>
-          <div class="metric-card"><span>Groups</span><strong id="groupCount">0</strong></div>
-          <div class="metric-card"><span>Departments</span><strong id="departmentCount">0</strong></div>
-        </section>
-
-        <section class="admin-grid">
-          <section class="card wide">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Live from Ollama</p>
-                <h2>Available Local Models</h2>
-              </div>
-              <button id="syncOllama" class="secondary">Refresh Models</button>
+        <div class="section-grid grid-2">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Access Model</span>
             </div>
-            <div id="modelTable" class="table"></div>
-          </section>
+            <div class="card-body">
+              <div id="overviewPolicy"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Storage Architecture</span>
+            </div>
+            <div class="card-body" id="overviewStorage"></div>
+          </div>
+        </div>
+      </div>
 
-          <section class="card">
-            <div class="card-title">Access Model</div>
-            <div id="policyList" class="policy-list"></div>
-          </section>
+      <!-- Models tab -->
+      <div class="tab-view page-content" id="tab-models">
+        <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
+          <div>
+            <p class="eyebrow">Live from Ollama</p>
+            <h1>Local Models</h1>
+          </div>
+          <button class="btn btn-secondary" id="syncModelsBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Sync from Ollama
+          </button>
+        </div>
+        <div class="card">
+          <div style="overflow-x:auto;">
+            <table class="data-table" id="modelTable">
+              <thead><tr>
+                <th>Model</th>
+                <th>Provider</th>
+                <th>Status</th>
+                <th>Speed</th>
+                <th>Quality</th>
+                <th>Capabilities</th>
+              </tr></thead>
+              <tbody id="modelTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-          <section class="card">
-            <div class="card-title">Users</div>
-            <form id="createUserForm" class="stack-form">
-              <input id="newUserName" placeholder="Name" />
-              <input id="newUserEmail" type="email" placeholder="Email" />
-              <select id="newUserRole">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-              <select id="newUserDepartment"></select>
-              <input id="newUserPassword" type="password" placeholder="Temporary password" />
-              <button class="primary full" type="submit">Create User</button>
-            </form>
-            <div id="userMessage" class="form-message"></div>
-            <div id="userList" class="user-list"></div>
-          </section>
+      <!-- Users tab -->
+      <div class="tab-view page-content" id="tab-users">
+        <div class="page-header">
+          <p class="eyebrow">People</p>
+          <h1>User Management</h1>
+        </div>
+        <div class="section-grid grid-2">
+          <!-- Create user -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Add Employee</span></div>
+            <div class="card-body">
+              <form id="createUserForm" class="form-stack">
+                <div class="input-group">
+                  <label class="input-label">Full name</label>
+                  <input class="input input-sm" id="newUserName" placeholder="Jane Smith" />
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Work email</label>
+                  <input class="input input-sm" id="newUserEmail" type="email" placeholder="jane@company.com" />
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Role</label>
+                  <select class="select-input input-sm" id="newUserRole">
+                    <option value="user">Employee</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Department</label>
+                  <select class="select-input input-sm" id="newUserDept"></select>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Temporary password</label>
+                  <input class="input input-sm" id="newUserPassword" type="password" placeholder="Min 12 characters" />
+                </div>
+                <button class="btn btn-primary btn-full" type="submit">Create Account</button>
+              </form>
+              <div id="userMsg" class="form-message mt-2"></div>
+            </div>
+          </div>
 
-          <section class="card">
-            <div class="card-title">System Settings</div>
-            <label class="toggle"><input id="routerEnabled" type="checkbox" /> Auto Router enabled</label>
-            <label class="toggle"><input id="allowApiModels" type="checkbox" /> Allow API models</label>
-            <label class="toggle"><input id="localOnlyDefault" type="checkbox" /> Local-first by default</label>
-            <button id="saveSettings" class="primary full">Save Settings</button>
-          </section>
+          <!-- User list -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">All Employees</span></div>
+            <div class="card-body" style="padding-top:8px;">
+              <div id="userList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-          <section class="card">
-            <div class="card-title">Audit Trail</div>
-            <div id="auditList" class="audit-list"></div>
-          </section>
-        </section>
-      </main>
+      <!-- Settings tab -->
+      <div class="tab-view page-content" id="tab-settings">
+        <div class="page-header">
+          <p class="eyebrow">Configuration</p>
+          <h1>System Settings</h1>
+        </div>
+        <div class="section-grid grid-2">
+          <!-- Router + Model settings -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Router &amp; Model Access</span></div>
+            <div class="card-body">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Auto Router enabled</div>
+                  <div class="toggle-desc">Automatically select the best approved model per request</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="routerEnabled" />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Allow API models</div>
+                  <div class="toggle-desc">Enable external cloud API model connections</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="allowApiModels" />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Local-first by default</div>
+                  <div class="toggle-desc">Prefer local Ollama models over any API model</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="localOnlyDefault" />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Local file writes enabled</div>
+                  <div class="toggle-desc">Allow Build/Fix tasks to create files in workspace</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="localWritesEnabled" />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div style="margin-top:16px;">
+                <div class="input-group">
+                  <label class="input-label">Default file permission mode</label>
+                  <select class="select-input" id="localPermissionMode">
+                    <option value="default">Default — user approves each write</option>
+                    <option value="review">Auto-review</option>
+                    <option value="full">Full access — auto write</option>
+                  </select>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Company workspace root</label>
+                  <input class="input" id="workspaceRoot" placeholder="/path/to/company/workspace" />
+                </div>
+              </div>
+              <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+              <div id="settingsMsg" class="form-message mt-2"></div>
+            </div>
+          </div>
+
+          <!-- Model source -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Model Sources</span></div>
+            <div class="card-body">
+              <p class="text-muted text-sm mb-3">Configure where Olla Nest discovers models. Ollama runs locally on your machine or company server.</p>
+              <div class="input-group">
+                <label class="input-label">Ollama URL</label>
+                <input class="input" id="ollamaUrl" placeholder="http://localhost:11434" />
+              </div>
+              <div style="display:flex; gap:8px; margin-top:4px;">
+                <button class="btn btn-secondary" id="testOllamaBtn">Test connection</button>
+                <button class="btn btn-primary" id="saveModelSourceBtn">Save URL</button>
+              </div>
+              <div id="modelSourceMsg" class="form-message mt-2"></div>
+
+              <div style="margin-top:20px; padding-top:16px; border-top: 1px solid var(--border);">
+                <div class="input-group">
+                  <label class="input-label">API Model Provider</label>
+                  <select class="select-input" id="apiModelProvider">
+                    <option value="not-configured">Not configured</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="groq">Groq</option>
+                  </select>
+                </div>
+                <p class="text-xs text-muted">API models require Admin to enable "Allow API Models" above. Currently MVP — configure URL and key per provider.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audit tab -->
+      <div class="tab-view page-content" id="tab-audit">
+        <div class="page-header">
+          <p class="eyebrow">Compliance</p>
+          <h1>Audit Trail</h1>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0;">
+            <div id="auditList" style="padding: 4px 20px;"></div>
+          </div>
+        </div>
+      </div>
+
     </div>
-    <script src="/admin.js"></script>
-  </body>
+  </div>
+</div>
+<script src="/admin.js"></script>
+</body>
 </html>

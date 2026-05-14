@@ -1,159 +1,196 @@
 # Deployment
 
-Olla Nest supports two deployment modes.
+Olla Nest runs exclusively via Docker. There is no local Node.js development mode.
 
-## 1. Docker Production-Like Mode
+---
 
-Docker is the default setup for a company-like environment.
+## Prerequisites
+
+- [Docker Engine](https://docs.docker.com/engine/install/) 24+ and Docker Compose v2
+- [Ollama](https://ollama.com) running on the host machine
+- At least one model pulled in Ollama:
 
 ```bash
+ollama pull qwen2.5:7b
+```
+
+---
+
+## Starting the App
+
+```bash
+git clone https://github.com/ashokramcse/olla-nest.git
+cd olla-nest
 cp .env.example .env
+# Edit .env — set real credentials before first boot
 docker compose up --build
 ```
 
-Open:
+Open: **http://localhost:3000**
 
-```text
-http://localhost:3000/login
-```
+The login page will appear. Use the credentials from `.env` (defaults shown below).
 
-Services:
+---
 
-- `app`: Olla Nest web app and API
-- `postgres`: PostgreSQL with pgvector
-- `mongo`: MongoDB
-- `redis`: Redis
+## Environment Variables
 
-Ollama should run on the host machine. The container reaches it through:
+All configuration is done via `.env`. Copy `.env.example` to `.env` and edit before first boot:
 
-```text
-http://host.docker.internal:11434
-```
+| Variable | Default | Description |
+|---|---|---|
+| `DEFAULT_ADMIN_EMAIL` | `admin@ollanest.local` | Admin account email, seeded on first boot |
+| `DEFAULT_ADMIN_PASSWORD` | `ChangeMe!CreateARealPassword123` | Admin password, seeded on first boot |
+| `DEFAULT_USER_PASSWORD` | `UserDemo!12345` | Default password for new employee accounts |
+| `OLLAMA_URL` | `http://host.docker.internal:11434` | URL the container uses to reach Ollama |
 
-If model discovery fails in Docker but `ollama list` works on the laptop, the app container is probably pointing at the wrong host. Sign in as admin, open **Model Sources**, set Ollama URL to `http://host.docker.internal:11434`, click **Test Source**, then **Save Source**.
+> Credentials set in `.env` are only used during the **first boot** to seed the database. Changing them after first boot requires resetting the database (see below) or updating via the Admin dashboard.
 
-Set a real admin password before sharing the app:
+---
+
+## Ollama Connectivity
+
+| Platform | Setup | OLLAMA_URL |
+|---|---|---|
+| macOS / Windows (Docker Desktop) | Works out of the box | `http://host.docker.internal:11434` |
+| Linux | `extra_hosts` already set in docker-compose.yml | `http://host.docker.internal:11434` |
+| Ollama on a separate machine | Set IP in `.env` | `http://192.168.x.x:11434` |
+
+If the dashboard shows **Ollama not connected**, sign in as admin, go to **Settings → Model Sources**, update the Ollama URL, click **Test connection**, and **Save URL**.
+
+---
+
+## Docker Commands
 
 ```bash
-DEFAULT_ADMIN_PASSWORD="your-strong-password" docker compose up --build
-```
+# Start (build image first)
+docker compose up --build
 
-Stop:
+# Start in background
+docker compose up -d --build
 
-```bash
+# Stop
 docker compose down
+
+# Stream logs
+docker compose logs -f app
+
+# Restart app only (no rebuild)
+docker compose restart app
+
+# Rebuild image after code changes
+docker compose up --build
+
+# Remove all containers + data volume (full reset)
+docker compose down -v
 ```
 
-## 2. Local Developer Mode
+---
 
-Use this when developing the MVP on a laptop.
+## Data Persistence
 
-Storage:
+All data is stored inside the `app-data` named Docker volume:
 
-- SQLite for SQL data
-- JSON document store for chat/audit/router traces
-- In-memory realtime state
+| Path in container | Contents |
+|---|---|
+| `/app/data/olla-nest.sqlite` | Users, groups, departments, models, permissions, settings |
+| `/app/data/documents.json` | Chat history, audit log, router traces, workspace preferences |
+| `/app/data/workspace/` | Default local output folder for Build/Fix file writes |
 
-Commands:
+Data persists across `docker compose down / up` because the volume is not removed unless you pass `-v`.
+
+**Full reset** (deletes all users, settings, chat history):
 
 ```bash
-npm install
-cp .env.example .env
-npm run dev:api
-npm run dev
+docker compose down -v
+docker compose up --build
 ```
 
-Open:
-
-```text
-http://localhost:5173/login
-```
-
-To test the production bundle without Docker:
+**Backup the volume** before upgrading or resetting:
 
 ```bash
-npm run build
-npm start
+docker run --rm \
+  -v olla-nest_app-data:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/olla-nest-backup.tar.gz /data
 ```
 
-Default first boot admin:
+---
 
-```text
-Email: admin@ollanest.local
-Password: ChangeMe!CreateARealPassword123
-```
-
-Use a strong password:
+## Upgrading
 
 ```bash
-DEFAULT_ADMIN_PASSWORD="your-strong-password" npm start
+git pull
+docker compose up --build
 ```
 
-Main routes:
+The app migrates the SQLite schema automatically on startup (additive changes only). Existing data is preserved.
 
-```text
-/login  Sign in
-/app    Employee workspace
-/admin  Admin dashboard
+---
+
+## Production Hardening Checklist
+
+Before sharing with your team:
+
+- [ ] Set a real `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD` in `.env`
+- [ ] Set a real `DEFAULT_USER_PASSWORD` in `.env`
+- [ ] Place a reverse proxy (Nginx, Caddy, Traefik) in front for HTTPS
+- [ ] Restrict port 3000 to localhost; expose only via reverse proxy
+- [ ] Store `.env` outside the repository or use Docker secrets
+- [ ] Back up the `app-data` volume regularly
+- [ ] Point `OLLAMA_URL` to a dedicated Ollama host if running multi-user
+
+### Example Nginx reverse proxy config
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name ai.yourcompany.com;
+
+    ssl_certificate     /etc/ssl/certs/yourcompany.crt;
+    ssl_certificate_key /etc/ssl/private/yourcompany.key;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
-Ollama should be running locally:
+---
 
-```text
-http://localhost:11434
-```
+## Troubleshooting
 
-In local developer mode, Admin -> Model Sources should use `http://localhost:11434`.
-
-## 3. Company/Production Mode
-
-Use PostgreSQL + MongoDB + Redis.
-
-Start databases:
+**Container exits immediately**
 
 ```bash
-docker compose up -d postgres mongo redis
+docker compose logs app
 ```
 
-Configure `.env`:
+Check for port conflicts or missing `.env`.
+
+**Ollama not connected / no models**
+
+1. Confirm Ollama is running on the host: `ollama list`
+2. Sign in as admin → **Settings** → update and test the Ollama URL
+3. On Linux, confirm `host.docker.internal` resolves: `docker exec olla-nest-app ping -c1 host.docker.internal`
+
+**Port 3000 already in use**
+
+Edit `docker-compose.yml` and change the host port:
+
+```yaml
+ports:
+  - "8080:3000"   # access at http://localhost:8080
+```
+
+**Reset admin password**
 
 ```bash
-STORAGE_MODE=production
-DEFAULT_ADMIN_EMAIL=admin@yourcompany.com
-DEFAULT_ADMIN_PASSWORD=replace-with-a-strong-password
-DATABASE_URL=postgresql://olla_nest:olla_nest@localhost:5432/olla_nest
-MONGODB_URI=mongodb://localhost:27017/olla_nest
-REDIS_URL=redis://localhost:6379
-OLLAMA_URL=http://localhost:11434
+docker compose down -v   # removes data — start fresh
+docker compose up --build
 ```
 
-This value is the boot default. Admins can change and test the active Ollama URL later from **Admin -> Model Sources** without rebuilding the app.
-
-Start app:
-
-```bash
-npm start
-```
-
-## Desktop App Direction
-
-The web app should remain the primary UI surface. The desktop app should wrap and extend it.
-
-Recommended path:
-
-1. Keep the backend API separate from UI concerns.
-2. Keep the frontend in React + Vite with MUI and Tailwind CSS.
-3. Package desktop with Tauri for macOS, Windows, and Linux.
-4. Let desktop builds manage local Ollama connection, local workspace permissions, and file access.
-5. Keep the same API contracts for future mobile apps.
-
-## Production Checklist
-
-- Configure PostgreSQL, MongoDB, and Redis.
-- Configure Ollama or approved model providers.
-- Set real authentication.
-- Set HTTPS and trusted origins.
-- Store secrets outside Git.
-- Add backups for PostgreSQL and MongoDB.
-- Add Redis persistence only for queues and recoverable realtime state.
-- Add observability for model latency, routing decisions, errors, and usage.
+Or update via Admin → Users → Reset Password if you still have admin access.
