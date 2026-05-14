@@ -9,104 +9,35 @@
 <body>
 <div class="app-shell">
 
-  <!-- Sidebar -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
+  <!-- Top Nav -->
+  <nav class="topnav">
+    <a class="topnav-brand" href="/app">
       <div class="brand-mark">ON</div>
-      <div class="brand-text">
-        <div class="brand-name">Olla Nest</div>
-        <div class="brand-sub">AI Workspace</div>
-      </div>
+      <span class="brand-name">Olla Nest</span>
+    </a>
+    <div class="topnav-center">
+      <a href="/app" class="nav-tab active">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Workspace
+      </a>
+      <a id="adminLink" href="/admin" class="nav-tab" style="display:none;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        Admin
+      </a>
     </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">Navigation</div>
-      <nav>
-        <a class="nav-item active" href="/app">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          Workspace
-        </a>
-      </nav>
+    <div class="topnav-right">
+      <div class="status-pill" id="ollamaStatus">Checking Ollama...</div>
+      <button class="btn btn-secondary btn-sm" id="accountBtn">Account</button>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">Sign out</button>
     </div>
+  </nav>
 
-    <div class="sidebar-divider"></div>
-
-    <!-- Approved models -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">Approved Models</div>
-      <div id="sidebarModels" style="padding: 4px 0;">
-        <div class="model-item"><div class="model-dot" style="background: var(--sidebar-muted)"></div><div class="model-name" style="color: var(--sidebar-muted)">Loading…</div></div>
-      </div>
-    </div>
-
-    <div class="sidebar-divider"></div>
-
-    <!-- Workspace config -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">Local Workspace</div>
-      <div class="workspace-info" id="workspaceInfo">
-        <div class="workspace-info-label">Output folder</div>
-        <div class="workspace-info-path" id="workspacePath">Not configured</div>
-        <div id="workspaceModeTag"></div>
-        <button class="btn btn-ghost btn-sm" id="configWorkspaceBtn" style="margin-top:8px; color:#6B7785; border-color: #1E2130; width:100%; font-size:11px;">
-          Configure folder
-        </button>
-      </div>
-    </div>
-
-    <!-- Workspace config panel (hidden by default) -->
-    <div id="workspaceConfigPanel" style="display:none; padding: 0 8px 8px;">
-      <div style="background: var(--sidebar-hover); border-radius: var(--radius-sm); padding: 12px;">
-        <div class="workspace-info-label" style="margin-bottom:8px">Workspace folder</div>
-        <input class="input input-sm" id="workspaceFolderInput" placeholder="/path/to/folder" style="background:#1A1D27; border-color:#2D3348; color:#C9CDD6; font-size:11px;" />
-        <div class="workspace-info-label" style="margin-top:10px; margin-bottom:6px">Permission mode</div>
-        <select id="permissionModeSelect" style="width:100%; padding:5px 8px; background:#1A1D27; border:1px solid #2D3348; border-radius:var(--radius-xs); color:#C9CDD6; font-size:11px; outline:none;">
-          <option value="default">Default — approve each write</option>
-          <option value="review">Auto-review</option>
-          <option value="full">Full access — auto write</option>
-        </select>
-        <div style="display:flex; gap:6px; margin-top:10px;">
-          <button class="btn btn-primary btn-sm" id="saveWorkspaceBtn" style="flex:1; font-size:11px;">Save</button>
-          <button class="btn btn-ghost btn-sm" id="cancelWorkspaceBtn" style="font-size:11px; color:#6B7785; border-color:#2D3348;">Cancel</button>
-        </div>
-        <div id="workspaceSaveMsg" style="font-size:11px; color:#6EE7B7; margin-top:6px; min-height:14px;"></div>
-      </div>
-    </div>
-
-    <div class="sidebar-footer">
-      <div class="sidebar-user">
-        <div class="user-avatar" id="userAvatar">?</div>
-        <div class="user-info">
-          <div class="user-name" id="userName">Loading</div>
-          <div class="user-meta" id="userMeta">workspace</div>
-        </div>
-      </div>
-      <div style="display:flex; gap:6px; padding: 0 8px 4px;">
-        <a id="adminLink" href="/admin" class="btn btn-ghost btn-sm" style="flex:1; color:#6B7785; border-color:#1E2130; font-size:11px; display:none; text-align:center;">Admin</a>
-        <button id="logoutBtn" class="btn btn-ghost btn-sm" style="flex:1; color:#6B7785; border-color:#1E2130; font-size:11px;">Sign out</button>
-      </div>
-    </div>
-  </aside>
-
-  <!-- Main content -->
-  <div class="main-content">
-    <!-- Topbar -->
-    <div class="topbar">
-      <div class="topbar-left">
-        <div class="topbar-title" id="topbarTitle">Employee Workspace</div>
-        <div class="topbar-sub" id="topbarSub">Ask anything · Auto Router selects the best local model</div>
-      </div>
-      <div class="topbar-right">
-        <div class="status-pill" id="ollamaStatus">Checking Ollama…</div>
-        <button id="accountBtn" class="btn btn-secondary btn-sm">Account</button>
-      </div>
-    </div>
-
-    <!-- Account panel (hidden by default) -->
-    <div id="accountPanel" style="display:none; padding:16px 24px; background: var(--card); border-bottom: 1px solid var(--border);">
-      <div style="display:flex; align-items:flex-start; gap:24px; max-width:640px;">
+  <!-- Account Panel -->
+  <div id="accountPanel" style="display:none;">
+    <div class="account-panel">
+      <div class="account-panel-inner">
         <div style="flex:1;">
-          <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:8px;">Change Password</div>
+          <div class="account-section-title">Change Password</div>
           <form id="passwordForm" class="form-stack" style="gap:8px;">
             <input class="input input-sm" id="currentPassword" type="password" placeholder="Current password" autocomplete="current-password" />
             <input class="input input-sm" id="newPassword" type="password" placeholder="New password (min 12 chars)" autocomplete="new-password" />
@@ -115,90 +46,160 @@
           <div id="passwordMsg" class="form-message"></div>
         </div>
         <div style="flex:1;">
-          <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:8px;">Access Policy</div>
-          <div id="accessPolicy" style="font-size:13px; color:var(--muted); line-height:1.6;"></div>
+          <div class="account-section-title">Access Policy</div>
+          <div id="accessPolicy" style="font-size:13px;color:var(--muted);line-height:1.6;"></div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Chat shell -->
-    <div class="chat-shell">
-      <div class="chat-main">
-        <!-- Mode bar -->
-        <div class="mode-bar">
-          <button class="mode-btn active" data-mode="ask">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Ask
-          </button>
-          <button class="mode-btn" data-mode="build">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>
-            Build
-          </button>
-          <button class="mode-btn" data-mode="review">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            Review
-          </button>
-          <button class="mode-btn" data-mode="fix">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-            Fix
-          </button>
-          <button class="mode-btn" data-mode="learn">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            Learn
-          </button>
-          <button class="mode-btn new-chat" id="newChatBtn" type="button">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            New Chat
-          </button>
-        </div>
+  <!-- Welcome Bar -->
+  <div class="welcome-bar">
+    <div>
+      <div class="welcome-title" id="topbarTitle">Welcome</div>
+      <div class="welcome-sub" id="topbarSub">AI Workspace</div>
+    </div>
+  </div>
 
-        <!-- Messages -->
-        <div class="messages-area" id="messages"></div>
+  <!-- Stats Bar -->
+  <div class="stats-bar">
+    <div class="stat-pill stat-pill-black">
+      <span class="stat-pill-label">Mode</span>
+      <span class="stat-pill-value" id="currentModeLabel">Ask</span>
+    </div>
+    <div class="stat-pill stat-pill-yellow">
+      <span class="stat-pill-value">Auto Router</span>
+      <span class="stat-pill-label">active</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-pill-label">Workspace</span>
+      <span class="stat-pill-value" id="statWorkspace">not set</span>
+    </div>
+  </div>
 
-        <!-- Composer -->
-        <div class="composer">
-          <form id="chatForm">
-            <div class="composer-box">
-              <textarea
-                class="composer-textarea"
-                id="messageInput"
-                placeholder="Ask once — Auto Router picks the best approved model for your task…"
-                rows="3"
-              ></textarea>
-              <div class="composer-footer">
-                <div class="composer-left">
-                  <select class="model-select" id="manualModel">
-                    <option value="">Auto Router</option>
-                  </select>
-                  <label class="write-toggle" id="writeToggleLabel" style="display:none;">
-                    <input type="checkbox" id="writeToWorkspace" />
-                    Write to workspace
-                  </label>
-                </div>
-                <div class="composer-right">
-                  <button class="btn btn-primary" type="submit" id="sendBtn" style="padding: 7px 18px;">
-                    Send
-                  </button>
-                </div>
-              </div>
-            </div>
-          </form>
+  <!-- Main Grid -->
+  <div class="main-grid">
+
+    <!-- Left: Sidebar -->
+    <div class="sidebar-card">
+      <div class="user-profile-card">
+        <div class="user-profile-header"></div>
+        <div class="user-profile-body">
+          <div class="user-avatar-wrap">
+            <div class="user-avatar" id="userAvatar">?</div>
+          </div>
+          <div class="user-name" id="userName">Loading</div>
+          <div class="user-meta" id="userMeta">workspace</div>
         </div>
       </div>
 
-      <!-- Router panel -->
-      <div class="router-panel" id="routerPanel">
-        <div class="router-header">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-          Auto Router
+      <div class="sidebar-section-card">
+        <div class="sidebar-section-title">Approved Models</div>
+        <div id="sidebarModels">
+          <div class="model-item">
+            <div class="model-dot" style="background:var(--muted)"></div>
+            <div class="model-name" style="color:var(--muted)">Loading...</div>
+          </div>
         </div>
-        <div id="routerContent">
-          <div class="router-empty">
-            Send a request to see how Auto Router selects the best model for your task.
+      </div>
+
+      <div class="sidebar-section-card">
+        <div class="sidebar-section-title">Local Workspace</div>
+        <div id="workspaceInfo">
+          <div class="text-xs" style="color:var(--muted)">Output folder</div>
+          <div class="workspace-path" id="workspacePath">Not configured</div>
+          <div id="workspaceModeTag"></div>
+          <button class="btn btn-ghost btn-sm w-full mt-2" id="configWorkspaceBtn" style="font-size:11px;color:var(--muted);">Configure folder</button>
+        </div>
+        <div id="workspaceConfigPanel" style="display:none;">
+          <div class="workspace-config-panel">
+            <div class="form-row" style="margin-bottom:8px;">
+              <label class="form-label">Workspace folder</label>
+              <input class="input input-sm" id="workspaceFolderInput" placeholder="/path/to/folder" />
+            </div>
+            <div class="form-row" style="margin-bottom:10px;">
+              <label class="form-label">Permission mode</label>
+              <select class="input input-sm" id="permissionModeSelect">
+                <option value="default">Default - approve each write</option>
+                <option value="review">Auto-review</option>
+                <option value="full">Full access - auto write</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-primary btn-sm" id="saveWorkspaceBtn" style="flex:1;">Save</button>
+              <button class="btn btn-ghost btn-sm" id="cancelWorkspaceBtn">Cancel</button>
+            </div>
+            <div id="workspaceSaveMsg" style="font-size:11px;color:#16A34A;margin-top:6px;min-height:14px;"></div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Center: Chat -->
+    <div class="chat-card">
+      <div class="chat-header">
+        <div class="mode-bar">
+          <button class="mode-btn active" data-mode="ask">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Ask
+          </button>
+          <button class="mode-btn" data-mode="build">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>
+            Build
+          </button>
+          <button class="mode-btn" data-mode="review">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Review
+          </button>
+          <button class="mode-btn" data-mode="fix">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            Fix
+          </button>
+          <button class="mode-btn" data-mode="learn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            Learn
+          </button>
+          <button class="mode-btn new-chat" id="newChatBtn" type="button">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Chat
+          </button>
+        </div>
+      </div>
+      <div class="messages-area" id="messages"></div>
+      <div class="composer">
+        <form id="chatForm">
+          <div class="composer-box">
+            <textarea class="composer-textarea" id="messageInput" placeholder="Ask anything - Auto Router picks the best approved model for your task..." rows="3"></textarea>
+            <div class="composer-footer">
+              <div class="composer-left">
+                <select class="model-select" id="manualModel"><option value="">Auto Router</option></select>
+                <label class="write-toggle" id="writeToggleLabel" style="display:none;">
+                  <input type="checkbox" id="writeToWorkspace" />
+                  Write to workspace
+                </label>
+              </div>
+              <div class="composer-right">
+                <button class="btn btn-primary btn-sm" type="submit" id="sendBtn">Send</button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Right: Auto Router -->
+    <div class="router-card" id="routerPanel">
+      <div class="router-header">
+        <div class="router-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        </div>
+        Auto Router
+      </div>
+      <div id="routerContent">
+        <div class="router-empty">Send a request to see how Auto Router selects the best model for your task.</div>
+      </div>
+    </div>
+
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>

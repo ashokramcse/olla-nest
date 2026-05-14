@@ -7,142 +7,141 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-<div class="app-shell">
+<div class="admin-shell">
 
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="sidebar-brand">
+  <!-- Top Nav -->
+  <nav class="topnav">
+    <a class="topnav-brand" href="/admin">
       <div class="brand-mark">ON</div>
-      <div class="brand-text">
-        <div class="brand-name">Olla Nest</div>
-        <div class="brand-sub">Admin Console</div>
-      </div>
+      <span class="brand-name">Olla Nest</span>
+    </a>
+    <div class="topnav-center">
+      <span style="font-size:12px;color:var(--muted);font-weight:500;" id="tabTitle">Company Dashboard</span>
     </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">Control</div>
-      <nav>
-        <button class="nav-item active" data-tab="overview">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          Overview
-        </button>
-        <button class="nav-item" data-tab="models">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-          Local Models
-        </button>
-        <button class="nav-item" data-tab="users">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Users
-        </button>
-        <button class="nav-item" data-tab="access">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-          Access Control
-        </button>
-        <button class="nav-item" data-tab="settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Settings
-        </button>
-        <button class="nav-item" data-tab="audit">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          Audit Trail
-        </button>
-      </nav>
+    <div class="topnav-right">
+      <div class="status-pill" id="ollamaStatus">Checking...</div>
+      <button class="btn btn-secondary btn-sm" id="refreshBtn">Refresh</button>
+      <a href="/app" class="btn btn-ghost btn-sm">Workspace</a>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">Sign out</button>
     </div>
+  </nav>
 
-    <div class="sidebar-divider"></div>
+  <!-- Body: Sidebar + Main -->
+  <div class="admin-body">
 
-    <div class="sidebar-section">
-      <div class="sidebar-label">Workspace</div>
-      <nav>
-        <a class="nav-item" href="/app">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          User Workspace
-        </a>
-      </nav>
-    </div>
+    <!-- Sidebar Nav -->
+    <aside class="admin-sidebar">
+      <div class="admin-nav-label">Navigation</div>
+      <button class="nav-item active" data-tab="overview">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Overview
+      </button>
+      <button class="nav-item" data-tab="models">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        Models
+      </button>
+      <button class="nav-item" data-tab="users">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Users
+      </button>
+      <button class="nav-item" data-tab="access">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Access Control
+      </button>
+      <button class="nav-item" data-tab="settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+      <button class="nav-item" data-tab="audit">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Audit Trail
+      </button>
 
-    <div class="sidebar-footer">
-      <div class="sidebar-user">
-        <div class="user-avatar" id="adminAvatar">A</div>
-        <div class="user-info">
-          <div class="user-name" id="adminName">Admin</div>
-          <div class="user-meta">Administrator</div>
-        </div>
-      </div>
-      <div style="padding: 0 8px 4px;">
-        <button id="logoutBtn" class="btn btn-ghost btn-sm btn-full" style="color:#6B7785; border-color:#1E2130; font-size:11px;">Sign out</button>
-      </div>
-    </div>
-  </aside>
-
-  <!-- Main -->
-  <div class="main-content">
-    <!-- Topbar -->
-    <div class="topbar">
-      <div class="topbar-left">
-        <div class="topbar-title" id="tabTitle">Company Dashboard</div>
-        <div class="topbar-sub">Olla Nest Admin Control</div>
-      </div>
-      <div class="topbar-right">
-        <div class="status-pill" id="ollamaStatus">Checking Ollama…</div>
-        <button id="refreshBtn" class="btn btn-secondary btn-sm">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Refresh
-        </button>
-      </div>
-    </div>
-
-    <!-- Tab content -->
-    <div style="flex:1; overflow-y:auto;">
-
-      <!-- Overview tab -->
-      <div class="tab-view active page-content" id="tab-overview">
-        <div class="page-header">
-          <p class="eyebrow">Admin Control</p>
-          <h1>Company Dashboard</h1>
-        </div>
-
-        <div class="metrics-row">
-          <div class="metric-card">
-            <div class="metric-label">Local Models</div>
-            <div class="metric-value" id="metricModels">0</div>
-            <div class="metric-sub">Available via Ollama</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">Users</div>
-            <div class="metric-value" id="metricUsers">0</div>
-            <div class="metric-sub">Total accounts</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">Groups</div>
-            <div class="metric-value" id="metricGroups">0</div>
-            <div class="metric-sub">Access groups</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">Departments</div>
-            <div class="metric-value" id="metricDepts">0</div>
-            <div class="metric-sub">Company units</div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Models tab -->
-      <div class="tab-view page-content" id="tab-models">
-        <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
+      <div class="admin-nav-footer">
+        <div class="admin-identity">
+          <div class="admin-avatar" id="adminAvatar">A</div>
           <div>
-            <p class="eyebrow">Live from Ollama</p>
-            <h1>Local Models</h1>
+            <div class="admin-identity-name" id="adminName">Admin</div>
+            <div class="admin-identity-role">Administrator</div>
           </div>
-          <button class="btn btn-secondary" id="syncModelsBtn">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            Sync from Ollama
-          </button>
         </div>
-        <div class="card">
-          <div style="overflow-x:auto;">
-            <table class="data-table" id="modelTable">
-              <thead><tr>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+
+      <!-- ===== OVERVIEW ===== -->
+      <div class="tab-view active" id="tab-overview">
+        <div class="admin-page-header">
+          <div class="admin-page-title">Company Dashboard</div>
+          <div class="admin-page-actions">
+            <span class="text-xs text-muted">Active sources:</span>
+            <div class="source-pills" id="activeSourcePills"></div>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card metric-card-dark">
+            <div class="metric-card-icon">🤖</div>
+            <div class="metric-card-value" id="metricModels">—</div>
+            <div class="metric-card-label">Local Models</div>
+          </div>
+          <div class="metric-card metric-card-yellow">
+            <div class="metric-card-icon">👥</div>
+            <div class="metric-card-value" id="metricUsers">—</div>
+            <div class="metric-card-label">Employees</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-icon">🏢</div>
+            <div class="metric-card-value" id="metricDepts">—</div>
+            <div class="metric-card-label">Departments</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-icon">👫</div>
+            <div class="metric-card-value" id="metricGroups">—</div>
+            <div class="metric-card-label">Groups</div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div class="metric-card">
+            <div class="metric-card-label" style="margin-bottom:6px;">Roles defined</div>
+            <div class="metric-card-value" style="font-size:26px;" id="metricRoles">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-label" style="margin-bottom:6px;">Permissions catalog</div>
+            <div class="metric-card-value" style="font-size:26px;" id="metricPermissions">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-label" style="margin-bottom:6px;">Governed models</div>
+            <div class="metric-card-value" style="font-size:26px;" id="metricGovernedModels">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-label" style="margin-bottom:6px;">External API access</div>
+            <div class="metric-card-value" style="font-size:26px;" id="metricExternalAccess">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== MODELS ===== -->
+      <div class="tab-view" id="tab-models">
+        <div class="admin-page-header">
+          <div class="admin-page-title">Local Models</div>
+          <div class="admin-page-actions">
+            <button class="btn btn-primary btn-sm" id="syncModelsBtn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Sync from Ollama
+            </button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <div class="table-title">Ollama Models</div>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
                 <th>Model</th>
                 <th>Provider</th>
                 <th>Status</th>
@@ -151,428 +150,344 @@
                 <th>Governance</th>
                 <th>Resources</th>
                 <th>Capabilities</th>
-              </tr></thead>
-              <tbody id="modelTableBody"></tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody id="modelTableBody">
+              <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">Loading models...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- Users tab -->
-      <div class="tab-view page-content" id="tab-users">
-        <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
-          <div>
-            <p class="eyebrow">People</p>
-            <h1>User Management</h1>
-          </div>
-          <button class="btn btn-primary" id="toggleAddUserBtn">+ Add Employee</button>
-        </div>
-
-        <!-- Add Employee form — hidden by default -->
-        <div id="addUserPanel" style="display:none; margin-bottom:20px;">
-          <div class="card">
-            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-              <span class="card-title">New Employee</span>
-              <button class="btn btn-ghost btn-sm" id="cancelAddUserBtn">✕ Cancel</button>
-            </div>
-            <div class="card-body">
-              <form id="createUserForm" class="form-stack">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                  <div class="input-group">
-                    <label class="input-label">Full name</label>
-                    <input class="input input-sm" id="newUserName" placeholder="Jane Smith" />
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">Work email</label>
-                    <input class="input input-sm" id="newUserEmail" type="email" placeholder="jane@company.com" />
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">Role</label>
-                    <select class="select-input input-sm" id="newUserRole">
-                      <option value="user">Employee</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">Department</label>
-                    <select class="select-input input-sm" id="newUserDept"></select>
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">Temporary password</label>
-                    <input class="input input-sm" id="newUserPassword" type="password" placeholder="Min 12 characters" />
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">Designation</label>
-                    <input class="input input-sm" id="newUserDesignation" placeholder="AI Developer" />
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">Team</label>
-                    <input class="input input-sm" id="newUserTeam" placeholder="Platform" />
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">AI access tier</label>
-                    <select class="select-input input-sm" id="newUserTier">
-                      <option value="standard">Standard</option>
-                      <option value="developer">Developer</option>
-                      <option value="research">Research</option>
-                      <option value="restricted">Restricted</option>
-                      <option value="executive">Executive</option>
-                    </select>
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">Daily token limit</label>
-                    <input class="input input-sm" id="newUserDailyTokens" type="number" value="50000" />
-                  </div>
-                </div>
-                <div style="margin-top:4px;">
-                  <button class="btn btn-primary" type="submit">Create Account</button>
-                </div>
-              </form>
-              <div id="userMsg" class="form-message mt-2"></div>
-            </div>
+      <!-- ===== USERS ===== -->
+      <div class="tab-view" id="tab-users">
+        <div class="admin-page-header">
+          <div class="admin-page-title">User Management</div>
+          <div class="admin-page-actions">
+            <button class="btn btn-primary btn-sm" id="toggleAddUserBtn">+ Add Employee</button>
           </div>
         </div>
 
-        <!-- User list (full width) -->
-        <div class="card">
-          <div class="card-header"><span class="card-title">All Employees</span></div>
-          <div class="card-body" style="padding-top:8px;">
-            <div id="userMsg2" class="form-message" style="margin-bottom:8px;"></div>
-            <div id="userList"></div>
-          </div>
+        <!-- Add User Form -->
+        <div id="addUserPanel" style="display:none;" class="add-user-panel section-gap">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px;">New Employee</div>
+          <form id="createUserForm">
+            <div class="add-user-grid">
+              <div class="form-row">
+                <label class="form-label">Full name *</label>
+                <input class="input input-sm" id="newUserName" placeholder="Jane Smith" required />
+              </div>
+              <div class="form-row">
+                <label class="form-label">Email *</label>
+                <input class="input input-sm" id="newUserEmail" type="email" placeholder="jane@company.com" required />
+              </div>
+              <div class="form-row">
+                <label class="form-label">Role *</label>
+                <select class="input input-sm" id="newUserRole">
+                  <option value="user">Employee</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label class="form-label">Department</label>
+                <select class="input input-sm" id="newUserDept"></select>
+              </div>
+              <div class="form-row">
+                <label class="form-label">Designation</label>
+                <input class="input input-sm" id="newUserDesignation" placeholder="UX Designer" />
+              </div>
+              <div class="form-row">
+                <label class="form-label">Team</label>
+                <input class="input input-sm" id="newUserTeam" placeholder="Product" />
+              </div>
+              <div class="form-row">
+                <label class="form-label">AI Access Tier</label>
+                <select class="input input-sm" id="newUserTier">
+                  <option value="standard">Standard</option>
+                  <option value="developer">Developer</option>
+                  <option value="analyst">Analyst</option>
+                  <option value="restricted">Restricted</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label class="form-label">Daily Token Limit</label>
+                <input class="input input-sm" id="newUserDailyTokens" type="number" value="50000" />
+              </div>
+              <div class="form-row">
+                <label class="form-label">Password (optional)</label>
+                <input class="input input-sm" id="newUserPassword" type="password" placeholder="Leave blank for default" />
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px;">
+              <button class="btn btn-primary btn-sm" type="submit">Create Account</button>
+              <button class="btn btn-ghost btn-sm" type="button" id="cancelAddUserBtn">Cancel</button>
+            </div>
+          </form>
+          <div id="userMsg" class="form-message"></div>
         </div>
+
+        <!-- User List -->
+        <div class="table-wrap">
+          <div id="userList"></div>
+        </div>
+        <div id="userMsg2" class="form-message" style="padding:0 20px 12px;"></div>
       </div>
 
-      <!-- Access Control tab -->
-      <div class="tab-view page-content" id="tab-access">
-        <div class="page-header">
-          <p class="eyebrow">Enterprise Governance</p>
-          <h1>User Management &amp; Access Control</h1>
+      <!-- ===== ACCESS ===== -->
+      <div class="tab-view" id="tab-access">
+        <div class="admin-page-header">
+          <div class="admin-page-title">Access Control</div>
         </div>
 
-        <div class="metrics-row">
-          <div class="metric-card">
-            <div class="metric-label">RBAC Roles</div>
-            <div class="metric-value" id="metricRoles">0</div>
-            <div class="metric-sub">Enterprise role templates</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">Permissions</div>
-            <div class="metric-value" id="metricPermissions">0</div>
-            <div class="metric-sub">AI usage controls</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">Governed Models</div>
-            <div class="metric-value" id="metricGovernedModels">0</div>
-            <div class="metric-sub">With model policies</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">External AI</div>
-            <div class="metric-value" id="metricExternalAccess">Off</div>
-            <div class="metric-sub">Cloud provider access</div>
-          </div>
-        </div>
-
-        <div class="section-grid grid-2" style="margin-top:20px;">
-          <div class="card">
-            <div class="card-header"><span class="card-title">Effective Access Viewer</span></div>
-            <div class="card-body">
-              <div class="input-group">
-                <label class="input-label">Employee</label>
-                <select class="select-input" id="accessUserSelect"></select>
-              </div>
-              <div id="effectiveAccessPanel" class="access-panel"></div>
+        <!-- Effective Access Viewer -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+          <div class="settings-card">
+            <div class="settings-card-title">Effective Access Viewer</div>
+            <div class="settings-card-sub">See exactly what a user can access</div>
+            <div class="form-row" style="margin-bottom:12px;">
+              <label class="form-label">Select employee</label>
+              <select class="input input-sm" id="accessUserSelect"></select>
             </div>
+            <div id="effectiveAccessPanel"></div>
           </div>
-
-          <div class="card">
-            <div class="card-header"><span class="card-title">User Override</span></div>
-            <div class="card-body">
-              <div class="input-group">
-                <label class="input-label">Permission</label>
-                <select class="select-input" id="overridePermission"></select>
+          <div class="settings-card">
+            <div class="settings-card-title">Permission Override</div>
+            <div class="settings-card-sub">Grant or revoke a specific permission for a user</div>
+            <div class="form-stack">
+              <div class="form-row">
+                <label class="form-label">Permission</label>
+                <select class="input input-sm" id="overridePermission"></select>
               </div>
-              <div class="input-group">
-                <label class="input-label">Effect</label>
-                <select class="select-input" id="overrideEffect">
-                  <option value="allow">Allow</option>
+              <div class="form-row">
+                <label class="form-label">Effect</label>
+                <select class="input input-sm" id="overrideEffect">
+                  <option value="grant">Grant</option>
                   <option value="deny">Deny</option>
                 </select>
               </div>
-              <div class="input-group">
-                <label class="input-label">Reason</label>
-                <input class="input" id="overrideReason" placeholder="Temporary project access, security restriction, etc." />
+              <div class="form-row">
+                <label class="form-label">Reason</label>
+                <input class="input input-sm" id="overrideReason" placeholder="Why this override?" />
               </div>
-              <div class="input-group">
-                <label class="input-label">Expires at</label>
-                <input class="input" id="overrideExpires" type="date" />
+              <div class="form-row">
+                <label class="form-label">Expires (optional)</label>
+                <input class="input input-sm" id="overrideExpires" type="datetime-local" />
               </div>
-              <button class="btn btn-primary" id="saveOverrideBtn">Apply Override</button>
-              <div id="overrideMsg" class="form-message mt-2"></div>
+              <button class="btn btn-primary btn-sm" id="saveOverrideBtn">Apply Override</button>
             </div>
+            <div id="overrideMsg" class="form-message"></div>
           </div>
         </div>
 
-        <div class="card" style="margin-top:20px;">
-          <div class="card-header"><span class="card-title">Permission Matrix</span></div>
-          <div class="card-body" style="padding:0; overflow-x:auto;">
-            <table class="data-table">
-              <thead><tr><th>Role</th><th>Description</th><th>Permissions</th></tr></thead>
-              <tbody id="roleMatrixBody"></tbody>
-            </table>
+        <!-- Role Matrix -->
+        <div class="role-matrix-wrap">
+          <div class="table-header">
+            <div class="table-title">Role Permission Matrix</div>
           </div>
+          <table class="data-table">
+            <thead>
+              <tr><th>Role</th><th>Description</th><th>Permissions</th></tr>
+            </thead>
+            <tbody id="roleMatrixBody"></tbody>
+          </table>
         </div>
       </div>
 
-      <!-- Settings tab -->
-      <div class="tab-view page-content" id="tab-settings">
-        <div class="page-header">
-          <p class="eyebrow">Configuration</p>
-          <h1>System Settings</h1>
+      <!-- ===== SETTINGS ===== -->
+      <div class="tab-view" id="tab-settings">
+        <div class="admin-page-header">
+          <div class="admin-page-title">System Settings</div>
+          <div class="admin-page-actions">
+            <button class="btn btn-primary btn-sm" id="saveSettingsBtn">Save Settings</button>
+          </div>
         </div>
-        <div class="section-grid grid-2">
-          <!-- Router + Model settings -->
-          <div class="card">
-            <div class="card-header"><span class="card-title">Router &amp; Model Access</span></div>
-            <div class="card-body">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <div class="toggle-label">Auto Router enabled</div>
-                  <div class="toggle-desc">Automatically select the best approved model per request</div>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="routerEnabled" />
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <div class="toggle-label">Allow API models</div>
-                  <div class="toggle-desc">Enable external cloud API model connections</div>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="allowApiModels" />
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <div class="toggle-label">Local-first by default</div>
-                  <div class="toggle-desc">Prefer local Ollama models over any API model</div>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="localOnlyDefault" />
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <div class="toggle-label">Local file writes enabled</div>
-                  <div class="toggle-desc">Allow Build/Fix tasks to create files in workspace</div>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="localWritesEnabled" />
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-              <div style="margin-top:16px;">
-                <div class="input-group">
-                  <label class="input-label">Default file permission mode</label>
-                  <select class="select-input" id="localPermissionMode">
-                    <option value="default">Default — user approves each write</option>
-                    <option value="review">Auto-review</option>
-                    <option value="full">Full access — auto write</option>
-                  </select>
-                </div>
-                <div class="input-group">
-                  <label class="input-label">Company workspace root</label>
-                  <input class="input" id="workspaceRoot" placeholder="/path/to/company/workspace" />
-                </div>
-              </div>
-              <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
-              <div id="settingsMsg" class="form-message mt-2"></div>
+
+        <div class="settings-grid section-gap">
+          <!-- Router & Access -->
+          <div class="settings-card">
+            <div class="settings-card-title">Router & Access</div>
+            <div class="settings-card-sub">Control how models are selected and accessed</div>
+            <div class="form-stack">
+              <label class="checkbox-row"><input type="checkbox" id="routerEnabled" /> Enable Auto Router</label>
+              <label class="checkbox-row"><input type="checkbox" id="allowApiModels" /> Allow external API models</label>
+              <label class="checkbox-row"><input type="checkbox" id="localOnlyDefault" /> Default to local-only</label>
             </div>
           </div>
-
-          <!-- Model Sources (multi-provider) -->
-          <div class="card" style="grid-column: 1 / -1;">
-            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <span class="card-title">Model Sources</span>
-                <div id="activeSourcePills" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;"></div>
+          <!-- Workspace -->
+          <div class="settings-card">
+            <div class="settings-card-title">Workspace & Writes</div>
+            <div class="settings-card-sub">Control file output for Build and Fix modes</div>
+            <div class="form-stack">
+              <label class="checkbox-row"><input type="checkbox" id="localWritesEnabled" /> Enable local file writes</label>
+              <div class="form-row">
+                <label class="form-label">Permission mode</label>
+                <select class="input input-sm" id="localPermissionMode">
+                  <option value="default">Default - approve each write</option>
+                  <option value="review">Auto-review</option>
+                  <option value="full">Full access</option>
+                </select>
               </div>
-              <button class="btn btn-secondary btn-sm" id="toggleSourcesBtn">Configure Sources</button>
+              <div class="form-row">
+                <label class="form-label">Workspace root path</label>
+                <input class="input input-sm" id="workspaceRoot" placeholder="/path/to/workspace" />
+              </div>
             </div>
+          </div>
+        </div>
+        <div id="settingsMsg" class="form-message section-gap"></div>
 
-            <div id="modelSourcesPanel" style="display:none;">
-              <div class="card-body" style="padding-top:0; display:grid; gap:16px;">
+        <!-- Model Sources -->
+        <div class="table-header" style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;box-shadow:var(--shadow);margin-bottom:0;">
+          <div class="table-title">Model Sources</div>
+          <button class="btn btn-secondary btn-sm" id="toggleSourcesBtn">Configure Sources</button>
+        </div>
 
-                <!-- Ollama -->
-                <div class="provider-card">
-                  <div class="provider-header">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <strong>Ollama</strong>
-                      <span class="badge badge-green" style="font-size:10px;">Local</span>
-                    </div>
-                    <span class="text-xs text-muted">Runs models on your machine — no API key needed</span>
-                  </div>
-                  <div class="input-group" style="max-width:420px;">
-                    <label class="input-label">Ollama URL</label>
-                    <div style="display:flex; gap:8px;">
-                      <input class="input input-sm" id="ollamaUrl" placeholder="http://host.docker.internal:11434" />
-                      <button class="btn btn-secondary btn-sm" id="testOllamaBtn" style="white-space:nowrap;">Test</button>
-                    </div>
-                  </div>
-                  <button class="btn btn-primary btn-sm" id="saveModelSourceBtn">Save Ollama URL</button>
-                  <div id="modelSourceMsg" class="form-message mt-2"></div>
-                  <div id="ollamaTestModels" style="display:none; margin-top:12px;"></div>
-                </div>
+        <div id="modelSourcesPanel" style="display:none; background:var(--card); border-radius:0 0 var(--r-xl) var(--r-xl); box-shadow:var(--shadow); padding:20px; margin-bottom:20px;">
+          <!-- Ollama -->
+          <div class="settings-card" style="margin-bottom:16px;">
+            <div class="provider-header">
+              <div class="provider-name">Ollama (Local)</div>
+              <span class="badge badge-green">Always Active</span>
+            </div>
+            <div class="form-row" style="margin-bottom:10px;">
+              <label class="form-label">Ollama URL</label>
+              <input class="input input-sm" id="ollamaUrl" value="http://host.docker.internal:11434" />
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-primary btn-sm" id="testOllamaBtn">Test connection</button>
+              <button class="btn btn-secondary btn-sm" id="saveModelSourceBtn">Save URL</button>
+            </div>
+            <div id="modelSourceMsg" class="form-message"></div>
+            <div id="ollamaTestModels" style="display:none; margin-top:10px;"></div>
+          </div>
 
-                <!-- Anthropic / Claude -->
-                <div class="provider-card">
-                  <div class="provider-header">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <strong>Anthropic / Claude</strong>
-                      <span class="badge badge-blue" style="font-size:10px;">API</span>
-                    </div>
-                    <label class="toggle-switch" style="transform:scale(0.85);">
-                      <input type="checkbox" id="anthropicEnabled" />
-                      <span class="toggle-track"></span>
-                    </label>
-                  </div>
-                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
-                    <div class="input-group">
-                      <label class="input-label">API Key</label>
-                      <input class="input input-sm" id="anthropicApiKey" type="password" placeholder="sk-ant-…" />
-                    </div>
-                    <div class="input-group">
-                      <label class="input-label">Base URL <span class="text-xs text-muted">(optional)</span></label>
-                      <input class="input input-sm" id="anthropicBaseUrl" placeholder="https://api.anthropic.com" />
-                    </div>
-                  </div>
-                  <button class="btn btn-primary btn-sm" id="saveAnthropicBtn">Save</button>
-                  <div id="anthropicMsg" class="form-message mt-2"></div>
-                </div>
-
-                <!-- OpenAI / Codex -->
-                <div class="provider-card">
-                  <div class="provider-header">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <strong>OpenAI / Codex</strong>
-                      <span class="badge badge-blue" style="font-size:10px;">API</span>
-                    </div>
-                    <label class="toggle-switch" style="transform:scale(0.85);">
-                      <input type="checkbox" id="openaiEnabled" />
-                      <span class="toggle-track"></span>
-                    </label>
-                  </div>
-                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
-                    <div class="input-group">
-                      <label class="input-label">API Key</label>
-                      <input class="input input-sm" id="openaiApiKey" type="password" placeholder="sk-…" />
-                    </div>
-                    <div class="input-group">
-                      <label class="input-label">Base URL <span class="text-xs text-muted">(Azure / proxy)</span></label>
-                      <input class="input input-sm" id="openaiBaseUrl" placeholder="https://api.openai.com/v1" />
-                    </div>
-                  </div>
-                  <button class="btn btn-primary btn-sm" id="saveOpenaiBtn">Save</button>
-                  <div id="openaiMsg" class="form-message mt-2"></div>
-                </div>
-
-                <!-- Groq -->
-                <div class="provider-card">
-                  <div class="provider-header">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <strong>Groq</strong>
-                      <span class="badge badge-blue" style="font-size:10px;">API</span>
-                    </div>
-                    <label class="toggle-switch" style="transform:scale(0.85);">
-                      <input type="checkbox" id="groqEnabled" />
-                      <span class="toggle-track"></span>
-                    </label>
-                  </div>
-                  <div class="input-group" style="max-width:300px;">
-                    <label class="input-label">API Key</label>
-                    <input class="input input-sm" id="groqApiKey" type="password" placeholder="gsk_…" />
-                  </div>
-                  <button class="btn btn-primary btn-sm" id="saveGroqBtn">Save</button>
-                  <div id="groqMsg" class="form-message mt-2"></div>
-                </div>
-
-                <!-- Custom / Other -->
-                <div class="provider-card">
-                  <div class="provider-header">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <strong>Custom Provider</strong>
-                      <span class="badge" style="font-size:10px;">Other</span>
-                    </div>
-                    <label class="toggle-switch" style="transform:scale(0.85);">
-                      <input type="checkbox" id="customEnabled" />
-                      <span class="toggle-track"></span>
-                    </label>
-                  </div>
-                  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; max-width:720px;">
-                    <div class="input-group">
-                      <label class="input-label">Provider Name</label>
-                      <input class="input input-sm" id="customName" placeholder="e.g. Together AI" />
-                    </div>
-                    <div class="input-group">
-                      <label class="input-label">API Key</label>
-                      <input class="input input-sm" id="customApiKey" type="password" placeholder="API key" />
-                    </div>
-                    <div class="input-group">
-                      <label class="input-label">Base URL</label>
-                      <input class="input input-sm" id="customBaseUrl" placeholder="https://api.example.com/v1" />
-                    </div>
-                  </div>
-                  <button class="btn btn-primary btn-sm" id="saveCustomBtn">Save</button>
-                  <div id="customMsg" class="form-message mt-2"></div>
-                </div>
-
+          <!-- API Providers -->
+          <div class="provider-cards">
+            <!-- Anthropic -->
+            <div class="provider-card" id="anthropicCard">
+              <div class="provider-header">
+                <div class="provider-name">Anthropic</div>
+                <label class="checkbox-row" style="font-size:12px;">
+                  <input type="checkbox" id="anthropicEnabled" /> Enable
+                </label>
               </div>
+              <div class="form-stack">
+                <div class="form-row">
+                  <label class="form-label">API Key</label>
+                  <input class="input input-sm" id="anthropicApiKey" type="password" placeholder="sk-ant-..." />
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Base URL (optional)</label>
+                  <input class="input input-sm" id="anthropicBaseUrl" placeholder="https://api.anthropic.com" />
+                </div>
+                <button class="btn btn-secondary btn-sm" id="saveAnthropicBtn">Save</button>
+              </div>
+              <div id="anthropicMsg" class="form-message"></div>
+            </div>
+            <!-- OpenAI -->
+            <div class="provider-card" id="openaiCard">
+              <div class="provider-header">
+                <div class="provider-name">OpenAI</div>
+                <label class="checkbox-row" style="font-size:12px;">
+                  <input type="checkbox" id="openaiEnabled" /> Enable
+                </label>
+              </div>
+              <div class="form-stack">
+                <div class="form-row">
+                  <label class="form-label">API Key</label>
+                  <input class="input input-sm" id="openaiApiKey" type="password" placeholder="sk-..." />
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Base URL (optional)</label>
+                  <input class="input input-sm" id="openaiBaseUrl" placeholder="https://api.openai.com/v1" />
+                </div>
+                <button class="btn btn-secondary btn-sm" id="saveOpenaiBtn">Save</button>
+              </div>
+              <div id="openaiMsg" class="form-message"></div>
+            </div>
+            <!-- Groq -->
+            <div class="provider-card" id="groqCard">
+              <div class="provider-header">
+                <div class="provider-name">Groq</div>
+                <label class="checkbox-row" style="font-size:12px;">
+                  <input type="checkbox" id="groqEnabled" /> Enable
+                </label>
+              </div>
+              <div class="form-stack">
+                <div class="form-row">
+                  <label class="form-label">API Key</label>
+                  <input class="input input-sm" id="groqApiKey" type="password" placeholder="gsk_..." />
+                </div>
+                <button class="btn btn-secondary btn-sm" id="saveGroqBtn">Save</button>
+              </div>
+              <div id="groqMsg" class="form-message"></div>
+            </div>
+            <!-- Custom -->
+            <div class="provider-card" id="customCard">
+              <div class="provider-header">
+                <div class="provider-name">Custom Provider</div>
+                <label class="checkbox-row" style="font-size:12px;">
+                  <input type="checkbox" id="customEnabled" /> Enable
+                </label>
+              </div>
+              <div class="form-stack">
+                <div class="form-row">
+                  <label class="form-label">Provider name</label>
+                  <input class="input input-sm" id="customName" placeholder="My Provider" />
+                </div>
+                <div class="form-row">
+                  <label class="form-label">API Key</label>
+                  <input class="input input-sm" id="customApiKey" type="password" />
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Base URL</label>
+                  <input class="input input-sm" id="customBaseUrl" placeholder="https://..." />
+                </div>
+                <button class="btn btn-secondary btn-sm" id="saveCustomBtn">Save</button>
+              </div>
+              <div id="customMsg" class="form-message"></div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Audit tab -->
-      <div class="tab-view page-content" id="tab-audit">
-        <div class="page-header">
-          <p class="eyebrow">Compliance</p>
-          <h1>Audit Trail</h1>
+      <!-- ===== AUDIT ===== -->
+      <div class="tab-view" id="tab-audit">
+        <div class="admin-page-header">
+          <div class="admin-page-title">Audit Trail</div>
         </div>
-        <div class="card">
-          <div class="card-body" style="padding:0;">
-            <div id="auditList" style="padding: 4px 20px;"></div>
-          </div>
+        <div class="table-wrap">
+          <div id="auditList"></div>
         </div>
       </div>
 
-    </div>
+    </main>
   </div>
 </div>
+
 <!-- Change Password Modal -->
-<div id="changePwModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center;">
-  <div style="background:#fff; border-radius:14px; padding:32px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,.2); position:relative;">
-    <button id="closePwModal" style="position:absolute; top:14px; right:16px; background:none; border:none; font-size:20px; cursor:pointer; color:#6B7785;">✕</button>
-    <h2 style="margin:0 0 4px; font-size:18px;">Change Password</h2>
-    <p class="text-muted text-sm" id="changePwTarget" style="margin:0 0 20px;"></p>
+<div class="modal-overlay" id="changePwModal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-title">Change Password</div>
+    <div class="modal-sub" id="changePwTarget">Changing password for user</div>
     <form id="changePwForm" class="form-stack">
-      <div class="input-group">
-        <label class="input-label">New password</label>
-        <input class="input" id="changePwNew" type="password" placeholder="Min 12 characters" autocomplete="new-password" />
+      <div class="form-row">
+        <label class="form-label">New Password (min 12 chars)</label>
+        <input class="input input-sm" id="changePwNew" type="password" placeholder="New password" />
       </div>
-      <div class="input-group">
-        <label class="input-label">Confirm password</label>
-        <input class="input" id="changePwConfirm" type="password" placeholder="Repeat new password" autocomplete="new-password" />
+      <div class="form-row">
+        <label class="form-label">Confirm Password</label>
+        <input class="input input-sm" id="changePwConfirm" type="password" placeholder="Confirm password" />
       </div>
-      <div class="input-group">
-        <label class="input-label" id="captchaLabel">Security check: what is …?</label>
-        <input class="input" id="captchaAnswer" type="text" placeholder="Your answer" autocomplete="off" />
+      <div class="captcha-box">
+        <div id="captchaLabel">Security check</div>
+        <input class="input input-sm mt-2" id="captchaAnswer" type="number" placeholder="Your answer" />
       </div>
-      <button class="btn btn-primary btn-full" type="submit">Save Password</button>
-      <div id="changePwMsg" class="form-message mt-2"></div>
+      <div id="changePwMsg" class="form-message"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost btn-sm" id="closePwModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Change Password</button>
+      </div>
     </form>
   </div>
 </div>

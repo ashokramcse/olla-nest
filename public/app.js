@@ -53,9 +53,12 @@ function renderSidebar() {
   $("userMeta").textContent = `${u.role} · ${dept?.name || "Workspace"}`;
   $("adminLink").style.display = u.role === "admin" ? "flex" : "none";
 
-  // Topbar
-  $("topbarTitle").textContent = `${u.name}'s Workspace`;
+  // Welcome bar
+  const firstName = (u.name || "").split(" ")[0];
+  $("topbarTitle").textContent = `Welcome, ${firstName}`;
   $("topbarSub").textContent = `${dept?.name || "General"} · Auto Router active`;
+  const statWs = document.getElementById("statWorkspace");
+  if (statWs) { const ws2 = state.workspace; statWs.textContent = ws2?.workspaceRoot ? (ws2.workspaceRoot.split("/").pop() || "set") : "not set"; }
 
   // Models
   const models = allowedModels();
