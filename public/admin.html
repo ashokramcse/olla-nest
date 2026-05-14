@@ -200,6 +200,56 @@ tbody tr:hover{background:#fefdf5}
 .matrix-table td:first-child{font-weight:500}
 
 @keyframes spin{to{transform:rotate(360deg)}}
+/* ── Custom Tier Dropdown ── */
+.tier-dd{position:relative;display:inline-block;min-width:148px}
+.tier-dd-trigger{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:8px 12px;border-radius:12px;border:1.5px solid var(--line);
+  background:#fff;font-size:13px;font-family:inherit;color:var(--ink);
+  cursor:pointer;user-select:none;transition:border-color .15s,box-shadow .15s;
+  white-space:nowrap;
+}
+.tier-dd-trigger:hover{border-color:#00000028}
+.tier-dd-trigger.open{border-color:var(--yellow-deep);box-shadow:0 0 0 3px rgba(244,211,58,.18)}
+.tier-dd-trigger svg{flex-shrink:0;transition:transform .2s;color:var(--mute)}
+.tier-dd-trigger.open svg{transform:rotate(180deg)}
+.tier-dd-trigger .tier-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--mute-2)}
+.tier-dd-trigger .tier-dot.approved-local{background:var(--green-deep)}
+.tier-dd-trigger .tier-dot.restricted{background:var(--danger)}
+.tier-dd-trigger .tier-dot.experimental{background:var(--orange)}
+.tier-dd-trigger .tier-dot.deprecated{background:var(--mute-2)}
+.tier-dd-trigger .tier-dot.offline-only,.tier-dd-trigger .tier-dot.gpu-restricted{background:#9dc8f5}
+
+.tier-dd-panel{
+  position:absolute;left:0;top:calc(100% + 6px);z-index:999;
+  min-width:100%;
+  background:rgba(254,252,236,0.82);
+  backdrop-filter:blur(24px) saturate(160%);
+  -webkit-backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid rgba(255,255,255,0.70);
+  border-radius:16px;
+  box-shadow:0 8px 32px -8px rgba(0,0,0,.18),0 1px 0 rgba(255,255,255,.8) inset;
+  padding:6px;
+  display:none;
+  overflow:hidden;
+}
+.tier-dd-panel.open{display:block}
+.tier-dd-option{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:10px;
+  font-size:13px;font-family:inherit;color:var(--ink);
+  cursor:pointer;transition:background .12s;
+  white-space:nowrap;
+}
+.tier-dd-option:hover{background:rgba(0,0,0,.05)}
+.tier-dd-option.selected{background:var(--yellow);font-weight:500}
+.tier-dd-option .tier-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--mute-2)}
+.tier-dd-option .tier-dot.approved-local{background:var(--green-deep)}
+.tier-dd-option .tier-dot.restricted{background:var(--danger)}
+.tier-dd-option .tier-dot.experimental{background:var(--orange)}
+.tier-dd-option .tier-dot.deprecated{background:var(--mute-2)}
+.tier-dd-option .tier-dot.offline-only,.tier-dd-option .tier-dot.gpu-restricted{background:#9dc8f5}
+
 /* Model table column styles */
 .table-name{font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap}
 .table-sub{font-size:12px;color:var(--mute);margin-top:2px;white-space:nowrap}
@@ -759,5 +809,97 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 </div>
 
 <script src="/admin.js"></script>
+
+<script>
+(function(){
+  const TIERS = [
+    "approved-local","restricted","offline-only",
+    "gpu-restricted","experimental","deprecated"
+  ];
+
+  function dotHtml(val){
+    const cls = val.replace(/[^a-z-]/g,"");
+    return `<span class="tier-dot ${cls}"></span>`;
+  }
+
+  function buildDropdown(sel){
+    const current = sel.value || TIERS[0];
+    const modelId = sel.dataset.modelTier;
+
+    const wrap = document.createElement("div");
+    wrap.className = "tier-dd";
+    wrap.innerHTML = `
+      <div class="tier-dd-trigger" tabindex="0">
+        ${dotHtml(current)}
+        <span class="tier-dd-val">${current}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="tier-dd-panel">
+        ${TIERS.map(t => `
+          <div class="tier-dd-option ${t === current ? "selected" : ""}" data-val="${t}">
+            ${dotHtml(t)}${t}
+          </div>`).join("")}
+      </div>
+    `;
+
+    const trigger = wrap.querySelector(".tier-dd-trigger");
+    const panel   = wrap.querySelector(".tier-dd-panel");
+    const valEl   = wrap.querySelector(".tier-dd-val");
+    const dotEl   = wrap.querySelector(".tier-dd-trigger .tier-dot");
+
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = panel.classList.contains("open");
+      // close all others
+      document.querySelectorAll(".tier-dd-panel.open").forEach(p => {
+        p.classList.remove("open");
+        p.previousElementSibling.classList.remove("open");
+      });
+      if(!isOpen){ panel.classList.add("open"); trigger.classList.add("open"); }
+    });
+
+    panel.querySelectorAll(".tier-dd-option").forEach(opt => {
+      opt.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const val = opt.dataset.val;
+        // sync hidden select
+        sel.value = val;
+        sel.dispatchEvent(new Event("change", {bubbles:true}));
+        // update UI
+        valEl.textContent = val;
+        dotEl.className = "tier-dot " + val.replace(/[^a-z-]/g,"");
+        panel.querySelectorAll(".tier-dd-option").forEach(o => o.classList.remove("selected"));
+        opt.classList.add("selected");
+        panel.classList.remove("open");
+        trigger.classList.remove("open");
+      });
+    });
+
+    sel.parentNode.insertBefore(wrap, sel);
+    // hide original select but keep it for form/event use
+    sel.style.display = "none";
+  }
+
+  function upgradeSelects(){
+    document.querySelectorAll("select[data-model-tier]:not(.dd-upgraded)").forEach(sel => {
+      sel.classList.add("dd-upgraded");
+      buildDropdown(sel);
+    });
+  }
+
+  // Run after admin.js renders models (MutationObserver on modelTableBody)
+  const tbody = document.getElementById("modelTableBody");
+  if(tbody){
+    new MutationObserver(upgradeSelects).observe(tbody, {childList:true, subtree:true});
+  }
+  // Also close on outside click
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".tier-dd-panel.open").forEach(p => {
+      p.classList.remove("open");
+      p.previousElementSibling.classList.remove("open");
+    });
+  });
+})();
+</script>
 </body>
 </html>
