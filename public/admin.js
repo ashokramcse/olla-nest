@@ -278,20 +278,21 @@ async function loadState() {
 }
 
 async function checkOllama() {
-  const pill = $("ollamaStatus");
+  const label = $("ollamaStatus");
+  const dot = $("ollamaStatusDot");
   try {
     const data = await api("/api/ollama/models");
     if (!data) return;
     if (data.ok) {
-      pill.textContent = "Ollama connected";
-      pill.className = "status-pill ok";
+      if (label) label.textContent = "Ollama connected";
+      if (dot) dot.className = "status-dot ok";
     } else {
-      pill.textContent = "Ollama not connected";
-      pill.className = "status-pill off";
+      if (label) label.textContent = "Ollama not connected";
+      if (dot) dot.className = "status-dot off";
     }
   } catch {
-    pill.textContent = "Ollama not connected";
-    pill.className = "status-pill off";
+    if (label) label.textContent = "Ollama not connected";
+    if (dot) dot.className = "status-dot off";
   }
 }
 

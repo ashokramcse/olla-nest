@@ -59,6 +59,10 @@ function renderSidebar() {
   $("topbarSub").textContent = `${dept?.name || "General"} · Auto Router active`;
   const statWs = document.getElementById("statWorkspace");
   if (statWs) { const ws2 = state.workspace; statWs.textContent = ws2?.workspaceRoot ? (ws2.workspaceRoot.split("/").pop() || "set") : "not set"; }
+  const infoDept = document.getElementById("infoDept");
+  if (infoDept) infoDept.textContent = dept?.name || "—";
+  const roleMini = document.querySelector(".role-chip");
+  if (roleMini) roleMini.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
 
   // Models
   const models = allowedModels();
@@ -184,20 +188,21 @@ async function loadState() {
 }
 
 async function checkOllama() {
-  const pill = $("ollamaStatus");
+  const label = $("ollamaStatus");
+  const dot = $("ollamaStatusDot");
   try {
     const data = await api("/api/ollama/models");
     if (!data) return;
     if (data.ok) {
-      pill.textContent = "Ollama connected";
-      pill.className = "status-pill ok";
+      if (label) label.textContent = "Ollama connected";
+      if (dot) { dot.className = "status-dot ok"; }
     } else {
-      pill.textContent = "Ollama not connected";
-      pill.className = "status-pill off";
+      if (label) label.textContent = "Ollama not connected";
+      if (dot) { dot.className = "status-dot off"; }
     }
   } catch {
-    pill.textContent = "Ollama not connected";
-    pill.className = "status-pill off";
+    if (label) label.textContent = "Ollama not connected";
+    if (dot) { dot.className = "status-dot off"; }
   }
 }
 
@@ -219,6 +224,10 @@ $all(".mode-btn[data-mode]").forEach(btn => {
     $all(".mode-btn[data-mode]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     updateWriteToggle();
+    const modeLabel = $("currentModeLabel");
+    if (modeLabel) modeLabel.textContent = activeMode.charAt(0).toUpperCase() + activeMode.slice(1);
+    const infoMode = $("infoMode");
+    if (infoMode) infoMode.textContent = activeMode.charAt(0).toUpperCase() + activeMode.slice(1);
   });
 });
 

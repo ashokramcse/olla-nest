@@ -1,364 +1,614 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Olla Nest — Workspace</title>
-  <link rel="stylesheet" href="/styles.css" />
+<meta charset="utf-8" />
+<title>Olla Nest</title>
+<meta name="viewport" content="width=1440" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+:root{
+  --bg-grad-1:#e9e7e2;
+  --bg-grad-2:#f6e9a8;
+  --cream:#fdf6d8;
+  --cream-soft:#fbf3c8;
+  --paper:#f5f3ed;
+  --paper-2:#ecebe5;
+  --ink:#15140f;
+  --ink-2:#1d1c17;
+  --line:#0000001a;
+  --line-soft:#00000010;
+  --mute:#7a7a72;
+  --mute-2:#a3a39a;
+  --yellow:#f4d33a;
+  --yellow-deep:#e8c624;
+  --green:#bfe8a4;
+  --green-deep:#69a444;
+  --orange:#f1872c;
+  --blue:#9dc8f5;
+  --danger:#ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Outfit',system-ui,sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(120% 80% at 90% 30%,#f7e58a 0%,transparent 55%),
+    radial-gradient(120% 80% at 10% 80%,#f2efe5 0%,transparent 50%),
+    linear-gradient(180deg,#e8e6e0 0%,#efeadf 40%,#f7eea8 100%);
+  min-height:100vh;
+  font-weight:400;
+  letter-spacing:-0.005em;
+  -webkit-font-smoothing:antialiased;
+}
+.page{width:1440px;margin:0 auto;padding:28px 28px 60px}
+
+/* Shell */
+.shell{
+  background:
+    radial-gradient(140% 90% at 100% 100%,#f7e58a 0%,transparent 55%),
+    radial-gradient(140% 90% at 0% 0%,#efece1 0%,transparent 55%),
+    linear-gradient(180deg,#eeece3 0%,#f8efaa 100%);
+  border-radius:40px;
+  padding:28px 28px 32px;
+  box-shadow:0 40px 80px -40px #00000033,0 4px 16px -8px #00000010;
+  position:relative;overflow:hidden;
+}
+
+/* Topnav */
+.topnav{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:32px}
+.logo{
+  display:inline-flex;align-items:center;gap:10px;
+  background:#fff;border:1px solid var(--line-soft);
+  padding:12px 22px;border-radius:999px;
+  font-size:20px;font-weight:600;letter-spacing:-0.02em;flex-shrink:0;
+}
+.logo-mark{width:20px;height:20px;border-radius:5px;background:linear-gradient(135deg,var(--ink) 60%,var(--yellow) 60%);position:relative}
+.logo-mark::after{content:"";position:absolute;inset:5px 4px 4px 5px;background:var(--cream);border-radius:2px}
+.nav{
+  display:flex;align-items:center;gap:4px;
+  background:#ffffff80;backdrop-filter:blur(8px);
+  border:1px solid var(--line-soft);
+  padding:5px;border-radius:999px;
+}
+.nav a,.nav button{
+  padding:10px 18px;font-size:15px;color:var(--ink);text-decoration:none;border-radius:999px;
+  font-weight:400;background:none;border:none;cursor:pointer;font-family:inherit;
+}
+.nav a.active,.nav button.active{background:var(--ink);color:#fff;font-weight:500}
+.nav a:hover:not(.active),.nav button:hover:not(.active){background:#00000008}
+.nav a#adminLink{display:none}
+.nav-tools{display:flex;align-items:center;gap:8px}
+.pill-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:#fff;border:1px solid var(--line-soft);
+  padding:10px 16px;border-radius:999px;font-size:14px;font-family:inherit;
+  cursor:pointer;color:var(--ink);
+}
+.pill-btn:hover{background:var(--paper)}
+.icon-btn{
+  width:42px;height:42px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+  position:relative;color:var(--ink);
+}
+.icon-btn:hover{background:var(--paper)}
+.icon-btn .dot{position:absolute;top:10px;right:11px;width:7px;height:7px;border-radius:50%;background:var(--yellow);box-shadow:0 0 0 2px #fff}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#ccc;flex-shrink:0;display:inline-block}
+.status-dot.ok{background:var(--green-deep)}
+.status-dot.off{background:#ccc}
+
+/* Hero */
+.hero{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;margin-bottom:28px}
+h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035em;margin:0 0 22px}
+.stat-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.stat-pill{display:flex;flex-direction:column;gap:6px}
+.stat-pill .lab{font-size:13px;color:var(--ink);opacity:.7;margin-left:16px}
+.pill{
+  border-radius:999px;height:42px;display:inline-flex;align-items:center;
+  padding:0 20px;font-size:14px;font-weight:500;
+}
+.pill.dark{background:var(--ink);color:#fff;min-width:80px;justify-content:center}
+.pill.yellow{background:var(--yellow);min-width:80px;justify-content:center}
+.pill.outline{
+  background:transparent;min-width:180px;justify-content:flex-start;
+  background-image:repeating-linear-gradient(115deg,#ffffffcc 0 8px,transparent 8px 14px);
+  border:1.5px solid #ffffffcc;color:#000a;
+}
+.pill.outline.sm{min-width:100px}
+.hero-counters{display:flex;gap:24px;align-items:flex-end}
+.h-counter{display:flex;align-items:flex-end;gap:8px}
+.h-counter .num{font-size:56px;line-height:1;font-weight:400;letter-spacing:-0.04em}
+.h-counter .lab{display:flex;flex-direction:column;gap:2px;padding-bottom:4px;color:var(--mute);font-size:12px}
+
+/* Main grid */
+.main-grid{display:grid;grid-template-columns:280px 1fr 300px;gap:20px;align-items:start}
+
+/* Cards */
+.card{
+  background:linear-gradient(180deg,#fefcec 0%,#fbf3c8 100%);
+  border-radius:28px;padding:20px;
+  border:1px solid #ffffff80;
+  box-shadow:0 1px 0 #ffffff80 inset,0 12px 24px -16px #00000018;
+  position:relative;
+}
+.card.dark{background:var(--ink);color:#fff;border-color:#ffffff10}
+.card+.card{margin-top:16px}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:18px;font-weight:400;letter-spacing:-0.01em}
+.card-action{
+  width:32px;height:32px;border-radius:999px;background:#fff;display:inline-flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 2px #00000010;cursor:pointer;border:none;color:var(--ink);
+}
+.card.dark .card-action{background:#ffffff14;color:#fff}
+
+/* User profile in sidebar */
+.profile-mini{
+  background:linear-gradient(180deg,#1d1c17 0%,#2a2920 100%);
+  border-radius:24px;padding:20px;color:#fff;margin-bottom:4px;
+}
+.user-av{width:48px;height:48px;border-radius:50%;background:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;color:var(--ink);margin-bottom:12px}
+.user-name-lg{font-size:22px;font-weight:400;letter-spacing:-0.02em}
+.user-sub{font-size:13px;color:#ffffff70;margin-top:3px}
+.role-chip{display:inline-flex;align-items:center;padding:5px 12px;border-radius:999px;background:#ffffff14;border:1px solid #ffffff20;font-size:12px;color:#ffffffcc;margin-top:10px}
+
+/* Model list */
+.model-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line-soft)}
+.model-item:first-child{border-top:none}
+.model-dot{width:8px;height:8px;border-radius:50%;background:var(--green-deep);flex-shrink:0}
+.model-nm{font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Mini bars */
+.mini-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.mini-bar-row:last-child{margin-bottom:0}
+.mini-bar-label{font-size:12px;color:var(--mute);width:72px;flex-shrink:0}
+.mini-bar-track{flex:1;height:5px;background:#0000000d;border-radius:999px;overflow:hidden}
+.mini-bar-fill{height:100%;border-radius:999px;background:var(--ink)}
+.mini-bar-fill.yellow{background:var(--yellow-deep)}
+.mini-bar-fill.green{background:var(--green-deep)}
+.mini-bar-pct{font-size:12px;color:var(--mute);width:28px;text-align:right;flex-shrink:0}
+
+/* Workspace */
+.ws-path{font-size:13px;color:var(--mute);font-family:'JetBrains Mono',monospace;word-break:break-all;margin-bottom:8px}
+.ws-mode-tag{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:var(--yellow);color:var(--ink);font-size:11px;font-weight:500}
+
+/* Chat */
+.chat-wrap{display:flex;flex-direction:column;height:680px}
+.messages-area{flex:1;overflow-y:auto;padding:8px 4px;min-height:0}
+.messages-area::-webkit-scrollbar{width:4px}
+.messages-area::-webkit-scrollbar-thumb{background:#0000001a;border-radius:4px}
+
+/* Mode bar */
+.mode-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;border-top:1px solid var(--line-soft);flex-wrap:wrap}
+.mode-btn{
+  padding:7px 16px;border-radius:999px;font-size:13px;font-weight:400;
+  border:1px solid var(--line-soft);background:#fff;cursor:pointer;font-family:inherit;color:var(--ink);
+}
+.mode-btn:hover{background:var(--paper)}
+.mode-btn.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mode-btn.new-chat{margin-left:auto;background:transparent;border-color:var(--line-soft)}
+.mode-btn.new-chat:hover{background:#fff}
+
+/* Composer */
+.composer{padding:14px;border-top:1px solid var(--line-soft)}
+.composer-inner{
+  background:#fff;border-radius:20px;border:1px solid var(--line-soft);
+  box-shadow:0 2px 8px -4px #00000010;overflow:hidden;
+}
+.composer-textarea{
+  width:100%;border:none;outline:none;resize:none;
+  padding:14px 16px 10px;font-size:15px;font-family:inherit;color:var(--ink);
+  background:transparent;display:block;
+}
+.composer-footer{display:flex;align-items:center;gap:8px;padding:8px 12px 10px;flex-wrap:wrap}
+.model-select{
+  flex:1;min-width:0;padding:7px 12px;border:1px solid var(--line-soft);border-radius:999px;
+  font-size:13px;font-family:inherit;color:var(--ink);background:#fff;cursor:pointer;
+}
+.write-toggle{display:none;align-items:center;gap:6px;font-size:13px;color:var(--mute);cursor:pointer}
+.write-toggle.enabled{color:var(--ink)}
+.send-btn{
+  background:var(--ink);color:#fff;border:none;border-radius:999px;
+  padding:9px 22px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;flex-shrink:0;
+}
+.send-btn:hover{background:var(--ink-2)}
+.send-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Messages */
+.message-wrap{margin-bottom:18px}
+.message-meta{font-size:12px;color:var(--mute);margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.message-bubble{border-radius:18px;padding:12px 16px;font-size:15px;line-height:1.6;max-width:100%}
+.user-bubble{background:var(--ink);color:#fff;border-radius:18px 18px 4px 18px;display:inline-block;max-width:85%}
+.message-wrap.user{display:flex;flex-direction:column;align-items:flex-end}
+.assistant-bubble{background:#fff;border:1px solid var(--line-soft);box-shadow:0 2px 8px -4px #00000010}
+.message-footer{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.message-model-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--mute);background:#0000000a;padding:3px 8px;border-radius:999px}
+.artifact-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--mute);background:#fff;border:1px solid var(--line-soft);padding:3px 8px;border-radius:999px}
+
+/* Markdown */
+.md-body{font-size:15px;line-height:1.65}
+.md-body h1,.md-body h2,.md-body h3{font-weight:500;margin:16px 0 8px;letter-spacing:-0.01em}
+.md-body p{margin:0 0 10px}
+.md-body p:last-child{margin-bottom:0}
+.md-body code{font-family:'JetBrains Mono',monospace;font-size:13px;background:#0000000a;padding:2px 5px;border-radius:4px}
+.md-body pre{background:#15140f;border-radius:14px;padding:16px;overflow-x:auto;margin:10px 0}
+.md-body pre code{background:none;padding:0;color:#f5f3ed;font-size:13px}
+.md-code-block{position:relative;margin:10px 0}
+.md-copy-btn{position:absolute;top:10px;right:10px;background:#ffffff20;border:none;color:#ffffffaa;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit}
+.md-copy-btn:hover{background:#ffffff30}
+.code-lang-label{position:absolute;top:10px;left:14px;font-size:11px;color:#ffffff60;font-family:'JetBrains Mono',monospace}
+.md-body ul,.md-body ol{padding-left:20px;margin:0 0 10px}
+.md-body li{margin-bottom:4px}
+.md-body blockquote{border-left:3px solid var(--yellow);padding-left:12px;color:var(--mute);margin:10px 0}
+.md-body table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+.md-body th,.md-body td{border:1px solid var(--line);padding:8px 12px}
+.md-body th{background:#0000000a;font-weight:500}
+
+/* Router panel */
+.router-card{position:sticky;top:28px}
+.router-empty{font-size:14px;color:var(--mute);text-align:center;padding:24px 0;line-height:1.6}
+.router-body{padding:4px 0}
+.router-model{font-size:20px;font-weight:400;letter-spacing:-0.01em;margin-bottom:6px}
+.router-reason{font-size:13px;color:var(--mute);line-height:1.5;margin-bottom:10px}
+.router-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.router-tag{padding:5px 12px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);font-size:12px}
+.router-cand-label{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px}
+.router-cand-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line-soft)}
+.router-cand-item:first-child{border-top:none}
+.router-cand-name{font-size:13px}
+.router-cand-score{font-size:12px;color:var(--mute);font-family:'JetBrains Mono',monospace}
+
+/* Info rows */
+.info-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line-soft);font-size:13px}
+.info-row:first-child{border-top:none}
+.info-row-label{color:var(--mute)}
+.info-row-value{font-weight:500}
+
+/* Donut ring (model count) */
+.ring-wrap{display:flex;align-items:center;gap:10px}
+.ring-label{font-size:12px;color:var(--mute);line-height:1.3}
+.ring-num{font-size:22px;font-weight:400;letter-spacing:-0.03em}
+
+/* Speed / Quality / Privacy bars */
+.sq-row{margin-bottom:8px}
+.sq-row:last-child{margin-bottom:0}
+.sq-top{display:flex;justify-content:space-between;font-size:12px;color:var(--mute);margin-bottom:4px}
+.sq-track{height:5px;background:#0000000d;border-radius:999px;overflow:hidden}
+.sq-fill{height:100%;border-radius:999px;background:var(--ink)}
+
+/* Account panel */
+.account-panel{
+  background:linear-gradient(180deg,#fefcec 0%,#f9f1c0 100%);
+  border:1px solid #ffffff80;border-radius:24px;
+  padding:20px;margin-bottom:20px;
+  box-shadow:0 8px 24px -12px #00000018;
+}
+.ap-section{margin-bottom:16px}
+.ap-label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--mute);margin-bottom:8px}
+.ap-input{
+  width:100%;padding:10px 14px;border-radius:12px;border:1px solid var(--line);
+  font-size:14px;font-family:inherit;color:var(--ink);background:#fff;
+  outline:none;margin-bottom:6px;
+}
+.ap-input:focus{border-color:#00000030}
+.ap-btn{
+  width:100%;padding:11px;border-radius:12px;font-size:14px;font-family:inherit;
+  cursor:pointer;border:none;font-weight:500;
+}
+.ap-btn.dark{background:var(--ink);color:#fff}
+.ap-btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);margin-top:6px}
+.ap-btn:hover{opacity:.88}
+.form-msg{font-size:12px;margin-top:4px;min-height:16px}
+.form-msg.success{color:var(--green-deep)}
+.form-msg.error{color:var(--danger)}
+
+/* Workspace config panel */
+.ws-config-panel{
+  background:#fff;border-radius:16px;border:1px solid var(--line-soft);
+  padding:14px;margin-top:10px;
+}
+
+/* Badges (from app.js) */
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:500}
+.badge-default{background:#0000000a;color:var(--ink)}
+.badge-amber{background:#fef3c7;color:#92400e}
+.badge-indigo{background:#ede9fe;color:#5b21b6}
+
+/* Spin animation */
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Ollama status */
+.ollama-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);font-size:13px}
+</style>
 </head>
 <body>
-<div class="app-shell">
+<div class="page">
+<section class="shell">
 
-  <!-- Top Nav -->
-  <nav class="topnav">
-    <a class="topnav-brand" href="/app">
-      <div class="brand-mark">ON</div>
-      <span class="brand-name">Olla Nest</span>
-    </a>
-    <div class="topnav-center">
-      <a href="/app" class="nav-tab active">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Workspace
-      </a>
-      <a id="adminLink" href="/admin" class="nav-tab" style="display:none;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        Admin
-      </a>
+  <!-- Topnav -->
+  <div class="topnav">
+    <div class="logo">
+      <span class="logo-mark"></span>
+      Olla Nest
     </div>
-    <div class="topnav-right">
-      <div class="status-pill" id="ollamaStatus">Checking Ollama...</div>
-      <button class="btn btn-secondary btn-sm" id="accountBtn">Account</button>
-      <button class="btn btn-ghost btn-sm" id="logoutBtn">Sign out</button>
-    </div>
-  </nav>
 
-  <!-- Account Panel -->
+    <nav class="nav">
+      <a href="#" class="active">Dashboard</a>
+      <a id="adminLink" href="/admin">Admin</a>
+    </nav>
+
+    <div class="nav-tools">
+      <!-- Ollama status -->
+      <div class="ollama-chip">
+        <span class="status-dot off" id="ollamaStatusDot"></span>
+        <span id="ollamaStatus">Checking…</span>
+      </div>
+      <button class="pill-btn" id="accountBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>
+        Account
+      </button>
+      <button class="icon-btn" id="logoutBtn" aria-label="Sign out" title="Sign out">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Account panel (hidden by default) -->
   <div id="accountPanel" style="display:none;">
     <div class="account-panel">
-      <div class="account-panel-inner">
-        <div style="flex:1;">
-          <div class="account-section-title">Change Password</div>
-          <form id="passwordForm" class="form-stack" style="gap:8px;">
-            <input class="input input-sm" id="currentPassword" type="password" placeholder="Current password" autocomplete="current-password" />
-            <input class="input input-sm" id="newPassword" type="password" placeholder="New password (min 12 chars)" autocomplete="new-password" />
-            <button class="btn btn-primary btn-sm" type="submit">Update Password</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <!-- Change password -->
+        <div>
+          <div class="ap-label">Change Password</div>
+          <form id="passwordForm">
+            <input class="ap-input" id="currentPassword" type="password" placeholder="Current password" autocomplete="current-password" />
+            <input class="ap-input" id="newPassword" type="password" placeholder="New password (min 12 chars)" autocomplete="new-password" />
+            <button class="ap-btn dark" type="submit">Update password</button>
+            <div id="passwordMsg" class="form-msg"></div>
           </form>
-          <div id="passwordMsg" class="form-message"></div>
         </div>
-        <div style="flex:1;">
-          <div class="account-section-title">Access Policy</div>
-          <div id="accessPolicy" style="font-size:13px;color:var(--muted);line-height:1.6;"></div>
+        <!-- Access policy -->
+        <div>
+          <div class="ap-label">Access Policy</div>
+          <div id="accessPolicy" style="font-size:13px;color:var(--mute);line-height:1.7;"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Welcome Bar -->
-  <div class="welcome-bar">
+  <!-- Hero -->
+  <div class="hero">
     <div>
-      <div class="welcome-title" id="topbarTitle">Welcome</div>
-      <div class="welcome-sub" id="topbarSub">AI Workspace</div>
-    </div>
-  </div>
-
-  <!-- Stats + Infographic Bar -->
-  <div class="stats-bar" style="align-items:stretch; gap:10px; padding-bottom:20px;">
-    <!-- Mode pill -->
-    <div class="stat-pill stat-pill-black" style="align-items:center;">
-      <span class="stat-pill-label">Mode</span>
-      <span class="stat-pill-value" id="currentModeLabel">Ask</span>
-    </div>
-    <!-- Router pill -->
-    <div class="stat-pill stat-pill-yellow" style="align-items:center; gap:8px;">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      <span class="stat-pill-value">Auto Router</span>
-      <span class="stat-pill-label">active</span>
-    </div>
-    <!-- Workspace pill -->
-    <div class="stat-pill" style="align-items:center;">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--muted)"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-      <span class="stat-pill-label">Workspace</span>
-      <span class="stat-pill-value" id="statWorkspace">not set</span>
-    </div>
-
-    <!-- Model readiness mini ring -->
-    <div class="stat-pill" style="gap:12px; padding:8px 18px; align-items:center;" id="modelRingPill">
-      <div class="ring-chart" style="width:36px;height:36px;">
-        <svg width="36" height="36" viewBox="0 0 36 36">
-          <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="4"/>
-          <circle id="modelRingArc" cx="18" cy="18" r="14" fill="none" stroke="#F5C93E" stroke-width="4"
-            stroke-dasharray="0 88" stroke-dashoffset="-22" stroke-linecap="round"
-            style="transition:stroke-dasharray 1s cubic-bezier(0.4,0,0.2,1)"/>
-        </svg>
-        <div class="ring-chart-label" style="font-size:9px;" id="modelRingNum">0</div>
-      </div>
-      <div>
-        <div style="font-size:12px;font-weight:700;color:var(--text);">Models</div>
-        <div style="font-size:10px;color:var(--muted);">available</div>
+      <h1 class="welcome" id="topbarTitle">Welcome</h1>
+      <div class="stat-row">
+        <div class="stat-pill">
+          <span class="lab">Mode</span>
+          <span class="pill dark" id="currentModeLabel">Ask</span>
+        </div>
+        <div class="stat-pill">
+          <span class="lab">Router</span>
+          <span class="pill yellow">Auto</span>
+        </div>
+        <div class="stat-pill">
+          <span class="lab">Workspace</span>
+          <span class="pill outline sm" id="statWorkspace">not set</span>
+        </div>
+        <div class="stat-pill" id="topbarSub" style="display:none;"></div>
       </div>
     </div>
-
-    <!-- Activity grid -->
-    <div class="stat-pill" style="flex-direction:column; align-items:flex-start; gap:4px; padding:10px 16px;">
-      <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Activity</div>
-      <div class="activity-grid" style="grid-template-columns:repeat(16,1fr); gap:2px; width:120px;">
-        <div class="activity-dot l2"></div><div class="activity-dot l1"></div>
-        <div class="activity-dot l3"></div><div class="activity-dot l2"></div>
-        <div class="activity-dot l4"></div><div class="activity-dot l3"></div>
-        <div class="activity-dot l1"></div><div class="activity-dot l2"></div>
-        <div class="activity-dot l3"></div><div class="activity-dot l4"></div>
-        <div class="activity-dot l2"></div><div class="activity-dot l1"></div>
-        <div class="activity-dot l3"></div><div class="activity-dot l4"></div>
-        <div class="activity-dot l2"></div><div class="activity-dot l3"></div>
+    <div class="hero-counters">
+      <div class="h-counter">
+        <span class="num" id="modelRingNum">0</span>
+        <span class="lab">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          Approved<br>Models
+        </span>
       </div>
     </div>
   </div>
 
-  <!-- Main Grid -->
+  <!-- Main 3-col grid -->
   <div class="main-grid">
 
-    <!-- Left: Sidebar -->
-    <div class="sidebar-card">
+    <!-- ── LEFT: sidebar ── -->
+    <div>
 
-      <!-- User Profile -->
-      <div class="user-profile-card">
-        <div class="user-profile-header"></div>
-        <div class="user-profile-body">
-          <div class="user-avatar-wrap">
-            <div class="user-avatar" id="userAvatar">?</div>
-          </div>
-          <div class="user-name" id="userName">Loading</div>
-          <div class="user-meta" id="userMeta">workspace</div>
-        </div>
+      <!-- User profile -->
+      <div class="profile-mini">
+        <div class="user-av" id="userAvatar">?</div>
+        <div class="user-name-lg" id="userName">Loading…</div>
+        <div class="user-sub" id="userMeta">workspace</div>
+        <div class="role-chip">Member</div>
       </div>
 
-      <!-- Approved Models -->
-      <div class="sidebar-section-card">
-        <div class="sidebar-section-title">Approved Models</div>
+      <!-- Approved models -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Approved Models</div>
+          <button class="card-action" title="Refresh" onclick="loadState()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+        </div>
         <div id="sidebarModels">
-          <div class="model-item">
-            <div class="model-dot" style="background:var(--muted)"></div>
-            <div class="model-name" style="color:var(--muted)">Loading...</div>
-          </div>
+          <div class="model-item"><div class="model-dot" style="background:var(--mute-2)"></div><div class="model-nm" style="color:var(--mute)">Loading…</div></div>
         </div>
       </div>
 
-      <!-- Model capability mini bars -->
-      <div class="sidebar-section-card" id="capabilityCard" style="display:none;">
-        <div class="sidebar-section-title">Capability Coverage</div>
-        <div class="mini-bar-row">
-          <span class="mini-bar-label">Coding</span>
-          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div>
-          <span class="mini-bar-val">80%</span>
+      <!-- Capability coverage -->
+      <div class="card" id="capabilityCard" style="display:none;">
+        <div class="card-head">
+          <div class="card-title">Coverage</div>
         </div>
         <div class="mini-bar-row">
           <span class="mini-bar-label">Reasoning</span>
-          <div class="mini-bar-track"><div class="mini-bar-fill green" style="width:65%"></div></div>
-          <span class="mini-bar-val">65%</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill yellow" style="width:80%"></div></div>
+          <span class="mini-bar-pct">80%</span>
         </div>
         <div class="mini-bar-row">
-          <span class="mini-bar-label">General</span>
-          <div class="mini-bar-track"><div class="mini-bar-fill dark" style="width:90%"></div></div>
-          <span class="mini-bar-val">90%</span>
+          <span class="mini-bar-label">Code</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill green" style="width:90%"></div></div>
+          <span class="mini-bar-pct">90%</span>
         </div>
         <div class="mini-bar-row">
-          <span class="mini-bar-label">Analysis</span>
-          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:55%"></div></div>
-          <span class="mini-bar-val">55%</span>
+          <span class="mini-bar-label">Speed</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:65%"></div></div>
+          <span class="mini-bar-pct">65%</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-bar-label">Privacy</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill green" style="width:100%"></div></div>
+          <span class="mini-bar-pct">100%</span>
         </div>
       </div>
 
-      <!-- Local Workspace -->
-      <div class="sidebar-section-card">
-        <div class="sidebar-section-title">Local Workspace</div>
-        <div id="workspaceInfo">
-          <div class="text-xs" style="color:var(--muted)">Output folder</div>
-          <div class="workspace-path" id="workspacePath">Not configured</div>
-          <div id="workspaceModeTag"></div>
-          <button class="btn btn-ghost btn-sm w-full mt-2" id="configWorkspaceBtn" style="font-size:11px;color:var(--muted);">Configure folder</button>
+      <!-- Workspace -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Workspace</div>
+          <button class="card-action" id="configWorkspaceBtn" title="Configure">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </button>
         </div>
-        <div id="workspaceConfigPanel" style="display:none;">
-          <div class="workspace-config-panel">
-            <div class="form-row" style="margin-bottom:8px;">
-              <label class="form-label">Workspace folder</label>
-              <input class="input input-sm" id="workspaceFolderInput" placeholder="/path/to/folder" />
-            </div>
-            <div class="form-row" style="margin-bottom:10px;">
-              <label class="form-label">Permission mode</label>
-              <select class="input input-sm" id="permissionModeSelect">
-                <option value="default">Default - approve each write</option>
-                <option value="review">Auto-review</option>
-                <option value="full">Full access - auto write</option>
-              </select>
-            </div>
-            <div style="display:flex;gap:6px;">
-              <button class="btn btn-primary btn-sm" id="saveWorkspaceBtn" style="flex:1;">Save</button>
-              <button class="btn btn-ghost btn-sm" id="cancelWorkspaceBtn">Cancel</button>
-            </div>
-            <div id="workspaceSaveMsg" style="font-size:11px;color:#16A34A;margin-top:6px;min-height:14px;"></div>
+        <div class="ws-path" id="workspacePath">Not configured</div>
+        <div id="workspaceModeTag"></div>
+
+        <div id="workspaceConfigPanel" style="display:none;" class="ws-config-panel">
+          <div style="font-size:12px;color:var(--mute);margin-bottom:8px;">Folder path</div>
+          <input class="ap-input" id="workspaceFolderInput" placeholder="/path/to/project" />
+          <div style="font-size:12px;color:var(--mute);margin-bottom:6px;">Permission mode</div>
+          <select class="ap-input" id="permissionModeSelect" style="margin-bottom:10px;">
+            <option value="default">Approve writes</option>
+            <option value="review">Auto-review</option>
+            <option value="full">Full access</option>
+          </select>
+          <div style="display:flex;gap:8px;">
+            <button class="ap-btn dark" id="saveWorkspaceBtn" style="flex:1;padding:9px;">Save</button>
+            <button class="ap-btn ghost" id="cancelWorkspaceBtn" style="flex:1;padding:9px;">Cancel</button>
           </div>
+          <div id="workspaceSaveMsg" style="font-size:12px;color:var(--green-deep);margin-top:6px;min-height:14px;"></div>
         </div>
       </div>
 
-    </div>
+    </div><!-- end sidebar -->
 
-    <!-- Center: Chat -->
-    <div class="chat-card">
-      <div class="chat-header">
+    <!-- ── CENTER: chat ── -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="chat-wrap">
+
+        <!-- Mode bar -->
         <div class="mode-bar">
-          <button class="mode-btn active" data-mode="ask">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Ask
-          </button>
-          <button class="mode-btn" data-mode="build">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>
-            Build
-          </button>
-          <button class="mode-btn" data-mode="review">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            Review
-          </button>
-          <button class="mode-btn" data-mode="fix">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-            Fix
-          </button>
-          <button class="mode-btn" data-mode="learn">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            Learn
-          </button>
+          <button class="mode-btn active" data-mode="ask">Ask</button>
+          <button class="mode-btn" data-mode="build">Build</button>
+          <button class="mode-btn" data-mode="fix">Fix</button>
+          <button class="mode-btn" data-mode="review">Review</button>
+          <button class="mode-btn" data-mode="learn">Learn</button>
           <button class="mode-btn new-chat" id="newChatBtn" type="button">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            New Chat
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New chat
           </button>
         </div>
-      </div>
-      <div class="messages-area" id="messages"></div>
-      <div class="composer">
-        <form id="chatForm">
-          <div class="composer-box">
-            <textarea class="composer-textarea" id="messageInput" placeholder="Ask anything - Auto Router picks the best approved model for your task..." rows="3"></textarea>
-            <div class="composer-footer">
-              <div class="composer-left">
-                <select class="model-select" id="manualModel"><option value="">Auto Router</option></select>
-                <label class="write-toggle" id="writeToggleLabel" style="display:none;">
-                  <input type="checkbox" id="writeToWorkspace" />
+
+        <!-- Messages -->
+        <div class="messages-area" id="messages"></div>
+
+        <!-- Composer -->
+        <div class="composer">
+          <form id="chatForm">
+            <div class="composer-inner">
+              <textarea class="composer-textarea" id="messageInput" placeholder="Ask anything — Auto Router picks the best model for your task…" rows="3"></textarea>
+              <div class="composer-footer">
+                <select class="model-select" id="manualModel">
+                  <option value="">Auto Router</option>
+                </select>
+                <label class="write-toggle" id="writeToggleLabel">
+                  <input type="checkbox" id="writeToWorkspace" style="margin:0" />
                   Write to workspace
                 </label>
-              </div>
-              <div class="composer-right">
-                <button class="btn btn-primary btn-sm" type="submit" id="sendBtn">Send</button>
+                <button class="send-btn" type="submit" id="sendBtn">Send</button>
               </div>
             </div>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Right: Auto Router + Infographics -->
-    <div class="router-card" id="routerPanel">
-      <div class="router-header">
-        <div class="router-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          </form>
         </div>
-        Auto Router
+
       </div>
-      <div id="routerContent">
-        <!-- Idle state with infographics -->
-        <div id="routerIdle" style="padding:4px 0;">
-          <!-- Speed vs Quality chart -->
-          <div style="margin-bottom:14px;">
-            <div class="sidebar-section-title" style="margin-bottom:8px;">Speed vs Quality</div>
-            <div class="mini-bar-row">
-              <span class="mini-bar-label">Speed</span>
-              <div class="mini-bar-track"><div class="mini-bar-fill" style="width:72%"></div></div>
-              <span class="mini-bar-val">72</span>
-            </div>
-            <div class="mini-bar-row">
-              <span class="mini-bar-label">Quality</span>
-              <div class="mini-bar-track"><div class="mini-bar-fill green" style="width:85%"></div></div>
-              <span class="mini-bar-val">85</span>
-            </div>
-            <div class="mini-bar-row">
-              <span class="mini-bar-label">Privacy</span>
-              <div class="mini-bar-track"><div class="mini-bar-fill dark" style="width:95%"></div></div>
-              <span class="mini-bar-val">95</span>
-            </div>
-          </div>
+    </div><!-- end chat -->
 
-          <!-- Routing status ring -->
-          <div style="display:flex;align-items:center;gap:14px;padding:14px;background:rgba(0,0,0,0.03);border-radius:14px;margin-bottom:12px;border:1px solid rgba(0,0,0,0.04);">
-            <div class="ring-chart" style="width:56px;height:56px;flex-shrink:0;">
-              <svg width="56" height="56" viewBox="0 0 56 56">
-                <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="5"/>
-                <circle cx="28" cy="28" r="22" fill="none" stroke="#F5C93E" stroke-width="5"
-                  stroke-dasharray="104 138" stroke-dashoffset="-34" stroke-linecap="round"/>
-                <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(34,197,94,0.6)" stroke-width="5"
-                  stroke-dasharray="28 138" stroke-dashoffset="-138" stroke-linecap="round"/>
-              </svg>
-              <div class="ring-chart-label" style="font-size:11px;font-weight:800;">76%</div>
+    <!-- ── RIGHT: router panel ── -->
+    <div class="router-card">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Auto Router</div>
+          <button class="card-action">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          </button>
+        </div>
+        <div id="routerContent">
+          <div id="routerIdle">
+            <!-- Speed / Quality / Privacy -->
+            <div style="margin-bottom:16px;">
+              <div class="sq-row">
+                <div class="sq-top"><span>Speed</span><span>85%</span></div>
+                <div class="sq-track"><div class="sq-fill" style="width:85%"></div></div>
+              </div>
+              <div class="sq-row">
+                <div class="sq-top"><span>Quality</span><span>92%</span></div>
+                <div class="sq-track"><div class="sq-fill yellow" style="width:92%;background:var(--yellow-deep)"></div></div>
+              </div>
+              <div class="sq-row">
+                <div class="sq-top"><span>Privacy</span><span>100%</span></div>
+                <div class="sq-track"><div class="sq-fill" style="width:100%;background:var(--green-deep)"></div></div>
+              </div>
             </div>
-            <div>
-              <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Router Ready</div>
-              <div style="font-size:11px;color:var(--muted);line-height:1.5;">Send a message to see model selection and scoring in real time.</div>
+            <!-- Tags -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+              <span class="router-tag">routing factors</span>
+              <span class="router-tag">task type</span>
+              <span class="router-tag">context length</span>
+              <span class="router-tag">privacy</span>
             </div>
-          </div>
-
-          <!-- Capability tags -->
-          <div class="sidebar-section-title" style="margin-bottom:6px;">Routing Factors</div>
-          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;">
-            <span class="badge badge-yellow">capability match</span>
-            <span class="badge badge-green">speed weight</span>
-            <span class="badge badge-blue">privacy tier</span>
-            <span class="badge badge-default">context size</span>
-            <span class="badge badge-indigo">specialist bonus</span>
-          </div>
-
-          <!-- Session info rows -->
-          <div class="info-row">
-            <span class="info-row-label">Session type</span>
-            <span class="info-row-value" id="infoMode">Ask</span>
-          </div>
-          <div class="info-row">
-            <span class="info-row-label">Selection</span>
-            <span class="info-row-value">Automatic</span>
-          </div>
-          <div class="info-row">
-            <span class="info-row-label">Privacy</span>
-            <span class="info-row-value" style="color:#16A34A;">Local only</span>
+            <div class="router-empty" style="padding:0 0 8px;text-align:left;">Send a request to see which model Auto Router selects and why.</div>
           </div>
         </div>
       </div>
-    </div>
 
-  </div>
-</div>
+      <!-- Session info -->
+      <div class="card" style="margin-top:16px;">
+        <div class="card-head">
+          <div class="card-title">Session</div>
+        </div>
+        <div class="info-row">
+          <span class="info-row-label">Mode</span>
+          <span class="info-row-value" id="infoMode">Ask</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row-label">Department</span>
+          <span class="info-row-value" id="infoDept">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row-label">Router</span>
+          <span class="info-row-value">Auto</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row-label">Runtime</span>
+          <span class="info-row-value">Local</span>
+        </div>
+      </div>
+
+    </div><!-- end router -->
+
+  </div><!-- end main-grid -->
+
+</section>
+</div><!-- end page -->
 
 <script>
-// Update mode label and router idle info when mode changes
-document.addEventListener('DOMContentLoaded', () => {
-  const modeLabels = { ask:'Ask', build:'Build', review:'Review', fix:'Fix', learn:'Learn' };
-  document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const m = btn.dataset.mode;
-      const el = document.getElementById('currentModeLabel');
-      const infoEl = document.getElementById('infoMode');
-      if (el) el.textContent = modeLabels[m] || m;
-      if (infoEl) infoEl.textContent = modeLabels[m] || m;
-    });
-  });
-});
-
-// Animate model ring after state loads
 function updateModelRing(count, max) {
-  const circ = 2 * Math.PI * 14; // r=14
-  const pct = Math.min(count / Math.max(max, 1), 1);
-  const arc = document.getElementById('modelRingArc');
   const num = document.getElementById('modelRingNum');
-  if (arc) arc.setAttribute('stroke-dasharray', `${(circ * pct).toFixed(1)} ${circ.toFixed(1)}`);
   if (num) num.textContent = count;
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
