@@ -42,6 +42,8 @@ Make code changes, then rebuild:
 docker compose up --build
 ```
 
+Do not run `npm start`, `node server.js`, or a host-machine frontend dev server. The app blocks non-Docker starts by design so every contribution is tested against the same runtime users receive.
+
 ## Project Structure
 
 ```
@@ -56,6 +58,7 @@ public/
   styles.css       Design system
 docker-compose.yml App service, volume, Ollama host routing
 Dockerfile         node:24-alpine image
+package.json       Docker helper scripts and container-only start command
 .env.example       Environment variable reference
 docs/              Architecture and deployment reference
 infra/             Future production database schemas
@@ -65,5 +68,7 @@ infra/             Future production database schemas
 
 - Test the full flow: login → workspace → admin
 - Test at least one Build/Fix mode request
+- Run `docker compose config --quiet`
+- Run `docker compose build app`
 - Keep commits focused with clear messages
 - Update docs when behaviour changes

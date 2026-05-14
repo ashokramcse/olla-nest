@@ -14,7 +14,8 @@
     "open-source-ai"
   ],
   "scripts": {
-    "start": "node server.js",
+    "start": "echo \"Olla Nest is Docker-only. Use: docker compose up --build\" && exit 1",
+    "container:start": "node server.js",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f app",

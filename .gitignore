@@ -21,6 +21,7 @@ dist/
 *.log
 .vscode/
 .idea/
+.claude/
 
 # Local business docs
 PROJECT_BUSINESS_OVERVIEW.txt

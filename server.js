@@ -22,6 +22,17 @@ const DEFAULT_USER_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "UserDemo!123
 const STATIC_DIR = fs.existsSync(path.join(__dirname, "dist")) ? path.join(__dirname, "dist") : path.join(__dirname, "public");
 const sessions = new Map();
 
+function enforceDockerRuntime() {
+  const inDocker = fs.existsSync("/.dockerenv") || process.env.OLLA_NEST_DOCKER_RUNTIME === "true";
+  if (!inDocker && process.env.ALLOW_NON_DOCKER !== "1") {
+    console.error("Olla Nest is Docker-only. Start it with: docker compose up --build");
+    console.error("For one-off diagnostics only, set ALLOW_NON_DOCKER=1.");
+    process.exit(1);
+  }
+}
+
+enforceDockerRuntime();
+
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static(STATIC_DIR));
 
