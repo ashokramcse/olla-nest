@@ -1,298 +1,253 @@
 # Olla Nest
 
-Olla Nest is a company-ready local AI workspace for Ollama. It gives teams a private, admin-controlled dashboard where employees can ask once and the system automatically routes the request to the best approved local model.
+**Company-ready local AI workspace built on Ollama.**
 
-The goal is simple: make local AI usable inside companies without asking every employee to understand model names, setup, permissions, or routing decisions.
+Olla Nest gives teams a private, admin-controlled AI workspace where employees type once and the system automatically routes each request to the best approved local model — with no cloud dependency, no data leaving the network, and no employee needing to understand model names.
 
-## Why Olla Nest Exists
+---
 
-Most AI dashboards make users choose the model. That works for technical users, but it does not scale well inside companies.
+## What Makes Olla Nest Different
 
-Olla Nest adds a company layer on top of Ollama:
+Most AI dashboards make users choose the model. Olla Nest adds a company control layer on top of Ollama:
 
-- Admins manage models, access, departments, and policies.
-- Employees use one simple workspace.
-- Auto Model Router chooses the best approved model for each request.
-- Local-first deployment keeps company work closer to the machine.
+- **Auto Router** — analyses every request and picks the best approved model automatically
+- **Admin control** — manage which employees, groups, or departments access which models
+- **Local-first** — all AI runs on your infrastructure via Ollama; no API keys, no external calls
+- **Local file output** — Build and Fix modes write real files directly to a company workspace folder
+- **Audit trail** — every routing decision and admin action is logged
 
-## MVP Features
+---
 
-- Employee AI workspace with Ask, Build, Review, Fix, and Learn modes
-- Auto Model Router that selects the best approved model for the request
-- Admin panel for company models, users, departments, policies, and settings
-- User, group, and department-based model access control
-- Local-first Ollama integration with graceful fallback when Ollama is not running
-- Audit trail for routed requests and admin changes
-- Clean browser-based interface for the first MVP
-- TailAdmin-style React UI built with Tailwind CSS and Material Symbols
-- Model discovery from a local Ollama server
-- Admin-configurable model sources for Ollama and future API providers
-- Production architecture target: PostgreSQL + MongoDB + Redis
-- Local development fallback: SQLite + JSON document store + in-memory realtime state
+## Requirements
 
-## Model Discovery
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose v2
+- [Ollama](https://ollama.com) running on the host machine with at least one model pulled
 
-Olla Nest does not require a hardcoded model list.
+---
 
-On startup and during app use, it calls the local Ollama server at `/api/tags`, discovers installed models, stores them in the model registry, and infers practical capabilities from model names.
-
-Examples:
-
-- Models with names like `coder`, `code`, `qwen`, or `deepseek` are treated as stronger candidates for coding work.
-- Models with names like `ocr`, `vision`, or `vl` are treated as stronger candidates for image/document extraction.
-- Models with names like `med`, `clinical`, or `health` are treated as stronger candidates for medical-domain requests.
-- General models are still available for normal writing, summary, learning, and reasoning tasks.
-
-Admins can later refine this with explicit model metadata and access grants.
-
-## Product Concept
-
-Olla Nest has two main experiences.
-
-### Admin Panel
-
-Admins can manage:
-
-- Local Ollama models
-- Future API-based models
-- Users
-- Departments
-- Department policies
-- Model permissions
-- System settings
-- Usage and audit history
-
-### Employee Workspace
-
-Employees can:
-
-- Ask questions
-- Use work modes such as Ask, Build, Review, Fix, and Learn
-- Use Auto Router by default
-- Manually select an approved model when needed
-- See only the models approved for their department or account
-
-## Auto Model Router
-
-Auto Model Router is the key product layer.
-
-It checks:
-
-- What the user is asking
-- Which department or role the user belongs to
-- Which models are installed locally
-- Which models the user is allowed to access through user, group, or department grants
-- Whether the task is coding, writing, medical, OCR, review, summary, or general reasoning
-- Model speed and quality estimates
-- Local/privacy preference
-
-Then it selects the best approved model for the job.
-
-The route is not hardcoded to a department or model. Access decides what the user may use; the request decides which approved model is best.
-
-## Database Architecture
-
-Olla Nest uses polyglot persistence.
-
-The production default is:
-
-- PostgreSQL for relational source-of-truth data
-- MongoDB for AI chat history, traces, and flexible tool outputs
-- Redis for token streaming, live session state, queues, and rate limiting
-
-For local developer mode, the app can run without Docker:
-
-```text
-data/olla-nest.sqlite
-data/documents.json
-```
-
-SQLite and JSON are local fallbacks only. The company-grade default is PostgreSQL + MongoDB + Redis.
-
-Read more:
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Deployment](docs/DEPLOYMENT.md)
-
-## Run With Docker
-
-Docker is the default production-like setup.
+## Quick Start
 
 ```bash
+git clone https://github.com/ashokramcse/olla-nest.git
+cd olla-nest
 cp .env.example .env
 docker compose up --build
 ```
 
-Open:
+Open **http://localhost:3000** — you will be redirected to the login page.
 
-```text
-http://localhost:3000/login
+**Default admin credentials (first boot only):**
+
+| Field    | Value                           |
+|----------|---------------------------------|
+| Email    | `admin@ollanest.local`          |
+| Password | `CHANGE_ME_ON_FIRST_BOOT` |
+
+> Change the admin password immediately after first login via **Admin → Settings** or set `DEFAULT_ADMIN_PASSWORD` in `.env` before first boot.
+
+---
+
+## Ollama Setup
+
+Ollama must run on the host machine. The Docker container reaches it via `host.docker.internal`.
+
+**macOS / Windows Docker Desktop** — works out of the box. No extra config needed.
+
+**Linux** — `extra_hosts: host.docker.internal:host-gateway` is already set in `docker-compose.yml`. Works automatically.
+
+**Ollama on a different machine** — set `OLLAMA_URL` in `.env`:
+
+```env
+OLLAMA_URL=http://192.168.1.50:11434
 ```
 
-This starts:
-
-- Olla Nest app
-- PostgreSQL with pgvector
-- MongoDB
-- Redis
-
-Ollama should run on your host laptop. Docker uses:
-
-```text
-http://host.docker.internal:11434
-```
-
-If the dashboard shows `Ollama offline`, open Admin -> Model Sources and test the Ollama URL. For Docker on macOS, use `http://host.docker.internal:11434`. For a direct local `npm start`, use `http://localhost:11434`.
-
-## Run Locally Without Docker
-
-Install dependencies:
+Pull at least one model before starting:
 
 ```bash
-npm install
+ollama pull qwen2.5:7b
 ```
 
-For local app development, run the API and Vite web app in two terminals:
+---
+
+## Configuration
+
+All configuration lives in `.env`. Copy `.env.example` and edit:
+
+```env
+DEFAULT_ADMIN_EMAIL=admin@yourcompany.com
+DEFAULT_ADMIN_PASSWORD=replace-with-a-strong-password
+DEFAULT_USER_PASSWORD=replace-with-employee-default
+OLLAMA_URL=http://host.docker.internal:11434
+```
+
+Restart the container after changing `.env`:
 
 ```bash
-npm run dev:api
-npm run dev
+docker compose down && docker compose up --build
 ```
 
-Open:
+---
 
-```text
-http://localhost:5173/login
-```
+## Docker Commands
 
-To test the production build locally:
+| Command | Description |
+|---|---|
+| `docker compose up --build` | Build image and start all services |
+| `docker compose up -d --build` | Same, detached (background) |
+| `docker compose down` | Stop and remove containers |
+| `docker compose logs -f app` | Stream app logs |
+| `docker compose restart app` | Restart the app container only |
+| `docker compose pull` | Pull latest base images |
+
+Or use the npm shortcuts (requires Node locally only to run the shortcut — Docker does the actual work):
 
 ```bash
-npm run build
-npm start
+npm run docker:up       # docker compose up --build
+npm run docker:down     # docker compose down
+npm run docker:logs     # docker compose logs -f app
+npm run docker:restart  # docker compose restart app
 ```
 
-Then open:
+---
 
-```text
-http://localhost:3000/login
-```
+## App Routes
 
-Default first boot admin:
+| Route | Description |
+|---|---|
+| `/login` | Sign-in page |
+| `/app` | Employee AI workspace |
+| `/admin` | Admin dashboard |
 
-```text
-Email: admin@ollanest.local
-Password: CHANGE_ME_ON_FIRST_BOOT
-```
+---
 
-Set a real password before sharing the app:
+## Employee Workspace
+
+Employees access `/app` and can:
+
+- **Ask** — general questions routed to the best approved model
+- **Build** — generate code or files, optionally written to a local workspace folder
+- **Review** — code or content review with actionable findings
+- **Fix** — diagnose bugs and get specific fixes
+- **Learn** — plain-language explanations with examples
+
+The **Auto Router** selects the best available model for each request. Employees can also manually select any approved model from the composer.
+
+For **Build** and **Fix** modes, employees can enable "Write to workspace" to have generated files saved directly to a configured local path inside the container volume.
+
+---
+
+## Admin Dashboard
+
+Admins access `/admin` and can:
+
+- **Overview** — model count, user count, group count, department count
+- **Local Models** — sync and inspect discovered Ollama models with speed/quality scores
+- **Users** — create accounts, reset passwords, activate/deactivate employees
+- **Settings** — configure Auto Router, API model access, local file write permissions, Ollama URL, workspace root
+- **Audit Trail** — timestamped log of all routing decisions and admin changes
+
+---
+
+## Auto Model Router
+
+The router runs on every request:
+
+1. Classifies the request (coding, writing, medical, OCR, review, general, etc.)
+2. Checks which models the user is approved to access (user, group, department grants)
+3. Scores each candidate model by capability match, speed, quality, and privacy
+4. Selects the highest-scoring approved model
+5. Falls back gracefully if no model is available
+
+The routing logic is visible in the **Auto Router** panel on the right side of the workspace after each request.
+
+---
+
+## Data Storage
+
+Olla Nest uses local SQLite and a JSON document store inside the Docker volume — no external databases required for running.
+
+| Store | File | Contains |
+|---|---|---|
+| SQLite | `/app/data/olla-nest.sqlite` | Users, groups, departments, models, permissions, settings |
+| JSON | `/app/data/documents.json` | Chat history, audit log, router traces, workspace prefs |
+| Volume | `app-data` | Persistent data across container restarts |
+
+Data persists across `docker compose down / up` via the named `app-data` volume. To reset all data:
 
 ```bash
-DEFAULT_ADMIN_PASSWORD="your-strong-password" npm start
+docker compose down -v   # removes the volume — destructive
 ```
 
-App URLs:
-
-```text
-/login  Sign in
-/app    User workspace
-/admin  Admin dashboard
-```
-
-## Work Locally
-
-Build and Fix mode can create real files on your laptop or server workspace. The user workspace now shows a `Work locally` panel where each employee can choose:
-
-- Workspace folder
-- Default permissions
-- Auto-review
-- Full access
-
-With Default permissions and Auto-review, Build/Fix asks for approval in the composer before files are written. With Full access, approved Build/Fix outputs are written automatically to:
-
-```text
-<workspace folder>/olla-nest-output
-```
-
-Admins can set the company default folder and default file permission from Admin -> System Settings.
-
-Ollama is expected at:
-
-```text
-http://localhost:11434
-```
-
-You can override the Ollama URL:
-
-```bash
-OLLAMA_URL=http://localhost:11434 npm start
-```
-
-## Run With Production Databases
-
-Start PostgreSQL, MongoDB, and Redis:
-
-```bash
-docker compose up -d postgres mongo redis
-```
-
-Set production storage mode:
-
-```bash
-STORAGE_MODE=production npm start
-```
+---
 
 ## Project Structure
 
 ```text
-server.js            Express backend, SQL schema, document store, routing logic, Ollama integration
-src/main.jsx         React app with MUI dashboard and workspace UI
-src/styles.css       Tailwind CSS and Material Design layout refinements
-dist/                Built frontend bundle, generated by npm run build
-docs/ARCHITECTURE.md Product architecture and database strategy
-docs/DEPLOYMENT.md   Local and production deployment procedure
-docker-compose.yml   PostgreSQL + MongoDB + Redis local services
-data/*.sqlite        Local generated SQLite database, ignored by Git
-data/documents.json  Local generated document store, ignored by Git
+server.js               Express backend — API, auth, routing logic, Ollama integration, file writes
+public/
+  login.html            Sign-in page
+  login.js
+  app.html              Employee workspace
+  app.js
+  admin.html            Admin dashboard
+  admin.js
+  styles.css            Design system
+data/                   Generated at runtime — gitignored
+  olla-nest.sqlite
+  documents.json
+  workspace/
+infra/
+  postgres/init.sql     Future production PostgreSQL schema
+docker-compose.yml      App service with volume and Ollama host routing
+Dockerfile              Node 24 Alpine image
+.env.example            Environment variable reference
+docs/
+  ARCHITECTURE.md       Database strategy and product stack direction
+  DEPLOYMENT.md         Deployment reference
 ```
 
-## Current Status
+---
 
-This is an MVP prototype. It is intentionally simple and local-first:
+## Production Deployment
 
-- MVP authentication exists with default admin bootstrap
-- Production authentication/SSO is not implemented yet
-- PostgreSQL, MongoDB, and Redis are defined as production defaults
-- Runtime adapters still use the local fallback implementation in this MVP
-- No multi-tenant deployment yet
-- No real API model connector yet
-- No file/project editing tools yet
+For a team or company deployment, set real credentials in `.env` before first boot:
 
-Those are expected next steps as the product matures.
+```env
+DEFAULT_ADMIN_EMAIL=admin@yourcompany.com
+DEFAULT_ADMIN_PASSWORD=replace-with-a-strong-32-char-password
+DEFAULT_USER_PASSWORD=replace-with-a-strong-default
+OLLAMA_URL=http://your-ollama-server:11434
+```
+
+Then start:
+
+```bash
+docker compose up -d --build
+```
+
+Put Nginx or a reverse proxy in front for HTTPS and a custom domain.
+
+---
 
 ## Roadmap
 
-- Real authentication and role-based access control
-- Admin UI for adding/editing models without code changes
-- Department policy editor
-- Workspace/project folder access
-- Local file reading and project Q&A
-- Approval-based command execution
-- Multi-model comparison and judging
-- API model connectors
+- Real authentication and SSO
+- Department and group policy editor UI
+- More complete model access grant screens
+- Visual diff for generated file changes
+- Full RAG / document knowledge base
+- API model provider integration (OpenAI, Anthropic, Groq)
+- Real-time token streaming
 - Usage analytics and billing controls
-- Enterprise deployment options
-- Tauri desktop app for macOS, Windows, and Linux
-- Mobile app using shared API contracts
+- Desktop app (Tauri) for macOS, Windows, Linux
+- Mobile app
 
-## Open Source Direction
+---
 
-Olla Nest is intended to become an open-source local AI workspace for companies, teams, and developers who want more control over how AI is deployed and used.
+## Open Source
 
-Contributions should keep the project:
+Olla Nest is open-source and intended to become the standard local AI workspace for companies and teams who want control over how AI is deployed and used.
 
-- Local-first
-- Simple to run
-- Clear for admins
-- Safe for employees
-- Transparent about model routing decisions
+Contributions should keep the project local-first, simple to run, safe for employees, and transparent about model routing decisions.
+
+[Architecture](docs/ARCHITECTURE.md) · [Deployment](docs/DEPLOYMENT.md) · [Contributing](CONTRIBUTING.md)

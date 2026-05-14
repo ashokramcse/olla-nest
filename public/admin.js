@@ -1,101 +1,200 @@
 let state = null;
+let activeTab = "overview";
 
-const $ = (selector) => document.querySelector(selector);
+const $ = (id) => document.getElementById(id);
+const $all = (sel) => Array.from(document.querySelectorAll(sel));
 
-async function api(path, options = {}) {
-  const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  if (response.status === 401) {
-    window.location.href = "/login";
-    return null;
-  }
-  if (response.status === 403) {
-    window.location.href = "/app";
-    return null;
-  }
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Request failed");
+function esc(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  if (res.status === 401) { window.location.href = "/login"; return null; }
+  if (res.status === 403) { window.location.href = "/app"; return null; }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function initials(name) {
+  return (name || "A").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function timeAgo(iso) {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// === RENDER FUNCTIONS ===
+
+function renderIdentity() {
+  const u = state.activeUser;
+  $("adminAvatar").textContent = initials(u.name);
+  $("adminName").textContent = u.name;
+}
+
+function renderOverview() {
+  // Metrics
+  const localModels = state.models.filter(m => m.provider === "ollama" && m.status === "available");
+  $("metricModels").textContent = localModels.length;
+  $("metricUsers").textContent = state.users.length;
+  $("metricGroups").textContent = state.groups.length;
+  $("metricDepts").textContent = state.departments.length;
+
+  // Access policy
+  $("overviewPolicy").innerHTML = [
+    { title: "User grants", desc: "Direct model access for specific employees." },
+    { title: "Group grants", desc: "Shared access for teams and roles like Builders or All Employees." },
+    { title: "Department grants", desc: "Company departments receive model access independently." },
+    { title: "Auto Router", desc: "Matches each request to the best approved model by capability, speed, quality, and privacy score." },
+  ].map(p => `<div class="policy-item">
+    <div class="policy-title">${esc(p.title)}</div>
+    <div class="policy-desc">${esc(p.desc)}</div>
+  </div>`).join("");
+
+  // Storage
+  const db = state.dbConfig;
+  const curr = db.localDevelopment;
+  const prod = db.recommendedProduction;
+  $("overviewStorage").innerHTML = `
+    <p class="text-sm text-muted mb-3">Current mode: <span class="badge badge-indigo">${esc(db.mode)}</span></p>
+    <div class="policy-item">
+      <div class="policy-title">SQL layer <span class="badge badge-default" style="margin-left:6px;">${esc(curr.sql.provider)}</span></div>
+      <div class="policy-desc">Production: ${esc(prod.sql.provider)} — users, groups, models, permissions</div>
+    </div>
+    <div class="policy-item">
+      <div class="policy-title">Document layer <span class="badge badge-default" style="margin-left:6px;">${esc(curr.document.provider)}</span></div>
+      <div class="policy-desc">Production: ${esc(prod.document.provider)} — chat history, AI traces</div>
+    </div>
+    <div class="policy-item">
+      <div class="policy-title">Realtime layer <span class="badge badge-default" style="margin-left:6px;">${esc(curr.realtime.provider)}</span></div>
+      <div class="policy-desc">Production: ${esc(prod.realtime.provider)} — streaming, sessions, queues</div>
+    </div>`;
+}
+
+function capBadges(caps) {
+  const colors = {
+    coding: "badge-indigo", debugging: "badge-indigo", build: "badge-indigo",
+    medical: "badge-red", ocr: "badge-blue", vision: "badge-blue",
+    reasoning: "badge-green", analysis: "badge-green",
+    general: "badge-default", ask: "badge-default",
+  };
+  return (caps || []).slice(0, 4).map(c =>
+    `<span class="badge ${colors[c] || "badge-default"}" style="margin:1px 2px;">${esc(c)}</span>`
+  ).join("");
 }
 
 function renderModels() {
-  $("#modelTable").innerHTML = `
-    <div class="table-row header"><div>Model</div><div>Provider</div><div>Status</div><div>Capabilities</div></div>
-    ${state.models
-      .filter((model) => model.provider === "ollama")
-      .map((model) => `<div class="table-row">
-        <div><strong>${escapeHtml(model.name)}</strong><br><span class="muted">${escapeHtml(model.model)}</span></div>
-        <div><span class="badge">${escapeHtml(model.provider)}</span></div>
-        <div><span class="badge">${escapeHtml(model.status)}</span></div>
-        <div class="muted">${escapeHtml((model.capabilities || []).join(", "))}</div>
-      </div>`)
-      .join("")}
-  `;
+  const models = state.models.filter(m => m.provider === "ollama");
+  if (!models.length) {
+    $("modelTableBody").innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:24px;">No local models discovered. Check Ollama connection in Settings.</td></tr>`;
+    return;
+  }
+  $("modelTableBody").innerHTML = models.map(m => {
+    const statusBadge = m.status === "available"
+      ? `<span class="badge badge-green">${esc(m.status)}</span>`
+      : m.status === "missing"
+        ? `<span class="badge badge-amber">${esc(m.status)}</span>`
+        : `<span class="badge badge-default">${esc(m.status)}</span>`;
+
+    const speedBar = `<div style="display:flex;align-items:center;gap:6px;">
+      <div style="width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+        <div style="width:${m.speedScore}%;height:100%;background:var(--primary);border-radius:2px;"></div>
+      </div>
+      <span style="font-size:11px;color:var(--muted);">${m.speedScore}</span>
+    </div>`;
+
+    const qualityBar = `<div style="display:flex;align-items:center;gap:6px;">
+      <div style="width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+        <div style="width:${m.qualityScore}%;height:100%;background:var(--success);border-radius:2px;"></div>
+      </div>
+      <span style="font-size:11px;color:var(--muted);">${m.qualityScore}</span>
+    </div>`;
+
+    return `<tr>
+      <td>
+        <div class="table-name">${esc(m.name)}</div>
+        <div class="table-sub">${esc(m.model || m.name)}</div>
+      </td>
+      <td><span class="badge badge-blue">${esc(m.provider)}</span></td>
+      <td>${statusBadge}</td>
+      <td>${speedBar}</td>
+      <td>${qualityBar}</td>
+      <td>${capBadges(m.capabilities)}</td>
+    </tr>`;
+  }).join("");
 }
 
 function renderUsers() {
-  $("#newUserDepartment").innerHTML = state.departments.map((dept) => `<option value="${dept.id}">${escapeHtml(dept.name)}</option>`).join("");
-  $("#userList").innerHTML = state.users
-    .map((user) => {
-      const dept = state.departments.find((item) => item.id === user.departmentId);
-      return `<div class="user-card">
-        <strong>${escapeHtml(user.name)}</strong>
-        <span>${escapeHtml(user.email || "")}<br>${escapeHtml(user.role)} · ${escapeHtml(dept?.name || "No department")} · ${user.active ? "active" : "inactive"}<br>Rights: ${escapeHtml((user.rights || []).join(", "))}</span>
-        <div class="inline-actions">
-          <button class="secondary small" data-reset-password="${user.id}">Reset Password</button>
-          <button class="secondary small" data-toggle-active="${user.id}" data-active="${user.active ? "0" : "1"}">${user.active ? "Deactivate" : "Activate"}</button>
-        </div>
-      </div>`;
-    })
-    .join("");
-}
+  // Populate department select
+  $("newUserDept").innerHTML = state.departments.map(d =>
+    `<option value="${esc(d.id)}">${esc(d.name)}</option>`
+  ).join("");
 
-function renderAccess() {
-  $("#policyList").innerHTML = [
-    `<div class="policy-card"><strong>User grants</strong><span>Direct access for specific employees.</span></div>`,
-    `<div class="policy-card"><strong>Group grants</strong><span>Shared access for teams and roles.</span></div>`,
-    `<div class="policy-card"><strong>Department grants</strong><span>Company departments can receive model access independently.</span></div>`,
-    `<div class="policy-card"><strong>Production storage</strong><span>SQL: ${state.dbConfig.recommendedProduction.sql.provider}<br>NoSQL: ${state.dbConfig.recommendedProduction.document.provider}<br>Realtime: ${state.dbConfig.recommendedProduction.realtime.provider}</span></div>`,
-    `<div class="policy-card"><strong>Local fallback</strong><span>SQL: ${state.dbConfig.localDevelopment.sql.provider}<br>Document: ${state.dbConfig.localDevelopment.document.provider}<br>Realtime: ${state.dbConfig.localDevelopment.realtime.provider}</span></div>`,
-  ].join("");
+  // User list
+  $("userList").innerHTML = state.users.map(u => {
+    const dept = state.departments.find(d => d.id === u.departmentId);
+    const av = initials(u.name);
+    const isActive = u.active;
+    return `<div class="user-item">
+      <div class="user-item-avatar" style="${isActive ? "" : "opacity:0.5;"}">${esc(av)}</div>
+      <div class="user-item-info">
+        <div class="user-item-name">${esc(u.name)} ${!isActive ? '<span class="badge badge-amber" style="font-size:10px;">inactive</span>' : ""}</div>
+        <div class="user-item-meta">${esc(u.email || "")} · ${esc(u.role)} · ${esc(dept?.name || "No dept")}</div>
+      </div>
+      <div class="user-item-actions">
+        <button class="btn btn-secondary btn-xs" data-reset="${esc(u.id)}" title="Reset password">↺ Reset</button>
+        <button class="btn ${isActive ? "btn-ghost" : "btn-secondary"} btn-xs" data-toggle="${esc(u.id)}" data-next="${isActive ? "0" : "1"}">
+          ${isActive ? "Deactivate" : "Activate"}
+        </button>
+      </div>
+    </div>`;
+  }).join("");
 }
 
 function renderSettings() {
-  $("#routerEnabled").checked = state.settings.routerEnabled;
-  $("#allowApiModels").checked = state.settings.allowApiModels;
-  $("#localOnlyDefault").checked = state.settings.localOnlyDefault;
+  const s = state.settings;
+  $("routerEnabled").checked = !!s.routerEnabled;
+  $("allowApiModels").checked = !!s.allowApiModels;
+  $("localOnlyDefault").checked = !!s.localOnlyDefault;
+  $("localWritesEnabled").checked = !!s.localWritesEnabled;
+  $("localPermissionMode").value = s.localPermissionMode || "default";
+  $("workspaceRoot").value = s.workspaceRoot || "";
+  $("ollamaUrl").value = s.ollamaUrl || "http://localhost:11434";
+  $("apiModelProvider").value = s.apiModelProvider || "not-configured";
 }
 
 function renderAudit() {
-  $("#auditList").innerHTML = state.audit.length
-    ? state.audit.map((item) => `<div class="audit-card">${escapeHtml(item.actor)}: ${escapeHtml(item.detail)}</div>`).join("")
-    : `<div class="muted">No audit events yet.</div>`;
-}
-
-function renderMetrics() {
-  $("#modelCount").textContent = state.models.filter((model) => model.provider === "ollama" && model.status === "available").length;
-  $("#userCount").textContent = state.users.length;
-  $("#groupCount").textContent = state.groups.length;
-  $("#departmentCount").textContent = state.departments.length;
-  $("#adminIdentity").innerHTML = `<div class="mini-item"><span>${escapeHtml(state.activeUser.name)}</span><span>${escapeHtml(state.activeUser.role)}</span></div>`;
+  const items = state.audit || [];
+  if (!items.length) {
+    $("auditList").innerHTML = `<div style="text-align:center; padding:32px; color:var(--muted); font-size:13px;">No audit events yet.</div>`;
+    return;
+  }
+  $("auditList").innerHTML = items.map(item => `
+    <div class="audit-item">
+      <div class="audit-dot"></div>
+      <div style="flex:1; min-width:0;">
+        <div class="audit-actor">${esc(item.actor)}</div>
+        <div class="audit-detail">${esc(item.detail)}</div>
+      </div>
+      <div class="audit-time">${timeAgo(item.createdAt)}</div>
+    </div>`).join("");
 }
 
 function renderAll() {
-  renderMetrics();
+  renderIdentity();
+  renderOverview();
   renderModels();
   renderUsers();
-  renderAccess();
   renderSettings();
   renderAudit();
 }
@@ -107,85 +206,210 @@ async function loadState() {
 }
 
 async function checkOllama() {
-  const status = $("#ollamaStatus");
-  const data = await api("/api/ollama/models");
-  if (!data) return;
-  if (data.ok) {
-    status.textContent = `${data.models.length} local model${data.models.length === 1 ? "" : "s"} available`;
-    status.className = "status-pill ok";
-  } else {
-    status.textContent = "Ollama not connected";
-    status.className = "status-pill off";
+  const pill = $("ollamaStatus");
+  try {
+    const data = await api("/api/ollama/models");
+    if (!data) return;
+    if (data.ok) {
+      pill.textContent = `${data.models.length} local model${data.models.length === 1 ? "" : "s"}`;
+      pill.className = "status-pill ok";
+    } else {
+      pill.textContent = "Ollama not connected";
+      pill.className = "status-pill off";
+    }
+  } catch {
+    pill.textContent = "Ollama error";
+    pill.className = "status-pill error";
   }
 }
 
-function bindEvents() {
-  $("#syncOllama").addEventListener("click", async () => {
-    await checkOllama();
-    await loadState();
-  });
+// === TAB NAVIGATION ===
+const tabTitles = {
+  overview: "Company Dashboard",
+  models: "Local Models",
+  users: "User Management",
+  settings: "System Settings",
+  audit: "Audit Trail",
+};
 
-  $("#saveSettings").addEventListener("click", async () => {
+function switchTab(tab) {
+  activeTab = tab;
+  $all(".tab-view").forEach(v => v.classList.remove("active"));
+  $(`tab-${tab}`).classList.add("active");
+  $all(".nav-item[data-tab]").forEach(b => b.classList.remove("active"));
+  document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add("active");
+  $("tabTitle").textContent = tabTitles[tab] || tab;
+}
+
+$all(".nav-item[data-tab]").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+// === EVENTS ===
+
+$("logoutBtn").addEventListener("click", async () => {
+  await api("/api/auth/logout", { method: "POST", body: "{}" });
+  window.location.href = "/login";
+});
+
+$("refreshBtn").addEventListener("click", async () => {
+  await checkOllama();
+  await loadState();
+});
+
+$("syncModelsBtn").addEventListener("click", async () => {
+  const btn = $("syncModelsBtn");
+  btn.disabled = true;
+  btn.textContent = "Syncing…";
+  try {
+    await api("/api/ollama/models");
+    await loadState();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync from Ollama`;
+  }
+});
+
+// Save router/model settings
+$("saveSettingsBtn").addEventListener("click", async () => {
+  const msg = $("settingsMsg");
+  msg.className = "form-message";
+  msg.textContent = "";
+  try {
     await api("/api/admin/settings", {
       method: "POST",
       body: JSON.stringify({
-        routerEnabled: $("#routerEnabled").checked,
-        allowApiModels: $("#allowApiModels").checked,
-        localOnlyDefault: $("#localOnlyDefault").checked,
+        routerEnabled: $("routerEnabled").checked,
+        allowApiModels: $("allowApiModels").checked,
+        localOnlyDefault: $("localOnlyDefault").checked,
+        localWritesEnabled: $("localWritesEnabled").checked,
+        localPermissionMode: $("localPermissionMode").value,
+        workspaceRoot: $("workspaceRoot").value.trim() || undefined,
+        apiModelProvider: $("apiModelProvider").value,
       }),
     });
+    msg.className = "form-message success";
+    msg.textContent = "Settings saved.";
     await loadState();
-  });
+  } catch (err) {
+    msg.className = "form-message error";
+    msg.textContent = err.message;
+  }
+});
 
-  $("#logout").addEventListener("click", async () => {
-    await api("/api/auth/logout", { method: "POST", body: "{}" });
-    window.location.href = "/login";
-  });
-
-  $("#createUserForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const msg = $("#userMessage");
-    msg.textContent = "";
-    try {
-      await api("/api/admin/users", {
-        method: "POST",
-        body: JSON.stringify({
-          name: $("#newUserName").value.trim(),
-          email: $("#newUserEmail").value.trim(),
-          role: $("#newUserRole").value,
-          departmentId: $("#newUserDepartment").value,
-          password: $("#newUserPassword").value || undefined,
-          rights: $("#newUserRole").value === "admin" ? ["admin:manage", "chat:use", "models:manage", "users:manage"] : ["chat:use"],
-        }),
-      });
-      event.target.reset();
-      msg.textContent = "User created.";
-      await loadState();
-    } catch (error) {
-      msg.textContent = error.message;
+// Test Ollama connection
+$("testOllamaBtn").addEventListener("click", async () => {
+  const btn = $("testOllamaBtn");
+  const msg = $("modelSourceMsg");
+  btn.disabled = true;
+  btn.textContent = "Testing…";
+  msg.className = "form-message";
+  msg.textContent = "";
+  try {
+    const result = await api("/api/admin/model-sources/test", {
+      method: "POST",
+      body: JSON.stringify({ ollamaUrl: $("ollamaUrl").value.trim() }),
+    });
+    if (result.ok) {
+      msg.className = "form-message success";
+      msg.textContent = `Connected — ${result.count} model${result.count === 1 ? "" : "s"} found.`;
+    } else {
+      msg.className = "form-message error";
+      msg.textContent = `Cannot connect: ${result.error}`;
     }
-  });
+  } catch (err) {
+    msg.className = "form-message error";
+    msg.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Test connection";
+  }
+});
 
-  $("#userList").addEventListener("click", async (event) => {
-    const resetId = event.target.dataset.resetPassword;
-    const toggleId = event.target.dataset.toggleActive;
-    if (resetId) {
+// Save Ollama URL
+$("saveModelSourceBtn").addEventListener("click", async () => {
+  const msg = $("modelSourceMsg");
+  msg.className = "form-message";
+  msg.textContent = "";
+  try {
+    await api("/api/admin/settings", {
+      method: "POST",
+      body: JSON.stringify({ ollamaUrl: $("ollamaUrl").value.trim() }),
+    });
+    msg.className = "form-message success";
+    msg.textContent = "Ollama URL saved.";
+    await loadState();
+  } catch (err) {
+    msg.className = "form-message error";
+    msg.textContent = err.message;
+  }
+});
+
+// Create user
+$("createUserForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("userMsg");
+  const role = $("newUserRole").value;
+  msg.className = "form-message";
+  msg.textContent = "";
+  try {
+    await api("/api/admin/users", {
+      method: "POST",
+      body: JSON.stringify({
+        name: $("newUserName").value.trim(),
+        email: $("newUserEmail").value.trim(),
+        role,
+        departmentId: $("newUserDept").value,
+        password: $("newUserPassword").value || undefined,
+        rights: role === "admin"
+          ? ["admin:manage", "chat:use", "models:manage", "users:manage"]
+          : ["chat:use"],
+      }),
+    });
+    e.target.reset();
+    msg.className = "form-message success";
+    msg.textContent = "Account created successfully.";
+    await loadState();
+  } catch (err) {
+    msg.className = "form-message error";
+    msg.textContent = err.message;
+  }
+});
+
+// User list actions (reset password / toggle active)
+$("userList").addEventListener("click", async (e) => {
+  const msg = $("userMsg");
+  const resetId = e.target.dataset.reset;
+  const toggleId = e.target.dataset.toggle;
+
+  if (resetId) {
+    try {
       await api(`/api/admin/users/${resetId}/reset-password`, {
         method: "POST",
         body: JSON.stringify({ password: "CHANGE_ME_ON_FIRST_BOOT" }),
       });
-      $("#userMessage").textContent = "Password reset to CHANGE_ME_ON_FIRST_BOOT.";
+      msg.className = "form-message success";
+      msg.textContent = "Password reset to: CHANGE_ME_ON_FIRST_BOOT";
+    } catch (err) {
+      msg.className = "form-message error";
+      msg.textContent = err.message;
     }
-    if (toggleId) {
+  }
+
+  if (toggleId) {
+    try {
       await api(`/api/admin/users/${toggleId}`, {
         method: "PATCH",
-        body: JSON.stringify({ active: event.target.dataset.active === "1" }),
+        body: JSON.stringify({ active: e.target.dataset.next === "1" }),
       });
-      $("#userMessage").textContent = "User status updated.";
       await loadState();
+      msg.className = "form-message success";
+      msg.textContent = "User status updated.";
+    } catch (err) {
+      msg.className = "form-message error";
+      msg.textContent = err.message;
     }
-  });
-}
+  }
+});
 
-bindEvents();
 loadState().then(checkOllama);

@@ -14,21 +14,14 @@
     "open-source-ai"
   ],
   "scripts": {
-    "build": "vite build",
     "start": "node server.js",
-    "dev": "vite --host 0.0.0.0",
-    "dev:api": "node server.js",
     "docker:up": "docker compose up --build",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app",
+    "docker:restart": "docker compose restart app"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.0",
-    "@vitejs/plugin-react": "^6.0.1",
     "bcryptjs": "^3.0.3",
-    "express": "^5.2.1",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "tailwindcss": "^4.3.0",
-    "vite": "^8.0.12"
+    "express": "^5.2.1"
   }
 }

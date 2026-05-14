@@ -1,38 +1,96 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Olla Nest Login</title>
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-  <body class="auth-body">
-    <main class="auth-shell">
-      <section class="auth-card">
-        <div class="brand auth-brand">
-          <div class="mark">ON</div>
-          <div>
-            <strong>Olla Nest</strong>
-            <span>Company AI Workspace</span>
-          </div>
-        </div>
-        <h1>Sign in</h1>
-        <p class="muted">Use your company account. The first boot creates a default admin from environment variables.</p>
-        <form id="loginForm" class="auth-form">
-          <label>
-            <span>Email</span>
-            <input id="email" type="email" autocomplete="username" required />
-          </label>
-          <label>
-            <span>Password</span>
-            <input id="password" type="password" autocomplete="current-password" required />
-          </label>
-          <button class="primary full" type="submit">Sign in</button>
-        </form>
-        <div id="bootstrapHint" class="auth-hint"></div>
-        <div id="loginError" class="error-text"></div>
-      </section>
-    </main>
-    <script src="/login.js"></script>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Olla Nest — Sign in</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="login-shell">
+  <!-- Left branding panel -->
+  <div class="login-left">
+    <div class="login-brand">
+      <div class="brand-mark">ON</div>
+      <div>
+        <div class="brand-name">Olla Nest</div>
+        <div class="brand-sub">Company AI Workspace</div>
+      </div>
+    </div>
+
+    <h1 class="login-title">Local AI control<br>for your entire team.</h1>
+    <p class="login-sub">
+      Give employees a powerful AI workspace — powered by local models, controlled by your admin, with no data leaving your network.
+    </p>
+
+    <div class="login-feature">
+      <div class="login-feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+        </svg>
+      </div>
+      <div class="login-feature-text"><strong>Auto Router</strong> — Type once. The best approved local model handles your request automatically.</div>
+    </div>
+
+    <div class="login-feature">
+      <div class="login-feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <div class="login-feature-text"><strong>Admin Control</strong> — Manage which employees access which models. Set permissions by user, group, or department.</div>
+    </div>
+
+    <div class="login-feature">
+      <div class="login-feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/>
+        </svg>
+      </div>
+      <div class="login-feature-text"><strong>Local File Output</strong> — Build and Fix tasks can write real files directly to a company-approved workspace folder.</div>
+    </div>
+
+    <div class="login-feature">
+      <div class="login-feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+        </svg>
+      </div>
+      <div class="login-feature-text"><strong>100% Local</strong> — All AI runs on your infrastructure via Ollama. No external API calls, no data exposure.</div>
+    </div>
+  </div>
+
+  <!-- Right login form -->
+  <div class="login-right">
+    <div class="login-right-brand">
+      <div class="brand-mark">ON</div>
+      <div>
+        <div class="brand-name" style="color: var(--ink); font-size: 14px;">Olla Nest</div>
+        <div class="brand-sub" style="color: var(--muted);">Admin &amp; Employee Access</div>
+      </div>
+    </div>
+
+    <h2 class="login-right-title">Welcome back</h2>
+    <p class="login-right-sub">Sign in with your company account to access the AI workspace.</p>
+
+    <form class="login-form" id="loginForm" novalidate>
+      <div class="input-group" style="margin-bottom:0">
+        <label class="input-label" for="email">Email address</label>
+        <input class="input" id="email" type="email" autocomplete="username" placeholder="you@company.com" required />
+      </div>
+      <div class="input-group" style="margin-bottom:0">
+        <label class="input-label" for="password">Password</label>
+        <input class="input" id="password" type="password" autocomplete="current-password" placeholder="••••••••••••" required />
+      </div>
+      <button class="btn btn-primary btn-full" type="submit" id="submitBtn" style="margin-top:4px; padding: 10px 16px; font-size: 14px;">
+        Sign in
+      </button>
+    </form>
+
+    <div class="login-error" id="loginError"></div>
+    <div class="login-hint" id="bootstrapHint" style="display:none"></div>
+  </div>
+</div>
+<script src="/login.js"></script>
+</body>
 </html>
