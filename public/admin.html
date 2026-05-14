@@ -15,7 +15,7 @@
   --yellow:#f4d33a;--yellow-deep:#e8c624;
   --green:#bfe8a4;--green-deep:#69a444;
   --orange:#f1872c;--danger:#ef4444;
-  --cream:#fdf6d8;--paper:#f5f3ed;
+  --cream:#fdf6d8;--paper:#f5f3ed;--primary:var(--ink);--success:var(--green-deep);--border:var(--line-soft);--muted:var(--mute);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -200,6 +200,68 @@ tbody tr:hover{background:#fefdf5}
 .matrix-table td:first-child{font-weight:500}
 
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Model table column styles */
+.table-name{font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap}
+.table-sub{font-size:12px;color:var(--mute);margin-top:2px;white-space:nowrap}
+
+/* Score bars override */
+table td div[style*="width:60px"]{width:48px!important}
+
+/* Custom select — governance tier dropdown */
+.select-input,select.select-input{
+  appearance:none;-webkit-appearance:none;
+  background-color:#fff;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a7a72' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  border:1.5px solid var(--line);
+  border-radius:12px;
+  padding:7px 28px 7px 12px;
+  font-size:13px;
+  font-family:inherit;
+  color:var(--ink);
+  cursor:pointer;
+  min-width:148px;
+  outline:none;
+  transition:border-color .15s,box-shadow .15s;
+}
+.select-input:hover{border-color:#00000028}
+.select-input:focus{border-color:var(--yellow-deep);box-shadow:0 0 0 3px rgba(244,211,58,.18)}
+
+/* Tier badge coloring after select changes */
+select[data-model-tier] option[value="approved-local"]{color:var(--green-deep)}
+select[data-model-tier] option[value="restricted"]{color:var(--danger)}
+select[data-model-tier] option[value="deprecated"]{color:var(--mute)}
+
+/* Save policy button — inline pill */
+button[data-save-model]{
+  display:inline-flex;align-items:center;gap:5px;
+  margin-top:8px;padding:6px 14px;
+  background:var(--ink);color:#fff;
+  border:none;border-radius:999px;
+  font-size:12px;font-weight:500;font-family:inherit;cursor:pointer;
+  transition:opacity .15s;
+}
+button[data-save-model]:hover{opacity:.8}
+
+/* Tags column — cap badges tighter */
+td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
+
+/* Model table specific column widths */
+#modelTableBody td:nth-child(1){min-width:160px}
+#modelTableBody td:nth-child(2){width:80px}
+#modelTableBody td:nth-child(3){width:90px}
+#modelTableBody td:nth-child(4){width:100px}
+#modelTableBody td:nth-child(5){width:100px}
+#modelTableBody td:nth-child(6){width:170px}
+#modelTableBody td:nth-child(7){width:160px;vertical-align:top;padding-top:14px}
+#modelTableBody td:nth-child(8){width:140px}
+
+/* no-sensitive badge */
+.badge-red.badge[style*="font-size:10px"]{
+  display:inline-flex!important;margin-top:6px!important;font-size:11px!important;
+}
+
 
 /* Compat aliases for admin.js dynamic HTML */
 .btn-primary,.btn.btn-primary{background:var(--ink);color:#fff;border:none}
@@ -382,7 +444,7 @@ tbody tr:hover{background:#fefdf5}
             <table>
               <thead>
                 <tr>
-                  <th>Model</th><th>Provider</th><th>Status</th><th>Context</th><th>Tags</th><th>Actions</th>
+                  <th>Model</th><th>Provider</th><th>Status</th><th>Speed</th><th>Quality</th><th>Governance Tier</th><th>Resources</th><th>Capabilities</th>
                 </tr>
               </thead>
               <tbody id="modelTableBody">
