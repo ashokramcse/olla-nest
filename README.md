@@ -146,6 +146,8 @@ Admins access `/admin` and can:
 - **Settings** — configure Auto Router, API model access, local file write permissions, Ollama URL, workspace root
 - **Audit Trail** — timestamped log of all routing decisions and admin changes
 
+For the enterprise roadmap of user management, RBAC, department policies, user overrides, model governance, GPU allocation, token governance, and Ollama infrastructure controls, see [Enterprise Access Control](docs/ENTERPRISE_ACCESS_CONTROL.md).
+
 ---
 
 ## Auto Model Router
@@ -250,4 +252,4 @@ Olla Nest is open-source and intended to become the standard local AI workspace 
 
 Contributions should keep the project local-first, simple to run, safe for employees, and transparent about model routing decisions.
 
-[Architecture](docs/ARCHITECTURE.md) · [Deployment](docs/DEPLOYMENT.md) · [Contributing](CONTRIBUTING.md)
+[Architecture](docs/ARCHITECTURE.md) · [Enterprise Access Control](docs/ENTERPRISE_ACCESS_CONTROL.md) · [Deployment](docs/DEPLOYMENT.md) · [Contributing](CONTRIBUTING.md)
