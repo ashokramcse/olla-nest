@@ -1001,9 +1001,12 @@ app.post("/api/admin/users", requireAdmin, (req, res) => {
 app.patch("/api/admin/users/:id", requireAdmin, (req, res) => {
   const db = openSql();
   try {
-    const existing = one(db, "SELECT id FROM users WHERE id = ?", req.params.id);
+    const existing = one(db, "SELECT id, role FROM users WHERE id = ?", req.params.id);
     if (!existing) return res.status(404).json({ error: "User not found" });
     const { name, email, role, departmentId, active, rights } = req.body;
+    if (typeof active !== "undefined" && !active && existing.role === "admin") {
+      return res.status(400).json({ error: "Admin accounts cannot be deactivated." });
+    }
     if (typeof name !== "undefined") db.prepare("UPDATE users SET name = ? WHERE id = ?").run(name, req.params.id);
     if (typeof email !== "undefined") db.prepare("UPDATE users SET email = ? WHERE id = ?").run(email, req.params.id);
     if (typeof role !== "undefined") db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, req.params.id);

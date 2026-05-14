@@ -114,17 +114,19 @@ function renderUsers() {
     const dept = state.departments.find(d => d.id === u.departmentId);
     const av = initials(u.name);
     const isActive = u.active;
+    const isAdmin = u.role === "admin";
+    const deactivateBtn = isAdmin
+      ? ""
+      : `<button class="btn ${isActive ? "btn-ghost" : "btn-secondary"} btn-xs" data-toggle="${esc(u.id)}" data-next="${isActive ? "0" : "1"}">${isActive ? "Deactivate" : "Activate"}</button>`;
     return `<div class="user-item">
       <div class="user-item-avatar" style="${isActive ? "" : "opacity:0.5;"}">${esc(av)}</div>
       <div class="user-item-info">
-        <div class="user-item-name">${esc(u.name)} ${!isActive ? '<span class="badge badge-amber" style="font-size:10px;">inactive</span>' : ""}</div>
-        <div class="user-item-meta">${esc(u.email || "")} · ${esc(u.role)} · ${esc(dept?.name || "No dept")}</div>
+        <div class="user-item-name">${esc(u.name)} ${isAdmin ? '<span class="badge badge-indigo" style="font-size:10px;">admin</span>' : ""} ${!isActive ? '<span class="badge badge-amber" style="font-size:10px;">inactive</span>' : ""}</div>
+        <div class="user-item-meta">${esc(u.email || "")} · ${esc(dept?.name || "No dept")}</div>
       </div>
       <div class="user-item-actions">
-        <button class="btn btn-secondary btn-xs" data-reset="${esc(u.id)}" title="Reset password">↺ Reset</button>
-        <button class="btn ${isActive ? "btn-ghost" : "btn-secondary"} btn-xs" data-toggle="${esc(u.id)}" data-next="${isActive ? "0" : "1"}">
-          ${isActive ? "Deactivate" : "Activate"}
-        </button>
+        <button class="btn btn-secondary btn-xs" data-change-pw="${esc(u.id)}" data-name="${esc(u.name)}">Change Password</button>
+        ${deactivateBtn}
       </div>
     </div>`;
   }).join("");
@@ -408,24 +410,14 @@ $("createUserForm").addEventListener("submit", async (e) => {
   }
 });
 
-// User list actions (reset password / toggle active)
+// User list actions (change password / toggle active)
 $("userList").addEventListener("click", async (e) => {
   const msg = $("userMsg2");
-  const resetId = e.target.dataset.reset;
+  const changePwId = e.target.dataset.changePw;
   const toggleId = e.target.dataset.toggle;
 
-  if (resetId) {
-    try {
-      await api(`/api/admin/users/${resetId}/reset-password`, {
-        method: "POST",
-        body: JSON.stringify({ password: "CHANGE_ME_ON_FIRST_BOOT" }),
-      });
-      msg.className = "form-message success";
-      msg.textContent = "Password reset to: CHANGE_ME_ON_FIRST_BOOT";
-    } catch (err) {
-      msg.className = "form-message error";
-      msg.textContent = err.message;
-    }
+  if (changePwId) {
+    openChangePwModal(changePwId, e.target.dataset.name || "User");
   }
 
   if (toggleId) {
@@ -439,6 +431,86 @@ $("userList").addEventListener("click", async (e) => {
       msg.className = "form-message error";
       msg.textContent = err.message;
     }
+  }
+});
+
+// === CHANGE PASSWORD MODAL ===
+let changePwUserId = null;
+let captchaExpected = null;
+
+function generateCaptcha() {
+  const ops = ["+", "-", "×"];
+  const op = ops[Math.floor(Math.random() * ops.length)];
+  let a = Math.floor(Math.random() * 9) + 1;
+  let b = Math.floor(Math.random() * 9) + 1;
+  if (op === "-" && b > a) [a, b] = [b, a]; // keep result positive
+  captchaExpected = op === "+" ? a + b : op === "-" ? a - b : a * b;
+  $("captchaLabel").textContent = `Security check: what is ${a} ${op} ${b}?`;
+  $("captchaAnswer").value = "";
+}
+
+function openChangePwModal(userId, name) {
+  changePwUserId = userId;
+  $("changePwTarget").textContent = `Changing password for ${name}`;
+  $("changePwNew").value = "";
+  $("changePwConfirm").value = "";
+  $("changePwMsg").textContent = "";
+  $("changePwMsg").className = "form-message";
+  generateCaptcha();
+  const modal = $("changePwModal");
+  modal.style.display = "flex";
+}
+
+function closeChangePwModal() {
+  $("changePwModal").style.display = "none";
+  changePwUserId = null;
+  captchaExpected = null;
+}
+
+$("closePwModal").addEventListener("click", closeChangePwModal);
+$("changePwModal").addEventListener("click", (e) => {
+  if (e.target === $("changePwModal")) closeChangePwModal();
+});
+
+$("changePwForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("changePwMsg");
+  msg.className = "form-message";
+  msg.textContent = "";
+
+  const newPw = $("changePwNew").value;
+  const confirmPw = $("changePwConfirm").value;
+  const answer = parseInt($("captchaAnswer").value.trim(), 10);
+
+  if (newPw.length < 12) {
+    msg.className = "form-message error";
+    msg.textContent = "Password must be at least 12 characters.";
+    return;
+  }
+  if (newPw !== confirmPw) {
+    msg.className = "form-message error";
+    msg.textContent = "Passwords do not match.";
+    return;
+  }
+  if (isNaN(answer) || answer !== captchaExpected) {
+    msg.className = "form-message error";
+    msg.textContent = "Incorrect security answer. Try again.";
+    generateCaptcha();
+    return;
+  }
+
+  try {
+    await api(`/api/admin/users/${changePwUserId}/reset-password`, {
+      method: "POST",
+      body: JSON.stringify({ password: newPw }),
+    });
+    msg.className = "form-message success";
+    msg.textContent = "Password changed successfully.";
+    setTimeout(closeChangePwModal, 1500);
+  } catch (err) {
+    msg.className = "form-message error";
+    msg.textContent = err.message;
+    generateCaptcha();
   }
 });
 
