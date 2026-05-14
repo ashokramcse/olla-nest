@@ -316,6 +316,27 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
 .badge-amber{background:#fef3c7;color:#92400e}
 .badge-indigo{background:#ede9fe;color:#5b21b6}
 
+
+/* ── Button size global fix ── */
+.btn,.ap-btn{width:auto;align-self:flex-start}
+.ap-btn.dark,.ap-btn.ghost{border-radius:12px;padding:10px 20px;font-size:14px;cursor:pointer;border:none;font-weight:500;font-family:inherit}
+.ap-btn.dark{background:var(--ink);color:#fff}
+.ap-btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+
+/* Send button — keep pill shape */
+.send-btn{align-self:center}
+
+/* Sidebar cards — equal height columns handled by grid */
+.main-grid{align-items:start}
+
+/* Workspace config buttons — side by side, not stretching */
+#workspaceConfigPanel [style*="display:flex;gap:8px"]{align-items:center}
+#workspaceConfigPanel .ap-btn{flex:1;justify-content:center;text-align:center}
+
+/* Account panel — buttons normal size */
+.ap-btn[type="submit"]{display:inline-flex;width:auto}
+#passwordForm .ap-btn{width:100%;justify-content:center}
+
 /* Spin animation */
 @keyframes spin{to{transform:rotate(360deg)}}
 
