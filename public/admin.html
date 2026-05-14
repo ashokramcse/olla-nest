@@ -254,16 +254,6 @@ tbody tr:hover{background:#fefdf5}
 .table-name{font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap}
 .table-sub{font-size:12px;color:var(--mute);margin-top:2px;white-space:nowrap}
 
-/* Score bars override */
-table td div[style*="width:60px"]{width:48px!important}
-
-
-
-/* Tier badge coloring after select changes */
-select[data-model-tier] option[value="approved-local"]{color:var(--green-deep)}
-select[data-model-tier] option[value="restricted"]{color:var(--danger)}
-select[data-model-tier] option[value="deprecated"]{color:var(--mute)}
-
 /* Save policy button — inline pill */
 button[data-save-model]{
   display:inline-flex;align-items:center;gap:5px;

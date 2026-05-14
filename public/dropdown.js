@@ -6,8 +6,6 @@
 (function () {
   "use strict";
 
-  const SKIP_ATTR = "data-model-tier"; // already handled by admin.html's own upgrader
-
   /* ── Helpers ── */
   function optionLabel(opt) {
     return opt.textContent.trim();
@@ -28,7 +26,7 @@
 
   /* ── Build one dropdown ── */
   function buildDropdown(sel) {
-    if (sel.classList.contains("dd-upgraded") || sel.hasAttribute(SKIP_ATTR)) return;
+    if (sel.classList.contains("dd-upgraded")) return;
     sel.classList.add("dd-upgraded");
 
     const wrap = document.createElement("div");
