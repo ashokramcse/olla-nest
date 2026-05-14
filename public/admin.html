@@ -121,22 +121,6 @@
           </div>
         </div>
 
-        <div class="section-grid grid-2">
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">Access Model</span>
-            </div>
-            <div class="card-body">
-              <div id="overviewPolicy"></div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">Storage Architecture</span>
-            </div>
-            <div class="card-body" id="overviewStorage"></div>
-          </div>
-        </div>
       </div>
 
       <!-- Models tab -->
@@ -170,51 +154,63 @@
 
       <!-- Users tab -->
       <div class="tab-view page-content" id="tab-users">
-        <div class="page-header">
-          <p class="eyebrow">People</p>
-          <h1>User Management</h1>
+        <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
+          <div>
+            <p class="eyebrow">People</p>
+            <h1>User Management</h1>
+          </div>
+          <button class="btn btn-primary" id="toggleAddUserBtn">+ Add Employee</button>
         </div>
-        <div class="section-grid grid-2">
-          <!-- Create user -->
+
+        <!-- Add Employee form — hidden by default -->
+        <div id="addUserPanel" style="display:none; margin-bottom:20px;">
           <div class="card">
-            <div class="card-header"><span class="card-title">Add Employee</span></div>
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="card-title">New Employee</span>
+              <button class="btn btn-ghost btn-sm" id="cancelAddUserBtn">✕ Cancel</button>
+            </div>
             <div class="card-body">
               <form id="createUserForm" class="form-stack">
-                <div class="input-group">
-                  <label class="input-label">Full name</label>
-                  <input class="input input-sm" id="newUserName" placeholder="Jane Smith" />
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <div class="input-group">
+                    <label class="input-label">Full name</label>
+                    <input class="input input-sm" id="newUserName" placeholder="Jane Smith" />
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Work email</label>
+                    <input class="input input-sm" id="newUserEmail" type="email" placeholder="jane@company.com" />
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Role</label>
+                    <select class="select-input input-sm" id="newUserRole">
+                      <option value="user">Employee</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Department</label>
+                    <select class="select-input input-sm" id="newUserDept"></select>
+                  </div>
+                  <div class="input-group">
+                    <label class="input-label">Temporary password</label>
+                    <input class="input input-sm" id="newUserPassword" type="password" placeholder="Min 12 characters" />
+                  </div>
                 </div>
-                <div class="input-group">
-                  <label class="input-label">Work email</label>
-                  <input class="input input-sm" id="newUserEmail" type="email" placeholder="jane@company.com" />
+                <div style="margin-top:4px;">
+                  <button class="btn btn-primary" type="submit">Create Account</button>
                 </div>
-                <div class="input-group">
-                  <label class="input-label">Role</label>
-                  <select class="select-input input-sm" id="newUserRole">
-                    <option value="user">Employee</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-                <div class="input-group">
-                  <label class="input-label">Department</label>
-                  <select class="select-input input-sm" id="newUserDept"></select>
-                </div>
-                <div class="input-group">
-                  <label class="input-label">Temporary password</label>
-                  <input class="input input-sm" id="newUserPassword" type="password" placeholder="Min 12 characters" />
-                </div>
-                <button class="btn btn-primary btn-full" type="submit">Create Account</button>
               </form>
               <div id="userMsg" class="form-message mt-2"></div>
             </div>
           </div>
+        </div>
 
-          <!-- User list -->
-          <div class="card">
-            <div class="card-header"><span class="card-title">All Employees</span></div>
-            <div class="card-body" style="padding-top:8px;">
-              <div id="userList"></div>
-            </div>
+        <!-- User list (full width) -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">All Employees</span></div>
+          <div class="card-body" style="padding-top:8px;">
+            <div id="userMsg2" class="form-message" style="margin-bottom:8px;"></div>
+            <div id="userList"></div>
           </div>
         </div>
       </div>
@@ -289,32 +285,141 @@
             </div>
           </div>
 
-          <!-- Model source -->
-          <div class="card">
-            <div class="card-header"><span class="card-title">Model Sources</span></div>
-            <div class="card-body">
-              <p class="text-muted text-sm mb-3">Configure where Olla Nest discovers models. Ollama runs locally on your machine or company server.</p>
-              <div class="input-group">
-                <label class="input-label">Ollama URL</label>
-                <input class="input" id="ollamaUrl" placeholder="http://localhost:11434" />
+          <!-- Model Sources (multi-provider) -->
+          <div class="card" style="grid-column: 1 / -1;">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <span class="card-title">Model Sources</span>
+                <div id="activeSourcePills" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;"></div>
               </div>
-              <div style="display:flex; gap:8px; margin-top:4px;">
-                <button class="btn btn-secondary" id="testOllamaBtn">Test connection</button>
-                <button class="btn btn-primary" id="saveModelSourceBtn">Save URL</button>
-              </div>
-              <div id="modelSourceMsg" class="form-message mt-2"></div>
+              <button class="btn btn-secondary btn-sm" id="toggleSourcesBtn">Configure Sources</button>
+            </div>
 
-              <div style="margin-top:20px; padding-top:16px; border-top: 1px solid var(--border);">
-                <div class="input-group">
-                  <label class="input-label">API Model Provider</label>
-                  <select class="select-input" id="apiModelProvider">
-                    <option value="not-configured">Not configured</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic</option>
-                    <option value="groq">Groq</option>
-                  </select>
+            <div id="modelSourcesPanel" style="display:none;">
+              <div class="card-body" style="padding-top:0; display:grid; gap:16px;">
+
+                <!-- Ollama -->
+                <div class="provider-card">
+                  <div class="provider-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <strong>Ollama</strong>
+                      <span class="badge badge-green" style="font-size:10px;">Local</span>
+                    </div>
+                    <span class="text-xs text-muted">Runs models on your machine — no API key needed</span>
+                  </div>
+                  <div class="input-group" style="max-width:420px;">
+                    <label class="input-label">Ollama URL</label>
+                    <div style="display:flex; gap:8px;">
+                      <input class="input input-sm" id="ollamaUrl" placeholder="http://host.docker.internal:11434" />
+                      <button class="btn btn-secondary btn-sm" id="testOllamaBtn" style="white-space:nowrap;">Test</button>
+                    </div>
+                  </div>
+                  <button class="btn btn-primary btn-sm" id="saveModelSourceBtn">Save Ollama URL</button>
+                  <div id="modelSourceMsg" class="form-message mt-2"></div>
                 </div>
-                <p class="text-xs text-muted">API models require Admin to enable "Allow API Models" above. Currently MVP — configure URL and key per provider.</p>
+
+                <!-- Anthropic / Claude -->
+                <div class="provider-card">
+                  <div class="provider-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <strong>Anthropic / Claude</strong>
+                      <span class="badge badge-blue" style="font-size:10px;">API</span>
+                    </div>
+                    <label class="toggle-switch" style="transform:scale(0.85);">
+                      <input type="checkbox" id="anthropicEnabled" />
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
+                    <div class="input-group">
+                      <label class="input-label">API Key</label>
+                      <input class="input input-sm" id="anthropicApiKey" type="password" placeholder="sk-ant-…" />
+                    </div>
+                    <div class="input-group">
+                      <label class="input-label">Base URL <span class="text-xs text-muted">(optional)</span></label>
+                      <input class="input input-sm" id="anthropicBaseUrl" placeholder="https://api.anthropic.com" />
+                    </div>
+                  </div>
+                  <button class="btn btn-primary btn-sm" id="saveAnthropicBtn">Save</button>
+                  <div id="anthropicMsg" class="form-message mt-2"></div>
+                </div>
+
+                <!-- OpenAI / Codex -->
+                <div class="provider-card">
+                  <div class="provider-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <strong>OpenAI / Codex</strong>
+                      <span class="badge badge-blue" style="font-size:10px;">API</span>
+                    </div>
+                    <label class="toggle-switch" style="transform:scale(0.85);">
+                      <input type="checkbox" id="openaiEnabled" />
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
+                    <div class="input-group">
+                      <label class="input-label">API Key</label>
+                      <input class="input input-sm" id="openaiApiKey" type="password" placeholder="sk-…" />
+                    </div>
+                    <div class="input-group">
+                      <label class="input-label">Base URL <span class="text-xs text-muted">(Azure / proxy)</span></label>
+                      <input class="input input-sm" id="openaiBaseUrl" placeholder="https://api.openai.com/v1" />
+                    </div>
+                  </div>
+                  <button class="btn btn-primary btn-sm" id="saveOpenaiBtn">Save</button>
+                  <div id="openaiMsg" class="form-message mt-2"></div>
+                </div>
+
+                <!-- Groq -->
+                <div class="provider-card">
+                  <div class="provider-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <strong>Groq</strong>
+                      <span class="badge badge-blue" style="font-size:10px;">API</span>
+                    </div>
+                    <label class="toggle-switch" style="transform:scale(0.85);">
+                      <input type="checkbox" id="groqEnabled" />
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                  <div class="input-group" style="max-width:300px;">
+                    <label class="input-label">API Key</label>
+                    <input class="input input-sm" id="groqApiKey" type="password" placeholder="gsk_…" />
+                  </div>
+                  <button class="btn btn-primary btn-sm" id="saveGroqBtn">Save</button>
+                  <div id="groqMsg" class="form-message mt-2"></div>
+                </div>
+
+                <!-- Custom / Other -->
+                <div class="provider-card">
+                  <div class="provider-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <strong>Custom Provider</strong>
+                      <span class="badge" style="font-size:10px;">Other</span>
+                    </div>
+                    <label class="toggle-switch" style="transform:scale(0.85);">
+                      <input type="checkbox" id="customEnabled" />
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; max-width:720px;">
+                    <div class="input-group">
+                      <label class="input-label">Provider Name</label>
+                      <input class="input input-sm" id="customName" placeholder="e.g. Together AI" />
+                    </div>
+                    <div class="input-group">
+                      <label class="input-label">API Key</label>
+                      <input class="input input-sm" id="customApiKey" type="password" placeholder="API key" />
+                    </div>
+                    <div class="input-group">
+                      <label class="input-label">Base URL</label>
+                      <input class="input input-sm" id="customBaseUrl" placeholder="https://api.example.com/v1" />
+                    </div>
+                  </div>
+                  <button class="btn btn-primary btn-sm" id="saveCustomBtn">Save</button>
+                  <div id="customMsg" class="form-message mt-2"></div>
+                </div>
+
               </div>
             </div>
           </div>

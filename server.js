@@ -626,6 +626,18 @@ function settingsState(db) {
     localPermissionMode: setting(db, "localPermissionMode", "default"),
     ollamaUrl: ollamaUrl(db),
     apiModelProvider: setting(db, "apiModelProvider", "not-configured"),
+    anthropicEnabled: setting(db, "anthropicEnabled", "false") === "true",
+    anthropicApiKey: setting(db, "anthropicApiKey", "") ? "set" : "",
+    anthropicBaseUrl: setting(db, "anthropicBaseUrl", ""),
+    openaiEnabled: setting(db, "openaiEnabled", "false") === "true",
+    openaiApiKey: setting(db, "openaiApiKey", "") ? "set" : "",
+    openaiBaseUrl: setting(db, "openaiBaseUrl", ""),
+    groqEnabled: setting(db, "groqEnabled", "false") === "true",
+    groqApiKey: setting(db, "groqApiKey", "") ? "set" : "",
+    customEnabled: setting(db, "customEnabled", "false") === "true",
+    customName: setting(db, "customName", ""),
+    customApiKey: setting(db, "customApiKey", "") ? "set" : "",
+    customBaseUrl: setting(db, "customBaseUrl", ""),
     sqlProvider: setting(db, "sqlProvider", "sqlite"),
     documentProvider: setting(db, "documentProvider", "json-document-store"),
     realtimeProvider: setting(db, "realtimeProvider", "in-memory"),
@@ -924,7 +936,12 @@ app.post("/api/admin/settings", requireAdmin, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
-    ["routerEnabled", "allowApiModels", "localOnlyDefault", "localWritesEnabled", "localPermissionMode", "apiModelProvider"].forEach((key) => {
+    ["routerEnabled", "allowApiModels", "localOnlyDefault", "localWritesEnabled", "localPermissionMode", "apiModelProvider",
+      "anthropicEnabled", "anthropicApiKey", "anthropicBaseUrl",
+      "openaiEnabled", "openaiApiKey", "openaiBaseUrl",
+      "groqEnabled", "groqApiKey",
+      "customEnabled", "customApiKey", "customBaseUrl", "customName",
+    ].forEach((key) => {
       if (typeof req.body[key] !== "undefined") setSetting(db, key, req.body[key]);
     });
     if (typeof req.body.workspaceRoot !== "undefined") {
