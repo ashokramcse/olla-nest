@@ -61,19 +61,56 @@
     </div>
   </div>
 
-  <!-- Stats Bar -->
-  <div class="stats-bar">
-    <div class="stat-pill stat-pill-black">
+  <!-- Stats + Infographic Bar -->
+  <div class="stats-bar" style="align-items:stretch; gap:10px; padding-bottom:20px;">
+    <!-- Mode pill -->
+    <div class="stat-pill stat-pill-black" style="align-items:center;">
       <span class="stat-pill-label">Mode</span>
       <span class="stat-pill-value" id="currentModeLabel">Ask</span>
     </div>
-    <div class="stat-pill stat-pill-yellow">
+    <!-- Router pill -->
+    <div class="stat-pill stat-pill-yellow" style="align-items:center; gap:8px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
       <span class="stat-pill-value">Auto Router</span>
       <span class="stat-pill-label">active</span>
     </div>
-    <div class="stat-pill">
+    <!-- Workspace pill -->
+    <div class="stat-pill" style="align-items:center;">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--muted)"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
       <span class="stat-pill-label">Workspace</span>
       <span class="stat-pill-value" id="statWorkspace">not set</span>
+    </div>
+
+    <!-- Model readiness mini ring -->
+    <div class="stat-pill" style="gap:12px; padding:8px 18px; align-items:center;" id="modelRingPill">
+      <div class="ring-chart" style="width:36px;height:36px;">
+        <svg width="36" height="36" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="4"/>
+          <circle id="modelRingArc" cx="18" cy="18" r="14" fill="none" stroke="#F5C93E" stroke-width="4"
+            stroke-dasharray="0 88" stroke-dashoffset="-22" stroke-linecap="round"
+            style="transition:stroke-dasharray 1s cubic-bezier(0.4,0,0.2,1)"/>
+        </svg>
+        <div class="ring-chart-label" style="font-size:9px;" id="modelRingNum">0</div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);">Models</div>
+        <div style="font-size:10px;color:var(--muted);">available</div>
+      </div>
+    </div>
+
+    <!-- Activity grid -->
+    <div class="stat-pill" style="flex-direction:column; align-items:flex-start; gap:4px; padding:10px 16px;">
+      <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Activity</div>
+      <div class="activity-grid" style="grid-template-columns:repeat(16,1fr); gap:2px; width:120px;">
+        <div class="activity-dot l2"></div><div class="activity-dot l1"></div>
+        <div class="activity-dot l3"></div><div class="activity-dot l2"></div>
+        <div class="activity-dot l4"></div><div class="activity-dot l3"></div>
+        <div class="activity-dot l1"></div><div class="activity-dot l2"></div>
+        <div class="activity-dot l3"></div><div class="activity-dot l4"></div>
+        <div class="activity-dot l2"></div><div class="activity-dot l1"></div>
+        <div class="activity-dot l3"></div><div class="activity-dot l4"></div>
+        <div class="activity-dot l2"></div><div class="activity-dot l3"></div>
+      </div>
     </div>
   </div>
 
@@ -82,6 +119,8 @@
 
     <!-- Left: Sidebar -->
     <div class="sidebar-card">
+
+      <!-- User Profile -->
       <div class="user-profile-card">
         <div class="user-profile-header"></div>
         <div class="user-profile-body">
@@ -93,6 +132,7 @@
         </div>
       </div>
 
+      <!-- Approved Models -->
       <div class="sidebar-section-card">
         <div class="sidebar-section-title">Approved Models</div>
         <div id="sidebarModels">
@@ -103,6 +143,32 @@
         </div>
       </div>
 
+      <!-- Model capability mini bars -->
+      <div class="sidebar-section-card" id="capabilityCard" style="display:none;">
+        <div class="sidebar-section-title">Capability Coverage</div>
+        <div class="mini-bar-row">
+          <span class="mini-bar-label">Coding</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:80%"></div></div>
+          <span class="mini-bar-val">80%</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-bar-label">Reasoning</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill green" style="width:65%"></div></div>
+          <span class="mini-bar-val">65%</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-bar-label">General</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill dark" style="width:90%"></div></div>
+          <span class="mini-bar-val">90%</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-bar-label">Analysis</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:55%"></div></div>
+          <span class="mini-bar-val">55%</span>
+        </div>
+      </div>
+
+      <!-- Local Workspace -->
       <div class="sidebar-section-card">
         <div class="sidebar-section-title">Local Workspace</div>
         <div id="workspaceInfo">
@@ -133,6 +199,7 @@
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- Center: Chat -->
@@ -187,7 +254,7 @@
       </div>
     </div>
 
-    <!-- Right: Auto Router -->
+    <!-- Right: Auto Router + Infographics -->
     <div class="router-card" id="routerPanel">
       <div class="router-header">
         <div class="router-icon">
@@ -196,12 +263,101 @@
         Auto Router
       </div>
       <div id="routerContent">
-        <div class="router-empty">Send a request to see how Auto Router selects the best model for your task.</div>
+        <!-- Idle state with infographics -->
+        <div id="routerIdle" style="padding:4px 0;">
+          <!-- Speed vs Quality chart -->
+          <div style="margin-bottom:14px;">
+            <div class="sidebar-section-title" style="margin-bottom:8px;">Speed vs Quality</div>
+            <div class="mini-bar-row">
+              <span class="mini-bar-label">Speed</span>
+              <div class="mini-bar-track"><div class="mini-bar-fill" style="width:72%"></div></div>
+              <span class="mini-bar-val">72</span>
+            </div>
+            <div class="mini-bar-row">
+              <span class="mini-bar-label">Quality</span>
+              <div class="mini-bar-track"><div class="mini-bar-fill green" style="width:85%"></div></div>
+              <span class="mini-bar-val">85</span>
+            </div>
+            <div class="mini-bar-row">
+              <span class="mini-bar-label">Privacy</span>
+              <div class="mini-bar-track"><div class="mini-bar-fill dark" style="width:95%"></div></div>
+              <span class="mini-bar-val">95</span>
+            </div>
+          </div>
+
+          <!-- Routing status ring -->
+          <div style="display:flex;align-items:center;gap:14px;padding:14px;background:rgba(0,0,0,0.03);border-radius:14px;margin-bottom:12px;border:1px solid rgba(0,0,0,0.04);">
+            <div class="ring-chart" style="width:56px;height:56px;flex-shrink:0;">
+              <svg width="56" height="56" viewBox="0 0 56 56">
+                <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="5"/>
+                <circle cx="28" cy="28" r="22" fill="none" stroke="#F5C93E" stroke-width="5"
+                  stroke-dasharray="104 138" stroke-dashoffset="-34" stroke-linecap="round"/>
+                <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(34,197,94,0.6)" stroke-width="5"
+                  stroke-dasharray="28 138" stroke-dashoffset="-138" stroke-linecap="round"/>
+              </svg>
+              <div class="ring-chart-label" style="font-size:11px;font-weight:800;">76%</div>
+            </div>
+            <div>
+              <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Router Ready</div>
+              <div style="font-size:11px;color:var(--muted);line-height:1.5;">Send a message to see model selection and scoring in real time.</div>
+            </div>
+          </div>
+
+          <!-- Capability tags -->
+          <div class="sidebar-section-title" style="margin-bottom:6px;">Routing Factors</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;">
+            <span class="badge badge-yellow">capability match</span>
+            <span class="badge badge-green">speed weight</span>
+            <span class="badge badge-blue">privacy tier</span>
+            <span class="badge badge-default">context size</span>
+            <span class="badge badge-indigo">specialist bonus</span>
+          </div>
+
+          <!-- Session info rows -->
+          <div class="info-row">
+            <span class="info-row-label">Session type</span>
+            <span class="info-row-value" id="infoMode">Ask</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Selection</span>
+            <span class="info-row-value">Automatic</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Privacy</span>
+            <span class="info-row-value" style="color:#16A34A;">Local only</span>
+          </div>
+        </div>
       </div>
     </div>
 
   </div>
 </div>
+
+<script>
+// Update mode label and router idle info when mode changes
+document.addEventListener('DOMContentLoaded', () => {
+  const modeLabels = { ask:'Ask', build:'Build', review:'Review', fix:'Fix', learn:'Learn' };
+  document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const m = btn.dataset.mode;
+      const el = document.getElementById('currentModeLabel');
+      const infoEl = document.getElementById('infoMode');
+      if (el) el.textContent = modeLabels[m] || m;
+      if (infoEl) infoEl.textContent = modeLabels[m] || m;
+    });
+  });
+});
+
+// Animate model ring after state loads
+function updateModelRing(count, max) {
+  const circ = 2 * Math.PI * 14; // r=14
+  const pct = Math.min(count / Math.max(max, 1), 1);
+  const arc = document.getElementById('modelRingArc');
+  const num = document.getElementById('modelRingNum');
+  if (arc) arc.setAttribute('stroke-dasharray', `${(circ * pct).toFixed(1)} ${circ.toFixed(1)}`);
+  if (num) num.textContent = count;
+}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script src="/app.js"></script>
 </body>

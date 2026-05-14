@@ -64,11 +64,16 @@ function renderSidebar() {
   const models = allowedModels();
   $("sidebarModels").innerHTML = models.length
     ? models.map(m => `<div class="model-item"><div class="model-dot"></div><div class="model-name" title="${esc(m.name)}">${esc(m.name)}</div></div>`).join("")
-    : `<div class="model-item"><div class="model-dot" style="background:var(--sidebar-muted)"></div><div class="model-name" style="color:var(--sidebar-muted)">No approved models</div></div>`;
+    : `<div class="model-item"><div class="model-dot" style="background:var(--muted)"></div><div class="model-name" style="color:var(--muted)">No approved models</div></div>`;
 
   // Model select in composer
   $("manualModel").innerHTML = `<option value="">Auto Router</option>` +
     models.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("");
+
+  // Update model ring infographic
+  if (typeof updateModelRing === "function") updateModelRing(models.length, 10);
+  const capCard = document.getElementById("capabilityCard");
+  if (capCard) capCard.style.display = models.length > 0 ? "block" : "none";
 
   // Workspace
   const ws = state.workspace;
