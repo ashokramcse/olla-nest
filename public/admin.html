@@ -1193,6 +1193,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 #chatMessages::-webkit-scrollbar-thumb{background:#0000001a;border-radius:4px;}
 
 /* Typing indicator */
+.typing-row{display:flex;align-items:center;gap:10px;}
+.typing-timer{font-size:11px;color:#aaa;font-variant-numeric:tabular-nums;min-width:24px;}
 .typing-dots{display:flex;align-items:center;gap:4px;padding:4px 0;}
 .typing-dots span{
   width:7px;height:7px;border-radius:50%;background:#bbb;
@@ -1911,14 +1913,27 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     userDiv.innerHTML = '<div class="cmsg-meta"><span class="cmsg-meta-dot">' + userInitial + '</span>' + esc(userName) + '</div>'
       + '<div class="cmsg-bubble-user">' + esc(text) + '</div>';
     el.appendChild(userDiv);
-    /* typing indicator */
+    /* typing indicator with live elapsed timer */
     var typingDiv = document.createElement("div");
     typingDiv.className = "cmsg-ai";
     typingDiv.id = "chatTypingIndicator";
     typingDiv.innerHTML = '<div class="cmsg-meta"><span class="cmsg-meta-dot ai-dot">✦</span>Olla Nest</div>'
-      + '<div class="cmsg-bubble-ai"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+      + '<div class="cmsg-bubble-ai">'
+      + '<div class="typing-row">'
+      + '<div class="typing-dots"><span></span><span></span><span></span></div>'
+      + '<span class="typing-timer" id="chatTypingTimer">0s</span>'
+      + '</div>'
+      + '</div>';
     el.appendChild(typingDiv);
     el.scrollTop = el.scrollHeight;
+    /* start timer */
+    var _timerStart = Date.now();
+    window._typingTimerInterval = setInterval(function () {
+      var timerEl = get("chatTypingTimer");
+      if (!timerEl) { clearInterval(window._typingTimerInterval); return; }
+      var elapsed = Math.floor((Date.now() - _timerStart) / 1000);
+      timerEl.textContent = elapsed + "s";
+    }, 1000);
   }
 
   async function sendChat() {
@@ -1958,7 +1973,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         })
       });
       var data = await res.json();
-      /* remove typing indicator before re-render */
+      /* stop timer and remove typing indicator before re-render */
+      clearInterval(window._typingTimerInterval);
       var ti = get("chatTypingIndicator");
       if (ti) ti.remove();
       if (typeof loadState === "function") await loadState();
@@ -1974,6 +1990,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         updateCtxBar(modelName, ctx, usedTokens);
       }
     } catch (err) {
+      clearInterval(window._typingTimerInterval);
       var ti2 = get("chatTypingIndicator");
       if (ti2) ti2.remove();
     } finally {
