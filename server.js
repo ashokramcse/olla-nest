@@ -1088,68 +1088,54 @@ app.post("/api/chat", requireAuth, async (req, res) => {
   }
 });
 
-/* ── Voice transcription — MediaRecorder audio → text ── */
-app.post("/api/voice/transcribe", requireAuth, (req, res) => {
-  const os = require("os");
-  const { execFile, execFileSync } = require("child_process");
-  const tmpDir = os.tmpdir();
-  const tmpId = `voice-${Date.now()}`;
-  const tmpIn = path.join(tmpDir, tmpId + ".webm");
-  const tmpWav = path.join(tmpDir, tmpId + ".wav");
+/* ── Voice transcription — MediaRecorder audio → Whisper ASR sidecar ── */
+app.post("/api/voice/transcribe", requireAuth, async (req, res) => {
   const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const buf = Buffer.concat(chunks);
+  if (!buf.length) return res.status(400).json({ error: "Empty audio" });
 
-  req.on("data", (chunk) => chunks.push(chunk));
-  req.on("end", () => {
-    const buf = Buffer.concat(chunks);
-    if (!buf.length) { return res.status(400).json({ error: "Empty audio" }); }
-    fs.writeFileSync(tmpIn, buf);
+  const whisperUrl = process.env.WHISPER_URL || "";
+  if (!whisperUrl) {
+    return res.json({
+      text: "",
+      engine: "none",
+      error: "whisper_not_configured",
+      hint: "Start the Whisper sidecar: docker compose -f docker-compose.yml -f docker-compose.whisper.yml up --build"
+    });
+  }
 
-    function cleanup() {
-      [tmpIn, tmpWav].forEach(f => { try { fs.unlinkSync(f); } catch (_) {} });
-    }
+  try {
+    /* Whisper ASR webservice expects multipart/form-data with field 'audio_file' */
+    const boundary = "----OllaNestVoice" + Date.now();
+    const mimeType = req.headers["content-type"] || "audio/webm";
+    const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "mp4" : "webm";
 
-    /* Try whisper CLI first */
-    function tryWhisper() {
-      const candidates = ["whisper", "whisper-ctranslate2", "/usr/local/bin/whisper", "/usr/bin/whisper"];
-      let whisperBin = null;
-      for (const c of candidates) {
-        try { execFileSync(c, ["--help"], { stdio: "pipe" }); whisperBin = c; break; } catch (_) {}
-      }
-      if (!whisperBin) return false;
+    const bodyParts = [
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="audio_file"; filename="voice.${ext}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
+      buf,
+      Buffer.from(`\r\n--${boundary}--\r\n`)
+    ];
+    const body = Buffer.concat(bodyParts);
 
-      /* Convert to wav first using ffmpeg if available */
-      let audioFile = tmpIn;
-      try {
-        execFileSync("ffmpeg", ["-y", "-i", tmpIn, "-ar", "16000", "-ac", "1", tmpWav], { stdio: "pipe" });
-        audioFile = tmpWav;
-      } catch (_) { /* use original if ffmpeg missing */ }
+    const asr = await fetch(`${whisperUrl}/asr?task=transcribe&language=en&output=txt`, {
+      method: "POST",
+      headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+      body,
+      signal: AbortSignal.timeout(30000),
+    });
 
-      execFile(whisperBin,
-        [audioFile, "--model", "tiny", "--language", "en", "--output-format", "txt", "--output-dir", tmpDir, "--no-speech-threshold", "0.3"],
-        { timeout: 30000 },
-        (err, stdout, stderr) => {
-          const txtFile = audioFile.replace(/\.(webm|wav)$/, ".txt");
-          let transcript = "";
-          try { transcript = fs.readFileSync(txtFile, "utf8").replace(/\[.*?\]/g, "").trim(); fs.unlinkSync(txtFile); } catch (_) {}
-          if (!transcript) transcript = (stdout || "").replace(/\[.*?\]/g, "").trim();
-          cleanup();
-          res.json({ text: transcript || "", engine: "whisper" });
-        }
-      );
-      return true;
-    }
-
-    if (!tryWhisper()) {
-      cleanup();
-      res.json({
-        text: "",
-        engine: "none",
-        error: "whisper_not_installed",
-        hint: "Install openai-whisper: pip install openai-whisper  (or add it to your Docker image)"
-      });
-    }
-  });
-  req.on("error", (err) => res.status(500).json({ error: err.message }));
+    if (!asr.ok) throw new Error(`Whisper ASR returned ${asr.status}`);
+    const text = (await asr.text()).replace(/\[.*?\]/g, "").trim();
+    res.json({ text, engine: "whisper-asr" });
+  } catch (err) {
+    res.json({
+      text: "",
+      engine: "error",
+      error: "whisper_unreachable",
+      hint: "Whisper sidecar may not be running. Start with: docker compose -f docker-compose.yml -f docker-compose.whisper.yml up"
+    });
+  }
 });
 
 app.post("/api/chat/clear", requireAuth, (req, res) => {

@@ -1847,7 +1847,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   }
 
   async function sendAudioToWhisper(blob) {
-    showMicStatus("Transcribing…");
+    showMicStatus("⏳ Transcribing…");
     try {
       var res = await fetch("/api/voice/transcribe", {
         method: "POST",
@@ -1855,8 +1855,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         body: blob
       });
       var data = await res.json();
-      if (data.error === "whisper_not_installed") {
-        showMicStatus("⚠ Whisper not installed — rebuild Docker image", true);
+
+      if (data.error === "whisper_not_configured" || data.error === "whisper_unreachable") {
+        showWhisperSetupBanner();
         return;
       }
       if (data.text) {
@@ -1867,8 +1868,27 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         showMicStatus("No speech detected — try again", true);
       }
     } catch (e) {
-      showMicStatus("Transcription failed: " + e.message, true);
+      showMicStatus("Transcription error: " + e.message, true);
     }
+  }
+
+  function showWhisperSetupBanner() {
+    var el = document.getElementById("chatMessages");
+    if (!el) return;
+    el.insertAdjacentHTML("beforeend",
+      '<div class="cmsg-ai" id="whisperSetupMsg">'
+      + '<div class="cmsg-meta"><span class="cmsg-meta-dot ai-dot">O</span>Olla Nest — Setup needed</div>'
+      + '<div class="cmsg-bubble-ai" style="border:1.5px solid #e8c624;border-radius:14px;padding:16px 18px;">'
+      + '<strong>🎙 Voice transcription needs the Whisper sidecar</strong><br><br>'
+      + 'Firefox and other browsers use a local Whisper service for transcription.<br>'
+      + 'Run this command to start it:<br><br>'
+      + '<div class="chat-code-block"><button class="code-copy" onclick="window._chatCopyCode(this)">Copy</button>'
+      + '<pre><code>docker compose -f docker-compose.yml -f docker-compose.whisper.yml up --build</code></pre></div>'
+      + '<br>The Whisper container (~1.5 GB) will download automatically.<br>'
+      + 'Once running, voice input will work in Firefox, Chrome, and all browsers.'
+      + '</div></div>'
+    );
+    el.scrollTop = el.scrollHeight;
   }
 
   async function startMediaRecorder() {
