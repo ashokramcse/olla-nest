@@ -601,9 +601,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
                   <span style="font-size:16px;font-weight:700;font-family:'Plus Jakarta Sans',system-ui,sans-serif;">Open Local Folder</span>
                 </div>
-                <p style="font-size:13px;color:var(--mute);margin:0 0 22px;line-height:1.55;">Generated files will be saved directly to a folder on <strong>your computer</strong>. The server never stores your files.</p>
+                <p style="font-size:13px;color:var(--mute);margin:0 0 22px;line-height:1.55;">Pick a folder and generated files auto-save there (Chrome/Edge). In other browsers, files appear as <strong>download chips</strong> in the message — click any chip to save that file.</p>
 
-                <div id="wfdPickedRow" style="display:none;background:#f5f3e8;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:none;">
+                <div id="wfdPickedRow" style="display:none;background:#f5f3e8;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:16px;">
                   <div style="font-size:11px;color:var(--mute);margin-bottom:2px;">Selected folder</div>
                   <div id="wfdPickedName" style="font-size:14px;font-weight:600;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--ink);"></div>
                 </div>
@@ -612,7 +612,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
                   Choose folder on this computer
                 </button>
-                <div id="wfdFallbackNote" style="display:none;font-size:12px;color:var(--mute);text-align:center;margin-bottom:10px;">Your browser will download files automatically instead.</div>
 
                 <div id="wfdMsg" class="wfd-msg" style="margin-bottom:10px;"></div>
                 <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -1298,6 +1297,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 .cmsg-footer{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;}
 .cmsg-elapsed{font-size:11px;color:var(--mute,#9a9a8e);font-family:'Plus Jakarta Sans',system-ui,sans-serif;letter-spacing:.01em;}
 .cmsg-artifact-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:#5a5a52;background:#f0ede0;border:1px solid #e0ddd0;border-radius:6px;padding:2px 8px;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
+.cmsg-dl-btn{cursor:pointer;transition:background .12s,border-color .12s;}
+.cmsg-dl-btn:hover{background:#e8e4cf;border-color:#c8c4b0;}
 .cmsg-bubble-ai blockquote{
   border-left:3px solid #e8c624;margin:12px 0;
   padding:6px 14px;color:#666;font-style:italic;
@@ -1791,23 +1792,49 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       var modelInitial = modelLabel.charAt(0).toUpperCase();
       var isLatest = (idx === lastAiIdx);
       var elapsed = (isLatest && _lastResponseData && _lastResponseData._elapsed) ? _lastResponseData._elapsed : null;
-      /* prefer client-written file list, fall back to server artifacts */
       var localWritten = (isLatest && _lastResponseData && _lastResponseData._localWritten) || [];
+      var extractedFiles = (isLatest && _lastResponseData && _lastResponseData._extractedFiles) ? _lastResponseData._extractedFiles : [];
       var serverArtifacts = (isLatest && _lastResponseData && _lastResponseData.artifacts) ? _lastResponseData.artifacts : (msg.artifacts || []);
-      var fileChips = localWritten.length
-        ? localWritten.map(function (n) { return { name: n, local: true }; })
-        : serverArtifacts.map(function (a) { return { name: a.relativePath || a.name, local: false }; });
+      var localWrittenSet = {};
+      (localWritten || []).forEach(function (n) { localWrittenSet[n] = true; });
+
+      /* Merge extractedFiles + serverArtifacts into unified chip list (deduplicated) */
+      var seen = {};
+      var fileChips = [];
+      extractedFiles.forEach(function (f) { if (!seen[f.name]) { seen[f.name] = true; fileChips.push({ name: f.name }); } });
+      serverArtifacts.forEach(function (a) { var n = a.relativePath || a.name; if (!seen[n]) { seen[n] = true; fileChips.push({ name: n }); } });
 
       var footer = "";
       if (elapsed || fileChips.length) {
         footer = '<div class="cmsg-footer">';
         if (elapsed) footer += '<span class="cmsg-elapsed">⏱ ' + elapsed + 's</span>';
         fileChips.forEach(function (f) {
-          footer += '<span class="cmsg-artifact-chip" title="' + (f.local ? "Saved to your computer" : "Saved on server") + '">'
-            + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
-            + esc(f.name)
-            + (f.local ? ' <span style="color:#16a34a;font-size:10px;">✓ local</span>' : '')
-            + '</span>';
+          var fileData = extractedFiles.find(function (ef) { return ef.name === f.name; });
+          var saved = localWrittenSet[f.name];
+          if (saved) {
+            /* FSA auto-written — just show saved indicator */
+            footer += '<span class="cmsg-artifact-chip" title="Saved to your folder">'
+              + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
+              + esc(f.name)
+              + ' <span style="color:#16a34a;font-size:10px;">✓ saved</span>'
+              + '</span>';
+          } else if (fileData) {
+            /* Downloadable chip — works in all browsers on all OS */
+            var encodedContent = encodeURIComponent(fileData.content);
+            var shortName = f.name.split("/").pop();
+            footer += '<button class="cmsg-artifact-chip cmsg-dl-btn" title="Click to download ' + esc(shortName) + '" '
+              + 'onclick="(function(btn){var a=document.createElement(\'a\');a.href=\'data:text/plain;charset=utf-8,\'+decodeURIComponent(\'' + encodedContent.replace(/'/g, "\\'") + '\');a.download=\'' + shortName.replace(/'/g, "\\'") + '\';document.body.appendChild(a);a.click();document.body.removeChild(a);})(this)">'
+              + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+              + esc(shortName)
+              + ' <span style="color:#2563eb;font-size:10px;">↓</span>'
+              + '</button>';
+          } else {
+            /* Server artifact with no content */
+            footer += '<span class="cmsg-artifact-chip" title="Generated file">'
+              + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
+              + esc(f.name)
+              + '</span>';
+          }
         });
         footer += '</div>';
       }
@@ -2064,10 +2091,13 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       data._elapsed = elapsed;
 
-      /* Write files to client's local folder if set */
-      if (data.extractedFiles && data.extractedFiles.length && typeof writeFilesLocally === "function") {
-        var written = await writeFilesLocally(data.extractedFiles);
-        data._localWritten = written;
+      /* Write files to client's local folder if FSA folder is set (Chrome/Edge) */
+      if (data.extractedFiles && data.extractedFiles.length) {
+        data._extractedFiles = data.extractedFiles; /* store for download chips */
+        if (typeof writeFilesLocally === "function") {
+          var written = await writeFilesLocally(data.extractedFiles);
+          data._localWritten = written;
+        }
       }
 
       /* stop timer and remove typing indicator before re-render */
@@ -2476,21 +2506,20 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var pickedName = g("wfdPickedName");
     var fallbackNote = g("wfdFallbackNote");
     msg.textContent = ""; msg.className = "wfd-msg";
-    if (!hasFSA) {
-      fallbackNote.style.display = "block";
-      /* For Firefox: no directory picker, files will auto-download */
-      if (pickedRow) pickedRow.style.display = "none";
+    if (localDirHandle) {
+      pickedRow.style.display = "block";
+      pickedName.textContent = localDirHandle.name;
       saveBtn.disabled = false;
     } else {
-      fallbackNote.style.display = "none";
-      if (localDirHandle) {
-        pickedRow.style.display = "block";
-        pickedName.textContent = localDirHandle.name;
-        saveBtn.disabled = false;
-      } else {
-        pickedRow.style.display = "none";
-        saveBtn.disabled = true;
-      }
+      pickedRow.style.display = "none";
+      saveBtn.disabled = !hasFSA ? true : true; /* must pick first */
+    }
+    if (!hasFSA) {
+      g("wfdPickBtn").disabled = true;
+      g("wfdPickBtn").title = "Folder auto-save requires Chrome or Edge. Files will appear as download chips instead.";
+    } else {
+      g("wfdPickBtn").disabled = false;
+      g("wfdPickBtn").title = "";
     }
     modal.style.display = "flex";
   }
@@ -2520,8 +2549,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
   g("wfdSave").addEventListener("click", function () {
     var msg = g("wfdMsg");
-    if (hasFSA && !localDirHandle) { msg.textContent = "Please choose a folder first."; return; }
-    var displayName = hasFSA ? localDirHandle.name : "Downloads";
+    if (!localDirHandle) { msg.textContent = "Please choose a folder first."; return; }
+    var displayName = localDirHandle.name;
     showProjectChip(displayName);
     msg.className = "wfd-msg ok";
     msg.textContent = "✓ Folder set!";
@@ -2557,28 +2586,12 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
           written.push(f.name);
         } catch (e) { console.error("write failed", f.name, e); }
       }
-    } else if (localDirHandle || (!hasFSA && activeProjectPath)) {
-      /* Firefox fallback: auto-download each file */
-      for (var k = 0; k < extractedFiles.length; k++) {
-        var df = extractedFiles[k];
-        try {
-          var blob = new Blob([df.content], { type: "text/plain" });
-          var url = URL.createObjectURL(blob);
-          var a = document.createElement("a");
-          a.href = url; a.download = df.name.split("/").pop();
-          document.body.appendChild(a); a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          written.push(df.name);
-          await new Promise(function (r) { setTimeout(r, 150); });
-        } catch (e) { console.error("download failed", df.name, e); }
-      }
     }
     return written;
   }
 
   /* Expose for sendChat */
-  window._chatGetProjectPath = function () { return (localDirHandle || (!hasFSA && activeProjectPath)) ? "local" : null; };
+  window._chatGetProjectPath = function () { return localDirHandle ? "local" : null; };
   window._writeFilesLocally = writeFilesLocally;
 
   /* ═══════════════════════════════════
