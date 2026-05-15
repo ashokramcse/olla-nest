@@ -1192,6 +1192,16 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 #chatMessages::-webkit-scrollbar{width:4px;}
 #chatMessages::-webkit-scrollbar-thumb{background:#0000001a;border-radius:4px;}
 
+/* Typing indicator */
+.typing-dots{display:flex;align-items:center;gap:4px;padding:4px 0;}
+.typing-dots span{
+  width:7px;height:7px;border-radius:50%;background:#bbb;
+  animation:td-bounce .9s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2){animation-delay:.18s;}
+.typing-dots span:nth-child(3){animation-delay:.36s;}
+@keyframes td-bounce{0%,80%,100%{transform:scale(.8);opacity:.5}40%{transform:scale(1.1);opacity:1}}
+
 /* Composer */
 #chatComposer{
   padding:12px 16px;
@@ -1887,6 +1897,30 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   }
 
   /* ── send message ── */
+  function appendOptimisticMessage(text) {
+    var el = get("chatMessages");
+    if (!el) return;
+    var userName = (state && state.activeUser && state.activeUser.name) || "Admin";
+    var userInitial = userName.charAt(0).toUpperCase();
+    /* remove empty state if present */
+    var empty = el.querySelector(".chat-empty");
+    if (empty) empty.remove();
+    /* user bubble */
+    var userDiv = document.createElement("div");
+    userDiv.className = "cmsg-user";
+    userDiv.innerHTML = '<div class="cmsg-meta"><span class="cmsg-meta-dot">' + userInitial + '</span>' + esc(userName) + '</div>'
+      + '<div class="cmsg-bubble-user">' + esc(text) + '</div>';
+    el.appendChild(userDiv);
+    /* typing indicator */
+    var typingDiv = document.createElement("div");
+    typingDiv.className = "cmsg-ai";
+    typingDiv.id = "chatTypingIndicator";
+    typingDiv.innerHTML = '<div class="cmsg-meta"><span class="cmsg-meta-dot ai-dot">✦</span>Olla Nest</div>'
+      + '<div class="cmsg-bubble-ai"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+    el.appendChild(typingDiv);
+    el.scrollTop = el.scrollHeight;
+  }
+
   async function sendChat() {
     var input   = get("chatInput");
     var sendBtn = get("chatSendBtn");
@@ -1900,16 +1934,17 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
     sendBtn.disabled = true;
     input.value = "";
-    /* reset textarea height */
     input.style.height = "auto";
+
+    /* show user bubble + typing indicator immediately */
+    appendOptimisticMessage(baseMsg);
 
     /* clear attachments */
     if (typeof window._chatAfterSend === "function") window._chatAfterSend();
 
-    /* include project folder context */
+    /* write to workspace whenever project folder is set */
     var projectPath = (typeof window._chatGetProjectPath === "function") ? window._chatGetProjectPath() : null;
-    var writeModes = ["build", "fix", "debug", "test", "docs"];
-    var writeToWorkspace = !!(projectPath && writeModes.includes(chatMode));
+    var writeToWorkspace = !!projectPath;
 
     try {
       var res = await fetch("/api/chat", {
@@ -1923,11 +1958,24 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         })
       });
       var data = await res.json();
+      /* remove typing indicator before re-render */
+      var ti = get("chatTypingIndicator");
+      if (ti) ti.remove();
       if (typeof loadState === "function") await loadState();
       renderMessages();
       renderRouter(data.route);
+      loadThreads();
+      /* update token count */
+      usedTokens = estimateUsedTokens();
+      var modelName = data.model && data.model.name;
+      if (modelName) {
+        var ctx = estimateCtx(modelName);
+        setSelectedModel(data.model.id, "Auto Router → " + modelName, ctx);
+        updateCtxBar(modelName, ctx, usedTokens);
+      }
     } catch (err) {
-      /* error is visible in the chat stream */
+      var ti2 = get("chatTypingIndicator");
+      if (ti2) ti2.remove();
     } finally {
       sendBtn.disabled = false;
     }
