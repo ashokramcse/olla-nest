@@ -141,7 +141,7 @@ function renderMessages() {
     const footer = !isUser ? `
       <div class="message-footer">
         ${msg.modelName ? `<span class="message-model-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>${esc(msg.modelName)}</span>` : ""}
-        ${(msg.artifacts || []).map(a => `<span class="artifact-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>${esc(a.name)}</span>`).join("")}
+        ${(msg.artifacts || []).map(a => `<span class="artifact-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>${esc(a.relativePath || a.name)}</span>`).join("")}
       </div>` : "";
 
     const bubbleContent = isUser
@@ -209,11 +209,17 @@ async function checkOllama() {
 function updateWriteToggle() {
   const isBuildFix = ["build", "fix", "debug", "test", "docs"].includes(activeMode);
   const label = $("writeToggleLabel");
-  label.style.display = isBuildFix ? "flex" : "none";
   const ws = state?.workspace;
+  const hasWorkspace = ws?.workspaceRoot;
+  label.style.display = (isBuildFix && hasWorkspace) ? "flex" : "none";
   if (ws?.permissionMode === "full") {
     $("writeToWorkspace").checked = true;
     label.classList.add("enabled");
+  }
+  const folderName = hasWorkspace ? ws.workspaceRoot.split("/").filter(Boolean).pop() : null;
+  const labelText = label.querySelector("span.write-label") || label;
+  if (folderName && label.querySelector("span.write-label")) {
+    label.querySelector("span.write-label").textContent = `Save to ${folderName}`;
   }
 }
 
