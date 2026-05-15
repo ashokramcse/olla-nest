@@ -1803,8 +1803,13 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       var isLatest = (idx === lastAiIdx);
       var elapsed = (isLatest && _lastResponseData && _lastResponseData._elapsed) ? _lastResponseData._elapsed : null;
       var localWritten = (isLatest && _lastResponseData && _lastResponseData._localWritten) || [];
-      var extractedFiles = (isLatest && _lastResponseData && _lastResponseData._extractedFiles) ? _lastResponseData._extractedFiles : [];
-      var serverArtifacts = (isLatest && _lastResponseData && _lastResponseData.artifacts) ? _lastResponseData.artifacts : (msg.artifacts || []);
+      /* Use _lastResponseData for the latest message, msg.extractedFiles for history */
+      var extractedFiles = isLatest && _lastResponseData && _lastResponseData._extractedFiles
+        ? _lastResponseData._extractedFiles
+        : (msg.extractedFiles || []);
+      var serverArtifacts = (isLatest && _lastResponseData && _lastResponseData.artifacts)
+        ? _lastResponseData.artifacts
+        : (msg.artifacts || []);
       var localWrittenSet = {};
       (localWritten || []).forEach(function (n) { localWrittenSet[n] = true; });
 
