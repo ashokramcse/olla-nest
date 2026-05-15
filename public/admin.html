@@ -531,6 +531,51 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         </div>
       </div>
 
+      <!-- ── CHAT ── -->
+      <div class="tab-view" id="tab-chat">
+        <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;height:calc(100vh - 220px);min-height:500px;">
+
+          <!-- Left: messages -->
+          <div class="card" style="display:flex;flex-direction:column;padding:0;overflow:hidden;">
+            <!-- chat header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line-soft);flex-shrink:0;">
+              <div style="display:flex;gap:6px;">
+                <button class="chat-mode-btn active" data-mode="ask">Ask</button>
+                <button class="chat-mode-btn" data-mode="build">Build</button>
+                <button class="chat-mode-btn" data-mode="fix">Fix</button>
+                <button class="chat-mode-btn" data-mode="review">Review</button>
+              </div>
+              <button id="chatNewBtn" class="btn ghost sm" style="font-size:13px;">New Chat</button>
+            </div>
+            <!-- messages -->
+            <div id="chatMessages" style="flex:1;overflow-y:auto;padding:20px;"></div>
+            <!-- input -->
+            <div style="padding:14px 16px;border-top:1px solid var(--line-soft);flex-shrink:0;">
+              <div style="display:flex;gap:8px;align-items:flex-end;">
+                <textarea id="chatInput" rows="2" placeholder="Message Olla Nest…"
+                  style="flex:1;border:1.5px solid var(--line-soft);border-radius:14px;padding:10px 14px;font-size:14px;font-family:inherit;resize:none;outline:none;background:#fff;line-height:1.5;"></textarea>
+                <button id="chatSendBtn" class="btn dark" style="height:44px;padding:0 20px;flex-shrink:0;">Send</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: model picker + router -->
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div class="card" style="flex-shrink:0;">
+              <div class="card-head" style="margin-bottom:10px;"><div class="card-title">Model</div></div>
+              <select id="chatModelSelect" class="input" style="width:100%;">
+                <option value="">Auto Router</option>
+              </select>
+            </div>
+            <div class="card" style="flex:1;overflow:hidden;">
+              <div class="card-head" style="margin-bottom:10px;"><div class="card-title">Auto Router</div></div>
+              <div id="chatRouterContent" style="font-size:14px;color:var(--mute);">Send a message to see routing details.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
       <!-- ── MODELS ── -->
       <div class="tab-view" id="tab-models">
         <div class="card section-gap">
