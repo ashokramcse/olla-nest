@@ -1238,10 +1238,18 @@ app.patch("/api/threads/:id", requireAuth, (req, res) => {
   try {
     const user = req.user;
     const docs = readDocs();
+    const allowed = ["title", "pinned", "archived", "unread"];
+    // Check active chat first
+    if (docs.chats[user.id] && docs.chats[user.id].id === req.params.id) {
+      allowed.forEach(k => { if (req.body[k] !== undefined) docs.chats[user.id][k] = req.body[k]; });
+      docs.chats[user.id].updatedAt = new Date().toISOString();
+      writeDocs(docs);
+      return res.json({ ok: true, thread: docs.chats[user.id] });
+    }
+    // Fall back to history
     const threads = docs.chatHistory[user.id] || [];
     const idx = threads.findIndex(t => t.id === req.params.id);
     if (idx === -1) return res.status(404).json({ error: "Thread not found" });
-    const allowed = ["title", "pinned", "archived", "unread"];
     allowed.forEach(k => { if (req.body[k] !== undefined) threads[idx][k] = req.body[k]; });
     threads[idx].updatedAt = new Date().toISOString();
     docs.chatHistory[user.id] = threads;
@@ -1278,7 +1286,8 @@ app.post("/api/threads/:id/fork", requireAuth, (req, res) => {
     archiveCurrentChat(user.id);
     const docs = readDocs();
     const threads = docs.chatHistory[user.id] || [];
-    const src = threads.find(t => t.id === req.params.id);
+    const src = threads.find(t => t.id === req.params.id)
+      || (docs.chats[user.id]?.id === req.params.id ? docs.chats[user.id] : null);
     if (!src) return res.status(404).json({ error: "Thread not found" });
     const forked = {
       ...src,
