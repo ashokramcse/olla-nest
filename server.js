@@ -1,6 +1,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const { DatabaseSync } = require("node:sqlite");
@@ -1008,15 +1009,40 @@ app.get("/api/ollama/models", requireAuth, async (req, res) => {
   }
 });
 
+/* Browse local filesystem directories */
+app.get("/api/workspace/browse", requireAuth, (req, res) => {
+  try {
+    const requestedPath = String(req.query.path || os.homedir()).trim();
+    const resolved = path.resolve(requestedPath);
+    const stat = fs.statSync(resolved);
+    if (!stat.isDirectory()) return res.status(400).json({ error: "Not a directory" });
+    const entries = fs.readdirSync(resolved, { withFileTypes: true });
+    const dirs = entries
+      .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((e) => ({ name: e.name, path: path.join(resolved, e.name) }));
+    const parentPath = resolved === path.parse(resolved).root ? null : path.dirname(resolved);
+    res.json({ current: resolved, parent: parentPath, dirs, home: os.homedir() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
   const db = openSql();
   try {
     const workspaceRootInput = String(req.body.workspaceRoot || "").trim();
-    if (!workspaceRootInput) return res.status(400).json({ error: "Workspace folder is required" });
-    const nextRoot = path.resolve(workspaceRootInput);
     const permissionMode = normalizePermissionMode(req.body.permissionMode);
-    fs.mkdirSync(nextRoot, { recursive: true });
     const docs = readDocs();
+    if (!workspaceRootInput) {
+      /* clear user's custom workspace — revert to global default */
+      delete docs.workspacePrefs[req.user.id];
+      writeDocs(docs);
+      appendAudit(req.user.name, "workspace.local.clear", "Cleared local workspace folder");
+      return res.json({ ok: true, workspace: workspaceForUser(db, req.user.id) });
+    }
+    const nextRoot = path.resolve(workspaceRootInput);
+    fs.mkdirSync(nextRoot, { recursive: true });
     docs.workspacePrefs[req.user.id] = {
       workspaceRoot: nextRoot,
       permissionMode,
