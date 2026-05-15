@@ -2418,9 +2418,14 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     wfdSelectedPath = activeProjectPath || null;
     g("wfdPathInput").value = activeProjectPath || "";
     modal.style.display = "flex";
-    /* start browsing from active project or home */
-    var startPath = activeProjectPath || "/";
-    wfdBrowse(startPath);
+    /* always start from home dir so the browser is usable even if stored path is stale */
+    fetch("/api/workspace/browse", { credentials: "include" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var startPath = activeProjectPath || d.home || "/";
+        wfdBrowse(startPath);
+      })
+      .catch(function () { wfdBrowse("/"); });
   }
 
   function closeFolderModal() {

@@ -1052,18 +1052,21 @@ app.get("/api/ollama/models", requireAuth, async (req, res) => {
 
 /* Browse local filesystem directories */
 app.get("/api/workspace/browse", requireAuth, (req, res) => {
+  const home = os.homedir();
+  let resolved;
   try {
-    const requestedPath = String(req.query.path || os.homedir()).trim();
-    const resolved = path.resolve(requestedPath);
-    const stat = fs.statSync(resolved);
-    if (!stat.isDirectory()) return res.status(400).json({ error: "Not a directory" });
+    const requestedPath = String(req.query.path || home).trim();
+    resolved = path.resolve(requestedPath);
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      resolved = home;
+    }
     const entries = fs.readdirSync(resolved, { withFileTypes: true });
     const dirs = entries
       .filter((e) => e.isDirectory() && !e.name.startsWith("."))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((e) => ({ name: e.name, path: path.join(resolved, e.name) }));
     const parentPath = resolved === path.parse(resolved).root ? null : path.dirname(resolved);
-    res.json({ current: resolved, parent: parentPath, dirs, home: os.homedir() });
+    res.json({ current: resolved, parent: parentPath, dirs, home });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
