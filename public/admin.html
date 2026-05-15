@@ -2094,9 +2094,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     _ctxThreadId = tid; _ctxThreadPinned = pinned; _ctxThreadArchived = archived; _ctxThreadUnread = unread;
     if (!ctxMenu) return;
     ctxMenu.innerHTML =
-      '<div class="tcm-item" id="tcm-open">Open in new tab <span class="tcm-key">↗</span></div>'
-      + '<div class="tcm-sep"></div>'
-      + '<div class="tcm-item" id="tcm-pin">' + (pinned ? "Unpin" : "Pin") + ' <span class="tcm-key">P</span></div>'
+      '<div class="tcm-item" id="tcm-pin">' + (pinned ? "Unpin" : "Pin") + ' <span class="tcm-key">P</span></div>'
       + '<div class="tcm-item" id="tcm-unread">Mark as unread <span class="tcm-key">U</span></div>'
       + '<div class="tcm-item" id="tcm-rename">Rename <span class="tcm-key">R</span></div>'
       + (!isActive ? '<div class="tcm-item" id="tcm-fork">Fork <span class="tcm-key">F</span></div>' : '')
@@ -2110,7 +2108,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     ctxMenu.classList.add("open");
 
     function wire(id, fn) { var el = get(id); if (el) el.addEventListener("click", function () { closeCtxMenu(); fn(); }); }
-    wire("tcm-open", function () { window.open(location.href, "_blank"); });
     wire("tcm-pin", function () {
       fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pinned: !_ctxThreadPinned }) }).then(loadThreads);
     });
