@@ -873,7 +873,7 @@ function chatFor(userId) {
     docs.chats[userId] = {
       id: uid("chat"),
       userId,
-      title: "New workspace",
+      title: "New Chat",
       messages: [
         {
           role: "assistant",
@@ -1168,6 +1168,11 @@ app.post("/api/chat", requireAuth, async (req, res) => {
       artifacts,
       createdAt: now,
     });
+    /* Auto-set title from first user message if still default */
+    if (!chat.title || chat.title === "New Chat" || chat.title === "New workspace") {
+      chat.title = autoTitle(chat.messages);
+    }
+    chat.updatedAt = now;
     docs.chats[user.id] = chat;
     writeDocs(docs);
     appendTrace({ userId: user.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live, artifacts, workspace });
@@ -1203,6 +1208,19 @@ function archiveCurrentChat(userId) {
   docs.chatHistory[userId] = docs.chatHistory[userId].slice(0, 100);
   writeDocs(docs);
 }
+
+app.delete("/api/chat", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const docs = readDocs();
+    delete docs.chats[req.user.id];
+    writeDocs(docs);
+    chatFor(req.user.id);
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
 
 app.post("/api/chat/clear", requireAuth, (req, res) => {
   const db = openSql();
