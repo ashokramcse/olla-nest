@@ -1144,9 +1144,15 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     const shouldWriteLocal = live && workspace.localWritesEnabled && writeApproved;
     const artifacts = shouldWriteLocal ? writeLocalArtifacts(db, workspace, message, mode, content) : [];
 
-    /* When files were saved, strip code blocks from the chat message — the code lives in files */
+    /* Always extract artifact file contents so remote clients can write them locally */
+    const extractedFiles = live ? extractArtifacts(content, message).map(a => ({
+      name: a.name,
+      content: a.content,
+    })) : [];
+
+    /* When files are available (saved or extracted), strip code blocks from chat */
     let chatContent = content;
-    if (artifacts.length) {
+    if (artifacts.length || extractedFiles.length) {
       chatContent = content
         .replace(/```[\s\S]*?```/g, "")
         .replace(/\n{3,}/g, "\n\n")
@@ -1176,7 +1182,7 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     writeDocs(docs);
     appendTrace({ userId: user.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live, artifacts, workspace });
     appendAudit(user.name, "chat.request", `${mode.toUpperCase()} routed to ${route.selected.name}`, { live, artifacts });
-    res.json({ content, route, model: route.selected, live, artifacts, chat });
+    res.json({ content, route, model: route.selected, live, artifacts, extractedFiles, chat });
   } finally {
     db.close();
   }

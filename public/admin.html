@@ -593,91 +593,31 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
             <!-- Messages -->
             <div id="chatMessages"></div>
 
-            <!-- Workspace folder modal — Finder-style -->
+            <!-- Client-side local folder picker -->
             <div id="workspaceFolderModal" style="display:none;">
               <div id="workspaceFolderOverlay"></div>
-              <div id="workspaceFolderDialog">
+              <div id="workspaceFolderDialog" style="max-width:460px;padding:32px 32px 28px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                  <span style="font-size:16px;font-weight:700;font-family:'Plus Jakarta Sans',system-ui,sans-serif;">Open Local Folder</span>
+                </div>
+                <p style="font-size:13px;color:var(--mute);margin:0 0 22px;line-height:1.55;">Generated files will be saved directly to a folder on <strong>your computer</strong>. The server never stores your files.</p>
 
-                <!-- Title bar -->
-                <div class="wfd-titlebar">
-                  <div class="wfd-traffic">
-                    <span class="wfd-dot red" id="wfdClose" title="Close"></span>
-                    <span class="wfd-dot yellow"></span>
-                    <span class="wfd-dot green"></span>
-                  </div>
-                  <div class="wfd-title-center">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                    <span id="wfdTitleName">Choose Project Folder</span>
-                  </div>
-                  <div class="wfd-toolbar-right">
-                    <button class="wfd-nav-btn" id="wfdNewFolder" title="New Folder">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                      New Folder
-                    </button>
-                  </div>
+                <div id="wfdPickedRow" style="display:none;background:#f5f3e8;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:none;">
+                  <div style="font-size:11px;color:var(--mute);margin-bottom:2px;">Selected folder</div>
+                  <div id="wfdPickedName" style="font-size:14px;font-weight:600;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--ink);"></div>
                 </div>
 
-                <!-- Finder body: sidebar + main -->
-                <div class="wfd-body">
+                <button id="wfdPickBtn" class="btn btn-primary" style="width:100%;justify-content:center;gap:8px;font-size:14px;padding:11px 0;margin-bottom:10px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                  Choose folder on this computer
+                </button>
+                <div id="wfdFallbackNote" style="display:none;font-size:12px;color:var(--mute);text-align:center;margin-bottom:10px;">Your browser will download files automatically instead.</div>
 
-                  <!-- Left sidebar -->
-                  <div class="wfd-sidebar">
-                    <div class="wfd-sidebar-section">Mac Folders</div>
-                    <div class="wfd-sidebar-item" data-path="/mac-home" id="wfd-fav-home">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="#4f8ef7" stroke-width="2" width="14" height="14"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                      Home
-                    </div>
-                    <div class="wfd-sidebar-item" data-path="/mac-home/Desktop" id="wfd-fav-desktop">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="#4f8ef7" stroke-width="2" width="14" height="14"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                      Desktop
-                    </div>
-                    <div class="wfd-sidebar-item" data-path="/mac-home/Documents" id="wfd-fav-docs">
-                      <svg viewBox="0 0 24 24" fill="#4f8ef7" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="none"/></svg>
-                      Documents
-                    </div>
-                    <div class="wfd-sidebar-section" style="margin-top:10px;">Container</div>
-                    <div class="wfd-sidebar-item" data-path="/app/data/workspace" id="wfd-fav-workspace">
-                      <svg viewBox="0 0 24 24" fill="#888" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="none"/></svg>
-                      Workspace
-                    </div>
-                  </div>
-
-                  <!-- Main area -->
-                  <div class="wfd-main">
-                    <!-- Breadcrumb toolbar -->
-                    <div class="wfd-toolbar">
-                      <button class="wfd-back-btn" id="wfdBackBtn" title="Go up">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><polyline points="15 18 9 12 15 6"/></svg>
-                      </button>
-                      <div id="wfdBreadcrumb" class="wfd-breadcrumb"></div>
-                    </div>
-
-                    <!-- Grid view -->
-                    <div id="wfdDirList" class="wfd-grid">
-                      <div class="wfd-loading">Loading…</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Bottom bar -->
-                <div class="wfd-bottombar">
-                  <div class="wfd-path-row">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                    <input id="wfdPathInput" class="wfd-path-input" type="text" placeholder="No folder selected" autocomplete="off" spellcheck="false" readonly>
-                  </div>
-                  <div class="wfd-perm-row">
-                    <label class="wfd-perm-label">Write permission</label>
-                    <select id="wfdPermMode" class="wfd-perm-select dd-upgraded">
-                      <option value="default">Approve each write</option>
-                      <option value="review">Auto-review</option>
-                      <option value="full">Full access</option>
-                    </select>
-                  </div>
-                  <div id="wfdMsg" class="wfd-msg"></div>
-                  <div class="wfd-actions">
-                    <button id="wfdCancel" class="btn btn-sm">Cancel</button>
-                    <button id="wfdSave" class="btn btn-sm btn-primary">Open as project</button>
-                  </div>
+                <div id="wfdMsg" class="wfd-msg" style="margin-bottom:10px;"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                  <button id="wfdCancel" class="btn btn-sm">Cancel</button>
+                  <button id="wfdSave" class="btn btn-sm btn-primary" disabled>Open as project</button>
                 </div>
               </div>
             </div>
@@ -1851,16 +1791,22 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       var modelInitial = modelLabel.charAt(0).toUpperCase();
       var isLatest = (idx === lastAiIdx);
       var elapsed = (isLatest && _lastResponseData && _lastResponseData._elapsed) ? _lastResponseData._elapsed : null;
-      var artifacts = (isLatest && _lastResponseData && _lastResponseData.artifacts) ? _lastResponseData.artifacts : (msg.artifacts || []);
+      /* prefer client-written file list, fall back to server artifacts */
+      var localWritten = (isLatest && _lastResponseData && _lastResponseData._localWritten) || [];
+      var serverArtifacts = (isLatest && _lastResponseData && _lastResponseData.artifacts) ? _lastResponseData.artifacts : (msg.artifacts || []);
+      var fileChips = localWritten.length
+        ? localWritten.map(function (n) { return { name: n, local: true }; })
+        : serverArtifacts.map(function (a) { return { name: a.relativePath || a.name, local: false }; });
 
       var footer = "";
-      if (elapsed || artifacts.length) {
+      if (elapsed || fileChips.length) {
         footer = '<div class="cmsg-footer">';
         if (elapsed) footer += '<span class="cmsg-elapsed">⏱ ' + elapsed + 's</span>';
-        artifacts.forEach(function (a) {
-          footer += '<span class="cmsg-artifact-chip">'
+        fileChips.forEach(function (f) {
+          footer += '<span class="cmsg-artifact-chip" title="' + (f.local ? "Saved to your computer" : "Saved on server") + '">'
             + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
-            + esc(a.relativePath || a.name)
+            + esc(f.name)
+            + (f.local ? ' <span style="color:#16a34a;font-size:10px;">✓ local</span>' : '')
             + '</span>';
         });
         footer += '</div>';
@@ -2117,6 +2063,13 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       var data = await res.json();
       var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       data._elapsed = elapsed;
+
+      /* Write files to client's local folder if set */
+      if (data.extractedFiles && data.extractedFiles.length && typeof writeFilesLocally === "function") {
+        var written = await writeFilesLocally(data.extractedFiles);
+        data._localWritten = written;
+      }
+
       /* stop timer and remove typing indicator before re-render */
       clearInterval(window._typingTimerInterval);
       var ti = get("chatTypingIndicator");
@@ -2389,7 +2342,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   if (chatTabBtn) chatTabBtn.addEventListener("click", function () {
     setTimeout(function () {
       renderMessages(); populateModels();
-      if (typeof window._chatLoadProjectFolder === "function") window._chatLoadProjectFolder();
+      /* folder handle is client-side only — no reload needed */
     }, 80);
   });
 
@@ -2500,211 +2453,133 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   /* ═══════════════════════════════════
      2. PROJECT FOLDER WORKSPACE
   ═══════════════════════════════════ */
-  var activeProjectPath = null;
-  var activePermMode = "default";
+  var activeProjectPath = null; /* used only as a flag; actual writes use localDirHandle */
 
-  function friendlyPath(p) {
-    /* Replace /mac-home with ~ for display */
-    return (p || "").replace(/^\/mac-home(\/|$)/, "~$1");
-  }
-
-  function showProjectChip(path, permMode) {
-    activeProjectPath = path || null;
-    activePermMode = permMode || "default";
+  function showProjectChip(name) {
+    activeProjectPath = name || null;
     var row = g("chatProjectRow");
-    if (!path) { row.style.display = "none"; return; }
+    if (!name) { row.style.display = "none"; return; }
     row.style.display = "flex";
-    var folderName = path.split("/").filter(Boolean).pop() || path;
-    g("chatProjectPath").textContent = folderName;
-    g("chatProjectPath").title = friendlyPath(path);
+    g("chatProjectPath").textContent = name;
+    g("chatProjectPath").title = name;
   }
 
-  async function loadProjectFolder() {
-    try {
-      var res = await fetch("/api/state", { headers: { "Content-Type": "application/json" } });
-      if (!res.ok) return;
-      var data = await res.json();
-      var ws = data.workspace;
-      if (ws && ws.workspaceRoot) showProjectChip(ws.workspaceRoot, ws.permissionMode);
-    } catch (e) { /* ignore */ }
-  }
-
-  /* ── Directory browser state ── */
-  var wfdCurrentPath = null;
-  var wfdSelectedPath = null;
-
-  async function wfdBrowse(dirPath) {
-    var grid = g("wfdDirList");
-    var crumb = g("wfdBreadcrumb");
-    var backBtn = g("wfdBackBtn");
-    grid.innerHTML = '<div class="wfd-loading">Loading…</div>';
-    try {
-      var res = await fetch("/api/workspace/browse?path=" + encodeURIComponent(dirPath), { credentials: "include" });
-      var data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Cannot open folder");
-      wfdCurrentPath = data.current;
-
-      /* update sidebar active state */
-      document.querySelectorAll(".wfd-sidebar-item").forEach(function (el) {
-        el.classList.toggle("active", el.dataset.path === data.current);
-      });
-
-      /* back button */
-      if (backBtn) backBtn.disabled = !data.parent;
-
-      /* breadcrumb */
-      var parts = data.current.split("/").filter(Boolean);
-      var crumbHtml = '<span class="wfd-crumb" data-path="/">/</span>';
-      var cumulative = "";
-      parts.forEach(function (p, i) {
-        cumulative += "/" + p;
-        var cp = cumulative;
-        if (i < parts.length - 1) {
-          crumbHtml += '<span class="wfd-crumb-sep">›</span><span class="wfd-crumb" data-path="' + esc(cp) + '">' + esc(p) + '</span>';
-        } else {
-          crumbHtml += '<span class="wfd-crumb-sep">›</span><span class="wfd-crumb-cur">' + esc(p) + '</span>';
-        }
-      });
-      if (crumb) {
-        crumb.innerHTML = crumbHtml;
-        crumb.querySelectorAll(".wfd-crumb").forEach(function (el) {
-          el.addEventListener("click", function () { wfdBrowse(el.dataset.path); });
-        });
-      }
-
-      /* title */
-      var titleEl = g("wfdTitleName");
-      if (titleEl) titleEl.textContent = parts.length ? parts[parts.length - 1] : "/";
-
-      /* grid items */
-      if (!data.dirs.length) {
-        grid.innerHTML = '<div class="wfd-empty">No folders here</div>';
-        return;
-      }
-      grid.innerHTML = data.dirs.map(function (d) {
-        var isSel = wfdSelectedPath === d.path;
-        return '<div class="wfd-grid-item' + (isSel ? " selected" : "") + '" data-path="' + esc(d.path) + '" data-name="' + esc(d.name) + '">'
-          + '<div class="wfd-grid-icon">📁</div>'
-          + '<div class="wfd-grid-name">' + esc(d.name) + '</div>'
-          + '</div>';
-      }).join("");
-
-      /* single click = select, double-click = open */
-      grid.querySelectorAll(".wfd-grid-item").forEach(function (el) {
-        var fp = el.dataset.path;
-        el.addEventListener("click", function () {
-          grid.querySelectorAll(".wfd-grid-item").forEach(function (x) { x.classList.remove("selected"); });
-          el.classList.add("selected");
-          wfdSelectedPath = fp;
-          g("wfdPathInput").value = fp;
-        });
-        el.addEventListener("dblclick", function () {
-          wfdSelectedPath = fp;
-          g("wfdPathInput").value = fp;
-          wfdBrowse(fp);
-        });
-      });
-    } catch (err) {
-      grid.innerHTML = '<div class="wfd-empty" style="color:#ef4444;">' + esc(err.message) + '</div>';
-    }
-  }
-
-  /* back button */
-  var wfdBackBtn = g("wfdBackBtn");
-  if (wfdBackBtn) wfdBackBtn.addEventListener("click", function () {
-    if (wfdCurrentPath) {
-      var parent = wfdCurrentPath.split("/").slice(0, -1).join("/") || "/";
-      wfdBrowse(parent);
-    }
-  });
-
-  /* sidebar favourites */
-  document.querySelectorAll(".wfd-sidebar-item").forEach(function (el) {
-    el.addEventListener("click", function () { wfdBrowse(el.dataset.path); });
-  });
-
-  /* new folder */
-  var wfdNewFolderBtn = g("wfdNewFolder");
-  if (wfdNewFolderBtn) wfdNewFolderBtn.addEventListener("click", async function () {
-    var name = await window.ollaPrompt({ icon:"📁", title:"New Folder", body:"Enter a name for the new folder.", inputPlaceholder:"folder-name", confirm:"Create" });
-    if (!name || !name.trim()) return;
-    var newPath = (wfdCurrentPath || "/app/data/workspace").replace(/\/$/, "") + "/" + name.trim();
-    fetch("/api/workspace/browse?path=" + encodeURIComponent(newPath) + "&create=1", { credentials: "include" })
-      .then(function () { wfdBrowse(wfdCurrentPath); })
-      .catch(function () {
-        /* fallback: just set path and let server create on save */
-        wfdSelectedPath = newPath;
-        g("wfdPathInput").value = newPath;
-      });
-  });
+  /* ── Client-side local folder (File System Access API) ── */
+  var localDirHandle = null; /* FileSystemDirectoryHandle or null */
+  var hasFSA = (typeof window.showDirectoryPicker === "function");
 
   function openFolderModal() {
     var modal = g("workspaceFolderModal");
-    g("wfdPermMode").value = activePermMode || "default";
-    g("wfdMsg").textContent = "";
-    g("wfdMsg").className = "wfd-msg";
-    wfdSelectedPath = activeProjectPath || null;
-    g("wfdPathInput").value = activeProjectPath || "";
+    var msg = g("wfdMsg");
+    var saveBtn = g("wfdSave");
+    var pickedRow = g("wfdPickedRow");
+    var pickedName = g("wfdPickedName");
+    var fallbackNote = g("wfdFallbackNote");
+    msg.textContent = ""; msg.className = "wfd-msg";
+    if (!hasFSA) {
+      fallbackNote.style.display = "block";
+      /* For Firefox: no directory picker, files will auto-download */
+      if (pickedRow) pickedRow.style.display = "none";
+      saveBtn.disabled = false;
+    } else {
+      fallbackNote.style.display = "none";
+      if (localDirHandle) {
+        pickedRow.style.display = "block";
+        pickedName.textContent = localDirHandle.name;
+        saveBtn.disabled = false;
+      } else {
+        pickedRow.style.display = "none";
+        saveBtn.disabled = true;
+      }
+    }
     modal.style.display = "flex";
-    /* start at active project, then workspace root, then home */
-    var startPath = activeProjectPath || "/app/data/workspace";
-    wfdBrowse(startPath);
   }
 
   function closeFolderModal() {
     g("workspaceFolderModal").style.display = "none";
   }
 
-  g("wfdClose").addEventListener("click", closeFolderModal);
   g("wfdCancel").addEventListener("click", closeFolderModal);
   g("workspaceFolderOverlay").addEventListener("click", closeFolderModal);
 
-  g("wfdSave").addEventListener("click", async function () {
-    var folderPath = (wfdSelectedPath || g("wfdPathInput").value).trim();
-    var perm = g("wfdPermMode").value;
-    var msg = g("wfdMsg");
-    if (!folderPath) { msg.textContent = "Please select or type a folder path."; return; }
-    var btn = g("wfdSave");
-    btn.disabled = true; btn.textContent = "Opening…";
+  g("wfdPickBtn").addEventListener("click", async function () {
+    if (!hasFSA) return;
     try {
-      var res = await fetch("/api/workspace/local-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceRoot: folderPath, permissionMode: perm }),
-      });
-      var data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save");
-      msg.className = "wfd-msg ok";
-      msg.textContent = "✓ Project folder opened!";
-      showProjectChip(folderPath, perm);
-      setTimeout(closeFolderModal, 700);
+      var handle = await window.showDirectoryPicker({ mode: "readwrite" });
+      localDirHandle = handle;
+      g("wfdPickedRow").style.display = "block";
+      g("wfdPickedName").textContent = handle.name;
+      g("wfdSave").disabled = false;
+      g("wfdMsg").textContent = "";
     } catch (e) {
-      msg.className = "wfd-msg";
-      msg.textContent = e.message;
-    } finally {
-      btn.disabled = false; btn.textContent = "Open as project";
+      if (e.name !== "AbortError") {
+        g("wfdMsg").textContent = e.message;
+      }
     }
   });
 
+  g("wfdSave").addEventListener("click", function () {
+    var msg = g("wfdMsg");
+    if (hasFSA && !localDirHandle) { msg.textContent = "Please choose a folder first."; return; }
+    var displayName = hasFSA ? localDirHandle.name : "Downloads";
+    showProjectChip(displayName);
+    msg.className = "wfd-msg ok";
+    msg.textContent = "✓ Folder set!";
+    setTimeout(closeFolderModal, 600);
+  });
+
   g("chatProjectEdit").addEventListener("click", function () { openFolderModal(); });
-  g("chatProjectClear").addEventListener("click", async function () {
-    await fetch("/api/workspace/local-settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workspaceRoot: "", permissionMode: "default" }),
-    }).catch(function () {});
+  g("chatProjectClear").addEventListener("click", function () {
+    localDirHandle = null;
     activeProjectPath = null;
     g("chatProjectRow").style.display = "none";
   });
 
-  /* Load on start */
-  loadProjectFolder();
+  /* Write files to client's local folder after response */
+  async function writeFilesLocally(extractedFiles) {
+    if (!extractedFiles || !extractedFiles.length) return [];
+    var written = [];
 
-  /* Expose so tab-switch can refresh it */
-  window._chatLoadProjectFolder = loadProjectFolder;
+    if (hasFSA && localDirHandle) {
+      /* Chrome/Edge: write directly via File System Access API */
+      for (var i = 0; i < extractedFiles.length; i++) {
+        var f = extractedFiles[i];
+        try {
+          var parts = f.name.split("/").filter(Boolean);
+          var dir = localDirHandle;
+          for (var j = 0; j < parts.length - 1; j++) {
+            dir = await dir.getDirectoryHandle(parts[j], { create: true });
+          }
+          var fileHandle = await dir.getFileHandle(parts[parts.length - 1], { create: true });
+          var writable = await fileHandle.createWritable();
+          await writable.write(f.content);
+          await writable.close();
+          written.push(f.name);
+        } catch (e) { console.error("write failed", f.name, e); }
+      }
+    } else if (localDirHandle || (!hasFSA && activeProjectPath)) {
+      /* Firefox fallback: auto-download each file */
+      for (var k = 0; k < extractedFiles.length; k++) {
+        var df = extractedFiles[k];
+        try {
+          var blob = new Blob([df.content], { type: "text/plain" });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url; a.download = df.name.split("/").pop();
+          document.body.appendChild(a); a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          written.push(df.name);
+          await new Promise(function (r) { setTimeout(r, 150); });
+        } catch (e) { console.error("download failed", df.name, e); }
+      }
+    }
+    return written;
+  }
 
-  /* Expose active project path for sendChat to include in context */
-  window._chatGetProjectPath = function () { return activeProjectPath; };
+  /* Expose for sendChat */
+  window._chatGetProjectPath = function () { return (localDirHandle || (!hasFSA && activeProjectPath)) ? "local" : null; };
+  window._writeFilesLocally = writeFilesLocally;
 
   /* ═══════════════════════════════════
      3. + DROPDOWN MENU
