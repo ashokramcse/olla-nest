@@ -687,6 +687,29 @@ function cleanModelOutput(content) {
   return output;
 }
 
+function listWorkspaceFiles(workspaceRoot, maxFiles = 50) {
+  try {
+    const results = [];
+    function walk(dir, rel) {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith(".")) continue;
+        const relPath = rel ? `${rel}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          walk(path.join(dir, entry.name), relPath);
+        } else {
+          results.push(relPath);
+          if (results.length >= maxFiles) return;
+        }
+      }
+    }
+    walk(workspaceRoot, "");
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 function modelPrompt(message, mode, route, workspace) {
   const base = [
     "You are Olla Nest, a company AI workspace assistant.",
@@ -699,7 +722,14 @@ function modelPrompt(message, mode, route, workspace) {
   if (workspace?.workspaceRoot) {
     base.push(`Active project folder: ${workspace.workspaceRoot}`);
     base.push(`Write permission mode: ${workspace.permissionMode || "default"}`);
-    base.push("When building, fixing, or generating files, treat the active project folder as the working directory. Use relative paths from that root in your code and file references.");
+    base.push("When building, fixing, or generating files, treat the active project folder as the working directory.");
+    base.push("IMPORTANT: When generating code files, always specify the filename in the code fence header using the format: ```language:filename.ext — for example: ```html:index.html or ```jsx:src/App.jsx or ```css:styles.css. Use relative paths from the project root. This allows files to be saved directly to the workspace.");
+    const files = listWorkspaceFiles(workspace.workspaceRoot);
+    if (files.length > 0) {
+      base.push(`Current project files:\n${files.map(f => `  ${f}`).join("\n")}`);
+    } else {
+      base.push("Current project files: (empty — this is a new project)");
+    }
   }
   const modeInstructions = {
     ask: "Give a clear, useful answer with enough detail to be acted on.",
@@ -743,26 +773,34 @@ function extensionForFence(language, content) {
 
 function extractArtifacts(content, message) {
   const artifacts = [];
-  const fencePattern = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+  // Match ```lang:filename or ```lang filename or just ```lang
+  const fencePattern = /```([a-zA-Z0-9_-]*)(?::([^\s`]+)|[ \t]+filename=["']?([^"'\s`]+)["']?)?\n([\s\S]*?)```/g;
   let match;
   while ((match = fencePattern.exec(content))) {
-    const body = match[2].trim();
+    const langPart = match[1];
+    const filenameFromColon = match[2]; // ```jsx:src/App.jsx
+    const filenameFromAttr = match[3];  // ```jsx filename="App.jsx"
+    const body = match[4].trim();
     if (!body) continue;
-    const ext = extensionForFence(match[1], body);
-    artifacts.push({ ext, content: body });
+    const parsedFilename = filenameFromColon || filenameFromAttr || null;
+    const ext = extensionForFence(langPart, body);
+    artifacts.push({ ext, content: body, parsedFilename });
   }
   if (!artifacts.length) {
     const htmlMatch = String(content).match(/(?:<!doctype html>\s*)?<html[\s\S]*?<\/html>/i);
-    if (htmlMatch) artifacts.push({ ext: "html", content: htmlMatch[0].trim() });
+    if (htmlMatch) artifacts.push({ ext: "html", content: htmlMatch[0].trim(), parsedFilename: null });
   }
   if (!artifacts.length && /<!doctype html|<html[\s>]|import React|from\s+['"]react['"]|useState|className=|function\s+\w+|const\s+\w+\s*=/.test(content)) {
     const ext = extensionForFence("", content);
-    artifacts.push({ ext, content: content.trim() });
+    artifacts.push({ ext, content: content.trim(), parsedFilename: null });
   }
-  return artifacts.map((artifact, index) => ({
-    ...artifact,
-    name: `${artifactBaseName(message)}${artifacts.length > 1 ? `-${index + 1}` : ""}.${artifact.ext}`,
-  }));
+  const baseName = artifactBaseName(message);
+  return artifacts.map((artifact, index) => {
+    const name = artifact.parsedFilename
+      ? artifact.parsedFilename
+      : `${baseName}${artifacts.length > 1 ? `-${index + 1}` : ""}.${artifact.ext}`;
+    return { ...artifact, name };
+  });
 }
 
 function workspaceRoot(db) {
@@ -792,10 +830,13 @@ function writeLocalArtifacts(db, workspace, message, mode, content) {
   const artifacts = extractArtifacts(content, message);
   if (!artifacts.length) return [];
   const root = path.resolve(String(workspace?.workspaceRoot || workspaceRoot(db)));
-  const targetDir = path.join(root, "olla-nest-output");
-  fs.mkdirSync(targetDir, { recursive: true });
   return artifacts.map((artifact) => {
-    const filePath = path.join(targetDir, artifact.name);
+    const filePath = path.resolve(path.join(root, artifact.name));
+    // Prevent path traversal outside workspace root
+    if (!filePath.startsWith(root + path.sep) && filePath !== root) {
+      return null;
+    }
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, `${artifact.content}\n`, "utf8");
     return {
       name: artifact.name,
@@ -803,7 +844,7 @@ function writeLocalArtifacts(db, workspace, message, mode, content) {
       relativePath: path.relative(root, filePath),
       bytes: Buffer.byteLength(artifact.content, "utf8"),
     };
-  });
+  }).filter(Boolean);
 }
 
 function appendAudit(actor, action, detail, extra = {}) {
@@ -1088,11 +1129,11 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     const shouldWriteLocal = live && localWorkMode && workspace.localWritesEnabled && writeApproved;
     const artifacts = shouldWriteLocal ? writeLocalArtifacts(db, workspace, message, mode, content) : [];
     if (artifacts.length) {
-      content = `Done. I created the local file${artifacts.length === 1 ? "" : "s"} in your selected workspace.\n\nLocal files updated:\n${artifacts.map((artifact) => `- ${artifact.path}`).join("\n")}`;
-    } else if (live && localWorkMode && !writeApproved) {
-      content += `\n\nLocal files not written. Choose a workspace folder and approve local file writes for this request.`;
+      content += `\n\n---\n**Saved to workspace:** ${artifacts.map(a => `\`${a.relativePath}\``).join(", ")}`;
+    } else if (live && localWorkMode && workspace.workspaceRoot && !writeApproved) {
+      content += `\n\n> To save these files to **${path.basename(workspace.workspaceRoot)}**, check "Write to workspace" before sending.`;
     } else if (live && localWorkMode && !workspace.localWritesEnabled) {
-      content += `\n\nLocal files not written. Admin has disabled local Build/Fix writes.`;
+      content += `\n\n> Local file writes are disabled by admin.`;
     }
 
     const docs = readDocs();
