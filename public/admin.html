@@ -1171,6 +1171,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   background:#2563eb;flex-shrink:0;
 }
 .thread-pin{font-size:10px;color:#b45309;}
+.thread-section-label{padding:8px 10px 4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);}
+.thread-rename-input{width:100%;font-size:12.5px;font-weight:500;font-family:inherit;border:1px solid var(--primary);border-radius:4px;padding:1px 4px;outline:none;box-sizing:border-box;background:#fff;}
 .thread-menu-btn{
   position:absolute;right:6px;top:50%;transform:translateY(-50%);
   width:20px;height:20px;display:flex;align-items:center;justify-content:center;
@@ -2169,6 +2171,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
 
+  /* ── _renamingTid: tracks which thread is being renamed inline ── */
+  var _renamingTid = null;
+  var _renameValue = null;
+
   function loadThreads() {
     fetch("/api/threads", { credentials: "include" })
       .then(function (r) { return r.json(); })
@@ -2185,17 +2191,15 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var archived = history.filter(function (t) { return t.archived; });
     var html = "";
 
+    /* Always show active chat */
     if (active) {
-      var hasMsg = (active.messages || []).some(function (m) { return m.role === "user"; });
-      if (hasMsg) {
-        html += threadItemHTML(active, true);
-      }
+      html += threadItemHTML(active, true);
     }
 
     shown.forEach(function (t) { html += threadItemHTML(t, false); });
 
     if (archived.length) {
-      html += '<div style="padding:8px 10px 4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);">Archived</div>';
+      html += '<div class="thread-section-label">Archived</div>';
       archived.forEach(function (t) { html += threadItemHTML(t, false); });
     }
 
@@ -2205,9 +2209,15 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
     list.innerHTML = html;
 
+    /* Restore inline rename input if user was renaming */
+    if (_renamingTid) {
+      var item = list.querySelector(".thread-item[data-tid='" + _renamingTid + "']");
+      if (item) attachRenameInput(item, _renamingTid, _renameValue);
+    }
+
     list.querySelectorAll(".thread-item").forEach(function (el) {
       el.addEventListener("click", function (e) {
-        if (e.target.closest(".thread-menu-btn")) return;
+        if (e.target.closest(".thread-menu-btn") || e.target.tagName === "INPUT") return;
         var tid = el.dataset.tid;
         var isActive = el.dataset.active === "1";
         if (!isActive && tid) activateThread(tid);
@@ -2225,7 +2235,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
   function threadItemHTML(t, isActive) {
     var ts = t.updatedAt || t.createdAt || "";
-    var title = t.title || "New chat";
+    var title = t.title || "New Chat";
     return '<div class="thread-item' + (isActive ? " tactive" : "") + '"'
       + ' data-tid="' + esc(t.id) + '"'
       + ' data-active="' + (isActive ? "1" : "0") + '"'
@@ -2246,6 +2256,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     fetch("/api/threads/" + tid + "/activate", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" })
       .then(function () {
         usedTokens = 0; updateCtxBar(null, selectedModelCtx, 0);
+        _lastResponseData = null;
         if (typeof loadState === "function") loadState().then(function () { renderMessages(); loadThreads(); });
       });
   }
@@ -2257,30 +2268,30 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     _ctxThreadId = tid; _ctxThreadPinned = pinned; _ctxThreadArchived = archived; _ctxThreadUnread = unread;
     if (!ctxMenu) return;
     ctxMenu.innerHTML =
-      '<div class="tcm-item" id="tcm-pin">' + (pinned ? "Unpin" : "Pin") + ' <span class="tcm-key">P</span></div>'
-      + '<div class="tcm-item" id="tcm-unread">Mark as unread <span class="tcm-key">U</span></div>'
-      + '<div class="tcm-item" id="tcm-rename">Rename <span class="tcm-key">R</span></div>'
-      + (!isActive ? '<div class="tcm-item" id="tcm-fork">Fork <span class="tcm-key">F</span></div>' : '')
-      + '<div class="tcm-sep"></div>'
-      + (!isActive ? '<div class="tcm-item" id="tcm-archive">' + (archived ? "Unarchive" : "Archive") + ' <span class="tcm-key">A</span></div>' : '')
-      + (!isActive ? '<div class="tcm-item danger" id="tcm-delete">Delete <span class="tcm-key">D</span></div>' : '');
+      '<div class="tcm-item" id="tcm-pin">' + (pinned ? "Unpin" : "Pin") + '</div>'
+      + '<div class="tcm-item" id="tcm-rename">Rename</div>'
+      + (!isActive ? '<div class="tcm-item" id="tcm-fork">Fork</div>' : '')
+      + (!isActive ? '<div class="tcm-sep"></div>' : '')
+      + (!isActive ? '<div class="tcm-item" id="tcm-archive">' + (archived ? "Unarchive" : "Archive") + '</div>' : '<div class="tcm-sep"></div>')
+      + '<div class="tcm-item danger" id="tcm-delete">Delete</div>';
 
     var x = e.clientX, y = e.clientY;
-    ctxMenu.style.left = Math.min(x, window.innerWidth - 210) + "px";
-    ctxMenu.style.top = Math.min(y, window.innerHeight - 280) + "px";
+    ctxMenu.style.left = Math.min(x, window.innerWidth - 200) + "px";
+    ctxMenu.style.top = Math.min(y, window.innerHeight - 220) + "px";
     ctxMenu.classList.add("open");
 
     function wire(id, fn) { var el = get(id); if (el) el.addEventListener("click", function () { closeCtxMenu(); fn(); }); }
+
     wire("tcm-pin", function () {
       fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pinned: !_ctxThreadPinned }) }).then(loadThreads);
     });
-    wire("tcm-unread", function () {
-      fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unread: true }) }).then(loadThreads);
+    wire("tcm-rename", function () {
+      var item = document.querySelector(".thread-item[data-tid='" + _ctxThreadId + "']");
+      if (item) attachRenameInput(item, _ctxThreadId, null);
     });
-    wire("tcm-rename", function () { startRename(_ctxThreadId); });
     wire("tcm-fork", function () {
       fetch("/api/threads/" + _ctxThreadId + "/fork", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" })
-        .then(function () { usedTokens = 0; if (typeof loadState === "function") loadState().then(function () { renderMessages(); loadThreads(); }); });
+        .then(function () { usedTokens = 0; _lastResponseData = null; if (typeof loadState === "function") loadState().then(function () { renderMessages(); loadThreads(); }); });
     });
     wire("tcm-archive", function () {
       fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: !_ctxThreadArchived }) }).then(loadThreads);
@@ -2288,7 +2299,20 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     wire("tcm-delete", async function () {
       var _del = await window.ollaConfirm({ icon:"🗑️", title:"Delete chat?", body:"This conversation will be permanently removed.", confirm:"Delete", danger:true });
       if (!_del) return;
-      fetch("/api/threads/" + _ctxThreadId, { method: "DELETE", credentials: "include" }).then(loadThreads);
+      var isActive = document.querySelector(".thread-item[data-tid='" + _ctxThreadId + "']");
+      isActive = isActive && isActive.dataset.active === "1";
+      if (isActive) {
+        /* Delete active chat — create a fresh one */
+        fetch("/api/chat", { method: "DELETE", credentials: "include" })
+          .then(function () {
+            _lastResponseData = null;
+            var chatMsgs = get("chatMessages");
+            if (chatMsgs) chatMsgs.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">✦</div><div class="chat-empty-title">Ready when you are</div><div class="chat-empty-sub">Ask · Build · Debug · Review · Test · Docs · Plan · Learn</div></div>';
+            if (typeof loadState === "function") loadState().then(function () { loadThreads(); });
+          });
+      } else {
+        fetch("/api/threads/" + _ctxThreadId, { method: "DELETE", credentials: "include" }).then(loadThreads);
+      }
     });
   }
 
@@ -2296,23 +2320,30 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   document.addEventListener("click", function () { closeCtxMenu(); });
   if (ctxMenu) ctxMenu.addEventListener("click", function (e) { e.stopPropagation(); });
 
-  function startRename(tid) {
-    var items = document.querySelectorAll(".thread-item[data-tid='" + tid + "']");
-    if (!items.length) return;
-    var item = items[0];
+  function attachRenameInput(item, tid, initialValue) {
     var titleEl = item.querySelector(".thread-title");
+    if (!titleEl || titleEl.querySelector("input")) return; /* already editing */
     var current = titleEl.textContent;
+    _renamingTid = tid;
+    _renameValue = initialValue !== null ? initialValue : current;
     var input = document.createElement("input");
-    input.value = current;
-    input.style.cssText = "width:100%;font-size:12.5px;font-weight:500;border:1px solid var(--primary);border-radius:4px;padding:1px 4px;outline:none;box-sizing:border-box;";
-    titleEl.replaceWith(input);
+    input.value = _renameValue;
+    input.className = "thread-rename-input";
+    titleEl.innerHTML = "";
+    titleEl.appendChild(input);
     input.focus(); input.select();
+    input.addEventListener("input", function () { _renameValue = input.value; });
     function save() {
-      var val = input.value.trim() || current;
+      var val = (input.value || "").trim() || current;
+      _renamingTid = null; _renameValue = null;
       fetch("/api/threads/" + tid, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: val }) }).then(loadThreads);
     }
+    function cancel() { _renamingTid = null; _renameValue = null; loadThreads(); }
     input.addEventListener("blur", save);
-    input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); input.blur(); } if (e.key === "Escape") { input.value = current; input.blur(); } });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+      if (e.key === "Escape") { e.preventDefault(); input.removeEventListener("blur", save); cancel(); }
+    });
   }
 
   /* Wire sidebar new button */
@@ -2320,8 +2351,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   if (sidebarNewBtn) sidebarNewBtn.addEventListener("click", function () {
     var newBtn = get("chatNewBtn");
     if (newBtn) newBtn.click();
-    else fetch("/api/chat/clear", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" })
-      .then(function () { usedTokens = 0; updateCtxBar(null, selectedModelCtx, 0); if (typeof loadState === "function") loadState().then(function () { renderMessages(); loadThreads(); }); });
   });
 
   /* Load threads on init */
