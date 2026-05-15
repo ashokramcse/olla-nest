@@ -557,8 +557,44 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
             <!-- Messages -->
             <div id="chatMessages"></div>
 
+            <!-- Workspace folder modal -->
+            <div id="workspaceFolderModal" style="display:none;">
+              <div id="workspaceFolderOverlay"></div>
+              <div id="workspaceFolderDialog">
+                <div class="wfd-header">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                  <span>Set Project Folder</span>
+                  <button id="wfdClose" class="wfd-close">×</button>
+                </div>
+                <p class="wfd-desc">Enter the <strong>absolute path</strong> to your local project folder. Olla Nest will use this as the working context for Build, Fix, Debug, Test, and Docs requests.</p>
+                <label class="wfd-label">Project folder path</label>
+                <input id="wfdPathInput" class="wfd-input" type="text" placeholder="/Users/you/my-project" autocomplete="off" spellcheck="false">
+                <label class="wfd-label" style="margin-top:12px;">Write permission</label>
+                <select id="wfdPermMode" class="wfd-select">
+                  <option value="default">Approve writes — review each write</option>
+                  <option value="review">Auto-review — auto-approve after review</option>
+                  <option value="full">Full access — write without approval</option>
+                </select>
+                <div id="wfdMsg" class="wfd-msg"></div>
+                <div class="wfd-actions">
+                  <button id="wfdCancel" class="btn btn-sm">Cancel</button>
+                  <button id="wfdSave" class="btn btn-sm btn-primary">Set as project folder</button>
+                </div>
+              </div>
+            </div>
+
             <!-- Composer -->
             <div id="chatComposer">
+
+              <!-- Active project folder chip -->
+              <div id="chatProjectRow" style="display:none;">
+                <div id="chatProjectChip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                  <span id="chatProjectPath"></span>
+                  <button id="chatProjectEdit" title="Change folder">✎</button>
+                  <button id="chatProjectClear" title="Remove folder">×</button>
+                </div>
+              </div>
 
               <!-- Attachment chips (shown when files are attached) -->
               <div id="chatAttachRow" style="display:none;">
@@ -583,7 +619,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                     </div>
                     <div class="c-dd-item" id="ddFolder">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                      Add folder
+                      Set project folder
                     </div>
                     <div class="c-dd-sep"></div>
                     <div class="c-dd-item" id="ddSlash">
@@ -593,9 +629,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                   </div>
                 </div>
 
-                <!-- Hidden file inputs -->
+                <!-- Hidden file input -->
                 <input type="file" id="fileInput" multiple style="display:none;">
-                <input type="file" id="folderInput" style="display:none;" webkitdirectory>
 
                 <!-- Text area -->
                 <textarea id="chatInput" rows="1" placeholder="Message Olla Nest… (type / for commands)"></textarea>
@@ -1236,6 +1271,57 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 #chatComposer{position:relative;}
 
 /* Attachment row */
+/* Project folder chip */
+#chatProjectRow{padding:8px 14px 0;display:flex;align-items:center;gap:6px;}
+#chatProjectChip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:8px;
+  background:#eef6ff;border:1px solid #c7dff7;
+  font-size:12px;color:#1e40af;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  max-width:100%;
+}
+#chatProjectChip svg{flex-shrink:0;stroke:#3b82f6;}
+#chatProjectPath{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px;}
+#chatProjectEdit,#chatProjectClear{
+  border:none;background:none;cursor:pointer;
+  color:#93c5fd;padding:0 2px;font-size:13px;line-height:1;
+  flex-shrink:0;
+}
+#chatProjectEdit:hover,#chatProjectClear:hover{color:#1e40af;}
+
+/* Workspace folder modal */
+#workspaceFolderModal{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;}
+#workspaceFolderOverlay{position:absolute;inset:0;background:rgba(0,0,0,.35);}
+#workspaceFolderDialog{
+  position:relative;z-index:1;
+  background:#fff;border-radius:14px;
+  padding:26px 28px 22px;width:480px;max-width:calc(100vw - 32px);
+  box-shadow:0 20px 60px rgba(0,0,0,.18);
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+.wfd-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-weight:700;font-size:16px;color:var(--ink);}
+.wfd-close{margin-left:auto;border:none;background:none;cursor:pointer;font-size:20px;color:#999;line-height:1;padding:0;}
+.wfd-close:hover{color:var(--ink);}
+.wfd-desc{font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.6;}
+.wfd-label{display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:5px;}
+.wfd-input{
+  width:100%;box-sizing:border-box;
+  border:1.5px solid var(--line-soft);border-radius:8px;
+  padding:9px 12px;font-size:13px;font-family:inherit;
+  color:var(--ink);outline:none;
+}
+.wfd-input:focus{border-color:var(--primary);}
+.wfd-select{
+  width:100%;box-sizing:border-box;
+  border:1.5px solid var(--line-soft);border-radius:8px;
+  padding:9px 12px;font-size:13px;font-family:inherit;
+  color:var(--ink);background:#fff;outline:none;cursor:pointer;
+}
+.wfd-msg{min-height:18px;font-size:12px;margin-top:10px;color:#ef4444;}
+.wfd-msg.ok{color:#16a34a;}
+.wfd-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+
 #chatAttachRow{padding:8px 14px 0;display:flex;flex-wrap:wrap;gap:6px;}
 #chatAttachList{display:flex;flex-wrap:wrap;gap:6px;}
 .attach-chip{
@@ -1506,6 +1592,11 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var routerEl = get("chatRouterContent");
     if (routerEl) routerEl.innerHTML = '<span style="color:var(--mute);">Routing…</span>';
 
+    /* include project folder context */
+    var projectPath = (typeof window._chatGetProjectPath === "function") ? window._chatGetProjectPath() : null;
+    var writeModes = ["build", "fix", "debug", "test", "docs"];
+    var writeToWorkspace = !!(projectPath && writeModes.includes(chatMode));
+
     try {
       var res = await fetch("/api/chat", {
         method: "POST",
@@ -1513,7 +1604,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         body: JSON.stringify({
           message: msg,
           mode: chatMode,
-          manualModelId: (get("chatModelSelect") || {}).value || null
+          manualModelId: (get("chatModelSelect") || {}).value || null,
+          writeToWorkspace: writeToWorkspace,
         })
       });
       var data = await res.json();
@@ -1565,7 +1657,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   /* refresh when Chat tab becomes active */
   var chatTabBtn = document.querySelector('.nav-item[data-tab="chat"]');
   if (chatTabBtn) chatTabBtn.addEventListener("click", function () {
-    setTimeout(function () { renderMessages(); populateModels(); }, 80);
+    setTimeout(function () {
+      renderMessages(); populateModels();
+      if (typeof window._chatLoadProjectFolder === "function") window._chatLoadProjectFolder();
+    }, 80);
   });
 
   /* public refresh hook (called by admin.js after loadState) */
@@ -1587,7 +1682,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   var attachRow    = g("chatAttachRow");
   var attachList   = g("chatAttachList");
   var fileInput    = g("fileInput");
-  var folderInput  = g("folderInput");
   var plusBtn      = g("chatPlusBtn");
   var plusMenu     = g("plusMenu");
   var micBtn       = g("chatMicBtn");
@@ -1663,18 +1757,110 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   var _origSend = window._chatSendRaw;
   window._chatFileContext = buildFileContext;
 
-  /* File input listeners */
+  /* File input listener */
   fileInput.addEventListener("change", function () {
     addFiles(fileInput.files);
     fileInput.value = "";
   });
-  folderInput.addEventListener("change", function () {
-    addFiles(folderInput.files);
-    folderInput.value = "";
-  });
 
   /* ═══════════════════════════════════
-     2. + DROPDOWN MENU
+     2. PROJECT FOLDER WORKSPACE
+  ═══════════════════════════════════ */
+  var activeProjectPath = null;
+  var activePermMode = "default";
+
+  function showProjectChip(path, permMode) {
+    activeProjectPath = path || null;
+    activePermMode = permMode || "default";
+    var row = g("chatProjectRow");
+    if (!path) { row.style.display = "none"; return; }
+    row.style.display = "flex";
+    var folderName = path.split("/").filter(Boolean).pop() || path;
+    g("chatProjectPath").textContent = folderName;
+    g("chatProjectPath").title = path;
+  }
+
+  async function loadProjectFolder() {
+    try {
+      var res = await fetch("/api/state", { headers: { "Content-Type": "application/json" } });
+      if (!res.ok) return;
+      var data = await res.json();
+      var ws = data.workspace;
+      if (ws && ws.workspaceRoot) showProjectChip(ws.workspaceRoot, ws.permissionMode);
+    } catch (e) { /* ignore */ }
+  }
+
+  function openFolderModal(prefill) {
+    var modal = g("workspaceFolderModal");
+    var input = g("wfdPathInput");
+    var select = g("wfdPermMode");
+    var msg = g("wfdMsg");
+    input.value = prefill || activeProjectPath || "";
+    select.value = activePermMode || "default";
+    msg.textContent = "";
+    msg.className = "wfd-msg";
+    modal.style.display = "flex";
+    setTimeout(function () { input.focus(); input.select(); }, 60);
+  }
+
+  function closeFolderModal() {
+    g("workspaceFolderModal").style.display = "none";
+  }
+
+  g("wfdClose").addEventListener("click", closeFolderModal);
+  g("wfdCancel").addEventListener("click", closeFolderModal);
+  g("workspaceFolderOverlay").addEventListener("click", closeFolderModal);
+
+  g("wfdSave").addEventListener("click", async function () {
+    var path = g("wfdPathInput").value.trim();
+    var perm = g("wfdPermMode").value;
+    var msg = g("wfdMsg");
+    if (!path) { msg.textContent = "Please enter a folder path."; return; }
+    var btn = g("wfdSave");
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      var res = await fetch("/api/workspace/local-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceRoot: path, permissionMode: perm }),
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save");
+      msg.className = "wfd-msg ok";
+      msg.textContent = "✓ Project folder set!";
+      showProjectChip(path, perm);
+      setTimeout(closeFolderModal, 900);
+    } catch (e) {
+      msg.className = "wfd-msg";
+      msg.textContent = e.message;
+    } finally {
+      btn.disabled = false; btn.textContent = "Set as project folder";
+    }
+  });
+
+  g("chatProjectEdit").addEventListener("click", function () { openFolderModal(); });
+  g("chatProjectClear").addEventListener("click", async function () {
+    /* Reset to default workspace */
+    await fetch("/api/workspace/local-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspaceRoot: "/tmp/olla-nest-workspace", permissionMode: "default" }),
+    }).catch(function () {});
+    activeProjectPath = null;
+    g("chatProjectRow").style.display = "none";
+  });
+
+  /* Load on start */
+  loadProjectFolder();
+
+  /* Expose so tab-switch can refresh it */
+  window._chatLoadProjectFolder = loadProjectFolder;
+
+  /* Expose active project path for sendChat to include in context */
+  window._chatGetProjectPath = function () { return activeProjectPath; };
+
+  /* ═══════════════════════════════════
+     3. + DROPDOWN MENU
   ═══════════════════════════════════ */
   function toggleMenu(menu, btn) {
     var isOpen = menu.classList.contains("open");
@@ -1691,7 +1877,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   plusMenu.addEventListener("click", function (e) { e.stopPropagation(); });
 
   g("ddFiles").addEventListener("click", function () { closeAllMenus(); fileInput.click(); });
-  g("ddFolder").addEventListener("click", function () { closeAllMenus(); folderInput.click(); });
+  g("ddFolder").addEventListener("click", function () { closeAllMenus(); openFolderModal(); });
   g("ddSlash").addEventListener("click", function () {
     closeAllMenus();
     chatInput.value = "/";
@@ -1700,13 +1886,14 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   });
 
   /* ═══════════════════════════════════
-     3. SLASH COMMANDS
+     4. SLASH COMMANDS
   ═══════════════════════════════════ */
   var SLASH_CMDS = [
     { cmd: "/clear",   desc: "Clear chat history and start fresh" },
     { cmd: "/new",     desc: "Start a new chat thread" },
     { cmd: "/mode",    desc: "Switch mode: ask build fix debug review test docs plan learn" },
     { cmd: "/model",   desc: "Pick a specific model for next message" },
+    { cmd: "/folder",  desc: "Set or change local project folder for Build/Fix/Debug" },
     { cmd: "/attach",  desc: "Open file picker to attach files" },
     { cmd: "/voice",   desc: "Toggle voice input (Chrome / Edge only)" },
     { cmd: "/help",    desc: "Show all available slash commands" },
@@ -1748,6 +1935,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       case "/new":
         g("chatNewBtn").click();
         chatInput.value = "";
+        break;
+      case "/folder":
+        chatInput.value = "";
+        openFolderModal();
         break;
       case "/attach":
         chatInput.value = "";
@@ -1816,7 +2007,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   });
 
   /* ═══════════════════════════════════
-     4. VOICE INPUT — Web Speech API (Chrome / Edge)
+     5. VOICE INPUT — Web Speech API (Chrome / Edge)
   ═══════════════════════════════════ */
   var SpeechRec   = window.SpeechRecognition || window.webkitSpeechRecognition;
   var isRecording = false;
@@ -1917,7 +2108,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   }
 
   /* ═══════════════════════════════════
-     5. HOOK INTO SENDCHAT — inject file context
+     6. HOOK INTO SENDCHAT — inject file context
   ═══════════════════════════════════ */
   /* The main sendChat function reads chatInput.value.
      We prepend file context to the message before it's sent. */
