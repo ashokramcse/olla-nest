@@ -1708,7 +1708,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     { cmd: "/mode",    desc: "Switch mode: ask build fix debug review test docs plan learn" },
     { cmd: "/model",   desc: "Pick a specific model for next message" },
     { cmd: "/attach",  desc: "Open file picker to attach files" },
-    { cmd: "/voice",   desc: "Toggle voice input on/off" },
+    { cmd: "/voice",   desc: "Toggle voice input (Chrome / Edge only)" },
     { cmd: "/help",    desc: "Show all available slash commands" },
   ];
 
@@ -1816,119 +1816,33 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   });
 
   /* ═══════════════════════════════════
-     4. VOICE INPUT — MediaRecorder (all browsers incl. Firefox)
-        Falls back to Web Speech API for instant transcription in Chrome.
-        Uses backend /api/voice/transcribe (Whisper) for all other browsers.
+     4. VOICE INPUT — Web Speech API (Chrome / Edge)
   ═══════════════════════════════════ */
   var SpeechRec   = window.SpeechRecognition || window.webkitSpeechRecognition;
   var isRecording = false;
   var holdMode    = false;
   var selectedMicId = null;
-
-  /* ── MediaRecorder path (Firefox + all browsers) ── */
-  var mediaRecorder = null;
-  var audioChunks   = [];
-  var activeStream  = null;
+  var recognition = null;
 
   function setRecordingUI(on) {
     isRecording = on;
     micBtn.classList.toggle("recording", on);
     micBtn.title = on ? "Recording… click to stop" : "Voice input";
-    chatInput.placeholder = on
-      ? "🎙 Recording… click mic to stop and transcribe"
-      : "Message Olla Nest… (type / for commands)";
+    chatInput.placeholder = on ? "🎙 Listening… speak now" : "Message Olla Nest… (type / for commands)";
   }
 
   function showMicStatus(msg, isErr) {
     chatInput.placeholder = msg;
     setTimeout(function () {
       chatInput.placeholder = "Message Olla Nest… (type / for commands)";
-    }, isErr ? 4000 : 2000);
+    }, isErr ? 3500 : 2000);
   }
 
-  async function sendAudioToWhisper(blob) {
-    showMicStatus("⏳ Transcribing…");
-    try {
-      var res = await fetch("/api/voice/transcribe", {
-        method: "POST",
-        headers: { "Content-Type": blob.type || "audio/webm" },
-        body: blob
-      });
-      var data = await res.json();
-
-      if (data.error === "whisper_not_configured" || data.error === "whisper_unreachable") {
-        showWhisperSetupBanner();
-        return;
-      }
-      if (data.text) {
-        chatInput.value = (chatInput.value + " " + data.text).trim();
-        chatInput.dispatchEvent(new Event("input"));
-        showMicStatus("✓ Transcribed");
-      } else {
-        showMicStatus("No speech detected — try again", true);
-      }
-    } catch (e) {
-      showMicStatus("Transcription error: " + e.message, true);
-    }
-  }
-
-  function showWhisperSetupBanner() {
-    var el = document.getElementById("chatMessages");
-    if (!el) return;
-    el.insertAdjacentHTML("beforeend",
-      '<div class="cmsg-ai" id="whisperSetupMsg">'
-      + '<div class="cmsg-meta"><span class="cmsg-meta-dot ai-dot">O</span>Olla Nest — Setup needed</div>'
-      + '<div class="cmsg-bubble-ai" style="border:1.5px solid #e8c624;border-radius:14px;padding:16px 18px;">'
-      + '<strong>🎙 Voice transcription needs the Whisper sidecar</strong><br><br>'
-      + 'Firefox and other browsers use a local Whisper service for transcription.<br>'
-      + 'Run this command to start it:<br><br>'
-      + '<div class="chat-code-block"><button class="code-copy" onclick="window._chatCopyCode(this)">Copy</button>'
-      + '<pre><code>docker compose -f docker-compose.yml -f docker-compose.whisper.yml up --build</code></pre></div>'
-      + '<br>The Whisper container (~1.5 GB) will download automatically.<br>'
-      + 'Once running, voice input will work in Firefox, Chrome, and all browsers.'
-      + '</div></div>'
-    );
-    el.scrollTop = el.scrollHeight;
-  }
-
-  async function startMediaRecorder() {
-    if (!navigator.mediaDevices) {
-      showMicStatus("⚠ Microphone not accessible (HTTPS required or permission denied)", true);
+  function startVoice() {
+    if (!SpeechRec) {
+      showMicStatus("⚠ Voice input works in Chrome or Edge only", true);
       return;
     }
-    try {
-      var constraints = { audio: selectedMicId ? { deviceId: { exact: selectedMicId } } : true };
-      activeStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-      /* pick best supported format */
-      var mimeTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/ogg", "audio/mp4"];
-      var mime = mimeTypes.find(function (m) { return MediaRecorder.isTypeSupported(m); }) || "";
-
-      audioChunks = [];
-      mediaRecorder = new MediaRecorder(activeStream, mime ? { mimeType: mime } : {});
-      mediaRecorder.ondataavailable = function (e) { if (e.data.size) audioChunks.push(e.data); };
-      mediaRecorder.onstop = function () {
-        activeStream.getTracks().forEach(function (t) { t.stop(); });
-        activeStream = null;
-        var blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
-        sendAudioToWhisper(blob);
-      };
-      mediaRecorder.start();
-      setRecordingUI(true);
-    } catch (e) {
-      showMicStatus("Microphone error: " + e.message, true);
-    }
-  }
-
-  function stopMediaRecorder() {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-    setRecordingUI(false);
-  }
-
-  /* ── Web Speech API path (Chrome/Edge — instant, no backend needed) ── */
-  var recognition = null;
-
-  function startSpeechAPI() {
     if (isRecording) { recognition && recognition.stop(); return; }
     recognition = new SpeechRec();
     recognition.continuous = !holdMode;
@@ -1945,18 +1859,12 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       if (interim) chatInput.placeholder = "🎙 " + interim;
     };
     recognition.onend   = function () { setRecordingUI(false); };
-    recognition.onerror = function (e) { setRecordingUI(false); if (e.error !== "aborted") showMicStatus("Speech error: " + e.error, true); };
+    recognition.onerror = function (e) { setRecordingUI(false); if (e.error !== "aborted") showMicStatus("Voice error: " + e.error, true); };
     recognition.start();
   }
 
-  /* ── Unified start/stop ── */
-  function startVoice() {
-    if (isRecording) { SpeechRec ? (recognition && recognition.stop()) : stopMediaRecorder(); return; }
-    if (SpeechRec) startSpeechAPI(); else startMediaRecorder();
-  }
   function stopVoice() {
-    if (SpeechRec && recognition) recognition.stop();
-    else stopMediaRecorder();
+    if (recognition) recognition.stop();
     setRecordingUI(false);
   }
 
@@ -1968,7 +1876,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     startVoice();
   });
   micBtn.addEventListener("mousedown", function () { if (holdMode) startVoice(); });
-  micBtn.addEventListener("mouseup",   function () { if (holdMode) stopVoice(); });
+  micBtn.addEventListener("mouseup",   function () { if (holdMode && isRecording) stopVoice(); });
   micBtn.addEventListener("mouseleave",function () { if (holdMode && isRecording) stopVoice(); });
 
   holdToggle.addEventListener("change", function () { holdMode = holdToggle.checked; if (isRecording) stopVoice(); });

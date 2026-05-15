@@ -1088,56 +1088,6 @@ app.post("/api/chat", requireAuth, async (req, res) => {
   }
 });
 
-/* ── Voice transcription — MediaRecorder audio → Whisper ASR sidecar ── */
-app.post("/api/voice/transcribe", requireAuth, async (req, res) => {
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const buf = Buffer.concat(chunks);
-  if (!buf.length) return res.status(400).json({ error: "Empty audio" });
-
-  const whisperUrl = process.env.WHISPER_URL || "";
-  if (!whisperUrl) {
-    return res.json({
-      text: "",
-      engine: "none",
-      error: "whisper_not_configured",
-      hint: "Start the Whisper sidecar: docker compose -f docker-compose.yml -f docker-compose.whisper.yml up --build"
-    });
-  }
-
-  try {
-    /* Whisper ASR webservice expects multipart/form-data with field 'audio_file' */
-    const boundary = "----OllaNestVoice" + Date.now();
-    const mimeType = req.headers["content-type"] || "audio/webm";
-    const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "mp4" : "webm";
-
-    const bodyParts = [
-      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="audio_file"; filename="voice.${ext}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
-      buf,
-      Buffer.from(`\r\n--${boundary}--\r\n`)
-    ];
-    const body = Buffer.concat(bodyParts);
-
-    const asr = await fetch(`${whisperUrl}/asr?task=transcribe&language=en&output=txt`, {
-      method: "POST",
-      headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
-      body,
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (!asr.ok) throw new Error(`Whisper ASR returned ${asr.status}`);
-    const text = (await asr.text()).replace(/\[.*?\]/g, "").trim();
-    res.json({ text, engine: "whisper-asr" });
-  } catch (err) {
-    res.json({
-      text: "",
-      engine: "error",
-      error: "whisper_unreachable",
-      hint: "Whisper sidecar may not be running. Start with: docker compose -f docker-compose.yml -f docker-compose.whisper.yml up"
-    });
-  }
-});
-
 app.post("/api/chat/clear", requireAuth, (req, res) => {
   const db = openSql();
   try {
