@@ -961,7 +961,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   font-size:12px;font-weight:400;
   border:1px solid transparent;
   background:transparent;cursor:pointer;
-  font-family:inherit;color:#666;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  color:#666;
   transition:all .12s;white-space:nowrap;
 }
 .cmode:hover{background:#f5f5f5;color:var(--ink);}
@@ -976,6 +977,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   padding:32px 48px;
   scroll-behavior:smooth;
   background:#fff;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
 }
 #chatMessages::-webkit-scrollbar{width:4px;}
 #chatMessages::-webkit-scrollbar-thumb{background:#0000001a;border-radius:4px;}
@@ -998,7 +1000,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 }
 #chatInput{
   flex:1;border:none;outline:none;resize:none;
-  font-size:14px;font-family:inherit;
+  font-size:14px;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
   background:transparent;line-height:1.55;
   min-height:24px;max-height:140px;overflow-y:auto;
   color:var(--ink);
@@ -1046,6 +1049,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   padding:11px 16px;font-size:14px;
   line-height:1.6;max-width:72%;
   word-break:break-word;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
 }
 
 /* AI response — no card, just clean text */
@@ -1053,6 +1057,16 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   font-size:14.5px;line-height:1.75;
   color:var(--ink);word-break:break-word;
   max-width:90%;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  background:#fff; /* explicit white — prevents any dark bleed */
+}
+/* reset ANY stray pre/code that marked might generate outside code blocks */
+.cmsg-bubble-ai pre:not(.chat-code-block pre){
+  background:#f6f4ee;border-radius:10px;
+  padding:12px 14px;overflow-x:auto;
+  margin:12px 0;white-space:pre-wrap;
+  font-family:'SF Mono','Fira Code',monospace;
+  font-size:13px;color:var(--ink);
 }
 .cmsg-bubble-ai p{margin:0 0 12px;}
 .cmsg-bubble-ai p:last-child{margin-bottom:0;}
@@ -1060,6 +1074,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 .cmsg-bubble-ai li{margin-bottom:5px;}
 .cmsg-bubble-ai h1,.cmsg-bubble-ai h2,.cmsg-bubble-ai h3{
   font-weight:600;margin:18px 0 8px;letter-spacing:-.01em;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
 }
 .cmsg-bubble-ai h1{font-size:18px;}
 .cmsg-bubble-ai h2{font-size:16px;}
@@ -1077,7 +1092,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 .cmsg-bubble-ai :not(.chat-code-block) > code{
   background:#f2f0e8;border-radius:5px;
   padding:2px 6px;font-size:12.5px;
-  font-family:'Fira Code',monospace;color:var(--ink);
+  font-family:'SF Mono','Fira Code',monospace;
+  color:var(--ink);
 }
 
 /* ── Code blocks ── */
@@ -1183,7 +1199,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   /* ── markdown renderer ── */
   function renderMd(text) {
     if (typeof marked === "undefined") {
-      return '<div class="chat-code-block"><pre><code>' + esc(text) + '</code></pre></div>';
+      return '<p style="white-space:pre-wrap;font-family:\'Plus Jakarta Sans\',system-ui,sans-serif;">' + esc(text) + '</p>';
     }
     marked.setOptions({ breaks: true, gfm: true });
     var r = new marked.Renderer();
