@@ -1088,6 +1088,70 @@ app.post("/api/chat", requireAuth, async (req, res) => {
   }
 });
 
+/* ── Voice transcription — MediaRecorder audio → text ── */
+app.post("/api/voice/transcribe", requireAuth, (req, res) => {
+  const os = require("os");
+  const { execFile, execFileSync } = require("child_process");
+  const tmpDir = os.tmpdir();
+  const tmpId = `voice-${Date.now()}`;
+  const tmpIn = path.join(tmpDir, tmpId + ".webm");
+  const tmpWav = path.join(tmpDir, tmpId + ".wav");
+  const chunks = [];
+
+  req.on("data", (chunk) => chunks.push(chunk));
+  req.on("end", () => {
+    const buf = Buffer.concat(chunks);
+    if (!buf.length) { return res.status(400).json({ error: "Empty audio" }); }
+    fs.writeFileSync(tmpIn, buf);
+
+    function cleanup() {
+      [tmpIn, tmpWav].forEach(f => { try { fs.unlinkSync(f); } catch (_) {} });
+    }
+
+    /* Try whisper CLI first */
+    function tryWhisper() {
+      const candidates = ["whisper", "whisper-ctranslate2", "/usr/local/bin/whisper", "/usr/bin/whisper"];
+      let whisperBin = null;
+      for (const c of candidates) {
+        try { execFileSync(c, ["--help"], { stdio: "pipe" }); whisperBin = c; break; } catch (_) {}
+      }
+      if (!whisperBin) return false;
+
+      /* Convert to wav first using ffmpeg if available */
+      let audioFile = tmpIn;
+      try {
+        execFileSync("ffmpeg", ["-y", "-i", tmpIn, "-ar", "16000", "-ac", "1", tmpWav], { stdio: "pipe" });
+        audioFile = tmpWav;
+      } catch (_) { /* use original if ffmpeg missing */ }
+
+      execFile(whisperBin,
+        [audioFile, "--model", "tiny", "--language", "en", "--output-format", "txt", "--output-dir", tmpDir, "--no-speech-threshold", "0.3"],
+        { timeout: 30000 },
+        (err, stdout, stderr) => {
+          const txtFile = audioFile.replace(/\.(webm|wav)$/, ".txt");
+          let transcript = "";
+          try { transcript = fs.readFileSync(txtFile, "utf8").replace(/\[.*?\]/g, "").trim(); fs.unlinkSync(txtFile); } catch (_) {}
+          if (!transcript) transcript = (stdout || "").replace(/\[.*?\]/g, "").trim();
+          cleanup();
+          res.json({ text: transcript || "", engine: "whisper" });
+        }
+      );
+      return true;
+    }
+
+    if (!tryWhisper()) {
+      cleanup();
+      res.json({
+        text: "",
+        engine: "none",
+        error: "whisper_not_installed",
+        hint: "Install openai-whisper: pip install openai-whisper  (or add it to your Docker image)"
+      });
+    }
+  });
+  req.on("error", (err) => res.status(500).json({ error: err.message }));
+});
+
 app.post("/api/chat/clear", requireAuth, (req, res) => {
   const db = openSql();
   try {
