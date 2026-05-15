@@ -1271,12 +1271,12 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 .cmp-trigger.open{border-color:var(--primary);background:#fff;}
 .cmp-chevron{transition:transform .15s;flex-shrink:0;}
 .cmp-trigger.open .cmp-chevron{transform:rotate(180deg);}
-/* Dropdown — opens below trigger, right-aligned to panel edge */
+/* Dropdown — opens below trigger, left-aligned to trigger */
 #chatModelDropdown{
-  display:none;position:absolute;top:calc(100% + 5px);right:14px;
+  display:none;position:absolute;top:calc(100% + 5px);left:0;
   background:#fff;border:1.5px solid var(--line-soft);border-radius:12px;
   box-shadow:0 12px 36px rgba(0,0,0,.14);z-index:500;
-  width:300px;overflow:hidden;
+  width:260px;overflow:hidden;
 }
 #chatModelDropdown.open{display:block;}
 .cmp-dd-header{
@@ -2299,9 +2299,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       e.preventDefault();
       slashFocusIdx = Math.max(slashFocusIdx - 1, 0);
       items.forEach(function (el, i) { el.classList.toggle("focused", i === slashFocusIdx); });
-    } else if (e.key === "Enter" && slashFocusIdx >= 0) {
+    } else if (e.key === "Enter") {
       e.preventDefault();
-      applySlashCmd(items[slashFocusIdx].dataset.cmd);
+      var idx = slashFocusIdx >= 0 ? slashFocusIdx : 0;
+      applySlashCmd(items[idx].dataset.cmd);
     } else if (e.key === "Escape") {
       hideSlashMenu();
     }
