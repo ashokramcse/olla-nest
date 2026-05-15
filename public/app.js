@@ -207,7 +207,7 @@ async function checkOllama() {
 }
 
 function updateWriteToggle() {
-  const isBuildFix = ["build", "fix"].includes(activeMode);
+  const isBuildFix = ["build", "fix", "debug", "test", "docs"].includes(activeMode);
   const label = $("writeToggleLabel");
   label.style.display = isBuildFix ? "flex" : "none";
   const ws = state?.workspace;
