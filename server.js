@@ -1056,27 +1056,30 @@ app.get("/api/ollama/models", requireAuth, async (req, res) => {
   }
 });
 
+const MAC_HOME = "/mac-home"; /* bind-mounted from ${HOME} on the host */
+
 /* Browse local filesystem directories */
 app.get("/api/workspace/browse", requireAuth, (req, res) => {
-  const home = path.join(DATA_DIR, "workspace");
-  fs.mkdirSync(home, { recursive: true });
+  /* Prefer Mac home if mounted, else fall back to container workspace */
+  const defaultHome = fs.existsSync(MAC_HOME) ? MAC_HOME : path.join(DATA_DIR, "workspace");
+  fs.mkdirSync(path.join(DATA_DIR, "workspace"), { recursive: true });
   let resolved;
   try {
-    const requestedPath = String(req.query.path || home).trim();
+    const requestedPath = String(req.query.path || defaultHome).trim();
     resolved = path.resolve(requestedPath);
     if (req.query.create === "1") {
       fs.mkdirSync(resolved, { recursive: true });
     }
     if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-      resolved = home;
+      resolved = defaultHome;
     }
     const entries = fs.readdirSync(resolved, { withFileTypes: true });
     const dirs = entries
       .filter((e) => e.isDirectory() && !e.name.startsWith("."))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((e) => ({ name: e.name, path: path.join(resolved, e.name) }));
-    const parentPath = (resolved === path.parse(resolved).root || resolved === home) ? null : path.dirname(resolved);
-    res.json({ current: resolved, parent: parentPath, dirs, home });
+    const parentPath = (resolved === path.parse(resolved).root || resolved === defaultHome) ? null : path.dirname(resolved);
+    res.json({ current: resolved, parent: parentPath, dirs, home: defaultHome, macHome: MAC_HOME });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1095,11 +1098,7 @@ app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
       appendAudit(req.user.name, "workspace.local.clear", "Cleared local workspace folder");
       return res.json({ ok: true, workspace: workspaceForUser(db, req.user.id) });
     }
-    let nextRoot = path.resolve(workspaceRootInput);
-    /* Redirect paths outside DATA_DIR to the workspace volume so files actually persist */
-    if (!nextRoot.startsWith(DATA_DIR)) {
-      nextRoot = path.join(DATA_DIR, "workspace", path.basename(nextRoot));
-    }
+    const nextRoot = path.resolve(workspaceRootInput);
     fs.mkdirSync(nextRoot, { recursive: true });
     docs.workspacePrefs[req.user.id] = {
       workspaceRoot: nextRoot,
