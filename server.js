@@ -374,7 +374,14 @@ function ollamaUrl(db) {
 
 async function fetchOllamaModels(url = OLLAMA_URL) {
   const baseUrl = cleanBaseUrl(url);
-  const response = await fetch(`${baseUrl}/api/tags`);
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 5000);
+  let response;
+  try {
+    response = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal });
+  } finally {
+    clearTimeout(t);
+  }
   if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
   const data = await response.json();
   return data.models || [];
