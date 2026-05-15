@@ -1171,6 +1171,7 @@ app.post("/api/chat", requireAuth, async (req, res) => {
       routeReason: route.reason,
       live,
       artifacts,
+      extractedFiles,
       createdAt: now,
     });
     /* Auto-set title from first user message if still default */
