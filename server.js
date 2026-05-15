@@ -662,7 +662,7 @@ async function ollamaGenerate(db, model, prompt) {
         prompt,
         stream: false,
         think: false,
-        options: { temperature: 0.5, num_predict: 900 },
+        options: { temperature: 0.5, num_predict: 4096 },
       }),
     });
     if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
