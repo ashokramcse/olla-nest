@@ -533,44 +533,49 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
       <!-- ── CHAT ── -->
       <div class="tab-view" id="tab-chat">
-        <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;height:calc(100vh - 220px);min-height:500px;">
+        <div id="chatLayout">
 
-          <!-- Left: messages -->
-          <div class="card" style="display:flex;flex-direction:column;padding:0;overflow:hidden;">
-            <!-- chat header -->
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line-soft);flex-shrink:0;">
-              <div style="display:flex;gap:6px;">
-                <button class="chat-mode-btn active" data-mode="ask">Ask</button>
-                <button class="chat-mode-btn" data-mode="build">Build</button>
-                <button class="chat-mode-btn" data-mode="fix">Fix</button>
-                <button class="chat-mode-btn" data-mode="review">Review</button>
+          <!-- Left column: message thread + composer -->
+          <div class="card" id="chatMain">
+
+            <!-- Header: modes + new chat -->
+            <div id="chatHeader">
+              <div id="chatModes">
+                <button class="cmode active" data-mode="ask">Ask</button>
+                <button class="cmode" data-mode="build">Build</button>
+                <button class="cmode" data-mode="fix">Fix</button>
+                <button class="cmode" data-mode="review">Review</button>
+                <button class="cmode" data-mode="learn">Learn</button>
               </div>
-              <button id="chatNewBtn" class="btn ghost sm" style="font-size:13px;">New Chat</button>
+              <button id="chatNewBtn" class="btn ghost sm">New Chat</button>
             </div>
-            <!-- messages -->
-            <div id="chatMessages" style="flex:1;overflow-y:auto;padding:20px;"></div>
-            <!-- input -->
-            <div style="padding:14px 16px;border-top:1px solid var(--line-soft);flex-shrink:0;">
-              <div style="display:flex;gap:8px;align-items:flex-end;">
-                <textarea id="chatInput" rows="2" placeholder="Message Olla Nest…"
-                  style="flex:1;border:1.5px solid var(--line-soft);border-radius:14px;padding:10px 14px;font-size:14px;font-family:inherit;resize:none;outline:none;background:#fff;line-height:1.5;"></textarea>
-                <button id="chatSendBtn" class="btn dark" style="height:44px;padding:0 20px;flex-shrink:0;">Send</button>
-              </div>
+
+            <!-- Messages -->
+            <div id="chatMessages"></div>
+
+            <!-- Composer -->
+            <div id="chatComposer">
+              <textarea id="chatInput" rows="2" placeholder="Message Olla Nest…"></textarea>
+              <button id="chatSendBtn" class="btn dark">Send</button>
             </div>
+
           </div>
 
-          <!-- Right: model picker + router -->
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            <div class="card" style="flex-shrink:0;">
-              <div class="card-head" style="margin-bottom:10px;"><div class="card-title">Model</div></div>
+          <!-- Right column: model selector + router panel -->
+          <div id="chatSidebar">
+
+            <div class="card" id="chatModelCard">
+              <div class="card-title" style="margin-bottom:10px;">Model</div>
               <select id="chatModelSelect" class="input" style="width:100%;">
                 <option value="">Auto Router</option>
               </select>
             </div>
-            <div class="card" style="flex:1;overflow:hidden;">
-              <div class="card-head" style="margin-bottom:10px;"><div class="card-title">Auto Router</div></div>
-              <div id="chatRouterContent" style="font-size:14px;color:var(--mute);">Send a message to see routing details.</div>
+
+            <div class="card" id="chatRouterCard">
+              <div class="card-title" style="margin-bottom:10px;">Auto Router</div>
+              <div id="chatRouterContent">Send a message to see routing details.</div>
             </div>
+
           </div>
 
         </div>
@@ -913,180 +918,248 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
 
 <style>
-.chat-mode-btn{padding:7px 16px;border-radius:999px;font-size:13px;font-weight:400;border:1px solid var(--line-soft);background:#fff;cursor:pointer;font-family:inherit;color:var(--ink);}
-.chat-mode-btn:hover{background:var(--paper)}
-.chat-mode-btn.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+/* ── Chat tab layout ── */
+#chatLayout{display:grid;grid-template-columns:1fr 280px;gap:14px;height:calc(100vh - 210px);min-height:520px;}
+#chatMain{display:flex;flex-direction:column;padding:0;overflow:hidden;}
+#chatHeader{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line-soft);flex-shrink:0;}
+#chatModes{display:flex;gap:6px;flex-wrap:wrap;}
+.cmode{padding:6px 15px;border-radius:999px;font-size:13px;font-weight:400;border:1px solid var(--line-soft);background:#fff;cursor:pointer;font-family:inherit;color:var(--ink);transition:background .12s,color .12s;}
+.cmode:hover{background:var(--paper);}
+.cmode.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+#chatMessages{flex:1;overflow-y:auto;padding:20px;scroll-behavior:smooth;}
+#chatComposer{display:flex;gap:8px;align-items:flex-end;padding:14px 16px;border-top:1px solid var(--line-soft);flex-shrink:0;}
+#chatInput{flex:1;border:1.5px solid var(--line-soft);border-radius:14px;padding:10px 14px;font-size:14px;font-family:inherit;resize:none;outline:none;background:#fff;line-height:1.5;transition:border-color .15s;}
+#chatInput:focus{border-color:#e8c624;box-shadow:0 0 0 3px rgba(244,211,58,.15);}
+#chatSidebar{display:flex;flex-direction:column;gap:12px;}
+#chatModelCard{flex-shrink:0;}
+#chatRouterCard{flex:1;overflow-y:auto;}
+#chatRouterContent{font-size:13px;color:var(--mute);line-height:1.6;}
+
+/* ── Message bubbles ── */
+.cmsg-user{display:flex;flex-direction:column;align-items:flex-end;margin-bottom:18px;}
+.cmsg-ai{margin-bottom:18px;}
+.cmsg-meta{font-size:11px;color:var(--mute);margin-bottom:5px;}
+.cmsg-bubble-user{background:var(--ink);color:#fff;border-radius:18px 18px 4px 18px;padding:12px 16px;font-size:14px;line-height:1.6;max-width:82%;word-break:break-word;}
+.cmsg-bubble-ai{background:#fff;border:1px solid var(--line-soft);border-radius:18px;padding:14px 18px;font-size:14px;line-height:1.65;word-break:break-word;}
+.cmsg-bubble-ai pre{background:#15140f;border-radius:12px;padding:14px;overflow-x:auto;margin:10px 0;position:relative;}
+.cmsg-bubble-ai code{color:#f5f3ed;font-size:13px;}
+.cmsg-bubble-ai p{margin:0 0 8px;}
+.cmsg-bubble-ai p:last-child{margin-bottom:0;}
+.cmsg-copy{position:absolute;top:8px;right:8px;background:#ffffff20;border:none;color:#ffffffaa;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-family:inherit;}
+.cmsg-copy:hover{background:#ffffff35;}
+
+/* ── Router result ── */
+.cr-model{font-size:16px;font-weight:600;letter-spacing:-0.01em;margin-bottom:5px;color:var(--ink);}
+.cr-reason{font-size:13px;color:var(--mute);line-height:1.5;margin-bottom:10px;}
+.cr-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
+.cr-tag{padding:4px 11px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);font-size:12px;}
+.cr-cands{margin-top:10px;border-top:1px solid var(--line-soft);padding-top:10px;}
+.cr-cand-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--mute);margin-bottom:6px;}
+.cr-cand{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0;}
+.cr-cand-score{font-size:12px;color:var(--mute);}
 </style>
 
-
-
-
-
 <script>
-(function(){
+(function () {
+  "use strict";
+
+  /* ── state ── */
   var chatMode = "ask";
 
-  function chatEsc(v){
+  /* ── helpers ── */
+  function esc(v) {
     return String(v == null ? "" : v)
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  function copyAdminCode(btn){
-    var code = btn.parentElement.querySelector("code");
-    if(!code) return;
-    navigator.clipboard.writeText(code.innerText).then(function(){
+  function get(id) { return document.getElementById(id); }
+
+  /* ── markdown with code-copy ── */
+  function copyCode(btn) {
+    var code = btn.closest("pre").querySelector("code");
+    if (!code) return;
+    navigator.clipboard.writeText(code.innerText).then(function () {
       btn.textContent = "Copied!";
-      setTimeout(function(){ btn.textContent = "Copy"; }, 2000);
+      setTimeout(function () { btn.textContent = "Copy"; }, 2000);
     });
   }
-  window.copyAdminCode = copyAdminCode;
+  window._chatCopyCode = copyCode;
 
-  function renderMd(text){
-    if(typeof marked === "undefined"){
-      return "<pre style='white-space:pre-wrap'>" + chatEsc(text) + "</pre>";
+  function renderMd(text) {
+    if (typeof marked === "undefined") {
+      return "<pre style='white-space:pre-wrap'>" + esc(text) + "</pre>";
     }
-    marked.setOptions({breaks:true, gfm:true});
+    marked.setOptions({ breaks: true, gfm: true });
     var r = new marked.Renderer();
-    r.code = function(token){
-      var raw = typeof token === "object" ? token.text : token;
+    r.code = function (token) {
+      var raw  = typeof token === "object" ? token.text : token;
       var lang = typeof token === "object" ? (token.lang || "") : "";
-      var escaped = raw.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      var labelHtml = lang
-        ? '<span style="position:absolute;top:10px;left:14px;font-size:11px;color:#ffffff60;">' + chatEsc(lang) + '</span>'
-        : "";
-      return '<div style="position:relative;margin:10px 0;">'
-        + labelHtml
-        + '<button onclick="copyAdminCode(this)" style="position:absolute;top:10px;right:10px;background:#ffffff20;border:none;color:#ffffffaa;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">Copy</button>'
-        + '<pre style="background:#15140f;border-radius:14px;padding:16px;overflow-x:auto;margin:0;">'
-        + '<code style="color:#f5f3ed;font-size:13px;">' + escaped + '</code>'
-        + '</pre></div>';
+      var code = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      var label = lang ? '<span style="font-size:11px;color:#ffffff60;position:absolute;top:10px;left:14px;">' + esc(lang) + '</span>' : "";
+      return '<pre>' + label
+        + '<button class="cmsg-copy" onclick="window._chatCopyCode(this)">Copy</button>'
+        + '<code>' + code + '</code></pre>';
     };
-    return marked.parse(text, {renderer: r});
+    return marked.parse(text, { renderer: r });
   }
 
-  function renderChatMessages(){
-    var el = document.getElementById("chatMessages");
-    if(!el) return;
-    if(typeof state === "undefined"){
-      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mute);">Loading...</div>';
+  /* ── render messages ── */
+  function renderMessages() {
+    var el = get("chatMessages");
+    if (!el) return;
+
+    /* wait for global state (loaded by admin.js) */
+    if (typeof state === "undefined" || !state) {
+      el.innerHTML = '<div style="text-align:center;padding:60px;color:var(--mute);">Loading…</div>';
       return;
     }
-    var chat = (state.chats || []).find(function(ch){ return ch.userId === state.activeUser.id; })
+
+    var chat = (state.chats || []).find(function (c) { return c.userId === state.activeUser.id; })
                || (state.chats || [])[0];
     var msgs = (chat && chat.messages) || [];
-    if(!msgs.length){
-      el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--mute);">'
-        + '<div style="font-size:28px;margin-bottom:12px;">&#10022;</div>'
-        + '<div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:6px;">Ready when you are</div>'
-        + '<div style="font-size:13px;">Ask anything &middot; Build &middot; Review &middot; Fix</div></div>';
+
+    if (!msgs.length) {
+      el.innerHTML =
+        '<div style="text-align:center;padding:60px 20px;color:var(--mute);">'
+        + '<div style="font-size:30px;margin-bottom:14px;">✦</div>'
+        + '<div style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:6px;">Ready when you are</div>'
+        + '<div style="font-size:13px;">Ask · Build · Review · Fix · Learn</div>'
+        + '</div>';
       return;
     }
-    el.innerHTML = msgs.map(function(msg){
-      if(msg.role === "user"){
-        return '<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:16px;">'
-          + '<div style="font-size:12px;color:var(--mute);margin-bottom:4px;">' + chatEsc(state.activeUser.name) + '</div>'
-          + '<div style="background:var(--ink);color:#fff;border-radius:18px 18px 4px 18px;padding:12px 16px;font-size:15px;line-height:1.6;max-width:85%;">' + chatEsc(msg.content) + '</div>'
+
+    el.innerHTML = msgs.map(function (msg) {
+      if (msg.role === "user") {
+        return '<div class="cmsg-user">'
+          + '<div class="cmsg-meta">' + esc(state.activeUser.name) + '</div>'
+          + '<div class="cmsg-bubble-user">' + esc(msg.content) + '</div>'
           + '</div>';
       }
-      return '<div style="margin-bottom:16px;">'
-        + '<div style="font-size:12px;color:var(--mute);margin-bottom:4px;">' + chatEsc(msg.modelName || "Olla Nest") + '</div>'
-        + '<div style="background:#fff;border:1px solid var(--line-soft);border-radius:18px;padding:12px 16px;font-size:15px;line-height:1.65;">' + renderMd(msg.content) + '</div>'
+      return '<div class="cmsg-ai">'
+        + '<div class="cmsg-meta">' + esc(msg.modelName || "Olla Nest") + '</div>'
+        + '<div class="cmsg-bubble-ai">' + renderMd(msg.content) + '</div>'
         + '</div>';
     }).join("");
+
     el.scrollTop = el.scrollHeight;
   }
 
-  function populateChatModels(){
-    var sel = document.getElementById("chatModelSelect");
-    if(!sel || typeof state === "undefined") return;
-    var models = state.models.filter(function(m){
-      return state.allowedModelIds.includes(m.id) && m.status !== "disabled";
+  /* ── populate model select ── */
+  function populateModels() {
+    var sel = get("chatModelSelect");
+    if (!sel || typeof state === "undefined" || !state) return;
+    var models = (state.models || []).filter(function (m) {
+      return (state.allowedModelIds || []).includes(m.id) && m.status !== "disabled";
     });
     sel.innerHTML = '<option value="">Auto Router</option>'
-      + models.map(function(m){ return '<option value="' + chatEsc(m.id) + '">' + chatEsc(m.name) + '</option>'; }).join("");
+      + models.map(function (m) {
+          return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>';
+        }).join("");
   }
 
-  function renderChatRouter(route){
-    var el = document.getElementById("chatRouterContent");
-    if(!el) return;
-    if(!route || !route.selected){
-      el.innerHTML = '<div style="font-size:14px;color:var(--mute);">Send a message to see routing details.</div>';
+  /* ── render router result ── */
+  function renderRouter(route) {
+    var el = get("chatRouterContent");
+    if (!el) return;
+    if (!route || !route.selected) {
+      el.innerHTML = '<span style="color:var(--mute);">Send a message to see routing details.</span>';
       return;
     }
-    var html = '<div style="font-size:18px;font-weight:500;letter-spacing:-0.01em;margin-bottom:6px;">' + chatEsc(route.selected.name) + '</div>'
-      + '<div style="font-size:13px;color:var(--mute);line-height:1.5;margin-bottom:10px;">' + chatEsc(route.reason) + '</div>';
-    if(route.tags && route.tags.length){
-      html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">'
-        + route.tags.map(function(t){ return '<span style="padding:5px 12px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);font-size:12px;">' + chatEsc(t) + '</span>'; }).join("")
+    var html = '<div class="cr-model">' + esc(route.selected.name) + '</div>'
+      + '<div class="cr-reason">' + esc(route.reason) + '</div>';
+    if (route.tags && route.tags.length) {
+      html += '<div class="cr-tags">'
+        + route.tags.map(function (t) { return '<span class="cr-tag">' + esc(t) + '</span>'; }).join("")
+        + '</div>';
+    }
+    var cands = (route.candidates || []).slice(0, 5);
+    if (cands.length > 1) {
+      html += '<div class="cr-cands"><div class="cr-cand-label">Candidates</div>'
+        + cands.map(function (c) {
+            return '<div class="cr-cand"><span>' + esc(c.name) + '</span><span class="cr-cand-score">' + c.score + '</span></div>';
+          }).join("")
         + '</div>';
     }
     el.innerHTML = html;
   }
 
-  // Mode buttons
-  document.querySelectorAll(".chat-mode-btn").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      chatMode = btn.dataset.mode;
-      document.querySelectorAll(".chat-mode-btn").forEach(function(b){ b.classList.remove("active"); });
-      btn.classList.add("active");
-    });
-  });
+  /* ── send message ── */
+  async function sendChat() {
+    var input   = get("chatInput");
+    var sendBtn = get("chatSendBtn");
+    if (!input || !sendBtn) return;
+    var msg = input.value.trim();
+    if (!msg) return;
 
-  // New chat
-  var newBtn = document.getElementById("chatNewBtn");
-  if(newBtn) newBtn.addEventListener("click", function(){
-    fetch("/api/chat/clear", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"})
-      .then(function(){
-        renderChatRouter(null);
-        if(typeof loadState === "function") loadState().then(renderChatMessages);
-      });
-  });
-
-  // Send
-  async function sendChat(){
-    var inputEl = document.getElementById("chatInput");
-    var sendBtn = document.getElementById("chatSendBtn");
-    if(!inputEl || !sendBtn) return;
-    var msg = inputEl.value.trim();
-    if(!msg) return;
     sendBtn.disabled = true;
-    sendBtn.textContent = "Sending...";
-    inputEl.value = "";
-    var modelId = (document.getElementById("chatModelSelect") || {}).value || "";
+    sendBtn.textContent = "Sending…";
+    input.value = "";
+
+    /* show routing spinner */
+    var routerEl = get("chatRouterContent");
+    if (routerEl) routerEl.innerHTML = '<span style="color:var(--mute);">Routing…</span>';
+
     try {
       var res = await fetch("/api/chat", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({message: msg, mode: chatMode, manualModelId: modelId || null})
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: msg,
+          mode: chatMode,
+          manualModelId: (get("chatModelSelect") || {}).value || null
+        })
       });
       var data = await res.json();
-      renderChatRouter(data.route);
-      if(typeof loadState === "function") await loadState();
-      renderChatMessages();
-    } catch(e) {
-      var el = document.getElementById("chatRouterContent");
-      if(el) el.innerHTML = '<div style="color:var(--danger);font-size:13px;">' + chatEsc(e.message) + '</div>';
+      renderRouter(data.route);
+      if (typeof loadState === "function") await loadState();
+      renderMessages();
+    } catch (err) {
+      if (routerEl) routerEl.innerHTML = '<span style="color:var(--danger);">' + esc(err.message) + '</span>';
     } finally {
       sendBtn.disabled = false;
       sendBtn.textContent = "Send";
     }
   }
 
-  var sendBtn = document.getElementById("chatSendBtn");
-  if(sendBtn) sendBtn.addEventListener("click", sendChat);
-
-  var inputEl = document.getElementById("chatInput");
-  if(inputEl) inputEl.addEventListener("keydown", function(e){
-    if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendChat(); }
+  /* ── wire up events ── */
+  /* mode buttons */
+  document.querySelectorAll(".cmode").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      chatMode = btn.dataset.mode;
+      document.querySelectorAll(".cmode").forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+    });
   });
 
-  // Refresh when Chat tab is clicked
-  var chatTab = document.querySelector('.nav-item[data-tab="chat"]');
-  if(chatTab) chatTab.addEventListener("click", function(){
-    setTimeout(function(){ renderChatMessages(); populateChatModels(); }, 80);
+  /* new chat */
+  var newBtn = get("chatNewBtn");
+  if (newBtn) newBtn.addEventListener("click", function () {
+    fetch("/api/chat/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+      .then(function () {
+        renderRouter(null);
+        if (typeof loadState === "function") loadState().then(renderMessages);
+      });
   });
 
-  window.adminChatRefresh = function(){ renderChatMessages(); populateChatModels(); };
+  /* send button + Enter key */
+  var sendBtn = get("chatSendBtn");
+  if (sendBtn) sendBtn.addEventListener("click", sendChat);
+
+  var chatInput = get("chatInput");
+  if (chatInput) chatInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  });
+
+  /* refresh when Chat tab becomes active */
+  var chatTabBtn = document.querySelector('.nav-item[data-tab="chat"]');
+  if (chatTabBtn) chatTabBtn.addEventListener("click", function () {
+    setTimeout(function () { renderMessages(); populateModels(); }, 80);
+  });
+
+  /* public refresh hook (called by admin.js after loadState) */
+  window.adminChatRefresh = function () { renderMessages(); populateModels(); };
+
 })();
 </script>
 
