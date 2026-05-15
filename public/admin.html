@@ -1357,6 +1357,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 .cmsg-bubble-ai h3{font-size:14.5px;}
 .cmsg-bubble-ai strong{font-weight:600;}
 .cmsg-bubble-ai em{font-style:italic;}
+.cmsg-footer{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;}
+.cmsg-elapsed{font-size:11px;color:var(--mute,#9a9a8e);font-family:'Plus Jakarta Sans',system-ui,sans-serif;letter-spacing:.01em;}
+.cmsg-artifact-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:#5a5a52;background:#f0ede0;border:1px solid #e0ddd0;border-radius:6px;padding:2px 8px;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
 .cmsg-bubble-ai blockquote{
   border-left:3px solid #e8c624;margin:12px 0;
   padding:6px 14px;color:#666;font-style:italic;
@@ -1806,7 +1809,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   }
 
   /* ── render messages ── */
-  function renderMessages() {
+  var _lastResponseData = null; /* stores {_elapsed, artifacts} for the most recent response */
+
+  function renderMessages(responseData) {
+    if (responseData) _lastResponseData = responseData;
     var el = get("chatMessages");
     if (!el) return;
 
@@ -1831,8 +1837,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
     var userName = state.activeUser.name || "Admin";
     var userInitial = userName.charAt(0).toUpperCase();
+    var lastAiIdx = msgs.map(function (m, i) { return m.role === "assistant" ? i : -1; }).filter(function (i) { return i >= 0; }).pop();
 
-    el.innerHTML = msgs.map(function (msg) {
+    el.innerHTML = msgs.map(function (msg, idx) {
       if (msg.role === "user") {
         return '<div class="cmsg-user">'
           + '<div class="cmsg-meta">'
@@ -1844,12 +1851,30 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       }
       var modelLabel = msg.modelName || "Olla Nest";
       var modelInitial = modelLabel.charAt(0).toUpperCase();
+      var isLatest = (idx === lastAiIdx);
+      var elapsed = (isLatest && _lastResponseData && _lastResponseData._elapsed) ? _lastResponseData._elapsed : null;
+      var artifacts = (isLatest && _lastResponseData && _lastResponseData.artifacts) ? _lastResponseData.artifacts : (msg.artifacts || []);
+
+      var footer = "";
+      if (elapsed || artifacts.length) {
+        footer = '<div class="cmsg-footer">';
+        if (elapsed) footer += '<span class="cmsg-elapsed">⏱ ' + elapsed + 's</span>';
+        artifacts.forEach(function (a) {
+          footer += '<span class="cmsg-artifact-chip">'
+            + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
+            + esc(a.relativePath || a.name)
+            + '</span>';
+        });
+        footer += '</div>';
+      }
+
       return '<div class="cmsg-ai">'
         + '<div class="cmsg-meta">'
         + '<span class="cmsg-meta-dot ai-dot">' + modelInitial + '</span>'
         + esc(modelLabel)
         + '</div>'
         + '<div class="cmsg-bubble-ai">' + renderMd(msg.content) + '</div>'
+        + footer
         + '</div>';
     }).join("");
 
@@ -2078,6 +2103,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var projectPath = (typeof window._chatGetProjectPath === "function") ? window._chatGetProjectPath() : null;
     var writeToWorkspace = !!projectPath;
 
+    var t0 = Date.now();
+
     try {
       var res = await fetch("/api/chat", {
         method: "POST",
@@ -2090,12 +2117,14 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         })
       });
       var data = await res.json();
+      var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      data._elapsed = elapsed;
       /* stop timer and remove typing indicator before re-render */
       clearInterval(window._typingTimerInterval);
       var ti = get("chatTypingIndicator");
       if (ti) ti.remove();
       if (typeof loadState === "function") await loadState();
-      renderMessages();
+      renderMessages(data);
       renderRouter(data.route);
       loadThreads();
       /* update token count */
@@ -2301,13 +2330,17 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   /* new chat */
   var newBtn = get("chatNewBtn");
   if (newBtn) newBtn.addEventListener("click", function () {
+    /* clear UI immediately so it feels instant */
+    _lastResponseData = null;
+    var chatMsgs = get("chatMessages");
+    if (chatMsgs) chatMsgs.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">✦</div><div class="chat-empty-title">Ready when you are</div><div class="chat-empty-sub">Ask · Build · Debug · Review · Test · Docs · Plan · Learn</div></div>';
+    usedTokens = 0;
+    var nameEl = get("cmpModelName");
+    if (nameEl) nameEl.textContent = "Auto Router";
+    updateCtxBar(null, selectedModelCtx, 0);
     fetch("/api/chat/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
       .then(function () {
-        usedTokens = 0;
-        var nameEl = get("cmpModelName");
-        if (nameEl) nameEl.textContent = selectedModelId ? (get("chatModelSelect").options[get("chatModelSelect").selectedIndex] || {}).text || "Auto Router" : "Auto Router";
-        updateCtxBar(null, selectedModelCtx, 0);
-        if (typeof loadState === "function") loadState().then(function () { renderMessages(); loadThreads(); });
+        if (typeof loadState === "function") loadState().then(function () { loadThreads(); });
       });
   });
 

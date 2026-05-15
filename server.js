@@ -1058,7 +1058,8 @@ app.get("/api/ollama/models", requireAuth, async (req, res) => {
 
 /* Browse local filesystem directories */
 app.get("/api/workspace/browse", requireAuth, (req, res) => {
-  const home = os.homedir();
+  const home = path.join(DATA_DIR, "workspace");
+  fs.mkdirSync(home, { recursive: true });
   let resolved;
   try {
     const requestedPath = String(req.query.path || home).trim();
@@ -1074,7 +1075,7 @@ app.get("/api/workspace/browse", requireAuth, (req, res) => {
       .filter((e) => e.isDirectory() && !e.name.startsWith("."))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((e) => ({ name: e.name, path: path.join(resolved, e.name) }));
-    const parentPath = resolved === path.parse(resolved).root ? null : path.dirname(resolved);
+    const parentPath = (resolved === path.parse(resolved).root || resolved === home) ? null : path.dirname(resolved);
     res.json({ current: resolved, parent: parentPath, dirs, home });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1094,7 +1095,11 @@ app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
       appendAudit(req.user.name, "workspace.local.clear", "Cleared local workspace folder");
       return res.json({ ok: true, workspace: workspaceForUser(db, req.user.id) });
     }
-    const nextRoot = path.resolve(workspaceRootInput);
+    let nextRoot = path.resolve(workspaceRootInput);
+    /* Redirect paths outside DATA_DIR to the workspace volume so files actually persist */
+    if (!nextRoot.startsWith(DATA_DIR)) {
+      nextRoot = path.join(DATA_DIR, "workspace", path.basename(nextRoot));
+    }
     fs.mkdirSync(nextRoot, { recursive: true });
     docs.workspacePrefs[req.user.id] = {
       workspaceRoot: nextRoot,
@@ -1139,10 +1144,14 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     const writeApproved = Boolean(req.body.writeToWorkspace) || workspace.permissionMode === "full";
     const shouldWriteLocal = live && workspace.localWritesEnabled && writeApproved;
     const artifacts = shouldWriteLocal ? writeLocalArtifacts(db, workspace, message, mode, content) : [];
+
+    /* When files were saved, strip code blocks from the chat message — the code lives in files */
+    let chatContent = content;
     if (artifacts.length) {
-      content += `\n\n---\n**Saved to workspace:** ${artifacts.map(a => `\`${a.relativePath}\``).join(", ")}`;
-    } else if (live && workspace.workspaceRoot && writeApproved && !workspace.localWritesEnabled) {
-      content += `\n\n> Local file writes are disabled by admin.`;
+      chatContent = content
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
     }
 
     const docs = readDocs();
@@ -1151,7 +1160,7 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     chat.messages.push({ role: "user", content: message, mode, createdAt: now });
     chat.messages.push({
       role: "assistant",
-      content,
+      content: chatContent,
       modelId: route.selected.id,
       modelName: route.selected.name,
       routeReason: route.reason,
