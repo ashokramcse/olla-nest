@@ -2256,7 +2256,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     wire("tcm-archive", function () {
       fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: !_ctxThreadArchived }) }).then(loadThreads);
     });
-    wire("tcm-delete", function () {
+    wire("tcm-delete", async function () {
       var _del = await window.ollaConfirm({ icon:"🗑️", title:"Delete chat?", body:"This conversation will be permanently removed.", confirm:"Delete", danger:true });
       if (!_del) return;
       fetch("/api/threads/" + _ctxThreadId, { method: "DELETE", credentials: "include" }).then(loadThreads);
