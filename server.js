@@ -686,7 +686,7 @@ function cleanModelOutput(content) {
   return output;
 }
 
-function modelPrompt(message, mode, route) {
+function modelPrompt(message, mode, route, workspace) {
   const base = [
     "You are Olla Nest, a company AI workspace assistant.",
     "Answer the user's request directly and completely.",
@@ -695,6 +695,11 @@ function modelPrompt(message, mode, route) {
     `Selected model route: ${route.selected?.name || "auto"}.`,
     `Routing reason: ${route.reason}`,
   ];
+  if (workspace?.workspaceRoot) {
+    base.push(`Active project folder: ${workspace.workspaceRoot}`);
+    base.push(`Write permission mode: ${workspace.permissionMode || "default"}`);
+    base.push("When building, fixing, or generating files, treat the active project folder as the working directory. Use relative paths from that root in your code and file references.");
+  }
   const modeInstructions = {
     ask: "Give a clear, useful answer with enough detail to be acted on.",
     build: "Build the requested output. Return the implementation as one complete, runnable file in a fenced code block. For UI pages, prefer a complete React JSX component when React is implied, otherwise a complete HTML file with embedded CSS and JavaScript. Do not return only a plan.",
@@ -781,7 +786,7 @@ function workspaceForUser(db, userId) {
 }
 
 function writeLocalArtifacts(db, workspace, message, mode, content) {
-  if (!["build", "fix"].includes(mode)) return [];
+  if (!["build", "fix", "debug", "test", "docs"].includes(mode)) return [];
   if (!setting(db, "localWritesEnabled", true)) return [];
   const artifacts = extractArtifacts(content, message);
   if (!artifacts.length) return [];
@@ -1041,18 +1046,18 @@ app.post("/api/chat", requireAuth, async (req, res) => {
 
     if (!route.selected) return res.status(403).json({ error: route.reason });
 
+    const workspace = workspaceForUser(db, user.id);
     let content;
     let live = true;
     try {
       if (route.selected.provider !== "ollama") throw new Error("API connector is not configured in this MVP.");
-      content = await ollamaGenerate(db, route.selected.model, modelPrompt(message, mode, route));
+      content = await ollamaGenerate(db, route.selected.model, modelPrompt(message, mode, route, workspace));
     } catch (error) {
       live = false;
       content = `Auto Router selected ${route.selected.name}, but the model call did not complete.\n\nReason: ${error.message}\n\nThe route itself is valid; check model availability, startup time, or admin configuration.`;
     }
 
-    const workspace = workspaceForUser(db, user.id);
-    const localWorkMode = ["build", "fix"].includes(mode);
+    const localWorkMode = ["build", "fix", "debug", "test", "docs"].includes(mode);
     const writeApproved = Boolean(req.body.writeToWorkspace) || workspace.permissionMode === "full";
     const shouldWriteLocal = live && localWorkMode && workspace.localWritesEnabled && writeApproved;
     const artifacts = shouldWriteLocal ? writeLocalArtifacts(db, workspace, message, mode, content) : [];
