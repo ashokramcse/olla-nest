@@ -601,22 +601,32 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
                   <span style="font-size:16px;font-weight:700;font-family:'Plus Jakarta Sans',system-ui,sans-serif;">Open Local Folder</span>
                 </div>
-                <p style="font-size:13px;color:var(--mute);margin:0 0 22px;line-height:1.55;">Pick a folder and generated files auto-save there (Chrome/Edge). In other browsers, files appear as <strong>download chips</strong> in the message — click any chip to save that file.</p>
-
-                <div id="wfdPickedRow" style="display:none;background:#f5f3e8;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:16px;">
-                  <div style="font-size:11px;color:var(--mute);margin-bottom:2px;">Selected folder</div>
-                  <div id="wfdPickedName" style="font-size:14px;font-weight:600;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--ink);"></div>
+                <!-- Chrome/Edge: FSA folder picker -->
+                <div id="wfdFsaSection">
+                  <div id="wfdPickedRow" style="display:none;background:#f5f3e8;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:16px;">
+                    <div style="font-size:11px;color:var(--mute);margin-bottom:2px;">Selected folder</div>
+                    <div id="wfdPickedName" style="font-size:14px;font-weight:600;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--ink);"></div>
+                  </div>
+                  <button id="wfdPickBtn" class="btn btn-primary" style="width:100%;justify-content:center;gap:8px;font-size:14px;padding:11px 0;margin-bottom:10px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                    Choose folder on this computer
+                  </button>
+                  <div id="wfdMsg" class="wfd-msg" style="margin-bottom:10px;"></div>
+                  <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button id="wfdCancel" class="btn btn-sm">Cancel</button>
+                    <button id="wfdSave" class="btn btn-sm btn-primary" disabled>Open as project</button>
+                  </div>
                 </div>
-
-                <button id="wfdPickBtn" class="btn btn-primary" style="width:100%;justify-content:center;gap:8px;font-size:14px;padding:11px 0;margin-bottom:10px;">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                  Choose folder on this computer
-                </button>
-
-                <div id="wfdMsg" class="wfd-msg" style="margin-bottom:10px;"></div>
-                <div style="display:flex;gap:8px;justify-content:flex-end;">
-                  <button id="wfdCancel" class="btn btn-sm">Cancel</button>
-                  <button id="wfdSave" class="btn btn-sm btn-primary" disabled>Open as project</button>
+                <!-- Firefox/Safari: no FSA, just explain download chips -->
+                <div id="wfdNoFsaSection" style="display:none;">
+                  <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+                    <div style="font-size:13px;font-weight:600;color:#1d4ed8;margin-bottom:4px;">No folder needed in this browser</div>
+                    <div style="font-size:12px;color:#374151;line-height:1.55;">Generated files appear as <strong>download chips ↓</strong> in the message footer. Click any chip to save that file to your computer. Works on Mac, Windows, and Linux.</div>
+                  </div>
+                  <div style="font-size:12px;color:var(--mute);margin-bottom:16px;">For auto-save to a folder, use Chrome or Edge.</div>
+                  <div style="display:flex;justify-content:flex-end;">
+                    <button id="wfdCancel2" class="btn btn-sm btn-primary">Got it</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2504,7 +2514,14 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var saveBtn = g("wfdSave");
     var pickedRow = g("wfdPickedRow");
     var pickedName = g("wfdPickedName");
-    var fallbackNote = g("wfdFallbackNote");
+    if (!hasFSA) {
+      g("wfdFsaSection").style.display = "none";
+      g("wfdNoFsaSection").style.display = "block";
+      modal.style.display = "flex";
+      return;
+    }
+    g("wfdFsaSection").style.display = "block";
+    g("wfdNoFsaSection").style.display = "none";
     msg.textContent = ""; msg.className = "wfd-msg";
     if (localDirHandle) {
       pickedRow.style.display = "block";
@@ -2512,14 +2529,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       saveBtn.disabled = false;
     } else {
       pickedRow.style.display = "none";
-      saveBtn.disabled = !hasFSA ? true : true; /* must pick first */
-    }
-    if (!hasFSA) {
-      g("wfdPickBtn").disabled = true;
-      g("wfdPickBtn").title = "Folder auto-save requires Chrome or Edge. Files will appear as download chips instead.";
-    } else {
-      g("wfdPickBtn").disabled = false;
-      g("wfdPickBtn").title = "";
+      saveBtn.disabled = true;
     }
     modal.style.display = "flex";
   }
@@ -2529,6 +2539,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   }
 
   g("wfdCancel").addEventListener("click", closeFolderModal);
+  g("wfdCancel2").addEventListener("click", closeFolderModal);
   g("workspaceFolderOverlay").addEventListener("click", closeFolderModal);
 
   g("wfdPickBtn").addEventListener("click", async function () {
