@@ -601,10 +601,14 @@ function classifyRequest(message, mode = "ask") {
   const tags = new Set();
   if (/(medical|health|doctor|patient|clinical|medicine|diagnosis|symptom)/.test(text)) ["medical", "analysis"].forEach((t) => tags.add(t));
   if (/(ocr|image|scan|receipt|invoice|extract text|read this image|document image)/.test(text)) ["ocr", "vision", "document"].forEach((t) => tags.add(t));
-  if (/(bug|error|fix|stack|trace|failing|broken|debug)/.test(text) || mode === "fix") ["fix", "debugging", "coding"].forEach((t) => tags.add(t));
-  if (/(code|repo|component|api|server|frontend|backend|function|test|build)/.test(text) || mode === "build") ["coding", "build", "project"].forEach((t) => tags.add(t));
+  if (/(bug|error|fix|stack|trace|failing|broken|crash|exception)/.test(text) || mode === "fix") ["fix", "debugging", "coding"].forEach((t) => tags.add(t));
+  if (/(debug|root cause|why is|not working|wrong output|unexpected)/.test(text) || mode === "debug") ["debugging", "coding", "fix"].forEach((t) => tags.add(t));
+  if (/(code|repo|component|api|server|frontend|backend|function|build|generate|create|write a)/.test(text) || mode === "build") ["coding", "build", "project"].forEach((t) => tags.add(t));
+  if (/(test|unit test|spec|jest|pytest|coverage|mock|assertion)/.test(text) || mode === "test") ["coding", "build", "review"].forEach((t) => tags.add(t));
+  if (/(readme|documentation|doc|comment|jsdoc|api doc|usage|changelog)/.test(text) || mode === "docs") ["writing", "summary", "review"].forEach((t) => tags.add(t));
+  if (/(plan|architect|design|schema|structure|roadmap|stack|phase|milestone|breakdown)/.test(text) || mode === "plan") ["review", "analysis", "project"].forEach((t) => tags.add(t));
   if (/(review|risk|issue|security|quality|audit)/.test(text) || mode === "review") ["review", "analysis"].forEach((t) => tags.add(t));
-  if (/(write|email|doc|document|pitch|copy|summarize|summary)/.test(text)) ["writing", "summary"].forEach((t) => tags.add(t));
+  if (/(write|email|pitch|copy|summarize|summary)/.test(text)) ["writing", "summary"].forEach((t) => tags.add(t));
   if (/(explain|teach|learn|understand|what is|how does)/.test(text) || mode === "learn") ["learn", "general"].forEach((t) => tags.add(t));
   if (!tags.size) ["general", "ask"].forEach((t) => tags.add(t));
   return Array.from(tags);
@@ -697,6 +701,10 @@ function modelPrompt(message, mode, route) {
     review: "Review the request for issues, risks, improvements, and missing pieces. Lead with actionable findings.",
     fix: "Diagnose the problem and provide the fix with exact steps or code changes. Be specific.",
     learn: "Teach the concept clearly with examples and simple explanation.",
+    debug: "Identify the root cause of the error or unexpected behavior. Show the exact line or logic that is wrong, explain why it fails, then provide a specific corrected version. Include a checklist of other things to verify.",
+    test: "Write comprehensive tests for the provided code or feature. Include unit tests, edge cases, and error cases. Use the most appropriate test framework for the language. Add brief comments explaining what each test covers.",
+    docs: "Generate complete documentation for the provided code, feature, or project. Include: purpose, parameters or props, return values, usage examples, and any important notes. For a project, write a professional README with setup, usage, and API reference sections.",
+    plan: "Break this down into a clear implementation plan. Include: recommended tech stack with reasoning, folder/file structure, step-by-step build order, key decisions the developer needs to make, and estimated complexity per phase. Be opinionated and specific.",
   };
   return `${base.join("\n")}\nMode: ${mode}\nInstruction: ${modeInstructions[mode] || modeInstructions.ask}\n\nUser request:\n${message.trim()}`;
 }

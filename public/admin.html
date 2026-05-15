@@ -544,7 +544,11 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                 <button class="cmode active" data-mode="ask">Ask</button>
                 <button class="cmode" data-mode="build">Build</button>
                 <button class="cmode" data-mode="fix">Fix</button>
+                <button class="cmode" data-mode="debug">Debug</button>
                 <button class="cmode" data-mode="review">Review</button>
+                <button class="cmode" data-mode="test">Test</button>
+                <button class="cmode" data-mode="docs">Docs</button>
+                <button class="cmode" data-mode="plan">Plan</button>
                 <button class="cmode" data-mode="learn">Learn</button>
               </div>
               <button id="chatNewBtn" class="btn ghost sm">New Chat</button>
@@ -921,8 +925,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 /* ── Chat tab layout ── */
 #chatLayout{display:grid;grid-template-columns:1fr 280px;gap:14px;height:calc(100vh - 210px);min-height:520px;}
 #chatMain{display:flex;flex-direction:column;padding:0;overflow:hidden;}
-#chatHeader{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line-soft);flex-shrink:0;}
-#chatModes{display:flex;gap:6px;flex-wrap:wrap;}
+#chatHeader{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line-soft);flex-shrink:0;gap:10px;}
+#chatModes{display:flex;gap:5px;flex-wrap:wrap;}
 .cmode{padding:6px 15px;border-radius:999px;font-size:13px;font-weight:400;border:1px solid var(--line-soft);background:#fff;cursor:pointer;font-family:inherit;color:var(--ink);transition:background .12s,color .12s;}
 .cmode:hover{background:var(--paper);}
 .cmode.active{background:var(--ink);color:#fff;border-color:var(--ink);}
