@@ -825,7 +825,6 @@ function workspaceForUser(db, userId) {
 }
 
 function writeLocalArtifacts(db, workspace, message, mode, content) {
-  if (!["build", "fix", "debug", "test", "docs"].includes(mode)) return [];
   if (!setting(db, "localWritesEnabled", true)) return [];
   const artifacts = extractArtifacts(content, message);
   if (!artifacts.length) return [];
@@ -1130,15 +1129,12 @@ app.post("/api/chat", requireAuth, async (req, res) => {
       content = `Auto Router selected ${route.selected.name}, but the model call did not complete.\n\nReason: ${error.message}\n\nThe route itself is valid; check model availability, startup time, or admin configuration.`;
     }
 
-    const localWorkMode = ["build", "fix", "debug", "test", "docs"].includes(mode);
     const writeApproved = Boolean(req.body.writeToWorkspace) || workspace.permissionMode === "full";
-    const shouldWriteLocal = live && localWorkMode && workspace.localWritesEnabled && writeApproved;
+    const shouldWriteLocal = live && workspace.localWritesEnabled && writeApproved;
     const artifacts = shouldWriteLocal ? writeLocalArtifacts(db, workspace, message, mode, content) : [];
     if (artifacts.length) {
       content += `\n\n---\n**Saved to workspace:** ${artifacts.map(a => `\`${a.relativePath}\``).join(", ")}`;
-    } else if (live && localWorkMode && workspace.workspaceRoot && !writeApproved) {
-      content += `\n\n> To save these files to **${path.basename(workspace.workspaceRoot)}**, check "Write to workspace" before sending.`;
-    } else if (live && localWorkMode && !workspace.localWritesEnabled) {
+    } else if (live && workspace.workspaceRoot && writeApproved && !workspace.localWritesEnabled) {
       content += `\n\n> Local file writes are disabled by admin.`;
     }
 
