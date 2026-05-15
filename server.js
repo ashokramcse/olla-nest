@@ -140,7 +140,7 @@ function readDocs() {
   }
   const docs = JSON.parse(fs.readFileSync(DOC_PATH, "utf8"));
   let changed = false;
-  for (const [key, fallback] of Object.entries({ chats: {}, audit: [], routerTraces: [], workspacePrefs: {} })) {
+  for (const [key, fallback] of Object.entries({ chats: {}, audit: [], routerTraces: [], workspacePrefs: {}, chatHistory: {} })) {
     if (!docs[key]) {
       docs[key] = fallback;
       changed = true;
@@ -1160,14 +1160,135 @@ app.post("/api/chat", requireAuth, async (req, res) => {
   }
 });
 
+function autoTitle(messages) {
+  const first = messages.find(m => m.role === "user");
+  if (!first) return "New chat";
+  return String(first.content).slice(0, 45).trim() + (first.content.length > 45 ? "…" : "");
+}
+
+function archiveCurrentChat(userId) {
+  const docs = readDocs();
+  const chat = docs.chats[userId];
+  if (!chat) return;
+  const hasUserMsg = (chat.messages || []).some(m => m.role === "user");
+  if (!hasUserMsg) return;
+  if (!docs.chatHistory[userId]) docs.chatHistory[userId] = [];
+  const thread = {
+    ...chat,
+    title: chat.title && chat.title !== "New workspace" ? chat.title : autoTitle(chat.messages),
+    pinned: false,
+    archived: false,
+    unread: false,
+    updatedAt: new Date().toISOString(),
+  };
+  docs.chatHistory[userId].unshift(thread);
+  docs.chatHistory[userId] = docs.chatHistory[userId].slice(0, 100);
+  writeDocs(docs);
+}
+
 app.post("/api/chat/clear", requireAuth, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
+    archiveCurrentChat(user.id);
     const docs = readDocs();
     delete docs.chats[user.id];
     writeDocs(docs);
     chatFor(user.id);
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+app.get("/api/threads", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const user = req.user;
+    const docs = readDocs();
+    const active = docs.chats[user.id] || null;
+    const history = (docs.chatHistory[user.id] || []).slice().sort((a, b) => {
+      if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
+      return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+    });
+    res.json({ active, history });
+  } finally {
+    db.close();
+  }
+});
+
+app.delete("/api/threads/:id", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const user = req.user;
+    const docs = readDocs();
+    docs.chatHistory[user.id] = (docs.chatHistory[user.id] || []).filter(t => t.id !== req.params.id);
+    writeDocs(docs);
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+app.patch("/api/threads/:id", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const user = req.user;
+    const docs = readDocs();
+    const threads = docs.chatHistory[user.id] || [];
+    const idx = threads.findIndex(t => t.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: "Thread not found" });
+    const allowed = ["title", "pinned", "archived", "unread"];
+    allowed.forEach(k => { if (req.body[k] !== undefined) threads[idx][k] = req.body[k]; });
+    threads[idx].updatedAt = new Date().toISOString();
+    docs.chatHistory[user.id] = threads;
+    writeDocs(docs);
+    res.json({ ok: true, thread: threads[idx] });
+  } finally {
+    db.close();
+  }
+});
+
+app.post("/api/threads/:id/activate", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const user = req.user;
+    archiveCurrentChat(user.id);
+    const docs = readDocs();
+    const threads = docs.chatHistory[user.id] || [];
+    const idx = threads.findIndex(t => t.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: "Thread not found" });
+    const thread = threads[idx];
+    docs.chatHistory[user.id] = threads.filter((_, i) => i !== idx);
+    docs.chats[user.id] = { ...thread, unread: false };
+    writeDocs(docs);
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+app.post("/api/threads/:id/fork", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const user = req.user;
+    archiveCurrentChat(user.id);
+    const docs = readDocs();
+    const threads = docs.chatHistory[user.id] || [];
+    const src = threads.find(t => t.id === req.params.id);
+    if (!src) return res.status(404).json({ error: "Thread not found" });
+    const forked = {
+      ...src,
+      id: uid("chat"),
+      title: `Fork of ${src.title}`,
+      pinned: false,
+      archived: false,
+      unread: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    docs.chats[user.id] = forked;
+    writeDocs(docs);
     res.json({ ok: true });
   } finally {
     db.close();
