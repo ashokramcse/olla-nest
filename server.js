@@ -652,7 +652,7 @@ function routeModel(db, user, message, mode) {
 
 async function ollamaGenerate(db, model, prompt) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
+  const timeout = setTimeout(() => controller.abort(), 300000); /* 5 min — large models need time to load */
   try {
     const response = await fetch(`${ollamaUrl(db)}/api/generate`, {
       method: "POST",

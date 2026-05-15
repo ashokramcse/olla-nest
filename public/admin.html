@@ -568,12 +568,13 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                 <div id="cmpModelList"></div>
               </div>
 
-              <!-- context window bar -->
+              <!-- context window bar — right side -->
               <div id="chatContextBar" style="display:none;">
-                <div id="chatContextLabel" class="ctx-label"></div>
+                <span class="ctx-static-label">Context window</span>
                 <div class="ctx-track">
                   <div id="chatContextFill" class="ctx-fill"></div>
                 </div>
+                <div id="chatContextLabel" class="ctx-label"></div>
               </div>
             </div>
 
@@ -1250,67 +1251,77 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
 /* ── Model selector bar (Claude-style) ── */
 #chatModelBar{
-  display:flex;align-items:center;gap:10px;
-  padding:6px 16px 8px;
+  display:flex;align-items:center;gap:0;
+  padding:5px 14px 6px;
   border-bottom:1px solid var(--line-soft);
   position:relative;background:#fff;
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;
 }
-/* Trigger button */
+/* Trigger button — left side */
 .cmp-trigger{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:5px 10px;border-radius:8px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 9px;border-radius:8px;cursor:pointer;
   border:1.5px solid var(--line-soft);background:#fafaf8;
-  font-size:13px;font-weight:600;color:var(--ink);
+  font-size:12.5px;font-weight:600;color:var(--ink);
   transition:border-color .12s,background .12s;
   user-select:none;position:relative;white-space:nowrap;
+  flex-shrink:0;
 }
 .cmp-trigger:hover{background:#f2f0e8;border-color:#c8c4b4;}
 .cmp-trigger.open{border-color:var(--primary);background:#fff;}
-.cmp-chevron{transition:transform .15s;}
+.cmp-chevron{transition:transform .15s;flex-shrink:0;}
 .cmp-trigger.open .cmp-chevron{transform:rotate(180deg);}
-/* Dropdown */
+/* Dropdown — opens below trigger, right-aligned to panel edge */
 #chatModelDropdown{
-  display:none;position:absolute;top:calc(100% + 6px);left:16px;
+  display:none;position:absolute;top:calc(100% + 5px);right:14px;
   background:#fff;border:1.5px solid var(--line-soft);border-radius:12px;
-  box-shadow:0 12px 36px rgba(0,0,0,.13);z-index:500;
-  min-width:260px;max-width:340px;overflow:hidden;
+  box-shadow:0 12px 36px rgba(0,0,0,.14);z-index:500;
+  width:300px;overflow:hidden;
 }
 #chatModelDropdown.open{display:block;}
 .cmp-dd-header{
-  padding:10px 14px 6px;font-size:11px;font-weight:700;
+  padding:8px 14px 5px;font-size:10.5px;font-weight:700;
   text-transform:uppercase;letter-spacing:.07em;color:var(--mute);
+  border-bottom:1px solid #f2f0e8;
 }
 .cmp-model-item{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 14px;cursor:pointer;font-size:13px;color:var(--ink);
-  border-top:1px solid #f2f0e8;
+  display:flex;align-items:center;gap:9px;
+  padding:8px 14px;cursor:pointer;font-size:13px;color:var(--ink);
+  border-bottom:1px solid #f7f6f2;
 }
+.cmp-model-item:last-child{border-bottom:none;}
 .cmp-model-item:hover{background:#fafaf8;}
-.cmp-model-item.active{background:#f0f7ff;color:#1e40af;}
-.cmp-model-item.active .cmp-check{display:block;}
-.cmp-check{display:none;color:#2563eb;font-weight:700;margin-left:auto;font-size:14px;}
-.cmp-model-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0;}
-.cmp-model-dot.off{background:#e5e7eb;}
-.cmp-model-name{flex:1;font-weight:500;}
+.cmp-model-item.active{background:#eef3ff;color:#1e40af;}
+.cmp-model-item.active .cmp-check{display:flex;}
+.cmp-check{display:none;color:#2563eb;font-weight:700;margin-left:auto;font-size:13px;align-items:center;}
+.cmp-model-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0;}
+.cmp-model-dot.off{background:#d1d5db;}
+.cmp-model-name{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cmp-model-ctx{font-size:11px;color:var(--mute);white-space:nowrap;flex-shrink:0;}
 .cmp-auto-item{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);
+  display:flex;align-items:center;gap:9px;
+  padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);
+  border-bottom:1px solid #f2f0e8;
 }
 .cmp-auto-item:hover{background:#fafaf8;}
-.cmp-auto-item.active{background:#f0f7ff;color:#1e40af;}
-/* Context window bar */
+.cmp-auto-item.active{background:#eef3ff;color:#1e40af;}
+.cmp-auto-item.active .cmp-check{display:flex;}
+/* Context window — pushed to right with margin-left:auto */
 #chatContextBar{
-  display:flex;align-items:center;gap:8px;
-  flex:1;min-width:0;
+  display:flex;align-items:center;gap:7px;
+  margin-left:auto;flex-shrink:0;
+}
+.ctx-static-label{
+  font-size:11px;color:var(--mute);white-space:nowrap;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
 }
 .ctx-label{
-  font-size:11.5px;color:var(--mute);white-space:nowrap;
+  font-size:11px;color:var(--mute);white-space:nowrap;
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;
 }
 .ctx-track{
-  flex:1;height:4px;border-radius:99px;
-  background:#e8e6df;overflow:hidden;min-width:60px;max-width:220px;
+  width:120px;height:3px;border-radius:99px;
+  background:#e8e6df;overflow:hidden;flex-shrink:0;
 }
 .ctx-fill{
   height:100%;border-radius:99px;
@@ -1660,7 +1671,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     if (!ctxSize) { bar.style.display = "none"; return; }
     bar.style.display = "flex";
     var pct = Math.min(100, Math.round((used / ctxSize) * 100));
-    label.textContent = "Context window  " + fmtTokens(used) + " / " + fmtTokens(ctxSize) + " (" + pct + "%)";
+    label.textContent = fmtTokens(used) + " / " + fmtTokens(ctxSize) + " (" + pct + "%)";
     fill.style.width = pct + "%";
     /* colour: green → amber → red */
     fill.style.background = pct < 60 ? "var(--primary)" : pct < 85 ? "#b45309" : "#dc2626";
@@ -1707,7 +1718,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       html += '<div class="cmp-model-item' + (isSel ? " active" : "") + '" data-id="' + esc(m.id) + '" data-name="' + esc(m.name) + '" data-ctx="' + ctx + '">'
         + '<div class="cmp-model-dot' + (m.status === "disabled" ? " off" : "") + '"></div>'
         + '<span class="cmp-model-name">' + esc(m.name) + '</span>'
-        + '<span style="font-size:11px;color:var(--mute);">' + fmtTokens(ctx) + '</span>'
+        + '<span class="cmp-model-ctx">' + fmtTokens(ctx) + '</span>'
         + (isSel ? '<span class="cmp-check">✓</span>' : '')
         + '</div>';
     });
@@ -1776,7 +1787,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     if (!selectedModelId) {
       /* auto router — show which model was chosen temporarily */
       var nameEl = get("cmpModelName");
-      if (nameEl) nameEl.textContent = "Auto Router  →  " + route.selected.name;
+      /* truncate long model names */
+      var rname = route.selected.name || "";
+      if (nameEl) nameEl.textContent = "Auto Router → " + (rname.length > 18 ? rname.slice(0, 16) + "…" : rname);
     }
     /* update context bar */
     usedTokens = estimateUsedTokens();
