@@ -993,10 +993,7 @@ app.get("/api/auth/me", (req, res) => {
 });
 
 app.get("/api/bootstrap", (req, res) => {
-  res.json({
-    adminEmail: DEFAULT_ADMIN_EMAIL,
-    defaultPasswordHint: DEFAULT_ADMIN_PASSWORD === "ChangeMe!CreateARealPassword123" ? "ChangeMe!CreateARealPassword123" : "Configured by DEFAULT_ADMIN_PASSWORD",
-  });
+  res.json({ adminEmail: DEFAULT_ADMIN_EMAIL });
 });
 
 app.post("/api/account/password", requireAuth, (req, res) => {

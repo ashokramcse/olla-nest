@@ -709,3 +709,5 @@ $("saveCustomBtn").addEventListener("click", () => {
 });
 
 loadState().then(checkOllama);
+/* Re-check Ollama every 30 seconds so status stays current without a page reload */
+setInterval(checkOllama, 30000);
