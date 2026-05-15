@@ -2509,7 +2509,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var backBtn = g("wfdBackBtn");
     grid.innerHTML = '<div class="wfd-loading">Loading…</div>';
     try {
-      var res = await fetch("/api/workspace/browse?path=" + encodeURIComponent(dirPath));
+      var res = await fetch("/api/workspace/browse?path=" + encodeURIComponent(dirPath), { credentials: "include" });
       var data = await res.json();
       if (!res.ok) throw new Error(data.error || "Cannot open folder");
       wfdCurrentPath = data.current;
