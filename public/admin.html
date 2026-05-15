@@ -2257,7 +2257,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: !_ctxThreadArchived }) }).then(loadThreads);
     });
     wire("tcm-delete", function () {
-      if (!confirm("Delete this chat?")) return;
+      var _del = await window.ollaConfirm({ icon:"🗑️", title:"Delete chat?", body:"This conversation will be permanently removed.", confirm:"Delete", danger:true });
+      if (!_del) return;
       fetch("/api/threads/" + _ctxThreadId, { method: "DELETE", credentials: "include" }).then(loadThreads);
     });
   }
@@ -2410,7 +2411,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   async function addFiles(files) {
     var arr = Array.from(files);
     var MAX = 30;
-    if (arr.length > MAX) { arr = arr.slice(0, MAX); alert("Only first " + MAX + " files added."); }
+    if (arr.length > MAX) { arr = arr.slice(0, MAX); window.ollaAlert({ icon:"📎", title:"File limit reached", body:"Only the first " + MAX + " files were added." }); }
     var results = await Promise.all(arr.map(readFile));
     results.forEach(function (r) { attachedFiles.push(r); });
     renderAttachChips();
@@ -2561,8 +2562,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
   /* new folder */
   var wfdNewFolderBtn = g("wfdNewFolder");
-  if (wfdNewFolderBtn) wfdNewFolderBtn.addEventListener("click", function () {
-    var name = prompt("New folder name:");
+  if (wfdNewFolderBtn) wfdNewFolderBtn.addEventListener("click", async function () {
+    var name = await window.ollaPrompt({ icon:"📁", title:"New Folder", body:"Enter a name for the new folder.", inputPlaceholder:"folder-name", confirm:"Create" });
     if (!name || !name.trim()) return;
     var newPath = (wfdCurrentPath || "/app/data/workspace").replace(/\/$/, "") + "/" + name.trim();
     fetch("/api/workspace/browse?path=" + encodeURIComponent(newPath) + "&create=1", { credentials: "include" })
@@ -2911,6 +2912,166 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     renderAttachChips();
   };
 
+})();
+</script>
+
+<!-- ── Branded dialog system ── -->
+<div id="ollaDialog" style="display:none;">
+  <div id="ollaDialogOverlay"></div>
+  <div id="ollaDialogBox">
+    <div id="ollaDialogIcon"></div>
+    <div id="ollaDialogTitle"></div>
+    <div id="ollaDialogBody"></div>
+    <div id="ollaDialogInput" style="display:none;">
+      <input id="ollaDialogInputField" type="text" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="ollaDialogActions"></div>
+  </div>
+</div>
+
+<style>
+#ollaDialog{
+  position:fixed;inset:0;z-index:99999;
+  display:flex;align-items:center;justify-content:center;
+}
+#ollaDialogOverlay{
+  position:absolute;inset:0;
+  background:rgba(21,20,15,.45);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+#ollaDialogBox{
+  position:relative;z-index:1;
+  background:#fff;
+  border-radius:20px;
+  padding:28px 28px 22px;
+  width:380px;max-width:calc(100vw - 32px);
+  box-shadow:0 32px 80px rgba(0,0,0,.22),0 0 0 1px rgba(0,0,0,.06);
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  text-align:center;
+  animation:olla-dialog-in .18s cubic-bezier(.34,1.4,.64,1);
+}
+@keyframes olla-dialog-in{
+  from{opacity:0;transform:scale(.92) translateY(8px);}
+  to{opacity:1;transform:scale(1) translateY(0);}
+}
+#ollaDialogIcon{
+  font-size:36px;line-height:1;margin-bottom:14px;
+}
+#ollaDialogTitle{
+  font-size:17px;font-weight:700;color:#15140f;
+  margin-bottom:7px;letter-spacing:-.01em;
+}
+#ollaDialogBody{
+  font-size:13.5px;color:#6b6b60;line-height:1.6;
+  margin-bottom:20px;
+}
+#ollaDialogInput{margin-bottom:18px;}
+#ollaDialogInputField{
+  width:100%;box-sizing:border-box;
+  border:1.5px solid #e0ddd4;border-radius:10px;
+  padding:9px 13px;font-size:13.5px;font-family:inherit;
+  color:#15140f;outline:none;
+  transition:border-color .15s,box-shadow .15s;
+}
+#ollaDialogInputField:focus{
+  border-color:#e8c624;
+  box-shadow:0 0 0 3px rgba(232,198,36,.18);
+}
+#ollaDialogActions{
+  display:flex;gap:8px;justify-content:center;
+}
+.olla-btn{
+  flex:1;padding:10px 16px;border-radius:10px;border:none;
+  font-size:13.5px;font-weight:600;font-family:inherit;
+  cursor:pointer;transition:opacity .12s,transform .1s;
+}
+.olla-btn:hover{opacity:.88;}
+.olla-btn:active{transform:scale(.97);}
+.olla-btn-cancel{
+  background:#f2f0e8;color:#15140f;
+  border:1.5px solid #e0ddd4;
+}
+.olla-btn-confirm{
+  background:#15140f;color:#fff;
+}
+.olla-btn-confirm.danger{
+  background:#dc2626;
+}
+.olla-btn-confirm.yellow{
+  background:#f4d33a;color:#15140f;
+}
+</style>
+
+<script>
+(function(){
+  /* ── Olla branded dialog ── replaces confirm/alert/prompt ── */
+  var dlg = document.getElementById("ollaDialog");
+  var box = document.getElementById("ollaDialogBox");
+  var iconEl = document.getElementById("ollaDialogIcon");
+  var titleEl = document.getElementById("ollaDialogTitle");
+  var bodyEl = document.getElementById("ollaDialogBody");
+  var inputWrap = document.getElementById("ollaDialogInput");
+  var inputEl = document.getElementById("ollaDialogInputField");
+  var actionsEl = document.getElementById("ollaDialogActions");
+  var overlay = document.getElementById("ollaDialogOverlay");
+  var _resolve = null;
+
+  function show(opts) {
+    /* opts: { icon, title, body, confirm, cancel, danger, yellow, input, inputValue, inputPlaceholder } */
+    iconEl.textContent = opts.icon || "✦";
+    titleEl.textContent = opts.title || "";
+    bodyEl.innerHTML = opts.body || "";
+    if (opts.input) {
+      inputWrap.style.display = "";
+      inputEl.value = opts.inputValue || "";
+      inputEl.placeholder = opts.inputPlaceholder || "";
+      setTimeout(function(){ inputEl.focus(); inputEl.select(); }, 80);
+    } else {
+      inputWrap.style.display = "none";
+    }
+    actionsEl.innerHTML = "";
+    if (opts.cancel !== false) {
+      var cancelBtn = document.createElement("button");
+      cancelBtn.className = "olla-btn olla-btn-cancel";
+      cancelBtn.textContent = opts.cancel || "Cancel";
+      cancelBtn.addEventListener("click", function(){ close(null); });
+      actionsEl.appendChild(cancelBtn);
+    }
+    var confirmBtn = document.createElement("button");
+    confirmBtn.className = "olla-btn olla-btn-confirm" + (opts.danger ? " danger" : opts.yellow ? " yellow" : "");
+    confirmBtn.textContent = opts.confirm || "OK";
+    confirmBtn.addEventListener("click", function(){
+      close(opts.input ? (inputEl.value || "") : true);
+    });
+    actionsEl.appendChild(confirmBtn);
+    dlg.style.display = "flex";
+    box.style.animation = "none"; box.offsetHeight; box.style.animation = "";
+    return new Promise(function(res){ _resolve = res; });
+  }
+
+  function close(val) {
+    dlg.style.display = "none";
+    if (_resolve) { _resolve(val); _resolve = null; }
+  }
+
+  overlay.addEventListener("click", function(){ close(null); });
+  document.addEventListener("keydown", function(e){
+    if (dlg.style.display === "none") return;
+    if (e.key === "Escape") close(null);
+    if (e.key === "Enter" && !inputEl.matches(":focus")) {
+      var btn = actionsEl.querySelector(".olla-btn-confirm");
+      if (btn) btn.click();
+    }
+  });
+  inputEl.addEventListener("keydown", function(e){
+    if (e.key === "Enter") { var btn = actionsEl.querySelector(".olla-btn-confirm"); if(btn) btn.click(); }
+  });
+
+  /* expose globally */
+  window.ollaConfirm = function(opts){ return show(Object.assign({ cancel:"Cancel", confirm:"Confirm" }, typeof opts==="string" ? {body:opts} : opts)); };
+  window.ollaAlert   = function(opts){ return show(Object.assign({ cancel:false, confirm:"Got it" }, typeof opts==="string" ? {body:opts} : opts)); };
+  window.ollaPrompt  = function(opts){ return show(Object.assign({ input:true, cancel:"Cancel", confirm:"OK" }, typeof opts==="string" ? {title:opts} : opts)); };
 })();
 </script>
 
