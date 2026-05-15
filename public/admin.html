@@ -563,22 +563,35 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
               <div id="workspaceFolderDialog">
                 <div class="wfd-header">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                  <span>Set Project Folder</span>
+                  <span>Choose Project Folder</span>
                   <button id="wfdClose" class="wfd-close">×</button>
                 </div>
-                <p class="wfd-desc">Enter the <strong>absolute path</strong> to your local project folder. Olla Nest will use this as the working context for Build, Fix, Debug, Test, and Docs requests.</p>
-                <label class="wfd-label">Project folder path</label>
-                <input id="wfdPathInput" class="wfd-input" type="text" placeholder="/Users/you/my-project" autocomplete="off" spellcheck="false">
-                <label class="wfd-label" style="margin-top:12px;">Write permission</label>
+
+                <!-- path breadcrumb bar -->
+                <div id="wfdBreadcrumb" class="wfd-breadcrumb"></div>
+
+                <!-- directory listing -->
+                <div id="wfdDirList" class="wfd-dir-list">
+                  <div class="wfd-loading">Loading…</div>
+                </div>
+
+                <!-- selected path display -->
+                <div class="wfd-selected-row">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                  <input id="wfdPathInput" class="wfd-path-input" type="text" placeholder="Select a folder above or type a path" autocomplete="off" spellcheck="false">
+                </div>
+
+                <label class="wfd-label" style="margin-top:10px;">Write permission</label>
                 <select id="wfdPermMode" class="wfd-select">
                   <option value="default">Approve writes — review each write</option>
                   <option value="review">Auto-review — auto-approve after review</option>
                   <option value="full">Full access — write without approval</option>
                 </select>
+
                 <div id="wfdMsg" class="wfd-msg"></div>
                 <div class="wfd-actions">
                   <button id="wfdCancel" class="btn btn-sm">Cancel</button>
-                  <button id="wfdSave" class="btn btn-sm btn-primary">Set as project folder</button>
+                  <button id="wfdSave" class="btn btn-sm btn-primary">Open as project</button>
                 </div>
               </div>
             </div>
@@ -1292,35 +1305,73 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
 /* Workspace folder modal */
 #workspaceFolderModal{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;}
-#workspaceFolderOverlay{position:absolute;inset:0;background:rgba(0,0,0,.35);}
+#workspaceFolderOverlay{position:absolute;inset:0;background:rgba(0,0,0,.4);}
 #workspaceFolderDialog{
   position:relative;z-index:1;
-  background:#fff;border-radius:14px;
-  padding:26px 28px 22px;width:480px;max-width:calc(100vw - 32px);
-  box-shadow:0 20px 60px rgba(0,0,0,.18);
+  background:#fff;border-radius:16px;
+  padding:22px 22px 18px;width:520px;max-width:calc(100vw - 24px);
+  box-shadow:0 24px 64px rgba(0,0,0,.22);
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  display:flex;flex-direction:column;gap:0;
 }
-.wfd-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-weight:700;font-size:16px;color:var(--ink);}
-.wfd-close{margin-left:auto;border:none;background:none;cursor:pointer;font-size:20px;color:#999;line-height:1;padding:0;}
+.wfd-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-weight:700;font-size:15px;color:var(--ink);}
+.wfd-close{margin-left:auto;border:none;background:none;cursor:pointer;font-size:20px;color:#aaa;line-height:1;padding:0;}
 .wfd-close:hover{color:var(--ink);}
-.wfd-desc{font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.6;}
-.wfd-label{display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:5px;}
-.wfd-input{
-  width:100%;box-sizing:border-box;
-  border:1.5px solid var(--line-soft);border-radius:8px;
-  padding:9px 12px;font-size:13px;font-family:inherit;
-  color:var(--ink);outline:none;
+/* Breadcrumb */
+.wfd-breadcrumb{
+  display:flex;flex-wrap:wrap;align-items:center;gap:2px;
+  background:#f7f6f2;border:1px solid var(--line-soft);border-radius:8px;
+  padding:6px 10px;font-size:12px;min-height:32px;margin-bottom:8px;
 }
-.wfd-input:focus{border-color:var(--primary);}
+.wfd-crumb{
+  color:var(--primary);cursor:pointer;font-weight:600;
+  padding:2px 4px;border-radius:4px;white-space:nowrap;
+}
+.wfd-crumb:hover{background:#e8e6df;}
+.wfd-crumb-sep{color:#bbb;padding:0 1px;}
+.wfd-crumb-cur{color:var(--ink);font-weight:700;padding:2px 4px;}
+/* Directory list */
+.wfd-dir-list{
+  border:1.5px solid var(--line-soft);border-radius:10px;
+  overflow-y:auto;max-height:220px;min-height:100px;
+  background:#fafaf8;margin-bottom:10px;
+}
+.wfd-loading{padding:20px;text-align:center;color:var(--muted);font-size:13px;}
+.wfd-dir-item{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 12px;cursor:pointer;font-size:13px;color:var(--ink);
+  border-bottom:1px solid var(--line-soft);user-select:none;
+}
+.wfd-dir-item:last-child{border-bottom:none;}
+.wfd-dir-item:hover{background:#f0eeea;}
+.wfd-dir-item.selected{background:#eef3ff;color:#1e40af;font-weight:600;}
+.wfd-dir-item svg{flex-shrink:0;opacity:.7;}
+.wfd-dir-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wfd-dir-item-arrow{color:#bbb;font-size:12px;flex-shrink:0;}
+.wfd-dir-item-up{color:var(--muted);font-style:italic;}
+.wfd-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;}
+/* Selected path */
+.wfd-selected-row{
+  display:flex;align-items:center;gap:8px;
+  background:#f7f6f2;border:1.5px solid var(--line-soft);border-radius:8px;
+  padding:7px 10px;margin-bottom:10px;
+}
+.wfd-selected-row svg{flex-shrink:0;stroke:#3b82f6;}
+.wfd-path-input{
+  flex:1;border:none;background:transparent;outline:none;
+  font-size:12px;font-family:inherit;color:var(--ink);
+  min-width:0;
+}
+.wfd-label{display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:5px;}
 .wfd-select{
   width:100%;box-sizing:border-box;
   border:1.5px solid var(--line-soft);border-radius:8px;
-  padding:9px 12px;font-size:13px;font-family:inherit;
+  padding:8px 12px;font-size:13px;font-family:inherit;
   color:var(--ink);background:#fff;outline:none;cursor:pointer;
 }
-.wfd-msg{min-height:18px;font-size:12px;margin-top:10px;color:#ef4444;}
+.wfd-msg{min-height:16px;font-size:12px;margin-top:8px;color:#ef4444;}
 .wfd-msg.ok{color:#16a34a;}
-.wfd-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+.wfd-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
 
 #chatAttachRow{padding:8px 14px 0;display:flex;flex-wrap:wrap;gap:6px;}
 #chatAttachList{display:flex;flex-wrap:wrap;gap:6px;}
@@ -1790,17 +1841,96 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     } catch (e) { /* ignore */ }
   }
 
-  function openFolderModal(prefill) {
+  /* ── Directory browser state ── */
+  var wfdCurrentPath = null;
+  var wfdSelectedPath = null;
+
+  async function wfdBrowse(dirPath) {
+    var list = g("wfdDirList");
+    var crumb = g("wfdBreadcrumb");
+    list.innerHTML = '<div class="wfd-loading">Loading…</div>';
+    try {
+      var res = await fetch("/api/workspace/browse?path=" + encodeURIComponent(dirPath));
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Cannot open folder");
+      wfdCurrentPath = data.current;
+
+      /* breadcrumb */
+      var parts = data.current.split("/").filter(Boolean);
+      var crumbHtml = '<span class="wfd-crumb" data-path="/">/</span>';
+      var cumulative = "";
+      parts.forEach(function (p, i) {
+        cumulative += "/" + p;
+        var cp = cumulative;
+        if (i < parts.length - 1) {
+          crumbHtml += '<span class="wfd-crumb-sep">›</span><span class="wfd-crumb" data-path="' + esc(cp) + '">' + esc(p) + '</span>';
+        } else {
+          crumbHtml += '<span class="wfd-crumb-sep">›</span><span class="wfd-crumb-cur">' + esc(p) + '</span>';
+        }
+      });
+      crumb.innerHTML = crumbHtml;
+      crumb.querySelectorAll(".wfd-crumb").forEach(function (el) {
+        el.addEventListener("click", function () { wfdBrowse(el.dataset.path); });
+      });
+
+      /* directory list */
+      var html = "";
+      if (data.parent) {
+        html += '<div class="wfd-dir-item wfd-dir-item-up" data-path="' + esc(data.parent) + '">'
+          + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>'
+          + '<span class="wfd-dir-item-name">.. (go up)</span></div>';
+      }
+      if (!data.dirs.length && !data.parent) {
+        html += '<div class="wfd-empty">No subfolders here.</div>';
+      }
+      data.dirs.forEach(function (d) {
+        var isSel = wfdSelectedPath === d.path;
+        html += '<div class="wfd-dir-item' + (isSel ? " selected" : "") + '" data-path="' + esc(d.path) + '" data-name="' + esc(d.name) + '">'
+          + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>'
+          + '<span class="wfd-dir-item-name">' + esc(d.name) + '</span>'
+          + '<span class="wfd-dir-item-arrow">›</span></div>';
+      });
+      list.innerHTML = html || '<div class="wfd-empty">No subfolders found.</div>';
+
+      /* click = select; double-click or arrow = navigate into */
+      list.querySelectorAll(".wfd-dir-item").forEach(function (el) {
+        var fp = el.dataset.path;
+        var isUp = el.classList.contains("wfd-dir-item-up");
+        el.addEventListener("click", function () {
+          if (isUp) { wfdBrowse(fp); return; }
+          /* single click selects */
+          list.querySelectorAll(".wfd-dir-item").forEach(function (x) { x.classList.remove("selected"); });
+          el.classList.add("selected");
+          wfdSelectedPath = fp;
+          g("wfdPathInput").value = fp;
+        });
+        el.addEventListener("dblclick", function () {
+          if (!isUp) { wfdSelectedPath = fp; g("wfdPathInput").value = fp; }
+          wfdBrowse(fp);
+        });
+      });
+    } catch (err) {
+      list.innerHTML = '<div class="wfd-empty" style="color:#ef4444;">' + esc(err.message) + '</div>';
+    }
+  }
+
+  /* typing in path input navigates the browser */
+  g("wfdPathInput").addEventListener("change", function () {
+    var val = g("wfdPathInput").value.trim();
+    if (val) { wfdSelectedPath = val; wfdBrowse(val); }
+  });
+
+  function openFolderModal() {
     var modal = g("workspaceFolderModal");
-    var input = g("wfdPathInput");
-    var select = g("wfdPermMode");
-    var msg = g("wfdMsg");
-    input.value = prefill || activeProjectPath || "";
-    select.value = activePermMode || "default";
-    msg.textContent = "";
-    msg.className = "wfd-msg";
+    g("wfdPermMode").value = activePermMode || "default";
+    g("wfdMsg").textContent = "";
+    g("wfdMsg").className = "wfd-msg";
+    wfdSelectedPath = activeProjectPath || null;
+    g("wfdPathInput").value = activeProjectPath || "";
     modal.style.display = "flex";
-    setTimeout(function () { input.focus(); input.select(); }, 60);
+    /* start browsing from active project or home */
+    var startPath = activeProjectPath || "/";
+    wfdBrowse(startPath);
   }
 
   function closeFolderModal() {
@@ -1812,39 +1942,38 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   g("workspaceFolderOverlay").addEventListener("click", closeFolderModal);
 
   g("wfdSave").addEventListener("click", async function () {
-    var path = g("wfdPathInput").value.trim();
+    var folderPath = (wfdSelectedPath || g("wfdPathInput").value).trim();
     var perm = g("wfdPermMode").value;
     var msg = g("wfdMsg");
-    if (!path) { msg.textContent = "Please enter a folder path."; return; }
+    if (!folderPath) { msg.textContent = "Please select or type a folder path."; return; }
     var btn = g("wfdSave");
-    btn.disabled = true; btn.textContent = "Saving…";
+    btn.disabled = true; btn.textContent = "Opening…";
     try {
       var res = await fetch("/api/workspace/local-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceRoot: path, permissionMode: perm }),
+        body: JSON.stringify({ workspaceRoot: folderPath, permissionMode: perm }),
       });
       var data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
       msg.className = "wfd-msg ok";
-      msg.textContent = "✓ Project folder set!";
-      showProjectChip(path, perm);
-      setTimeout(closeFolderModal, 900);
+      msg.textContent = "✓ Project folder opened!";
+      showProjectChip(folderPath, perm);
+      setTimeout(closeFolderModal, 700);
     } catch (e) {
       msg.className = "wfd-msg";
       msg.textContent = e.message;
     } finally {
-      btn.disabled = false; btn.textContent = "Set as project folder";
+      btn.disabled = false; btn.textContent = "Open as project";
     }
   });
 
   g("chatProjectEdit").addEventListener("click", function () { openFolderModal(); });
   g("chatProjectClear").addEventListener("click", async function () {
-    /* Reset to default workspace */
     await fetch("/api/workspace/local-settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workspaceRoot: "/tmp/olla-nest-workspace", permissionMode: "default" }),
+      body: JSON.stringify({ workspaceRoot: "", permissionMode: "default" }),
     }).catch(function () {});
     activeProjectPath = null;
     g("chatProjectRow").style.display = "none";
