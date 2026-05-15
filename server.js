@@ -1057,6 +1057,9 @@ app.get("/api/workspace/browse", requireAuth, (req, res) => {
   try {
     const requestedPath = String(req.query.path || home).trim();
     resolved = path.resolve(requestedPath);
+    if (req.query.create === "1") {
+      fs.mkdirSync(resolved, { recursive: true });
+    }
     if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
       resolved = home;
     }

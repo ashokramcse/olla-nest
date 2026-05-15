@@ -593,41 +593,95 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
             <!-- Messages -->
             <div id="chatMessages"></div>
 
-            <!-- Workspace folder modal -->
+            <!-- Workspace folder modal — Finder-style -->
             <div id="workspaceFolderModal" style="display:none;">
               <div id="workspaceFolderOverlay"></div>
               <div id="workspaceFolderDialog">
-                <div class="wfd-header">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                  <span>Choose Project Folder</span>
-                  <button id="wfdClose" class="wfd-close">×</button>
+
+                <!-- Title bar -->
+                <div class="wfd-titlebar">
+                  <div class="wfd-traffic">
+                    <span class="wfd-dot red" id="wfdClose" title="Close"></span>
+                    <span class="wfd-dot yellow"></span>
+                    <span class="wfd-dot green"></span>
+                  </div>
+                  <div class="wfd-title-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                    <span id="wfdTitleName">Choose Project Folder</span>
+                  </div>
+                  <div class="wfd-toolbar-right">
+                    <button class="wfd-nav-btn" id="wfdNewFolder" title="New Folder">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                      New Folder
+                    </button>
+                  </div>
                 </div>
 
-                <!-- path breadcrumb bar -->
-                <div id="wfdBreadcrumb" class="wfd-breadcrumb"></div>
+                <!-- Finder body: sidebar + main -->
+                <div class="wfd-body">
 
-                <!-- directory listing -->
-                <div id="wfdDirList" class="wfd-dir-list">
-                  <div class="wfd-loading">Loading…</div>
+                  <!-- Left sidebar -->
+                  <div class="wfd-sidebar">
+                    <div class="wfd-sidebar-section">Favourites</div>
+                    <div class="wfd-sidebar-item" data-path="/app/data/workspace" id="wfd-fav-workspace">
+                      <svg viewBox="0 0 24 24" fill="#4f8ef7" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="none"/></svg>
+                      Workspace
+                    </div>
+                    <div class="wfd-sidebar-item" data-path="/app/data">
+                      <svg viewBox="0 0 24 24" fill="#4f8ef7" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="none"/></svg>
+                      Data
+                    </div>
+                    <div class="wfd-sidebar-item" data-path="/app">
+                      <svg viewBox="0 0 24 24" fill="#4f8ef7" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="none"/></svg>
+                      App
+                    </div>
+                    <div class="wfd-sidebar-section" style="margin-top:10px;">Locations</div>
+                    <div class="wfd-sidebar-item" data-path="/home">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" width="14" height="14"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                      Home
+                    </div>
+                    <div class="wfd-sidebar-item" data-path="/">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" width="14" height="14"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                      Container
+                    </div>
+                  </div>
+
+                  <!-- Main area -->
+                  <div class="wfd-main">
+                    <!-- Breadcrumb toolbar -->
+                    <div class="wfd-toolbar">
+                      <button class="wfd-back-btn" id="wfdBackBtn" title="Go up">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                      <div id="wfdBreadcrumb" class="wfd-breadcrumb"></div>
+                    </div>
+
+                    <!-- Grid view -->
+                    <div id="wfdDirList" class="wfd-grid">
+                      <div class="wfd-loading">Loading…</div>
+                    </div>
+                  </div>
                 </div>
 
-                <!-- selected path display -->
-                <div class="wfd-selected-row">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                  <input id="wfdPathInput" class="wfd-path-input" type="text" placeholder="Select a folder above or type a path" autocomplete="off" spellcheck="false">
-                </div>
-
-                <label class="wfd-label" style="margin-top:10px;">Write permission</label>
-                <select id="wfdPermMode" class="wfd-select">
-                  <option value="default">Approve writes — review each write</option>
-                  <option value="review">Auto-review — auto-approve after review</option>
-                  <option value="full">Full access — write without approval</option>
-                </select>
-
-                <div id="wfdMsg" class="wfd-msg"></div>
-                <div class="wfd-actions">
-                  <button id="wfdCancel" class="btn btn-sm">Cancel</button>
-                  <button id="wfdSave" class="btn btn-sm btn-primary">Open as project</button>
+                <!-- Bottom bar -->
+                <div class="wfd-bottombar">
+                  <div class="wfd-path-row">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                    <input id="wfdPathInput" class="wfd-path-input" type="text" placeholder="No folder selected" autocomplete="off" spellcheck="false" readonly>
+                  </div>
+                  <div class="wfd-perm-row">
+                    <label class="wfd-perm-label">Write permission</label>
+                    <select id="wfdPermMode" class="wfd-perm-select dd-upgraded">
+                      <option value="default">Approve each write</option>
+                      <option value="review">Auto-review</option>
+                      <option value="full">Full access</option>
+                    </select>
+                  </div>
+                  <div id="wfdMsg" class="wfd-msg"></div>
+                  <div class="wfd-actions">
+                    <button id="wfdCancel" class="btn btn-sm">Cancel</button>
+                    <button id="wfdSave" class="btn btn-sm btn-primary">Open as project</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1463,74 +1517,137 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 #chatProjectEdit:hover,#chatProjectClear:hover{color:#1e40af;}
 
 /* Workspace folder modal */
+/* ── Finder-style folder picker ── */
 #workspaceFolderModal{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;}
-#workspaceFolderOverlay{position:absolute;inset:0;background:rgba(0,0,0,.4);}
+#workspaceFolderOverlay{position:absolute;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);}
 #workspaceFolderDialog{
   position:relative;z-index:1;
-  background:#fff;border-radius:16px;
-  padding:22px 22px 18px;width:520px;max-width:calc(100vw - 24px);
-  box-shadow:0 24px 64px rgba(0,0,0,.22);
-  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
-  display:flex;flex-direction:column;gap:0;
+  background:#ececec;border-radius:12px;
+  width:680px;max-width:calc(100vw - 32px);
+  box-shadow:0 32px 80px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.12);
+  font-family:-apple-system,'Plus Jakarta Sans',system-ui,sans-serif;
+  display:flex;flex-direction:column;overflow:hidden;
 }
-.wfd-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-weight:700;font-size:15px;color:var(--ink);}
-.wfd-close{margin-left:auto;border:none;background:none;cursor:pointer;font-size:20px;color:#aaa;line-height:1;padding:0;}
-.wfd-close:hover{color:var(--ink);}
-/* Breadcrumb */
-.wfd-breadcrumb{
-  display:flex;flex-wrap:wrap;align-items:center;gap:2px;
-  background:#f7f6f2;border:1px solid var(--line-soft);border-radius:8px;
-  padding:6px 10px;font-size:12px;min-height:32px;margin-bottom:8px;
+/* Title bar */
+.wfd-titlebar{
+  display:flex;align-items:center;
+  background:linear-gradient(to bottom,#f0f0f0,#e0e0e0);
+  border-bottom:1px solid #c8c8c8;
+  padding:10px 14px;gap:10px;
+  user-select:none;
 }
-.wfd-crumb{
-  color:var(--primary);cursor:pointer;font-weight:600;
-  padding:2px 4px;border-radius:4px;white-space:nowrap;
+.wfd-traffic{display:flex;align-items:center;gap:6px;}
+.wfd-dot{
+  width:12px;height:12px;border-radius:50%;cursor:pointer;flex-shrink:0;
+  border:1px solid rgba(0,0,0,.12);
 }
-.wfd-crumb:hover{background:#e8e6df;}
-.wfd-crumb-sep{color:#bbb;padding:0 1px;}
-.wfd-crumb-cur{color:var(--ink);font-weight:700;padding:2px 4px;}
-/* Directory list */
-.wfd-dir-list{
-  border:1.5px solid var(--line-soft);border-radius:10px;
-  overflow-y:auto;max-height:220px;min-height:100px;
-  background:#fafaf8;margin-bottom:10px;
+.wfd-dot.red{background:#ff5f57;}
+.wfd-dot.yellow{background:#febc2e;}
+.wfd-dot.green{background:#28c840;}
+.wfd-title-center{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+  font-size:13px;font-weight:600;color:#333;
 }
-.wfd-loading{padding:20px;text-align:center;color:var(--muted);font-size:13px;}
-.wfd-dir-item{
-  display:flex;align-items:center;gap:9px;
-  padding:8px 12px;cursor:pointer;font-size:13px;color:var(--ink);
-  border-bottom:1px solid var(--line-soft);user-select:none;
+.wfd-toolbar-right{display:flex;align-items:center;gap:6px;}
+.wfd-nav-btn{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:5px;border:1px solid #c8c8c8;
+  background:linear-gradient(to bottom,#fafafa,#efefef);
+  font-size:11.5px;font-family:inherit;color:#333;cursor:pointer;
 }
-.wfd-dir-item:last-child{border-bottom:none;}
-.wfd-dir-item:hover{background:#f0eeea;}
-.wfd-dir-item.selected{background:#eef3ff;color:#1e40af;font-weight:600;}
-.wfd-dir-item svg{flex-shrink:0;opacity:.7;}
-.wfd-dir-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wfd-dir-item-arrow{color:#bbb;font-size:12px;flex-shrink:0;}
-.wfd-dir-item-up{color:var(--muted);font-style:italic;}
-.wfd-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;}
-/* Selected path */
-.wfd-selected-row{
+.wfd-nav-btn:hover{background:linear-gradient(to bottom,#fff,#e8e8e8);}
+/* Body: sidebar + main */
+.wfd-body{display:flex;flex:1;min-height:0;height:320px;}
+/* Sidebar */
+.wfd-sidebar{
+  width:150px;flex-shrink:0;
+  background:#e8e8e8;border-right:1px solid #c8c8c8;
+  padding:8px 0;overflow-y:auto;
+}
+.wfd-sidebar-section{
+  padding:6px 12px 2px;font-size:10.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;color:#888;
+}
+.wfd-sidebar-item{
+  display:flex;align-items:center;gap:7px;
+  padding:5px 12px;font-size:12.5px;color:#333;cursor:pointer;
+  border-radius:5px;margin:0 5px;transition:background .1s;
+}
+.wfd-sidebar-item:hover{background:rgba(0,0,0,.06);}
+.wfd-sidebar-item.active{background:#4f8ef7;color:#fff;}
+.wfd-sidebar-item.active svg path{fill:#fff!important;}
+/* Main area */
+.wfd-main{flex:1;display:flex;flex-direction:column;background:#fff;min-width:0;}
+.wfd-toolbar{
   display:flex;align-items:center;gap:8px;
-  background:#f7f6f2;border:1.5px solid var(--line-soft);border-radius:8px;
-  padding:7px 10px;margin-bottom:10px;
+  padding:7px 12px;border-bottom:1px solid #e8e8e8;
+  background:#f8f8f8;flex-shrink:0;
 }
-.wfd-selected-row svg{flex-shrink:0;stroke:#3b82f6;}
+.wfd-back-btn{
+  width:24px;height:24px;border-radius:4px;border:1px solid #d0d0d0;
+  background:linear-gradient(to bottom,#fafafa,#eeeeee);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  flex-shrink:0;
+}
+.wfd-back-btn:hover{background:linear-gradient(to bottom,#fff,#e4e4e4);}
+.wfd-back-btn:disabled{opacity:.4;cursor:default;}
+/* Breadcrumb in toolbar */
+.wfd-breadcrumb{
+  display:flex;flex-wrap:nowrap;align-items:center;gap:2px;
+  font-size:12px;overflow:hidden;
+}
+.wfd-crumb{color:#1a6ef5;cursor:pointer;padding:2px 4px;border-radius:3px;white-space:nowrap;}
+.wfd-crumb:hover{background:#e8f0fe;}
+.wfd-crumb-sep{color:#bbb;padding:0 1px;}
+.wfd-crumb-cur{color:#333;font-weight:600;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
+/* Grid */
+.wfd-grid{
+  flex:1;overflow-y:auto;padding:12px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+  gap:8px;align-content:start;
+}
+.wfd-grid::-webkit-scrollbar{width:5px;}
+.wfd-grid::-webkit-scrollbar-thumb{background:#0000001a;border-radius:4px;}
+.wfd-grid-item{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:8px 6px;border-radius:6px;cursor:pointer;user-select:none;
+  text-align:center;transition:background .1s;
+}
+.wfd-grid-item:hover{background:#e8f0fe;}
+.wfd-grid-item.selected{background:#4f8ef7;}
+.wfd-grid-item.selected .wfd-grid-name{color:#fff;}
+.wfd-grid-icon{font-size:36px;line-height:1;}
+.wfd-grid-name{
+  font-size:11px;color:#333;word-break:break-word;
+  line-height:1.3;max-width:80px;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.wfd-loading{padding:24px;text-align:center;color:#999;font-size:13px;}
+.wfd-empty{padding:24px;text-align:center;color:#999;font-size:12px;}
+/* Bottom bar */
+.wfd-bottombar{
+  background:#ececec;border-top:1px solid #c8c8c8;
+  padding:10px 14px 12px;display:flex;flex-direction:column;gap:8px;
+}
+.wfd-path-row{
+  display:flex;align-items:center;gap:7px;
+  background:#fff;border:1px solid #c8c8c8;border-radius:5px;
+  padding:5px 9px;
+}
 .wfd-path-input{
   flex:1;border:none;background:transparent;outline:none;
-  font-size:12px;font-family:inherit;color:var(--ink);
-  min-width:0;
+  font-size:12px;font-family:inherit;color:#333;min-width:0;
 }
-.wfd-label{display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:5px;}
-.wfd-select{
-  width:100%;box-sizing:border-box;
-  border:1.5px solid var(--line-soft);border-radius:8px;
-  padding:8px 12px;font-size:13px;font-family:inherit;
-  color:var(--ink);background:#fff;outline:none;cursor:pointer;
+.wfd-perm-row{display:flex;align-items:center;gap:10px;}
+.wfd-perm-label{font-size:12px;color:#555;white-space:nowrap;flex-shrink:0;}
+.wfd-perm-select{
+  flex:1;border:1px solid #c8c8c8;border-radius:5px;
+  padding:4px 8px;font-size:12px;font-family:inherit;color:#333;
+  background:#fff;outline:none;cursor:pointer;
 }
-.wfd-msg{min-height:16px;font-size:12px;margin-top:8px;color:#ef4444;}
+.wfd-msg{min-height:14px;font-size:12px;color:#ef4444;}
 .wfd-msg.ok{color:#16a34a;}
-.wfd-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
+.wfd-actions{display:flex;gap:8px;justify-content:flex-end;}
 
 #chatAttachRow{padding:8px 14px 0;display:flex;flex-wrap:wrap;gap:6px;}
 #chatAttachList{display:flex;flex-wrap:wrap;gap:6px;}
@@ -2353,14 +2470,23 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   var wfdSelectedPath = null;
 
   async function wfdBrowse(dirPath) {
-    var list = g("wfdDirList");
+    var grid = g("wfdDirList");
     var crumb = g("wfdBreadcrumb");
-    list.innerHTML = '<div class="wfd-loading">Loading…</div>';
+    var backBtn = g("wfdBackBtn");
+    grid.innerHTML = '<div class="wfd-loading">Loading…</div>';
     try {
       var res = await fetch("/api/workspace/browse?path=" + encodeURIComponent(dirPath));
       var data = await res.json();
       if (!res.ok) throw new Error(data.error || "Cannot open folder");
       wfdCurrentPath = data.current;
+
+      /* update sidebar active state */
+      document.querySelectorAll(".wfd-sidebar-item").forEach(function (el) {
+        el.classList.toggle("active", el.dataset.path === data.current);
+      });
+
+      /* back button */
+      if (backBtn) backBtn.disabled = !data.parent;
 
       /* breadcrumb */
       var parts = data.current.split("/").filter(Boolean);
@@ -2375,56 +2501,77 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
           crumbHtml += '<span class="wfd-crumb-sep">›</span><span class="wfd-crumb-cur">' + esc(p) + '</span>';
         }
       });
-      crumb.innerHTML = crumbHtml;
-      crumb.querySelectorAll(".wfd-crumb").forEach(function (el) {
-        el.addEventListener("click", function () { wfdBrowse(el.dataset.path); });
-      });
+      if (crumb) {
+        crumb.innerHTML = crumbHtml;
+        crumb.querySelectorAll(".wfd-crumb").forEach(function (el) {
+          el.addEventListener("click", function () { wfdBrowse(el.dataset.path); });
+        });
+      }
 
-      /* directory list */
-      var html = "";
-      if (data.parent) {
-        html += '<div class="wfd-dir-item wfd-dir-item-up" data-path="' + esc(data.parent) + '">'
-          + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>'
-          + '<span class="wfd-dir-item-name">.. (go up)</span></div>';
+      /* title */
+      var titleEl = g("wfdTitleName");
+      if (titleEl) titleEl.textContent = parts.length ? parts[parts.length - 1] : "/";
+
+      /* grid items */
+      if (!data.dirs.length) {
+        grid.innerHTML = '<div class="wfd-empty">No folders here</div>';
+        return;
       }
-      if (!data.dirs.length && !data.parent) {
-        html += '<div class="wfd-empty">No subfolders here.</div>';
-      }
-      data.dirs.forEach(function (d) {
+      grid.innerHTML = data.dirs.map(function (d) {
         var isSel = wfdSelectedPath === d.path;
-        html += '<div class="wfd-dir-item' + (isSel ? " selected" : "") + '" data-path="' + esc(d.path) + '" data-name="' + esc(d.name) + '">'
-          + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>'
-          + '<span class="wfd-dir-item-name">' + esc(d.name) + '</span>'
-          + '<span class="wfd-dir-item-arrow">›</span></div>';
-      });
-      list.innerHTML = html || '<div class="wfd-empty">No subfolders found.</div>';
+        return '<div class="wfd-grid-item' + (isSel ? " selected" : "") + '" data-path="' + esc(d.path) + '" data-name="' + esc(d.name) + '">'
+          + '<div class="wfd-grid-icon">📁</div>'
+          + '<div class="wfd-grid-name">' + esc(d.name) + '</div>'
+          + '</div>';
+      }).join("");
 
-      /* click = select; double-click or arrow = navigate into */
-      list.querySelectorAll(".wfd-dir-item").forEach(function (el) {
+      /* single click = select, double-click = open */
+      grid.querySelectorAll(".wfd-grid-item").forEach(function (el) {
         var fp = el.dataset.path;
-        var isUp = el.classList.contains("wfd-dir-item-up");
         el.addEventListener("click", function () {
-          if (isUp) { wfdBrowse(fp); return; }
-          /* single click selects */
-          list.querySelectorAll(".wfd-dir-item").forEach(function (x) { x.classList.remove("selected"); });
+          grid.querySelectorAll(".wfd-grid-item").forEach(function (x) { x.classList.remove("selected"); });
           el.classList.add("selected");
           wfdSelectedPath = fp;
           g("wfdPathInput").value = fp;
         });
         el.addEventListener("dblclick", function () {
-          if (!isUp) { wfdSelectedPath = fp; g("wfdPathInput").value = fp; }
+          wfdSelectedPath = fp;
+          g("wfdPathInput").value = fp;
           wfdBrowse(fp);
         });
       });
     } catch (err) {
-      list.innerHTML = '<div class="wfd-empty" style="color:#ef4444;">' + esc(err.message) + '</div>';
+      grid.innerHTML = '<div class="wfd-empty" style="color:#ef4444;">' + esc(err.message) + '</div>';
     }
   }
 
-  /* typing in path input navigates the browser */
-  g("wfdPathInput").addEventListener("change", function () {
-    var val = g("wfdPathInput").value.trim();
-    if (val) { wfdSelectedPath = val; wfdBrowse(val); }
+  /* back button */
+  var wfdBackBtn = g("wfdBackBtn");
+  if (wfdBackBtn) wfdBackBtn.addEventListener("click", function () {
+    if (wfdCurrentPath) {
+      var parent = wfdCurrentPath.split("/").slice(0, -1).join("/") || "/";
+      wfdBrowse(parent);
+    }
+  });
+
+  /* sidebar favourites */
+  document.querySelectorAll(".wfd-sidebar-item").forEach(function (el) {
+    el.addEventListener("click", function () { wfdBrowse(el.dataset.path); });
+  });
+
+  /* new folder */
+  var wfdNewFolderBtn = g("wfdNewFolder");
+  if (wfdNewFolderBtn) wfdNewFolderBtn.addEventListener("click", function () {
+    var name = prompt("New folder name:");
+    if (!name || !name.trim()) return;
+    var newPath = (wfdCurrentPath || "/app/data/workspace").replace(/\/$/, "") + "/" + name.trim();
+    fetch("/api/workspace/browse?path=" + encodeURIComponent(newPath) + "&create=1", { credentials: "include" })
+      .then(function () { wfdBrowse(wfdCurrentPath); })
+      .catch(function () {
+        /* fallback: just set path and let server create on save */
+        wfdSelectedPath = newPath;
+        g("wfdPathInput").value = newPath;
+      });
   });
 
   function openFolderModal() {
@@ -2435,14 +2582,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     wfdSelectedPath = activeProjectPath || null;
     g("wfdPathInput").value = activeProjectPath || "";
     modal.style.display = "flex";
-    /* always start from home dir so the browser is usable even if stored path is stale */
-    fetch("/api/workspace/browse", { credentials: "include" })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        var startPath = activeProjectPath || d.home || "/";
-        wfdBrowse(startPath);
-      })
-      .catch(function () { wfdBrowse("/"); });
+    /* start at active project, then workspace root, then home */
+    var startPath = activeProjectPath || "/app/data/workspace";
+    wfdBrowse(startPath);
   }
 
   function closeFolderModal() {
