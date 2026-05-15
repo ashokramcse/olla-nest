@@ -554,6 +554,29 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
               <button id="chatNewBtn" class="btn ghost sm">New Chat</button>
             </div>
 
+            <!-- Model selector bar (Claude-style) -->
+            <div id="chatModelBar">
+              <div id="chatModelPicker" class="cmp-trigger">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                <span id="cmpModelName">Auto Router</span>
+                <svg class="cmp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+
+              <!-- dropdown -->
+              <div id="chatModelDropdown" class="cmp-dropdown">
+                <div class="cmp-dd-header">Select model</div>
+                <div id="cmpModelList"></div>
+              </div>
+
+              <!-- context window bar -->
+              <div id="chatContextBar" style="display:none;">
+                <div id="chatContextLabel" class="ctx-label"></div>
+                <div class="ctx-track">
+                  <div id="chatContextFill" class="ctx-fill"></div>
+                </div>
+              </div>
+            </div>
+
             <!-- Messages -->
             <div id="chatMessages"></div>
 
@@ -680,22 +703,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
           </div>
 
-          <!-- Right column: model selector + router panel -->
-          <div id="chatSidebar">
-
-            <div class="card" id="chatModelCard">
-              <div class="card-title" style="margin-bottom:10px;">Model</div>
-              <select id="chatModelSelect" class="input" style="width:100%;">
-                <option value="">Auto Router</option>
-              </select>
-            </div>
-
-            <div class="card" id="chatRouterCard">
-              <div class="card-title" style="margin-bottom:10px;">Auto Router</div>
-              <div id="chatRouterContent">Send a message to see routing details.</div>
-            </div>
-
-          </div>
+          <!-- hidden select for model id (used by sendChat) -->
+          <select id="chatModelSelect" style="display:none;"></select>
 
         </div>
       </div>
@@ -1044,7 +1053,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 /* Layout */
 #chatLayout{
   display:grid;
-  grid-template-columns:1fr 260px;
+  grid-template-columns:1fr;
   gap:14px;
   height:calc(100vh - 210px);
   min-height:540px;
@@ -1239,35 +1248,73 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   line-height:1.6;
 }
 
-/* ── Right sidebar ── */
-#chatSidebar{display:flex;flex-direction:column;gap:12px;overflow:hidden;}
-#chatRouterCard{flex:1;overflow-y:auto;}
-#chatRouterContent{font-size:12.5px;color:var(--mute);line-height:1.6;}
-
-/* Router result */
-.cr-model{font-size:14px;font-weight:600;margin-bottom:4px;color:var(--ink);}
-.cr-reason{font-size:12px;color:var(--mute);line-height:1.55;margin-bottom:10px;}
-.cr-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;}
-.cr-tag{
-  padding:3px 10px;border-radius:999px;
-  background:var(--paper);border:1px solid var(--line-soft);
-  font-size:11px;color:var(--ink);
+/* ── Model selector bar (Claude-style) ── */
+#chatModelBar{
+  display:flex;align-items:center;gap:10px;
+  padding:6px 16px 8px;
+  border-bottom:1px solid var(--line-soft);
+  position:relative;background:#fff;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
 }
-.cr-cands{border-top:1px solid var(--line-soft);padding-top:10px;margin-top:4px;}
-.cr-cand-label{
-  font-size:10px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.06em;color:var(--mute);margin-bottom:7px;
+/* Trigger button */
+.cmp-trigger{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:8px;cursor:pointer;
+  border:1.5px solid var(--line-soft);background:#fafaf8;
+  font-size:13px;font-weight:600;color:var(--ink);
+  transition:border-color .12s,background .12s;
+  user-select:none;position:relative;white-space:nowrap;
 }
-.cr-cand{
-  display:flex;justify-content:space-between;
-  align-items:center;font-size:12px;padding:4px 0;
-  color:var(--ink);border-bottom:1px solid #f0ede0;
+.cmp-trigger:hover{background:#f2f0e8;border-color:#c8c4b4;}
+.cmp-trigger.open{border-color:var(--primary);background:#fff;}
+.cmp-chevron{transition:transform .15s;}
+.cmp-trigger.open .cmp-chevron{transform:rotate(180deg);}
+/* Dropdown */
+#chatModelDropdown{
+  display:none;position:absolute;top:calc(100% + 6px);left:16px;
+  background:#fff;border:1.5px solid var(--line-soft);border-radius:12px;
+  box-shadow:0 12px 36px rgba(0,0,0,.13);z-index:500;
+  min-width:260px;max-width:340px;overflow:hidden;
 }
-.cr-cand:last-child{border-bottom:none;}
-.cr-cand-score{
-  font-size:11px;color:var(--mute);
-  background:var(--paper);padding:2px 7px;
-  border-radius:999px;font-weight:500;
+#chatModelDropdown.open{display:block;}
+.cmp-dd-header{
+  padding:10px 14px 6px;font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.07em;color:var(--mute);
+}
+.cmp-model-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;cursor:pointer;font-size:13px;color:var(--ink);
+  border-top:1px solid #f2f0e8;
+}
+.cmp-model-item:hover{background:#fafaf8;}
+.cmp-model-item.active{background:#f0f7ff;color:#1e40af;}
+.cmp-model-item.active .cmp-check{display:block;}
+.cmp-check{display:none;color:#2563eb;font-weight:700;margin-left:auto;font-size:14px;}
+.cmp-model-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0;}
+.cmp-model-dot.off{background:#e5e7eb;}
+.cmp-model-name{flex:1;font-weight:500;}
+.cmp-auto-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);
+}
+.cmp-auto-item:hover{background:#fafaf8;}
+.cmp-auto-item.active{background:#f0f7ff;color:#1e40af;}
+/* Context window bar */
+#chatContextBar{
+  display:flex;align-items:center;gap:8px;
+  flex:1;min-width:0;
+}
+.ctx-label{
+  font-size:11.5px;color:var(--mute);white-space:nowrap;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+.ctx-track{
+  flex:1;height:4px;border-radius:99px;
+  background:#e8e6df;overflow:hidden;min-width:60px;max-width:220px;
+}
+.ctx-fill{
+  height:100%;border-radius:99px;
+  background:var(--primary);transition:width .4s ease;
 }
 
 /* ── Empty state ── */
@@ -1580,43 +1627,161 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     el.scrollTop = el.scrollHeight;
   }
 
-  /* ── populate model select ── */
-  function populateModels() {
+  /* ── Model picker state ── */
+  var selectedModelId = "";  /* "" = Auto Router */
+  var selectedModelCtx = 0; /* context window size (tokens) */
+  var usedTokens = 0;
+
+  /* Approximate context window sizes by known model families */
+  function estimateCtx(modelName) {
+    var n = (modelName || "").toLowerCase();
+    if (/llama.*70b|llama.*3\.1|llama.*3\.2|llama.*3\.3/.test(n)) return 128000;
+    if (/llama/.test(n)) return 32768;
+    if (/mistral|mixtral/.test(n)) return 32768;
+    if (/gemma/.test(n)) return 8192;
+    if (/qwen2\.5.*72b|qwen.*72b/.test(n)) return 128000;
+    if (/qwen/.test(n)) return 32768;
+    if (/phi/.test(n)) return 131072;
+    if (/deepseek/.test(n)) return 65536;
+    if (/codestral|command/.test(n)) return 32768;
+    return 8192;
+  }
+
+  function fmtTokens(n) {
+    if (n >= 1000) return (n / 1000).toFixed(1) + "k";
+    return String(n);
+  }
+
+  function updateCtxBar(modelName, ctxSize, used) {
+    var bar = get("chatContextBar");
+    var label = get("chatContextLabel");
+    var fill = get("chatContextFill");
+    if (!bar) return;
+    if (!ctxSize) { bar.style.display = "none"; return; }
+    bar.style.display = "flex";
+    var pct = Math.min(100, Math.round((used / ctxSize) * 100));
+    label.textContent = "Context window  " + fmtTokens(used) + " / " + fmtTokens(ctxSize) + " (" + pct + "%)";
+    fill.style.width = pct + "%";
+    /* colour: green → amber → red */
+    fill.style.background = pct < 60 ? "var(--primary)" : pct < 85 ? "#b45309" : "#dc2626";
+  }
+
+  function setSelectedModel(id, name, ctx) {
+    selectedModelId = id || "";
+    selectedModelCtx = ctx || 0;
+    /* sync hidden select */
     var sel = get("chatModelSelect");
-    if (!sel || typeof state === "undefined" || !state) return;
+    if (sel) sel.value = id || "";
+    /* update trigger label */
+    var nameEl = get("cmpModelName");
+    if (nameEl) nameEl.textContent = name || "Auto Router";
+    updateCtxBar(name, ctx, usedTokens);
+  }
+
+  function populateModels() {
+    if (typeof state === "undefined" || !state) return;
     var models = (state.models || []).filter(function (m) {
       return (state.allowedModelIds || []).includes(m.id) && m.status !== "disabled";
     });
-    sel.innerHTML = '<option value="">Auto Router</option>'
-      + models.map(function (m) {
-          return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>';
-        }).join("");
+
+    /* sync hidden select */
+    var sel = get("chatModelSelect");
+    if (sel) {
+      sel.innerHTML = '<option value="">Auto Router</option>'
+        + models.map(function (m) { return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>'; }).join("");
+      sel.value = selectedModelId;
+    }
+
+    /* build dropdown list */
+    var list = get("cmpModelList");
+    if (!list) return;
+    var isAutoActive = !selectedModelId;
+    var html = '<div class="cmp-auto-item' + (isAutoActive ? " active" : "") + '" data-id="" data-name="Auto Router" data-ctx="0">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>'
+      + '<span class="cmp-model-name">Auto Router</span>'
+      + (isAutoActive ? '<span class="cmp-check">✓</span>' : '')
+      + '</div>';
+    models.forEach(function (m) {
+      var ctx = estimateCtx(m.name);
+      var isSel = m.id === selectedModelId;
+      html += '<div class="cmp-model-item' + (isSel ? " active" : "") + '" data-id="' + esc(m.id) + '" data-name="' + esc(m.name) + '" data-ctx="' + ctx + '">'
+        + '<div class="cmp-model-dot' + (m.status === "disabled" ? " off" : "") + '"></div>'
+        + '<span class="cmp-model-name">' + esc(m.name) + '</span>'
+        + '<span style="font-size:11px;color:var(--mute);">' + fmtTokens(ctx) + '</span>'
+        + (isSel ? '<span class="cmp-check">✓</span>' : '')
+        + '</div>';
+    });
+    list.innerHTML = html;
+
+    list.querySelectorAll("[data-id]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var id = el.dataset.id;
+        var name = el.dataset.name;
+        var ctx = parseInt(el.dataset.ctx) || 0;
+        setSelectedModel(id, name, ctx);
+        closeModelDropdown();
+      });
+    });
   }
 
-  /* ── render router result ── */
+  /* ── model dropdown toggle ── */
+  var picker = get("chatModelPicker");
+  var dropdown = get("chatModelDropdown");
+
+  function openModelDropdown() {
+    if (!dropdown) return;
+    picker.classList.add("open");
+    dropdown.classList.add("open");
+    populateModels(); /* refresh list */
+  }
+  function closeModelDropdown() {
+    if (!dropdown) return;
+    picker.classList.remove("open");
+    dropdown.classList.remove("open");
+  }
+
+  window._openModelDropdown = openModelDropdown;
+
+  if (picker) {
+    picker.addEventListener("click", function (e) {
+      e.stopPropagation();
+      dropdown.classList.contains("open") ? closeModelDropdown() : openModelDropdown();
+    });
+  }
+  document.addEventListener("click", function () { closeModelDropdown(); });
+  if (dropdown) dropdown.addEventListener("click", function (e) { e.stopPropagation(); });
+
+  /* ── estimate used tokens from current chat messages ── */
+  function estimateUsedTokens() {
+    if (!state || !state.chats) return 0;
+    var chat = null;
+    var chats = state.chats;
+    /* state.chats can be an object keyed by userId */
+    if (Array.isArray(chats)) {
+      chat = chats[0];
+    } else {
+      var uid = state.activeUser && state.activeUser.id;
+      chat = chats[uid] || Object.values(chats)[0];
+    }
+    var msgs = (chat && chat.messages) || [];
+    /* rough estimate: 1 token ≈ 4 chars */
+    var chars = msgs.reduce(function (sum, m) { return sum + (m.content || "").length; }, 0);
+    return Math.round(chars / 4);
+  }
+
+  /* ── render router result → now just updates model bar ── */
   function renderRouter(route) {
-    var el = get("chatRouterContent");
-    if (!el) return;
-    if (!route || !route.selected) {
-      el.innerHTML = '<span style="color:var(--mute);">Send a message to see routing details.</span>';
-      return;
+    if (!route || !route.selected) return;
+    /* update picker to show the actually-used model */
+    if (!selectedModelId) {
+      /* auto router — show which model was chosen temporarily */
+      var nameEl = get("cmpModelName");
+      if (nameEl) nameEl.textContent = "Auto Router  →  " + route.selected.name;
     }
-    var html = '<div class="cr-model">' + esc(route.selected.name) + '</div>'
-      + '<div class="cr-reason">' + esc(route.reason) + '</div>';
-    if (route.tags && route.tags.length) {
-      html += '<div class="cr-tags">'
-        + route.tags.map(function (t) { return '<span class="cr-tag">' + esc(t) + '</span>'; }).join("")
-        + '</div>';
-    }
-    var cands = (route.candidates || []).slice(0, 5);
-    if (cands.length > 1) {
-      html += '<div class="cr-cands"><div class="cr-cand-label">Candidates</div>'
-        + cands.map(function (c) {
-            return '<div class="cr-cand"><span>' + esc(c.name) + '</span><span class="cr-cand-score">' + c.score + '</span></div>';
-          }).join("")
-        + '</div>';
-    }
-    el.innerHTML = html;
+    /* update context bar */
+    usedTokens = estimateUsedTokens();
+    var ctx = selectedModelCtx || estimateCtx(route.selected.name);
+    updateCtxBar(route.selected.name, ctx, usedTokens);
   }
 
   /* ── send message ── */
@@ -1639,10 +1804,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     /* clear attachments */
     if (typeof window._chatAfterSend === "function") window._chatAfterSend();
 
-    /* show routing spinner */
-    var routerEl = get("chatRouterContent");
-    if (routerEl) routerEl.innerHTML = '<span style="color:var(--mute);">Routing…</span>';
-
     /* include project folder context */
     var projectPath = (typeof window._chatGetProjectPath === "function") ? window._chatGetProjectPath() : null;
     var writeModes = ["build", "fix", "debug", "test", "docs"];
@@ -1660,11 +1821,11 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         })
       });
       var data = await res.json();
-      renderRouter(data.route);
       if (typeof loadState === "function") await loadState();
       renderMessages();
+      renderRouter(data.route);
     } catch (err) {
-      if (routerEl) routerEl.innerHTML = '<span style="color:var(--danger);">' + esc(err.message) + '</span>';
+      /* error is visible in the chat stream */
     } finally {
       sendBtn.disabled = false;
     }
@@ -1685,7 +1846,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   if (newBtn) newBtn.addEventListener("click", function () {
     fetch("/api/chat/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
       .then(function () {
-        renderRouter(null);
+        usedTokens = 0;
+        var nameEl = get("cmpModelName");
+        if (nameEl) nameEl.textContent = selectedModelId ? (get("chatModelSelect").options[get("chatModelSelect").selectedIndex] || {}).text || "Auto Router" : "Auto Router";
+        updateCtxBar(null, selectedModelCtx, 0);
         if (typeof loadState === "function") loadState().then(renderMessages);
       });
   });
@@ -1715,7 +1879,11 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   });
 
   /* public refresh hook (called by admin.js after loadState) */
-  window.adminChatRefresh = function () { renderMessages(); populateModels(); };
+  window.adminChatRefresh = function () {
+    renderMessages(); populateModels();
+    usedTokens = estimateUsedTokens();
+    updateCtxBar(null, selectedModelCtx, usedTokens);
+  };
 
 })();
 </script>
@@ -2098,7 +2266,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         break;
       case "/model":
         chatInput.value = "";
-        g("chatModelSelect").focus();
+        if (typeof window._openModelDropdown === "function") window._openModelDropdown();
         break;
       default:
         chatInput.value = cmd + " ";
