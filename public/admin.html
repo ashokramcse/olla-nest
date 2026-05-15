@@ -559,13 +559,76 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
             <!-- Composer -->
             <div id="chatComposer">
+
+              <!-- Attachment chips (shown when files are attached) -->
+              <div id="chatAttachRow" style="display:none;">
+                <div id="chatAttachList"></div>
+              </div>
+
+              <!-- Slash command autocomplete -->
+              <div id="slashMenu"></div>
+
+              <!-- Input row -->
               <div id="chatInputWrap">
-                <textarea id="chatInput" rows="1" placeholder="Message Olla Nest…"></textarea>
-                <button id="chatSendBtn" title="Send">
+
+                <!-- + button with menu -->
+                <div class="c-btn-wrap" id="plusWrap">
+                  <button class="c-icon-btn" id="chatPlusBtn" title="Add files or commands">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </button>
+                  <div class="c-dropdown" id="plusMenu">
+                    <div class="c-dd-item" id="ddFiles">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                      Add files or photos
+                    </div>
+                    <div class="c-dd-item" id="ddFolder">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                      Add folder
+                    </div>
+                    <div class="c-dd-sep"></div>
+                    <div class="c-dd-item" id="ddSlash">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><line x1="17" y1="3" x2="7" y2="21"/></svg>
+                      Slash commands
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Hidden file inputs -->
+                <input type="file" id="fileInput" multiple style="display:none;">
+                <input type="file" id="folderInput" style="display:none;" webkitdirectory>
+
+                <!-- Text area -->
+                <textarea id="chatInput" rows="1" placeholder="Message Olla Nest… (type / for commands)"></textarea>
+
+                <!-- Mic button with device menu -->
+                <div class="c-btn-wrap" id="micWrap">
+                  <button class="c-icon-btn" id="chatMicBtn" title="Voice input">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                  </button>
+                  <button class="c-icon-btn c-chevron" id="chatMicArrow" title="Microphone options">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="10" height="10"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="c-dropdown c-dropdown-right" id="micMenu">
+                    <div class="c-dd-label">Microphone</div>
+                    <div id="micDeviceList"></div>
+                    <div class="c-dd-sep"></div>
+                    <div class="c-dd-toggle-row">
+                      <span>Hold to record</span>
+                      <label class="c-toggle">
+                        <input type="checkbox" id="holdToRecord">
+                        <span class="c-toggle-track"><span class="c-toggle-thumb"></span></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Send -->
+                <button id="chatSendBtn" title="Send (Enter)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </button>
-              </div>
-            </div>
+
+              </div><!-- end chatInputWrap -->
+            </div><!-- end chatComposer -->
 
           </div>
 
@@ -1168,6 +1231,118 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 .chat-empty-icon{font-size:32px;margin-bottom:16px;opacity:.6;}
 .chat-empty-title{font-size:16px;font-weight:600;color:var(--ink);margin-bottom:8px;}
 .chat-empty-sub{font-size:13px;line-height:1.6;text-align:center;max-width:300px;}
+
+/* ── Composer extras ── */
+#chatComposer{position:relative;}
+
+/* Attachment row */
+#chatAttachRow{padding:8px 14px 0;display:flex;flex-wrap:wrap;gap:6px;}
+#chatAttachList{display:flex;flex-wrap:wrap;gap:6px;}
+.attach-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:8px;
+  background:#f2f0e8;border:1px solid var(--line-soft);
+  font-size:12px;color:var(--ink);
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  max-width:200px;
+}
+.attach-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.attach-chip button{
+  border:none;background:none;cursor:pointer;
+  color:#999;padding:0;font-size:14px;line-height:1;
+  flex-shrink:0;
+}
+.attach-chip button:hover{color:var(--ink);}
+
+/* Icon buttons in composer */
+.c-btn-wrap{position:relative;display:flex;align-items:center;}
+.c-icon-btn{
+  width:32px;height:32px;border-radius:8px;border:none;
+  background:transparent;cursor:pointer;
+  color:#999;display:flex;align-items:center;justify-content:center;
+  transition:background .1s,color .1s;flex-shrink:0;
+}
+.c-icon-btn:hover{background:#f0ede0;color:var(--ink);}
+.c-icon-btn.active{background:#e8f0e8;color:#2a7a2a;}
+.c-icon-btn.recording{background:#fde8e8;color:#c0392b;animation:pulse-rec .9s ease-in-out infinite;}
+.c-chevron{width:18px;margin-left:-4px;}
+@keyframes pulse-rec{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Dropdowns */
+.c-dropdown{
+  position:absolute;bottom:calc(100% + 8px);left:0;
+  background:#fff;border:1px solid var(--line-soft);
+  border-radius:14px;padding:6px;
+  box-shadow:0 8px 32px -6px rgba(0,0,0,.18);
+  min-width:200px;z-index:200;display:none;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+.c-dropdown.open{display:block;}
+.c-dropdown-right{left:auto;right:0;}
+.c-dd-label{font-size:11px;font-weight:600;color:#999;
+  text-transform:uppercase;letter-spacing:.05em;
+  padding:6px 10px 4px;}
+.c-dd-item{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 12px;border-radius:9px;
+  font-size:13.5px;color:var(--ink);cursor:pointer;
+  transition:background .1s;
+}
+.c-dd-item:hover{background:#f5f3ed;}
+.c-dd-item svg{color:#666;flex-shrink:0;}
+.c-dd-sep{height:1px;background:var(--line-soft);margin:4px 6px;}
+.c-dd-toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px;font-size:13.5px;color:var(--ink);
+}
+
+/* Toggle switch */
+.c-toggle{position:relative;display:inline-flex;cursor:pointer;}
+.c-toggle input{display:none;}
+.c-toggle-track{
+  width:38px;height:22px;border-radius:11px;
+  background:#ddd;transition:background .2s;
+  position:relative;
+}
+.c-toggle input:checked + .c-toggle-track{background:#3b82f6;}
+.c-toggle-thumb{
+  position:absolute;top:3px;left:3px;
+  width:16px;height:16px;border-radius:50%;
+  background:#fff;transition:left .2s;
+  box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.c-toggle input:checked + .c-toggle-track .c-toggle-thumb{left:19px;}
+
+/* Mic device items */
+.mic-device-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;border-radius:9px;font-size:13px;
+  color:var(--ink);cursor:pointer;transition:background .1s;
+}
+.mic-device-item:hover{background:#f5f3ed;}
+.mic-device-item.selected::after{
+  content:'✓';color:var(--ink);font-size:13px;font-weight:600;
+}
+.mic-device-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;}
+
+/* Slash command menu */
+#slashMenu{
+  position:absolute;bottom:calc(100% + 4px);left:14px;right:14px;
+  background:#fff;border:1px solid var(--line-soft);
+  border-radius:14px;padding:6px;
+  box-shadow:0 8px 32px -6px rgba(0,0,0,.15);
+  z-index:200;display:none;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+#slashMenu.open{display:block;}
+.slash-item{
+  display:flex;align-items:baseline;gap:10px;
+  padding:9px 12px;border-radius:9px;cursor:pointer;
+  transition:background .1s;
+}
+.slash-item:hover,.slash-item.focused{background:#f5f3ed;}
+.slash-cmd{font-size:13.5px;font-weight:500;color:var(--ink);min-width:100px;}
+.slash-desc{font-size:12.5px;color:#999;}
 </style>
 
 <script>
@@ -1312,11 +1487,20 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var input   = get("chatInput");
     var sendBtn = get("chatSendBtn");
     if (!input || !sendBtn) return;
-    var msg = input.value.trim();
-    if (!msg) return;
+    var baseMsg = input.value.trim();
+    if (!baseMsg) return;
+
+    /* inject file context if any files are attached */
+    var fileCtx = (typeof window._chatFileContext === "function") ? window._chatFileContext() : "";
+    var msg = fileCtx ? baseMsg + fileCtx : baseMsg;
 
     sendBtn.disabled = true;
     input.value = "";
+    /* reset textarea height */
+    input.style.height = "auto";
+
+    /* clear attachments */
+    if (typeof window._chatAfterSend === "function") window._chatAfterSend();
 
     /* show routing spinner */
     var routerEl = get("chatRouterContent");
@@ -1386,6 +1570,387 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
   /* public refresh hook (called by admin.js after loadState) */
   window.adminChatRefresh = function () { renderMessages(); populateModels(); };
+
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════
+     Composer extras: file upload, slash commands, voice
+═══════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  "use strict";
+
+  /* ── DOM refs ── */
+  function g(id) { return document.getElementById(id); }
+  var chatInput    = g("chatInput");
+  var attachRow    = g("chatAttachRow");
+  var attachList   = g("chatAttachList");
+  var fileInput    = g("fileInput");
+  var folderInput  = g("folderInput");
+  var plusBtn      = g("chatPlusBtn");
+  var plusMenu     = g("plusMenu");
+  var micBtn       = g("chatMicBtn");
+  var micArrow     = g("chatMicArrow");
+  var micMenu      = g("micMenu");
+  var micDevList   = g("micDeviceList");
+  var holdToggle   = g("holdToRecord");
+  var slashMenu    = g("slashMenu");
+
+  /* ═══════════════════════════════════
+     1. ATTACHED FILES
+  ═══════════════════════════════════ */
+  var attachedFiles = []; // [{name, content, type}]
+
+  function isTextFile(file) {
+    if (file.type.startsWith("text/")) return true;
+    return /\.(js|ts|jsx|tsx|py|rb|go|java|c|cpp|h|css|html|json|xml|yaml|yml|md|sh|sql|php|swift|kt|rs|vue|svelte|toml|env|gitignore|dockerfile|prisma|graphql|tf)$/i.test(file.name);
+  }
+
+  function readFile(file) {
+    return new Promise(function (resolve) {
+      var reader = new FileReader();
+      if (isTextFile(file)) {
+        reader.onload = function (e) { resolve({ name: file.name, content: e.target.result, type: "text" }); };
+        reader.readAsText(file);
+      } else if (file.type.startsWith("image/")) {
+        resolve({ name: file.name, content: "[Image: " + file.name + " — vision not supported in this model]", type: "image" });
+      } else {
+        resolve({ name: file.name, content: "[Binary file attached: " + file.name + "]", type: "binary" });
+      }
+    });
+  }
+
+  function renderAttachChips() {
+    if (!attachedFiles.length) { attachRow.style.display = "none"; return; }
+    attachRow.style.display = "flex";
+    attachList.innerHTML = attachedFiles.map(function (f, i) {
+      var icon = f.type === "image" ? "🖼️" : f.type === "binary" ? "📦" : "📄";
+      return '<div class="attach-chip">'
+        + icon + ' <span title="' + f.name + '">' + f.name + '</span>'
+        + '<button onclick="window._removeAttach(' + i + ')" title="Remove">×</button>'
+        + '</div>';
+    }).join("");
+  }
+
+  window._removeAttach = function (i) {
+    attachedFiles.splice(i, 1);
+    renderAttachChips();
+  };
+
+  async function addFiles(files) {
+    var arr = Array.from(files);
+    var MAX = 30;
+    if (arr.length > MAX) { arr = arr.slice(0, MAX); alert("Only first " + MAX + " files added."); }
+    var results = await Promise.all(arr.map(readFile));
+    results.forEach(function (r) { attachedFiles.push(r); });
+    renderAttachChips();
+  }
+
+  /* build context string from attachments */
+  function buildFileContext() {
+    if (!attachedFiles.length) return "";
+    var parts = attachedFiles.map(function (f) {
+      if (f.type === "text") {
+        return "=== File: " + f.name + " ===\n" + f.content + "\n=== End: " + f.name + " ===";
+      }
+      return f.content;
+    });
+    return "\n\n--- Attached files ---\n" + parts.join("\n\n") + "\n--- End of files ---\n";
+  }
+
+  /* patch sendChat to inject file context */
+  var _origSend = window._chatSendRaw;
+  window._chatFileContext = buildFileContext;
+
+  /* File input listeners */
+  fileInput.addEventListener("change", function () {
+    addFiles(fileInput.files);
+    fileInput.value = "";
+  });
+  folderInput.addEventListener("change", function () {
+    addFiles(folderInput.files);
+    folderInput.value = "";
+  });
+
+  /* ═══════════════════════════════════
+     2. + DROPDOWN MENU
+  ═══════════════════════════════════ */
+  function toggleMenu(menu, btn) {
+    var isOpen = menu.classList.contains("open");
+    closeAllMenus();
+    if (!isOpen) { menu.classList.add("open"); if (btn) btn.classList.add("active"); }
+  }
+  function closeAllMenus() {
+    document.querySelectorAll(".c-dropdown.open").forEach(function (m) { m.classList.remove("open"); });
+    document.querySelectorAll(".c-icon-btn.active:not(.recording)").forEach(function (b) { b.classList.remove("active"); });
+  }
+  document.addEventListener("click", closeAllMenus);
+
+  plusBtn.addEventListener("click", function (e) { e.stopPropagation(); toggleMenu(plusMenu, plusBtn); });
+  plusMenu.addEventListener("click", function (e) { e.stopPropagation(); });
+
+  g("ddFiles").addEventListener("click", function () { closeAllMenus(); fileInput.click(); });
+  g("ddFolder").addEventListener("click", function () { closeAllMenus(); folderInput.click(); });
+  g("ddSlash").addEventListener("click", function () {
+    closeAllMenus();
+    chatInput.value = "/";
+    chatInput.focus();
+    showSlashMenu("");
+  });
+
+  /* ═══════════════════════════════════
+     3. SLASH COMMANDS
+  ═══════════════════════════════════ */
+  var SLASH_CMDS = [
+    { cmd: "/clear",   desc: "Clear chat history and start fresh" },
+    { cmd: "/new",     desc: "Start a new chat thread" },
+    { cmd: "/mode",    desc: "Switch mode: ask build fix debug review test docs plan learn" },
+    { cmd: "/model",   desc: "Pick a specific model for next message" },
+    { cmd: "/attach",  desc: "Open file picker to attach files" },
+    { cmd: "/voice",   desc: "Toggle voice input on/off" },
+    { cmd: "/help",    desc: "Show all available slash commands" },
+  ];
+
+  var slashFocusIdx = -1;
+
+  function showSlashMenu(query) {
+    var q = query.toLowerCase();
+    var matches = SLASH_CMDS.filter(function (c) { return c.cmd.includes(q) || c.desc.toLowerCase().includes(q); });
+    if (!matches.length) { hideSlashMenu(); return; }
+    slashFocusIdx = -1;
+    slashMenu.innerHTML = matches.map(function (c, i) {
+      return '<div class="slash-item" data-cmd="' + c.cmd + '" data-idx="' + i + '">'
+        + '<span class="slash-cmd">' + c.cmd + '</span>'
+        + '<span class="slash-desc">' + c.desc + '</span>'
+        + '</div>';
+    }).join("");
+    slashMenu.classList.add("open");
+    slashMenu.querySelectorAll(".slash-item").forEach(function (el) {
+      el.addEventListener("click", function () { applySlashCmd(el.dataset.cmd); });
+    });
+  }
+
+  function hideSlashMenu() { slashMenu.classList.remove("open"); slashFocusIdx = -1; }
+
+  function applySlashCmd(cmd) {
+    hideSlashMenu();
+    var base = cmd.split(" ")[0];
+    switch (base) {
+      case "/clear":
+        fetch("/api/chat/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+          .then(function () {
+            attachedFiles = []; renderAttachChips();
+            if (typeof loadState === "function") loadState().then(function () { if (window.adminChatRefresh) adminChatRefresh(); });
+          });
+        chatInput.value = "";
+        break;
+      case "/new":
+        g("chatNewBtn").click();
+        chatInput.value = "";
+        break;
+      case "/attach":
+        chatInput.value = "";
+        fileInput.click();
+        break;
+      case "/voice":
+        chatInput.value = "";
+        startVoice();
+        break;
+      case "/help":
+        chatInput.value = "";
+        var helpMsg = "**Available commands:**\n\n"
+          + SLASH_CMDS.map(function (c) { return "- `" + c.cmd + "` — " + c.desc; }).join("\n");
+        var helpEl = g("chatMessages");
+        if (helpEl) {
+          helpEl.insertAdjacentHTML("beforeend",
+            '<div class="cmsg-ai">'
+            + '<div class="cmsg-meta"><span class="cmsg-meta-dot ai-dot">O</span>Olla Nest</div>'
+            + '<div class="cmsg-bubble-ai">' + (typeof marked !== "undefined" ? marked.parse(helpMsg) : helpMsg) + '</div>'
+            + '</div>');
+          helpEl.scrollTop = helpEl.scrollHeight;
+        }
+        break;
+      case "/mode":
+        chatInput.value = "/mode ";
+        chatInput.focus();
+        break;
+      case "/model":
+        chatInput.value = "";
+        g("chatModelSelect").focus();
+        break;
+      default:
+        chatInput.value = cmd + " ";
+        chatInput.focus();
+    }
+  }
+
+  /* slash command keyboard nav */
+  chatInput.addEventListener("keydown", function (e) {
+    if (!slashMenu.classList.contains("open")) return;
+    var items = slashMenu.querySelectorAll(".slash-item");
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      slashFocusIdx = Math.min(slashFocusIdx + 1, items.length - 1);
+      items.forEach(function (el, i) { el.classList.toggle("focused", i === slashFocusIdx); });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      slashFocusIdx = Math.max(slashFocusIdx - 1, 0);
+      items.forEach(function (el, i) { el.classList.toggle("focused", i === slashFocusIdx); });
+    } else if (e.key === "Enter" && slashFocusIdx >= 0) {
+      e.preventDefault();
+      applySlashCmd(items[slashFocusIdx].dataset.cmd);
+    } else if (e.key === "Escape") {
+      hideSlashMenu();
+    }
+  });
+
+  chatInput.addEventListener("input", function () {
+    var val = chatInput.value;
+    if (val.startsWith("/") && !val.includes(" ")) {
+      showSlashMenu(val.slice(1));
+    } else {
+      hideSlashMenu();
+    }
+  });
+
+  /* ═══════════════════════════════════
+     4. VOICE INPUT (Web Speech API)
+  ═══════════════════════════════════ */
+  var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recognition = null;
+  var isRecording = false;
+  var selectedMicId = null;
+  var holdMode = false;
+
+  function startVoice() {
+    if (!SpeechRec) { alert("Voice input is not supported in this browser. Use Chrome or Edge."); return; }
+    if (isRecording) { stopVoice(); return; }
+
+    recognition = new SpeechRec();
+    recognition.continuous = !holdMode;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    var interimSpan = null;
+
+    recognition.onstart = function () {
+      isRecording = true;
+      micBtn.classList.add("recording");
+      micBtn.title = "Recording… click to stop";
+    };
+
+    recognition.onresult = function (e) {
+      var interim = "", final_ = "";
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final_ += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      if (final_) {
+        chatInput.value = (chatInput.value + " " + final_).trim();
+        chatInput.dispatchEvent(new Event("input"));
+      }
+      /* show interim preview in placeholder */
+      chatInput.placeholder = interim || "Recording… speak now";
+    };
+
+    recognition.onend = function () {
+      isRecording = false;
+      micBtn.classList.remove("recording");
+      micBtn.title = "Voice input";
+      chatInput.placeholder = "Message Olla Nest… (type / for commands)";
+    };
+
+    recognition.onerror = function (e) {
+      isRecording = false;
+      micBtn.classList.remove("recording");
+      chatInput.placeholder = "Message Olla Nest… (type / for commands)";
+      if (e.error !== "aborted") alert("Voice error: " + e.error);
+    };
+
+    recognition.start();
+  }
+
+  function stopVoice() {
+    if (recognition) { recognition.stop(); recognition = null; }
+    isRecording = false;
+    micBtn.classList.remove("recording");
+    chatInput.placeholder = "Message Olla Nest… (type / for commands)";
+  }
+
+  micBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    closeAllMenus();
+    if (holdMode) return; /* hold mode handled separately */
+    startVoice();
+  });
+
+  /* hold-to-record */
+  micBtn.addEventListener("mousedown", function () { if (holdMode) startVoice(); });
+  micBtn.addEventListener("mouseup",   function () { if (holdMode) stopVoice(); });
+  micBtn.addEventListener("mouseleave",function () { if (holdMode && isRecording) stopVoice(); });
+
+  holdToggle.addEventListener("change", function () {
+    holdMode = holdToggle.checked;
+    if (isRecording) stopVoice();
+  });
+
+  /* mic menu open */
+  micArrow.addEventListener("click", function (e) {
+    e.stopPropagation();
+    toggleMenu(micMenu, micArrow);
+    if (micMenu.classList.contains("open")) loadMicDevices();
+  });
+  micMenu.addEventListener("click", function (e) { e.stopPropagation(); });
+
+  /* load devices */
+  function loadMicDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      micDevList.innerHTML = '<div class="mic-device-item"><span>No device access</span></div>';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function () {
+      return navigator.mediaDevices.enumerateDevices();
+    }).then(function (devices) {
+      var mics = devices.filter(function (d) { return d.kind === "audioinput"; });
+      if (!mics.length) { micDevList.innerHTML = '<div class="mic-device-item"><span>No microphones found</span></div>'; return; }
+      micDevList.innerHTML = mics.map(function (d) {
+        var label = d.label || "Microphone " + (d.deviceId.slice(0, 6));
+        var sel = d.deviceId === (selectedMicId || "default") || (!selectedMicId && d.deviceId === "default");
+        return '<div class="mic-device-item' + (sel ? " selected" : "") + '" data-id="' + d.deviceId + '">'
+          + '<span>' + label + '</span></div>';
+      }).join("");
+      micDevList.querySelectorAll(".mic-device-item").forEach(function (el) {
+        el.addEventListener("click", function () {
+          selectedMicId = el.dataset.id;
+          micDevList.querySelectorAll(".mic-device-item").forEach(function (x) { x.classList.remove("selected"); });
+          el.classList.add("selected");
+        });
+      });
+    }).catch(function () {
+      micDevList.innerHTML = '<div class="mic-device-item"><span>Microphone permission denied</span></div>';
+    });
+  }
+
+  /* ═══════════════════════════════════
+     5. HOOK INTO SENDCHAT — inject file context
+  ═══════════════════════════════════ */
+  /* The main sendChat function reads chatInput.value.
+     We prepend file context to the message before it's sent. */
+  var _origInput = chatInput;
+  Object.defineProperty(window, "_chatGetMessage", {
+    get: function () {
+      var base = chatInput.value.trim();
+      var ctx = buildFileContext();
+      return ctx ? base + ctx : base;
+    }
+  });
+
+  /* After send, clear attachments */
+  window._chatAfterSend = function () {
+    attachedFiles = [];
+    renderAttachChips();
+  };
 
 })();
 </script>
