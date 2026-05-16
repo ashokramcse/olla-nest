@@ -596,8 +596,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
           </div>
         </div>
 
-        <!-- Access governance + External access -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch;">
+        <!-- Access governance -->
+        <div>
           <div class="card">
             <div class="card-head"><div class="card-title">Access Governance</div></div>
             <div class="mini-bar-row">
@@ -615,16 +615,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
               <div class="mini-bar-track"><div class="mini-bar-fill" id="govBar" style="width:0%"></div></div>
               <span class="mini-bar-pct" id="metricGovernedModels">—</span>
             </div>
-          </div>
-          <div class="card dark">
-            <div class="card-head">
-              <div class="card-title">External Access</div>
-              <button class="card-action">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M7 7h10v10"/></svg>
-              </button>
-            </div>
-            <div style="font-size:56px;font-weight:300;letter-spacing:-0.04em;line-height:1;margin-bottom:8px" id="metricExternalAccess">—</div>
-            <div style="font-size:13px;color:#ffffff60;">API models allowed</div>
           </div>
         </div>
       </div>
@@ -919,9 +909,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
       <!-- ── ACCESS CONTROL ── -->
       <div class="tab-view" id="tab-access">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
           <!-- User effective access -->
-          <div class="card" style="height:100%;box-sizing:border-box;">
+          <div class="card">
             <div class="card-head"><div class="card-title">User Access</div></div>
             <div style="margin-bottom:12px;">
               <label class="form-label">Select employee</label>
@@ -930,7 +920,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
             <div id="effectiveAccessPanel"></div>
           </div>
           <!-- Override -->
-          <div class="card" style="height:100%;box-sizing:border-box;">
+          <div class="card">
             <div class="card-head"><div class="card-title">Apply Override</div></div>
             <div style="display:flex;flex-direction:column;gap:14px;">
               <div>
@@ -959,7 +949,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         </div>
 
         <!-- Role matrix -->
-        <div class="card" style="margin-top:16px;">
+        <div class="card" style="margin-top:0;">
           <div class="card-head"><div class="card-title">Role Permission Matrix</div></div>
           <div class="table-wrap">
             <table class="matrix-table">
@@ -1044,114 +1034,34 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
           <div id="routerConfigMsg" class="form-msg" style="margin-top:8px;"></div>
         </div>
 
-        <!-- Model sources -->
-        <div class="card section-gap">
-          <div class="card-head">
-            <div class="card-title">Model Sources</div>
-            <button class="btn ghost sm" id="toggleSourcesBtn">Configure Sources</button>
-          </div>
-
-          <div id="modelSourcesPanel" style="display:none;">
-            <!-- Ollama -->
-            <div class="provider-card">
-              <div class="provider-head">
-                <span class="provider-name">Ollama (Local)</span>
-              </div>
-              <div style="display:flex;gap:8px;align-items:flex-end;">
-                <div style="flex:1;">
-                  <label class="form-label">Endpoint URL</label>
-                  <input class="input input-sm" id="ollamaUrl" value="http://host.docker.internal:11434" />
-                </div>
-                <button class="btn ghost sm" id="testOllamaBtn">Test</button>
-                <button class="btn dark sm" id="saveModelSourceBtn">Save</button>
-              </div>
-              <div id="modelSourceMsg" class="form-msg"></div>
-              <div id="ollamaTestModels" style="display:none;margin-top:10px;"></div>
-            </div>
-
-            <!-- Anthropic -->
-            <div class="provider-card" id="anthropicCard">
-              <div class="provider-head">
-                <span class="provider-name">Anthropic</span>
-                <label class="checkbox-row" style="margin-bottom:0;"><input type="checkbox" id="anthropicEnabled" /> Enable</label>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <div>
-                  <label class="form-label">API Key</label>
-                  <input class="input input-sm" id="anthropicApiKey" type="password" placeholder="sk-ant-..." />
-                </div>
-                <div>
-                  <label class="form-label">Base URL</label>
-                  <input class="input input-sm" id="anthropicBaseUrl" placeholder="https://api.anthropic.com" />
-                </div>
-              </div>
-              <button class="btn dark sm" id="saveAnthropicBtn" style="margin-top:10px;">Save</button>
-              <div id="anthropicMsg" class="form-msg"></div>
-            </div>
-
-            <!-- OpenAI -->
-            <div class="provider-card" id="openaiCard">
-              <div class="provider-head">
-                <span class="provider-name">OpenAI</span>
-                <label class="checkbox-row" style="margin-bottom:0;"><input type="checkbox" id="openaiEnabled" /> Enable</label>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <div>
-                  <label class="form-label">API Key</label>
-                  <input class="input input-sm" id="openaiApiKey" type="password" placeholder="sk-..." />
-                </div>
-                <div>
-                  <label class="form-label">Base URL</label>
-                  <input class="input input-sm" id="openaiBaseUrl" placeholder="https://api.openai.com/v1" />
-                </div>
-              </div>
-              <button class="btn dark sm" id="saveOpenaiBtn" style="margin-top:10px;">Save</button>
-              <div id="openaiMsg" class="form-msg"></div>
-            </div>
-
-            <!-- Groq -->
-            <div class="provider-card" id="groqCard">
-              <div class="provider-head">
-                <span class="provider-name">Groq</span>
-                <label class="checkbox-row" style="margin-bottom:0;"><input type="checkbox" id="groqEnabled" /> Enable</label>
-              </div>
-              <div>
-                <label class="form-label">API Key</label>
-                <input class="input input-sm" id="groqApiKey" placeholder="gsk_..." />
-              </div>
-              <button class="btn dark sm" id="saveGroqBtn" style="margin-top:10px;">Save</button>
-              <div id="groqMsg" class="form-msg"></div>
-            </div>
-
-            <!-- Custom -->
-            <div class="provider-card" id="customCard">
-              <div class="provider-head">
-                <span class="provider-name">Custom Provider</span>
-                <label class="checkbox-row" style="margin-bottom:0;"><input type="checkbox" id="customEnabled" /> Enable</label>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <div>
-                  <label class="form-label">Name</label>
-                  <input class="input input-sm" id="customName" placeholder="My Provider" />
-                </div>
-                <div>
-                  <label class="form-label">API Key</label>
-                  <input class="input input-sm" id="customApiKey" type="password" />
-                </div>
-                <div>
-                  <label class="form-label">Base URL</label>
-                  <input class="input input-sm" id="customBaseUrl" placeholder="https://…" />
-                </div>
-              </div>
-              <button class="btn dark sm" id="saveCustomBtn" style="margin-top:10px;">Save</button>
-              <div id="customMsg" class="form-msg"></div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- ── PROVIDERS ── -->
       <div class="tab-view" id="tab-providers">
+
+        <!-- Built-in: Ollama -->
+        <div class="card section-gap" id="ollamaProviderCard">
+          <div class="card-head">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#aaa;" id="ollamaProvStatusDot"></div>
+              <div class="card-title">Ollama <span style="font-size:12px;font-weight:400;color:#888;">(Local)</span></div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="ollamaProvStatusText" style="font-size:12px;color:#aaa;">Checking…</span>
+              <button class="btn ghost sm" id="provOllamaTestBtn">Test</button>
+              <button class="btn ghost sm" id="provOllamaSyncBtn">Sync Models</button>
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label class="form-label">Endpoint URL</label>
+            <div style="display:flex;gap:8px;">
+              <input class="input input-sm" id="provOllamaUrl" style="flex:1;" />
+              <button class="btn dark sm" id="provOllamaSaveBtn">Save</button>
+            </div>
+          </div>
+          <div id="ollamaProvModelList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>
+        </div>
+
         <div class="card section-gap">
           <div class="card-head">
             <div class="card-title">API Providers</div>

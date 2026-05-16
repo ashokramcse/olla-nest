@@ -219,20 +219,6 @@ function renderSettings() {
   $("localWritesEnabled").checked = !!s.localWritesEnabled;
   $("localPermissionMode").value = s.localPermissionMode || "default";
   $("workspaceRoot").value = s.workspaceRoot || "";
-  $("ollamaUrl").value = s.ollamaUrl || "http://host.docker.internal:11434";
-  // Provider fields
-  $("anthropicEnabled").checked = !!s.anthropicEnabled;
-  maskKey($("anthropicApiKey"), s.anthropicApiKey === "set");
-  $("anthropicBaseUrl").value = s.anthropicBaseUrl || "";
-  $("openaiEnabled").checked = !!s.openaiEnabled;
-  maskKey($("openaiApiKey"), s.openaiApiKey === "set");
-  $("openaiBaseUrl").value = s.openaiBaseUrl || "";
-  $("groqEnabled").checked = !!s.groqEnabled;
-  maskKey($("groqApiKey"), s.groqApiKey === "set");
-  $("customEnabled").checked = !!s.customEnabled;
-  $("customName").value = s.customName || "";
-  maskKey($("customApiKey"), s.customApiKey === "set");
-  $("customBaseUrl").value = s.customBaseUrl || "";
   renderSourcePills();
 }
 
@@ -276,6 +262,7 @@ function renderAll() {
   renderSettings();
   renderAudit();
   renderRouterConfig();
+  renderOllamaProvider();
 }
 
 async function loadState() {
@@ -405,68 +392,7 @@ $("saveSettingsBtn").addEventListener("click", async () => {
   }
 });
 
-// Test Ollama connection
-$("testOllamaBtn").addEventListener("click", async () => {
-  const btn = $("testOllamaBtn");
-  const msg = $("modelSourceMsg");
-  const modelList = $("ollamaTestModels");
-  btn.disabled = true;
-  btn.textContent = "Testing…";
-  msg.className = "form-message";
-  msg.textContent = "";
-  modelList.style.display = "none";
-  modelList.innerHTML = "";
-  try {
-    const result = await api("/api/admin/model-sources/test", {
-      method: "POST",
-      body: JSON.stringify({ ollamaUrl: $("ollamaUrl").value.trim() }),
-    });
-    if (result.ok) {
-      msg.className = "form-message success";
-      msg.textContent = `Connected — ${result.count} model${result.count === 1 ? "" : "s"} found.`;
-      if (result.models?.length) {
-        modelList.style.display = "block";
-        modelList.innerHTML = `
-          <div style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.05em;">Models on this server</div>
-          <div style="display:grid; gap:6px;">
-            ${result.models.map(m => `
-              <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--bg,#F8F9FB); border:1px solid var(--border); border-radius:8px;">
-                <span style="font-size:13px; font-weight:500;">${esc(m.name || m.model || m)}</span>
-                <span class="badge badge-green" style="font-size:10px;">available</span>
-              </div>`).join("")}
-          </div>`;
-      }
-    } else {
-      msg.className = "form-message error";
-      msg.textContent = "Cannot connect to Ollama at this URL.";
-    }
-  } catch (err) {
-    msg.className = "form-message error";
-    msg.textContent = err.message;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Test connection";
-  }
-});
-
-// Save Ollama URL
-$("saveModelSourceBtn").addEventListener("click", async () => {
-  const msg = $("modelSourceMsg");
-  msg.className = "form-message";
-  msg.textContent = "";
-  try {
-    await api("/api/admin/settings", {
-      method: "POST",
-      body: JSON.stringify({ ollamaUrl: $("ollamaUrl").value.trim() }),
-    });
-    msg.className = "form-message success";
-    msg.textContent = "Ollama URL saved.";
-    await loadState();
-  } catch (err) {
-    msg.className = "form-message error";
-    msg.textContent = err.message;
-  }
-});
+// (Ollama test/save moved to Providers tab — see renderOllamaProvider)
 
 // Add Employee toggle
 $("toggleAddUserBtn").addEventListener("click", () => {
@@ -663,65 +589,90 @@ $("changePwForm").addEventListener("submit", async (e) => {
   }
 });
 
-// Model Sources toggle
-$("toggleSourcesBtn").addEventListener("click", () => {
-  const panel = $("modelSourcesPanel");
-  const open = panel.style.display !== "none";
-  panel.style.display = open ? "none" : "block";
-  $("toggleSourcesBtn").textContent = open ? "Configure Sources" : "Close";
-});
-
-// Clear masked key on focus so user can type a new value
-["anthropicApiKey", "openaiApiKey", "groqApiKey", "customApiKey"].forEach(id => {
-  const el = $(id);
-  if (!el) return;
-  el.addEventListener("focus", () => {
-    if (el.dataset.masked === "1") { el.value = ""; el.dataset.masked = "0"; }
-  });
-});
-
-async function saveProvider(fields, msgId) {
-  const msg = $(msgId);
-  msg.className = "form-message";
-  msg.textContent = "";
-  try {
-    await api("/api/admin/settings", { method: "POST", body: JSON.stringify(fields) });
-    msg.className = "form-message success";
-    msg.textContent = "Saved.";
-    await loadState();
-  } catch (err) {
-    msg.className = "form-message error";
-    msg.textContent = err.message;
-  }
-}
-
-$("saveAnthropicBtn").addEventListener("click", () => {
-  const fields = { anthropicEnabled: $("anthropicEnabled").checked, anthropicBaseUrl: $("anthropicBaseUrl").value.trim() };
-  if ($("anthropicApiKey").dataset.masked !== "1") fields.anthropicApiKey = $("anthropicApiKey").value;
-  saveProvider(fields, "anthropicMsg");
-});
-
-$("saveOpenaiBtn").addEventListener("click", () => {
-  const fields = { openaiEnabled: $("openaiEnabled").checked, openaiBaseUrl: $("openaiBaseUrl").value.trim() };
-  if ($("openaiApiKey").dataset.masked !== "1") fields.openaiApiKey = $("openaiApiKey").value;
-  saveProvider(fields, "openaiMsg");
-});
-
-$("saveGroqBtn").addEventListener("click", () => {
-  const fields = { groqEnabled: $("groqEnabled").checked };
-  if ($("groqApiKey").dataset.masked !== "1") fields.groqApiKey = $("groqApiKey").value;
-  saveProvider(fields, "groqMsg");
-});
-
-$("saveCustomBtn").addEventListener("click", () => {
-  const fields = { customEnabled: $("customEnabled").checked, customName: $("customName").value.trim(), customBaseUrl: $("customBaseUrl").value.trim() };
-  if ($("customApiKey").dataset.masked !== "1") fields.customApiKey = $("customApiKey").value;
-  saveProvider(fields, "customMsg");
-});
+// (Model Sources panel removed — providers managed in Providers tab)
 
 // === PROVIDERS ===
 
+function renderOllamaProvider() {
+  const urlEl = $("provOllamaUrl");
+  if (!urlEl) return;
+  const s = state?.settings || {};
+  urlEl.value = s.ollamaUrl || "http://host.docker.internal:11434";
+
+  const ollamaModels = (state?.models || []).filter(m => m.provider === "ollama");
+  const hasAvailable = ollamaModels.some(m => m.status === "available");
+
+  const dot = $("ollamaProvStatusDot");
+  const txt = $("ollamaProvStatusText");
+  if (dot) dot.style.background = hasAvailable ? "#4caf50" : "#aaa";
+  if (txt) txt.textContent = hasAvailable ? "Connected" : "No models available";
+
+  const listEl = $("ollamaProvModelList");
+  if (listEl) {
+    if (!ollamaModels.length) {
+      listEl.innerHTML = `<span style="font-size:12px;color:#aaa;">No models synced yet.</span>`;
+    } else {
+      listEl.innerHTML = ollamaModels.map(m => {
+        const color = m.status === "available" ? "#4caf50" : "#ffca28";
+        const bg = m.status === "available" ? "#e8f5e9" : "#fff8e1";
+        return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:${bg};border:1px solid ${color}40;font-size:12px;font-weight:500;color:#1a1a0e;">
+          <span style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0;"></span>${esc(m.name)}
+        </span>`;
+      }).join("");
+    }
+  }
+}
+
+if (document.getElementById("provOllamaTestBtn")) {
+  document.getElementById("provOllamaTestBtn").addEventListener("click", async () => {
+    const btn = $("provOllamaTestBtn");
+    const txt = $("ollamaProvStatusText");
+    btn.disabled = true; btn.textContent = "Testing…";
+    try {
+      await checkOllama();
+      await loadState();
+      renderOllamaProvider();
+    } finally {
+      btn.disabled = false; btn.textContent = "Test";
+    }
+  });
+}
+
+if (document.getElementById("provOllamaSyncBtn")) {
+  document.getElementById("provOllamaSyncBtn").addEventListener("click", async () => {
+    const btn = $("provOllamaSyncBtn");
+    btn.disabled = true; btn.textContent = "Syncing…";
+    try {
+      await api("/api/ollama/models");
+      await loadState();
+      renderOllamaProvider();
+    } finally {
+      btn.disabled = false; btn.textContent = "Sync Models";
+    }
+  });
+}
+
+if (document.getElementById("provOllamaSaveBtn")) {
+  document.getElementById("provOllamaSaveBtn").addEventListener("click", async () => {
+    const btn = $("provOllamaSaveBtn");
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      await api("/api/admin/settings", {
+        method: "POST",
+        body: JSON.stringify({ ollamaUrl: $("provOllamaUrl").value.trim() }),
+      });
+      await loadState();
+      renderOllamaProvider();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = "Save";
+    }
+  });
+}
+
 async function loadProviders() {
+  renderOllamaProvider();
   const list = $("providerList");
   if (!list) return;
   try {
@@ -953,6 +904,17 @@ if ($("saveRouterConfigBtn")) {
 //  REPORTS
 // ═══════════════════════════════════════════════════════════════════
 
+// Chart.js global defaults
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = '#888';
+  Chart.defaults.animation.duration = 600;
+  Chart.defaults.animation.easing = 'easeInOutQuart';
+  Chart.defaults.plugins.tooltip.cornerRadius = 10;
+  Chart.defaults.plugins.tooltip.padding = 12;
+}
+
 const BRAND = {
   yellow:   "#f0d74b",
   yellowDk: "#e8c520",
@@ -986,27 +948,58 @@ function mkChart(id, type, data, opts = {}) {
   if (!canvas) return;
   if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
   const ctx = canvas.getContext("2d");
+
+  // Apply line chart dataset enhancements
+  if (type === "line" && data.datasets) {
+    data.datasets.forEach(ds => {
+      ds.tension = ds.tension ?? 0.4;
+      ds.pointRadius = ds.pointRadius ?? 4;
+      ds.pointHoverRadius = ds.pointHoverRadius ?? 6;
+      ds.pointBackgroundColor = ds.pointBackgroundColor ?? '#fff';
+      ds.pointBorderWidth = ds.pointBorderWidth ?? 2;
+      if (ds.fill === undefined) ds.fill = true;
+    });
+  }
+  // For mixed charts with line type datasets
+  if (type === "bar" && data.datasets) {
+    data.datasets.forEach(ds => {
+      if (ds.type === "line") {
+        ds.tension = ds.tension ?? 0.4;
+        ds.pointRadius = ds.pointRadius ?? 4;
+        ds.pointHoverRadius = ds.pointHoverRadius ?? 6;
+        ds.pointBackgroundColor = ds.pointBackgroundColor ?? '#fff';
+        ds.pointBorderWidth = ds.pointBorderWidth ?? 2;
+      }
+    });
+  }
+
+  const isDonut = type === "doughnut" || type === "pie";
+
   _charts[id] = new Chart(ctx, {
     type,
     data,
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      animation: { duration: 600, easing: 'easeInOutQuart',
+        ...(isDonut ? { animateRotate: true, animateScale: true } : {}) },
+      elements: isDonut ? { arc: { borderWidth: 2 } } : {},
       plugins: {
         legend: {
-          labels: { color: BRAND.ink, font: { family: "inherit", size: 11 }, boxWidth: 12 },
+          display: true,
+          labels: { color: BRAND.ink, font: { family: "inherit", size: 11 }, boxWidth: 12, padding: 14 },
         },
         tooltip: {
           backgroundColor: BRAND.ink,
           titleColor: "#fff",
           bodyColor: "#ffffffcc",
-          cornerRadius: 8,
-          padding: 10,
+          cornerRadius: 10,
+          padding: 12,
         },
       },
       scales: type === "bar" || type === "line" ? {
-        x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c820" } },
-        y: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" } },
+        x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c820" }, border: { display: false } },
+        y: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" }, border: { display: false } },
       } : undefined,
       ...opts,
     },
@@ -1033,10 +1026,30 @@ function renderKpis(s) {
   `).join("");
 }
 
+let _lbPage = 0;
+let _lbData = [];
+
 function renderLeaderboard(rows) {
-  if (!rows.length) { $("reportLeaderboard").innerHTML = `<p style="color:#aaa;text-align:center;padding:24px;">No data yet — start chatting!</p>`; return; }
+  _lbData = rows;
+  _lbPage = 0;
+  renderLeaderboardPage();
+}
+
+function renderLeaderboardPage() {
+  const PAGE = 10;
+  const rows = _lbData;
+  const total = rows.length;
+  const totalPages = Math.ceil(total / PAGE) || 1;
+  const start = _lbPage * PAGE;
+  const pageRows = rows.slice(start, start + PAGE);
   const medals = ["🥇","🥈","🥉"];
-  $("reportLeaderboard").innerHTML = `
+
+  if (!total) {
+    $("reportLeaderboard").innerHTML = `<p style="color:#aaa;text-align:center;padding:24px;">No data yet — start chatting!</p>`;
+    return;
+  }
+
+  const tableHtml = `
     <table style="width:100%;border-collapse:collapse;">
       <thead>
         <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#aaa;border-bottom:1px solid var(--line-soft);">
@@ -1052,10 +1065,11 @@ function renderLeaderboard(rows) {
         </tr>
       </thead>
       <tbody>
-        ${rows.map((u, i) => {
+        ${pageRows.map((u, i) => {
+          const absIdx = start + i;
           const pct = u.daily_token_limit > 0 ? Math.min(100, Math.round(u.total_tokens / u.daily_token_limit * 100)) : 0;
           const barColor = pct > 90 ? BRAND.red : pct > 60 ? BRAND.orange : BRAND.green;
-          const rank = medals[i] || `<span style="color:#aaa;">${i+1}</span>`;
+          const rank = medals[absIdx] || `<span style="color:#aaa;">${absIdx+1}</span>`;
           const av = (u.name || "?").split(" ").map(p => p[0]).slice(0,2).join("").toUpperCase();
           const lastActive = u.last_active ? u.last_active.slice(0,10) : "—";
           return `<tr style="border-bottom:1px solid #f5f0e0;transition:background .1s;" onmouseenter="this.style.background='#fef9e0'" onmouseleave="this.style.background=''">
@@ -1088,7 +1102,24 @@ function renderLeaderboard(rows) {
       </tbody>
     </table>
   `;
+
+  const paginationHtml = totalPages > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 12px;border-top:1px solid #f0ead8;margin-top:4px;">
+      <span style="font-size:12px;color:#888;">Showing ${start+1}–${Math.min(start+PAGE,total)} of ${total} employees</span>
+      <div style="display:flex;gap:6px;">
+        <button onclick="lbPrev()" ${_lbPage===0?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1.5px solid #e5e0c8;background:${_lbPage===0?'#f5f0e0':'#fff'};cursor:${_lbPage===0?'not-allowed':'pointer'};font-size:13px;color:${_lbPage===0?'#ccc':'#1a1a0e'};">← Prev</button>
+        ${Array.from({length:totalPages},(_,i)=>`<button onclick="lbGoTo(${i})" style="padding:6px 12px;border-radius:8px;border:1.5px solid ${i===_lbPage?'#1a1a0e':'#e5e0c8'};background:${i===_lbPage?'#1a1a0e':'#fff'};color:${i===_lbPage?'#fff':'#1a1a0e'};font-size:13px;cursor:pointer;">${i+1}</button>`).join("")}
+        <button onclick="lbNext()" ${_lbPage>=totalPages-1?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1.5px solid #e5e0c8;background:${_lbPage>=totalPages-1?'#f5f0e0':'#fff'};cursor:${_lbPage>=totalPages-1?'not-allowed':'pointer'};font-size:13px;color:${_lbPage>=totalPages-1?'#ccc':'#1a1a0e'};">Next →</button>
+      </div>
+    </div>
+  ` : "";
+
+  $("reportLeaderboard").innerHTML = tableHtml + paginationHtml;
 }
+
+window.lbPrev = function() { if(_lbPage>0){_lbPage--;renderLeaderboardPage();} };
+window.lbNext = function() { if(_lbPage<Math.ceil(_lbData.length/10)-1){_lbPage++;renderLeaderboardPage();} };
+window.lbGoTo = function(p) { _lbPage=p; renderLeaderboardPage(); };
 
 function renderModelTable(rows) {
   if (!rows.length) { $("reportModelTable").innerHTML = `<p style="color:#aaa;text-align:center;padding:20px;">No model data yet.</p>`; return; }
@@ -1148,21 +1179,24 @@ async function loadReports() {
       {
         label: "Messages",
         data: d.dailyActivity.map(r => r.messages),
-        backgroundColor: BRAND.yellow + "cc",
-        borderColor: BRAND.yellowDk,
-        borderWidth: 1,
-        borderRadius: 4,
+        backgroundColor: 'rgba(240,215,75,0.85)',
+        borderColor: '#e8c520',
+        borderWidth: 0,
+        borderRadius: 6,
         yAxisID: "y",
       },
       {
         label: "Tokens",
         type: "line",
         data: d.dailyActivity.map(r => r.tokens),
-        borderColor: BRAND.teal,
-        backgroundColor: BRAND.teal + "20",
-        borderWidth: 2,
-        pointRadius: 3,
-        tension: 0.4,
+        borderColor: '#26a69a',
+        backgroundColor: 'rgba(38,166,154,0.08)',
+        borderWidth: 2.5,
+        pointRadius: 4,
+        pointBackgroundColor: '#fff',
+        pointBorderColor: '#26a69a',
+        pointBorderWidth: 2,
+        tension: 0.5,
         fill: true,
         yAxisID: "y1",
       },
