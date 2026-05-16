@@ -463,6 +463,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       <button class="nav-item" data-tab="users">Users</button>
       <button class="nav-item" data-tab="access">Access Control</button>
       <button class="nav-item" data-tab="settings">Settings</button>
+      <button class="nav-item" data-tab="providers">Providers</button>
       <button class="nav-item" data-tab="audit" style="display:none;">Audit Log</button>
 
     </div>
@@ -904,6 +905,48 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
         </div>
         <div id="settingsMsg" class="form-msg section-gap"></div>
 
+        <!-- Router Configuration -->
+        <div class="card section-gap">
+          <div class="card-head">
+            <div class="card-title">Router Configuration</div>
+            <button class="btn dark sm" id="saveRouterConfigBtn">Save Router Config</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+            <div>
+              <div style="font-size:13px;font-weight:500;color:var(--mute);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Routing Weights <span id="weightSumLabel" style="font-size:11px;color:var(--green-deep);">(sum=1.0)</span></div>
+              <div style="margin-bottom:8px;">
+                <label class="form-label">Speed <span id="speedWeightVal">0.3</span></label>
+                <input type="range" id="speedWeight" min="0" max="1" step="0.1" value="0.3" style="width:100%;" />
+              </div>
+              <div style="margin-bottom:8px;">
+                <label class="form-label">Quality <span id="qualityWeightVal">0.5</span></label>
+                <input type="range" id="qualityWeight" min="0" max="1" step="0.1" value="0.5" style="width:100%;" />
+              </div>
+              <div style="margin-bottom:8px;">
+                <label class="form-label">Privacy <span id="privacyWeightVal">0.2</span></label>
+                <input type="range" id="privacyWeight" min="0" max="1" step="0.1" value="0.2" style="width:100%;" />
+              </div>
+            </div>
+            <div>
+              <div style="font-size:13px;font-weight:500;color:var(--mute);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Sensitive Patterns (one regex per line)</div>
+              <textarea class="input" id="sensitivePatterns" rows="4" placeholder="SSN, credit cards, etc. (regex)&#10;Built-in patterns always active" style="resize:vertical;"></textarea>
+              <div style="font-size:13px;font-weight:500;color:var(--mute);text-transform:uppercase;letter-spacing:0.05em;margin:10px 0 6px;">Local-only modes</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;" id="localOnlyModeChecks">
+                <label class="checkbox-row"><input type="checkbox" value="ask" /> Ask</label>
+                <label class="checkbox-row"><input type="checkbox" value="build" checked /> Build</label>
+                <label class="checkbox-row"><input type="checkbox" value="fix" checked /> Fix</label>
+                <label class="checkbox-row"><input type="checkbox" value="debug" /> Debug</label>
+                <label class="checkbox-row"><input type="checkbox" value="review" /> Review</label>
+                <label class="checkbox-row"><input type="checkbox" value="test" /> Test</label>
+                <label class="checkbox-row"><input type="checkbox" value="docs" /> Docs</label>
+                <label class="checkbox-row"><input type="checkbox" value="plan" /> Plan</label>
+                <label class="checkbox-row"><input type="checkbox" value="learn" /> Learn</label>
+              </div>
+            </div>
+          </div>
+          <div id="routerConfigMsg" class="form-msg" style="margin-top:8px;"></div>
+        </div>
+
         <!-- Model sources -->
         <div class="card section-gap">
           <div class="card-head">
@@ -1007,6 +1050,50 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
               <div id="customMsg" class="form-msg"></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ── PROVIDERS ── -->
+      <div class="tab-view" id="tab-providers">
+        <div class="card section-gap">
+          <div class="card-head">
+            <div class="card-title">API Providers</div>
+            <button class="btn dark sm" id="addProviderBtn">+ Add Provider</button>
+          </div>
+
+          <!-- Add provider form -->
+          <div id="addProviderPanel" style="display:none;" class="add-user-panel section-gap">
+            <div class="form-grid">
+              <div>
+                <label class="form-label">Provider Type</label>
+                <select class="input input-sm" id="newProviderType">
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="groq">Groq</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Name</label>
+                <input class="input input-sm" id="newProviderName" placeholder="My Provider" />
+              </div>
+              <div id="newProviderBaseUrlWrap">
+                <label class="form-label">Base URL</label>
+                <input class="input input-sm" id="newProviderBaseUrl" placeholder="https://api.openai.com/v1" />
+              </div>
+              <div>
+                <label class="form-label">API Key</label>
+                <input class="input input-sm" id="newProviderApiKey" type="password" placeholder="sk-..." />
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:14px;">
+              <button class="btn dark sm" id="saveProviderBtn">Save Provider</button>
+              <button class="btn ghost sm" id="cancelProviderBtn">Cancel</button>
+            </div>
+            <div id="providerFormMsg" class="form-msg"></div>
+          </div>
+
+          <div id="providerList"><div style="padding:20px;text-align:center;color:var(--mute);">Loading providers…</div></div>
         </div>
       </div>
 

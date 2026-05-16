@@ -247,15 +247,32 @@ $("newChatBtn").addEventListener("click", async () => {
   await loadState();
 });
 
+let activeStreamReader = null;
+let streamingSessionId = null;
+let streamingMessageId = null;
+
+function submitFeedback(btn, messageId, sessionId, rating) {
+  fetch("/api/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messageId, sessionId, rating, comment: "" }),
+  }).then(r => r.json()).then(() => {
+    btn.closest(".feedback-row").querySelectorAll(".thumb-btn").forEach(b => b.classList.remove("voted"));
+    btn.classList.add("voted");
+  }).catch(() => {});
+}
+
 $("chatForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("messageInput");
   const message = input.value.trim();
   if (!message) return;
 
-  const btn = $("sendBtn");
-  btn.disabled = true;
-  btn.textContent = "Sending…";
+  const sendBtn = $("sendBtn");
+  const stopBtn = $("stopBtn");
+  sendBtn.disabled = true;
+  sendBtn.textContent = "Sending…";
+  stopBtn.style.display = "inline-flex";
   input.value = "";
 
   $("routerContent").innerHTML = `<div class="router-body" style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;">
@@ -264,24 +281,108 @@ $("chatForm").addEventListener("submit", async (e) => {
   </div>
   <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
 
+  // Optimistically append user message to chat
+  const msgs = $("messages");
+  const userBubbleId = "streaming-user-" + Date.now();
+  const asstBubbleId = "streaming-asst-" + Date.now();
+  msgs.insertAdjacentHTML("beforeend", `
+    <div class="message-wrap user" id="${userBubbleId}">
+      <div class="message-meta">${esc(state?.activeUser?.name || "You")} · <span class="badge badge-default" style="font-size:10px;">${esc(activeMode)}</span></div>
+      <div class="message-bubble user-bubble">${esc(message)}</div>
+    </div>
+    <div class="message-wrap assistant" id="${asstBubbleId}">
+      <div class="message-meta">Olla Nest</div>
+      <div class="message-bubble assistant-bubble md-body" id="${asstBubbleId}-content"><span class="streaming-cursor"></span></div>
+    </div>
+  `);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  let fullContent = "";
+  let currentRoute = null;
+
   try {
-    const result = await api("/api/chat", {
+    const response = await fetch("/api/chat/stream", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message,
         mode: activeMode,
         manualModelId: $("manualModel").value || null,
-        writeToWorkspace: $("writeToWorkspace").checked,
+        writeToWorkspace: $("writeToWorkspace")?.checked || false,
       }),
     });
-    renderRouter(result.route);
-    await loadState();
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({ error: "Stream failed" }));
+      throw new Error(errData.error || "Stream failed");
+    }
+
+    const reader = response.body.getReader();
+    activeStreamReader = reader;
+    const decoder = new TextDecoder();
+    let buf = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split("\n\n");
+      buf = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith("data: ")) continue;
+        try {
+          const event = JSON.parse(part.slice(6));
+          if (event.type === "routing") {
+            $("routerContent").innerHTML = `<div class="router-body">
+              <div class="router-model">${esc(event.model)}</div>
+              <div class="router-reason">${esc(event.reason)}</div>
+            </div>`;
+            const meta = $(`${asstBubbleId}`);
+            if (meta) meta.querySelector(".message-meta").textContent = esc(event.model);
+          } else if (event.type === "token") {
+            fullContent += event.content;
+            const bubble = $(`${asstBubbleId}-content`);
+            if (bubble) bubble.innerHTML = renderMarkdown(fullContent) + '<span class="streaming-cursor"></span>';
+            msgs.scrollTop = msgs.scrollHeight;
+          } else if (event.type === "done") {
+            const bubble = $(`${asstBubbleId}-content`);
+            if (bubble) bubble.innerHTML = renderMarkdown(fullContent);
+            // Add feedback buttons
+            streamingMessageId = event.messageId || null;
+            streamingSessionId = state?.chats?.[0]?.id || null;
+            const asstWrap = $(`${asstBubbleId}`);
+            if (asstWrap) {
+              asstWrap.insertAdjacentHTML("beforeend", `
+                <div class="feedback-row">
+                  <button class="thumb-btn" onclick="submitFeedback(this,'${event.messageId || ''}','${streamingSessionId || ''}',1)">👍</button>
+                  <button class="thumb-btn" onclick="submitFeedback(this,'${event.messageId || ''}','${streamingSessionId || ''}', -1)">👎</button>
+                  <span style="font-size:11px;color:var(--muted);margin-left:4px;">${event.tokensUsed ? event.tokensUsed + ' tokens' : ''}</span>
+                </div>`);
+            }
+            await loadState();
+          } else if (event.type === "error") {
+            const bubble = $(`${asstBubbleId}-content`);
+            if (bubble) bubble.innerHTML = `<span style="color:var(--danger);">${esc(event.message)}</span>`;
+          }
+        } catch {}
+      }
+    }
   } catch (err) {
-    $("routerContent").innerHTML = `<div class="router-body"><div style="font-size:13px;color:var(--danger);">${esc(err.message)}</div></div>`;
+    if (err.name !== "AbortError") {
+      const bubble = $(`${asstBubbleId}-content`);
+      if (bubble) bubble.innerHTML = `<span style="color:var(--danger);">${esc(err.message)}</span>`;
+      $("routerContent").innerHTML = `<div class="router-body"><div style="font-size:13px;color:var(--danger);">${esc(err.message)}</div></div>`;
+    }
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Send";
+    activeStreamReader = null;
+    sendBtn.disabled = false;
+    sendBtn.textContent = "Send";
+    stopBtn.style.display = "none";
   }
+});
+
+$("stopBtn").addEventListener("click", () => {
+  if (activeStreamReader) { activeStreamReader.cancel(); }
 });
 
 // Account panel toggle

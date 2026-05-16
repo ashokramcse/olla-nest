@@ -30,6 +30,14 @@
   --blue:#9dc8f5;
   --danger:#ef4444;
 }
+.streaming-cursor{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:text-bottom;animation:blink 0.8s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.feedback-row{display:flex;gap:6px;margin-top:6px;}
+.thumb-btn{background:none;border:1px solid var(--line-soft);border-radius:999px;padding:4px 10px;font-size:14px;cursor:pointer;transition:background .15s;}
+.thumb-btn:hover{background:var(--paper)}
+.thumb-btn.voted{background:var(--yellow);border-color:var(--yellow-deep);}
+.stop-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;background:#fff;border:1px solid var(--line-soft);font-size:13px;font-family:inherit;cursor:pointer;}
+.stop-btn:hover{background:var(--paper)}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{
@@ -552,6 +560,10 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
                   <span class="write-label">Save to workspace</span>
                 </label>
                 <button class="send-btn" type="submit" id="sendBtn">Send</button>
+                <button class="stop-btn" id="stopBtn" style="display:none;" type="button">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                  Stop
+                </button>
               </div>
             </div>
           </form>
