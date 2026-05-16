@@ -638,19 +638,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
           <!-- Right column: message thread + composer -->
           <div class="card" id="chatMain">
 
-            <!-- Header: modes + new chat -->
+            <!-- Header: new chat -->
             <div id="chatHeader">
-              <div id="chatModes">
-                <button class="cmode active" data-mode="ask">Ask</button>
-                <button class="cmode" data-mode="build">Build</button>
-                <button class="cmode" data-mode="fix">Fix</button>
-                <button class="cmode" data-mode="debug">Debug</button>
-                <button class="cmode" data-mode="review">Review</button>
-                <button class="cmode" data-mode="test">Test</button>
-                <button class="cmode" data-mode="docs">Docs</button>
-                <button class="cmode" data-mode="plan">Plan</button>
-                <button class="cmode" data-mode="learn">Learn</button>
-              </div>
+              <div id="chatModes"></div>
               <button id="chatNewBtn" class="btn ghost sm">New Chat</button>
             </div>
 
@@ -1955,7 +1945,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   "use strict";
 
   /* ── state ── */
-  var chatMode = "ask";
+  var chatMode = "ask"; /* fixed — mode bar removed */
 
   /* ── helpers ── */
   function esc(v) {
@@ -2424,14 +2414,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   }
 
   /* ── wire up events ── */
-  /* mode buttons */
-  document.querySelectorAll(".cmode").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      chatMode = btn.dataset.mode;
-      document.querySelectorAll(".cmode").forEach(function (b) { b.classList.remove("active"); });
-      btn.classList.add("active");
-    });
-  });
+  /* mode buttons removed — always "ask" */
 
   /* ── Chat history sidebar ── */
   var _ctxThreadId = null;
@@ -2925,7 +2908,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   var SLASH_CMDS = [
     { cmd: "/clear",   desc: "Clear chat history and start fresh" },
     { cmd: "/new",     desc: "Start a new chat thread" },
-    { cmd: "/mode",    desc: "Switch mode: ask build fix debug review test docs plan learn" },
     { cmd: "/model",   desc: "Pick a specific model for next message" },
     { cmd: "/folder",  desc: "Set or change local project folder for Build/Fix/Debug" },
     { cmd: "/attach",  desc: "Open file picker to attach files" },
@@ -2996,10 +2978,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
             + '</div>');
           helpEl.scrollTop = helpEl.scrollHeight;
         }
-        break;
-      case "/mode":
-        chatInput.value = "/mode ";
-        chatInput.focus();
         break;
       case "/model":
         chatInput.value = "";
