@@ -1905,7 +1905,7 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
   const keepAlive = setInterval(() => { res.write(": keepalive\n\n"); }, 15000);
 
   const abort = new AbortController();
-  req.on("close", () => { abort.abort(); clearInterval(keepAlive); closeDb(); });
+  res.on("close", () => { abort.abort(); clearInterval(keepAlive); });
 
   try {
     const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
