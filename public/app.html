@@ -445,11 +445,14 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
     <div>
 
       <!-- User profile -->
-      <div class="profile-mini">
+      <div class="profile-mini" id="appProfileBtn" title="View your profile" style="cursor:pointer;transition:opacity .15s;" onmouseenter="this.style.opacity='.85'" onmouseleave="this.style.opacity='1'">
         <div class="user-av" id="userAvatar">?</div>
         <div class="user-name-lg" id="userName">Loading…</div>
         <div class="user-sub" id="userMeta">workspace</div>
-        <div class="role-chip">Member</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;">
+          <div class="role-chip">Member</div>
+          <span style="font-size:11px;color:#ffffff50;">Edit profile →</span>
+        </div>
       </div>
 
       <!-- Approved models -->
@@ -648,5 +651,207 @@ function updateModelRing(count, max) {
 </script>
 <script src="/dropdown.js"></script>
 <script src="/app.js"></script>
+
+<!-- ════ Profile Drawer (app users) ════ -->
+<style>
+#profileDrawer{position:fixed;inset:0;z-index:900;display:none;}
+#profileDrawer.open{display:flex;}
+.profile-backdrop{position:absolute;inset:0;background:#00000050;backdrop-filter:blur(2px);}
+.profile-panel{position:absolute;right:0;top:0;bottom:0;width:420px;max-width:96vw;background:#fefcec;display:flex;flex-direction:column;box-shadow:-12px 0 40px #00000020;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);}
+#profileDrawer.open .profile-panel{transform:translateX(0);}
+.profile-header{display:flex;align-items:center;gap:12px;padding:22px 24px 18px;border-bottom:1px solid #e5e0c8;}
+.profile-avatar-lg{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#f0d74b,#e8c520);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#1a1a0e;flex-shrink:0;box-shadow:0 2px 8px #e8c52040;}
+.profile-header-text{flex:1;min-width:0;}
+.profile-name{font-size:17px;font-weight:600;color:#1a1a0e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.profile-meta{font-size:12px;color:#888;margin-top:2px;}
+.profile-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.03em;}
+.profile-badge.local{background:#e8f5e9;color:#2e7d32;}
+.profile-badge.enterprise{background:#e3f2fd;color:#1565c0;}
+.profile-badge.role{background:#fff8e1;color:#856d00;}
+.profile-close{width:32px;height:32px;border-radius:50%;border:none;background:#e5e0c8;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:auto;flex-shrink:0;}
+.profile-close:hover{background:#d6d0b0;}
+.profile-body{flex:1;overflow-y:auto;padding:20px 24px;}
+.profile-section-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#aaa;margin:0 0 10px;padding-top:4px;}
+.profile-section-title:not(:first-child){margin-top:22px;}
+.profile-field{margin-bottom:12px;}
+.profile-field label{display:block;font-size:12px;font-weight:500;color:#666;margin-bottom:4px;}
+.profile-field input{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1.5px solid #e5e0c8;background:#fff;font-size:14px;color:#1a1a0e;outline:none;transition:border-color .15s;}
+.profile-field input:focus{border-color:#f0d74b;}
+.profile-field input[readonly]{background:#f8f6ee;color:#999;cursor:not-allowed;}
+.lock-note{display:flex;align-items:center;gap:5px;margin-top:4px;font-size:11px;color:#b89c1a;}
+.profile-divider{height:1px;background:#e5e0c8;margin:18px 0;}
+.profile-footer{padding:16px 24px;border-top:1px solid #e5e0c8;display:flex;flex-direction:column;gap:8px;}
+.profile-save-btn{width:100%;padding:11px;border-radius:12px;border:none;background:#1a1a0e;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;}
+.profile-save-btn:hover{opacity:.82;}
+.profile-save-btn:disabled{opacity:.4;cursor:not-allowed;}
+.profile-msg{font-size:12px;text-align:center;min-height:16px;}
+.profile-msg.ok{color:#2e7d32;}
+.profile-msg.error{color:#c0392b;}
+.profile-pw-toggle{width:100%;padding:9px;border-radius:12px;border:1.5px solid #e5e0c8;background:transparent;font-size:13px;color:#1a1a0e;cursor:pointer;text-align:center;}
+.profile-pw-toggle:hover{border-color:#f0d74b;}
+.profile-pw-section{display:none;}
+.profile-pw-section.open{display:block;}
+.enterprise-notice{display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:#e3f2fd;border:1px solid #90caf9;margin-bottom:16px;}
+.enterprise-notice p{margin:0;font-size:12px;color:#1565c0;line-height:1.5;}
+</style>
+<div id="profileDrawer" role="dialog" aria-modal="true" aria-label="My Profile">
+  <div class="profile-backdrop" id="profileBackdrop"></div>
+  <div class="profile-panel">
+    <div class="profile-header">
+      <div class="profile-avatar-lg" id="profAvLg">?</div>
+      <div class="profile-header-text">
+        <div class="profile-name" id="profName">—</div>
+        <div class="profile-meta"><span id="profEmail"></span></div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          <span class="profile-badge role" id="profRoleBadge">user</span>
+          <span class="profile-badge local" id="profProviderBadge">🔑 Local account</span>
+        </div>
+      </div>
+      <button class="profile-close" id="profileClose">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="profile-body">
+      <div class="enterprise-notice" id="enterpriseNotice" style="display:none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1565c0" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>Your account is managed by your organization. Some fields are locked and can only be changed by your IT administrator.</p>
+      </div>
+      <div class="profile-section-title">Identity</div>
+      <div class="profile-field"><label>Display name</label><input type="text" id="profInputName" placeholder="Your full name"></div>
+      <div class="profile-field"><label>Phone</label><input type="tel" id="profInputPhone" placeholder="+1 555 000 0000"></div>
+      <div class="profile-field"><label>Email <span style="font-size:10px;color:#b89c1a;">(managed)</span></label><input type="email" id="profInputEmail" readonly></div>
+      <div class="profile-section-title">Work Details</div>
+      <div class="profile-field">
+        <label>Designation / Job title</label><input type="text" id="profInputDesignation" placeholder="e.g. Senior Engineer">
+        <div class="lock-note" id="profDesigLock" style="display:none;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Managed by your organization</div>
+      </div>
+      <div class="profile-field">
+        <label>Team</label><input type="text" id="profInputTeam" placeholder="e.g. Platform Engineering">
+        <div class="lock-note" id="profTeamLock" style="display:none;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Managed by your organization</div>
+      </div>
+      <div class="profile-field">
+        <label>Branch / Location</label><input type="text" id="profInputBranch" placeholder="e.g. New York HQ">
+        <div class="lock-note" id="profBranchLock" style="display:none;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Managed by your organization</div>
+      </div>
+      <div class="profile-section-title">Organization</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div class="profile-field" style="margin:0;"><label>Employee ID</label><input type="text" id="profInputEmpId" readonly></div>
+        <div class="profile-field" style="margin:0;"><label>Organization</label><input type="text" id="profInputOrg" readonly></div>
+      </div>
+      <div class="profile-field"><label>Manager</label><input type="text" id="profInputManager" readonly></div>
+      <div class="profile-field"><label>Department</label><input type="text" id="profInputDept" readonly></div>
+      <div class="profile-section-title">AI Access</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div class="profile-field" style="margin:0;"><label>Access tier</label><input type="text" id="profInputTier" readonly></div>
+        <div class="profile-field" style="margin:0;"><label>Daily token limit</label><input type="text" id="profInputDailyTok" readonly></div>
+      </div>
+      <div class="profile-divider"></div>
+      <button class="profile-pw-toggle" id="profPwToggle" type="button">🔑 Change password</button>
+      <div class="profile-pw-section" id="profPwSection">
+        <div style="height:12px;"></div>
+        <div class="profile-field"><label>Current password</label><input type="password" id="profPwCurrent" autocomplete="current-password"></div>
+        <div class="profile-field"><label>New password <span style="font-size:10px;color:#aaa;">(min 12 chars)</span></label><input type="password" id="profPwNew" autocomplete="new-password"></div>
+        <div class="profile-field"><label>Confirm new password</label><input type="password" id="profPwConfirm" autocomplete="new-password"></div>
+        <button class="profile-save-btn" id="profPwSaveBtn" type="button" style="background:#333;">Update password</button>
+        <div class="profile-msg" id="profPwMsg"></div>
+        <div style="height:8px;"></div>
+      </div>
+    </div>
+    <div class="profile-footer">
+      <div class="profile-msg" id="profSaveMsg"></div>
+      <button class="profile-save-btn" id="profSaveBtn" type="button">Save changes</button>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  var drawer = document.getElementById("profileDrawer");
+  var _profile = null;
+  function initials(name) {
+    if (!name) return "?";
+    var parts = name.trim().split(/\s+/);
+    return parts.length >= 2 ? (parts[0][0]+parts[parts.length-1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+  }
+  function openDrawer() { drawer.classList.add("open"); document.body.style.overflow="hidden"; loadProfile(); }
+  function closeDrawer() {
+    drawer.classList.remove("open"); document.body.style.overflow="";
+    ["profPwCurrent","profPwNew","profPwConfirm"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});
+    document.getElementById("profPwSection").classList.remove("open");
+    document.getElementById("profSaveMsg").textContent="";
+    document.getElementById("profPwMsg").textContent="";
+  }
+  function loadProfile() {
+    fetch("/api/account/profile",{credentials:"include"}).then(function(r){return r.json();}).then(function(d){
+      _profile=d.user; populateDrawer(d.user, d.departmentName);
+    }).catch(function(){setMsg("profSaveMsg","Could not load profile","error");});
+  }
+  function populateDrawer(u, deptName) {
+    var av = initials(u.avatarInitials || u.name);
+    document.getElementById("profAvLg").textContent = av;
+    var uav = document.getElementById("userAvatar"); if(uav) uav.textContent = av;
+    document.getElementById("profName").textContent = u.name;
+    document.getElementById("profEmail").textContent = u.email;
+    var rb = document.getElementById("profRoleBadge"); rb.textContent = u.role.charAt(0).toUpperCase()+u.role.slice(1);
+    var pb = document.getElementById("profProviderBadge"); var isEnt = u.isEnterprise;
+    pb.textContent = isEnt ? ("🏢 "+(u.authProvider||"enterprise")) : "🔑 Local account";
+    pb.className = "profile-badge "+(isEnt?"enterprise":"local");
+    document.getElementById("enterpriseNotice").style.display = isEnt ? "" : "none";
+    document.getElementById("profInputName").value = u.name||"";
+    document.getElementById("profInputPhone").value = u.phone||"";
+    document.getElementById("profInputEmail").value = u.email||"";
+    document.getElementById("profInputDesignation").value = u.designation||"";
+    document.getElementById("profInputTeam").value = u.team||"";
+    document.getElementById("profInputBranch").value = u.branch||"";
+    document.getElementById("profInputEmpId").value = u.employeeId||"—";
+    document.getElementById("profInputOrg").value = u.organization||"—";
+    document.getElementById("profInputManager").value = u.manager||"—";
+    document.getElementById("profInputDept").value = deptName||"—";
+    document.getElementById("profInputTier").value = u.aiAccessTier||"standard";
+    document.getElementById("profInputDailyTok").value = u.dailyTokenLimit ? u.dailyTokenLimit.toLocaleString()+" tokens" : "Unlimited";
+    ["Desig","Team","Branch"].forEach(function(k){
+      var inp=document.getElementById("profInput"+k); var lock=document.getElementById("prof"+k+"Lock");
+      if(inp) inp.readOnly=isEnt; if(lock) lock.style.display=isEnt?"flex":"none";
+    });
+    document.getElementById("profPwToggle").style.display = isEnt ? "none" : "";
+  }
+  function setMsg(id,text,type){
+    var el=document.getElementById(id); el.textContent=text; el.className="profile-msg "+(type||"");
+    if(text) setTimeout(function(){if(el.textContent===text)el.textContent="";},4000);
+  }
+  document.getElementById("profSaveBtn").addEventListener("click",function(){
+    var btn=this; btn.disabled=true; btn.textContent="Saving…";
+    var u=_profile||{}; var body={name:document.getElementById("profInputName").value.trim(),phone:document.getElementById("profInputPhone").value.trim()};
+    if(!u.isEnterprise){body.designation=document.getElementById("profInputDesignation").value.trim();body.team=document.getElementById("profInputTeam").value.trim();body.branch=document.getElementById("profInputBranch").value.trim();}
+    if(!body.name){setMsg("profSaveMsg","Name cannot be empty","error");btn.disabled=false;btn.textContent="Save changes";return;}
+    fetch("/api/account/profile",{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.ok){_profile=d.user;populateDrawer(d.user,document.getElementById("profInputDept").value);setMsg("profSaveMsg","Profile saved ✓","ok");}
+      else setMsg("profSaveMsg",d.error||"Save failed","error");
+    }).catch(function(){setMsg("profSaveMsg","Network error","error");}).finally(function(){btn.disabled=false;btn.textContent="Save changes";});
+  });
+  document.getElementById("profPwToggle").addEventListener("click",function(){
+    var sec=document.getElementById("profPwSection"); sec.classList.toggle("open");
+    this.textContent=sec.classList.contains("open")?"✕ Cancel password change":"🔑 Change password";
+  });
+  document.getElementById("profPwSaveBtn").addEventListener("click",function(){
+    var btn=this; var cur=document.getElementById("profPwCurrent").value;
+    var nw=document.getElementById("profPwNew").value; var conf=document.getElementById("profPwConfirm").value;
+    if(!cur){setMsg("profPwMsg","Enter your current password","error");return;}
+    if(nw.length<12){setMsg("profPwMsg","New password must be at least 12 characters","error");return;}
+    if(nw!==conf){setMsg("profPwMsg","Passwords do not match","error");return;}
+    btn.disabled=true; btn.textContent="Updating…";
+    fetch("/api/account/password",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({currentPassword:cur,newPassword:nw})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.ok){setMsg("profPwMsg","Password updated ✓","ok");["profPwCurrent","profPwNew","profPwConfirm"].forEach(function(id){document.getElementById(id).value="";});document.getElementById("profPwSection").classList.remove("open");document.getElementById("profPwToggle").textContent="🔑 Change password";}
+      else setMsg("profPwMsg",d.error||"Update failed","error");
+    }).catch(function(){setMsg("profPwMsg","Network error","error");}).finally(function(){btn.disabled=false;btn.textContent="Update password";});
+  });
+  var trigger = document.getElementById("appProfileBtn");
+  if (trigger) trigger.addEventListener("click", openDrawer);
+  document.getElementById("profileClose").addEventListener("click", closeDrawer);
+  document.getElementById("profileBackdrop").addEventListener("click", closeDrawer);
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")closeDrawer();});
+})();
+</script>
 </body>
 </html>

@@ -388,6 +388,9 @@ function seedSql(db) {
   if (!userColumns.includes("email")) db.exec("ALTER TABLE users ADD COLUMN email TEXT");
   if (!userColumns.includes("password_hash")) db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
   if (!userColumns.includes("rights")) db.exec("ALTER TABLE users ADD COLUMN rights TEXT NOT NULL DEFAULT '[\"chat:use\"]'");
+  if (!userColumns.includes("auth_provider")) db.exec("ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'");
+  if (!userColumns.includes("phone")) db.exec("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''");
+  if (!userColumns.includes("avatar_initials")) db.exec("ALTER TABLE users ADD COLUMN avatar_initials TEXT NOT NULL DEFAULT ''");
   const admin = db.prepare("SELECT id, email, password_hash FROM users WHERE id = 'u-admin'").get();
   if (admin && (!admin.email || !admin.password_hash)) {
     db.prepare("UPDATE users SET email = ?, password_hash = ? WHERE id = 'u-admin'").run(DEFAULT_ADMIN_EMAIL, bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, 12));
@@ -749,6 +752,10 @@ function publicUser(row) {
     accessStatus: row.accessStatus || row.access_status || (row.active ? "active" : "suspended"),
     accessExpiresAt: row.accessExpiresAt || row.access_expires_at || "",
     lastActiveAt: row.lastActiveAt || row.last_active_at || "",
+    authProvider: row.authProvider || row.auth_provider || "local",
+    phone: row.phone || "",
+    avatarInitials: row.avatarInitials || row.avatar_initials || "",
+    isEnterprise: (row.authProvider || row.auth_provider || "local") !== "local",
   };
 }
 
@@ -767,7 +774,8 @@ const USER_SELECT = `id, name, email, role, rights, department_id AS departmentI
   vram_limit_mb AS vramLimitMb, concurrent_model_limit AS concurrentModelLimit,
   api_rate_limit_per_minute AS apiRateLimitPerMinute, max_context_size AS maxContextSize,
   mfa_enabled AS mfaEnabled, security_risk_score AS securityRiskScore,
-  access_status AS accessStatus, access_expires_at AS accessExpiresAt, last_active_at AS lastActiveAt`;
+  access_status AS accessStatus, access_expires_at AS accessExpiresAt, last_active_at AS lastActiveAt,
+  auth_provider AS authProvider, phone, avatar_initials AS avatarInitials`;
 
 function getUsers(db) {
   return rows(db, `SELECT ${USER_SELECT} FROM users ORDER BY role, name`).map(publicUser);
@@ -1360,6 +1368,53 @@ app.post("/api/account/password", requireAuth, (req, res) => {
     db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(bcrypt.hashSync(String(newPassword), 12), req.user.id);
     appendAudit(req.user.name, "account.password.change", "Changed own password");
     res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+// Profile — self-service update (enterprise users have fewer editable fields)
+app.patch("/api/account/profile", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const row = one(db, `SELECT ${USER_SELECT}, password_hash FROM users WHERE id = ?`, req.user.id);
+    if (!row) return res.status(404).json({ error: "User not found" });
+    const isEnterprise = (row.authProvider || row.auth_provider || "local") !== "local";
+
+    // Fields anyone can edit
+    const allowed = ["name", "phone", "avatar_initials"];
+    // Extra fields only local-account users can change
+    if (!isEnterprise) allowed.push("designation", "team", "branch");
+
+    const updates = [];
+    const vals = [];
+    for (const field of allowed) {
+      const camel = field.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+      if (typeof req.body[camel] !== "undefined") {
+        updates.push(`${field} = ?`);
+        vals.push(String(req.body[camel] || "").trim());
+      }
+    }
+    if (updates.length === 0) return res.status(400).json({ error: "No updatable fields provided" });
+    vals.push(req.user.id);
+    db.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`).run(...vals);
+    const updated = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
+    appendAudit(updated.name, "account.profile.update", "Updated own profile");
+    res.json({ ok: true, user: updated });
+  } finally {
+    db.close();
+  }
+});
+
+// GET profile (current user's full profile)
+app.get("/api/account/profile", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const row = one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id);
+    if (!row) return res.status(404).json({ error: "User not found" });
+    const user = publicUser(row);
+    const dept = row.departmentId ? one(db, "SELECT name FROM departments WHERE id = ?", row.departmentId) : null;
+    res.json({ user, departmentName: dept?.name || "" });
   } finally {
     db.close();
   }
