@@ -307,6 +307,7 @@ const tabTitles = {
   users: "User Management",
   access: "Access Control",
   settings: "System Settings",
+  providers: "API Providers",
   audit: "Audit Trail",
 };
 
@@ -707,6 +708,250 @@ $("saveCustomBtn").addEventListener("click", () => {
   if ($("customApiKey").dataset.masked !== "1") fields.customApiKey = $("customApiKey").value;
   saveProvider(fields, "customMsg");
 });
+
+// === PROVIDERS ===
+
+async function loadProviders() {
+  const list = $("providerList");
+  if (!list) return;
+  try {
+    const data = await api("/api/admin/providers");
+    if (!data || !data.providers) return;
+    if (!data.providers.length) {
+      list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--mute);">No providers configured. Add one above.</div>`;
+      return;
+    }
+    list.innerHTML = data.providers.map(p => `
+      <div class="provider-card" id="pcard-${esc(p.id)}">
+        <div class="provider-head">
+          <span class="provider-name">${esc(p.name)}</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span class="badge ${p.enabled ? 'badge-green' : 'badge-gray'}">${p.enabled ? 'enabled' : 'disabled'}</span>
+            <span class="badge badge-blue">${esc(p.type)}</span>
+            <span class="badge badge-default">${p.modelCount} models</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+          <button class="btn ghost sm" onclick="testProvider('${esc(p.id)}', this)">Test Connection</button>
+          <button class="btn ghost sm" onclick="syncProviderModels('${esc(p.id)}', this)">Sync Models</button>
+          <button class="btn ghost sm" onclick="toggleProvider('${esc(p.id)}', ${!p.enabled}, this)">${p.enabled ? 'Disable' : 'Enable'}</button>
+          <button class="btn danger sm" onclick="deleteProvider('${esc(p.id)}', '${esc(p.name)}', this)">Delete</button>
+        </div>
+        <div class="form-msg" id="pcard-msg-${esc(p.id)}"></div>
+        <div id="pcard-models-${esc(p.id)}" style="margin-top:10px;"></div>
+      </div>
+    `).join("");
+  } catch (err) {
+    list.innerHTML = `<div style="color:var(--danger);padding:16px;">${esc(err.message)}</div>`;
+  }
+}
+
+async function testProvider(id, btn) {
+  const msg = $(`pcard-msg-${id}`);
+  btn.disabled = true; btn.textContent = "Testing…";
+  msg.className = "form-msg";
+  try {
+    const result = await api(`/api/admin/providers/${encodeURIComponent(id)}/test`);
+    msg.className = result.ok ? "form-msg success" : "form-msg error";
+    msg.textContent = result.ok ? `Connected — ${result.latency_ms}ms` : `Failed: ${result.error}`;
+  } catch (err) {
+    msg.className = "form-msg error";
+    msg.textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "Test Connection";
+  }
+}
+
+async function syncProviderModels(id, btn) {
+  const msg = $(`pcard-msg-${id}`);
+  btn.disabled = true; btn.textContent = "Syncing…";
+  msg.className = "form-msg";
+  try {
+    const syncResult = await api(`/api/admin/providers/${encodeURIComponent(id)}/sync`, { method: "POST", body: "{}" });
+    const modelsResult = await api(`/api/admin/providers/${encodeURIComponent(id)}/models`);
+    msg.className = "form-msg success";
+    msg.textContent = `Synced ${syncResult.synced} models.`;
+    const modelsDiv = $(`pcard-models-${id}`);
+    if (modelsDiv && modelsResult.models?.length) {
+      modelsDiv.innerHTML = `<div class="table-wrap" style="margin-top:8px;"><table><thead><tr><th>Model</th><th>Governance</th><th>Approved</th></tr></thead><tbody>
+        ${modelsResult.models.map(m => `<tr>
+          <td>${esc(m.display_name)}<br><span style="font-size:11px;color:var(--mute);">${esc(m.model_id)}</span></td>
+          <td><select class="input input-sm" data-gov="${esc(m.id)}" style="min-width:100px;">
+            ${["approved","restricted","experimental","deprecated"].map(t => `<option value="${t}" ${m.governance_tag===t?"selected":""}>${t}</option>`).join("")}
+          </select></td>
+          <td><input type="checkbox" ${m.isApproved?"checked":""} data-approve="${esc(m.id)}" /></td>
+        </tr>`).join("")}
+      </tbody></table></div>
+      <button class="btn dark sm" style="margin-top:8px;" onclick="saveModelPolicies('${esc(id)}', this)">Save model policies</button>`;
+    }
+  } catch (err) {
+    msg.className = "form-msg error";
+    msg.textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "Sync Models";
+  }
+}
+
+async function saveModelPolicies(providerId, btn) {
+  const rows = document.querySelectorAll(`[data-gov]`);
+  btn.disabled = true;
+  for (const select of rows) {
+    const modelId = select.dataset.gov.split(":").slice(1).join(":");
+    const governanceTag = select.value;
+    const approvedCheckbox = document.querySelector(`[data-approve="${CSS.escape(select.dataset.gov)}"]`);
+    try {
+      await api(`/api/admin/providers/${encodeURIComponent(providerId)}/models/${encodeURIComponent(modelId)}`, {
+        method: "PUT",
+        body: JSON.stringify({ governance_tag: governanceTag, is_approved: approvedCheckbox?.checked }),
+      });
+    } catch {}
+  }
+  btn.disabled = false;
+  btn.textContent = "Saved!";
+  setTimeout(() => { btn.textContent = "Save model policies"; }, 1500);
+}
+
+async function toggleProvider(id, newEnabled, btn) {
+  btn.disabled = true;
+  try {
+    await api(`/api/admin/providers/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ enabled: newEnabled }) });
+    await loadProviders();
+  } finally { btn.disabled = false; }
+}
+
+async function deleteProvider(id, name, btn) {
+  if (!confirm(`Delete provider "${name}"? This will also delete all its synced models.`)) return;
+  btn.disabled = true;
+  try {
+    await api(`/api/admin/providers/${encodeURIComponent(id)}`, { method: "DELETE" });
+    await loadProviders();
+  } catch (err) {
+    alert(err.message);
+    btn.disabled = false;
+  }
+}
+
+// Add provider form
+if ($("addProviderBtn")) {
+  $("addProviderBtn").addEventListener("click", () => {
+    const panel = $("addProviderPanel");
+    const open = panel.style.display !== "none";
+    panel.style.display = open ? "none" : "block";
+    $("addProviderBtn").textContent = open ? "+ Add Provider" : "− Cancel";
+  });
+}
+if ($("cancelProviderBtn")) {
+  $("cancelProviderBtn").addEventListener("click", () => {
+    $("addProviderPanel").style.display = "none";
+    $("addProviderBtn").textContent = "+ Add Provider";
+  });
+}
+if ($("newProviderType")) {
+  $("newProviderType").addEventListener("change", () => {
+    const wrap = $("newProviderBaseUrlWrap");
+    wrap.style.display = $("newProviderType").value === "anthropic" ? "none" : "block";
+  });
+}
+if ($("saveProviderBtn")) {
+  $("saveProviderBtn").addEventListener("click", async () => {
+    const msg = $("providerFormMsg");
+    msg.className = "form-msg";
+    msg.textContent = "";
+    const name = $("newProviderName").value.trim();
+    const type = $("newProviderType").value;
+    const base_url = $("newProviderBaseUrl").value.trim();
+    const api_key = $("newProviderApiKey").value.trim();
+    if (!name || !api_key) { msg.className = "form-msg error"; msg.textContent = "Name and API key required."; return; }
+    try {
+      await api("/api/admin/providers", { method: "POST", body: JSON.stringify({ name, type, base_url, api_key }) });
+      $("addProviderPanel").style.display = "none";
+      $("addProviderBtn").textContent = "+ Add Provider";
+      $("newProviderName").value = "";
+      $("newProviderApiKey").value = "";
+      $("newProviderBaseUrl").value = "";
+      await loadProviders();
+    } catch (err) {
+      msg.className = "form-msg error";
+      msg.textContent = err.message;
+    }
+  });
+}
+
+// === ROUTER CONFIG ===
+function updateWeightSum() {
+  const s = parseFloat($("speedWeight").value);
+  const q = parseFloat($("qualityWeight").value);
+  const p = parseFloat($("privacyWeight").value);
+  const sum = Math.round((s + q + p) * 10) / 10;
+  const label = $("weightSumLabel");
+  if (label) { label.textContent = `(sum=${sum})`; label.style.color = Math.abs(sum - 1.0) < 0.01 ? "var(--green-deep)" : "var(--danger)"; }
+  if ($("speedWeightVal")) $("speedWeightVal").textContent = s.toFixed(1);
+  if ($("qualityWeightVal")) $("qualityWeightVal").textContent = q.toFixed(1);
+  if ($("privacyWeightVal")) $("privacyWeightVal").textContent = p.toFixed(1);
+}
+
+["speedWeight", "qualityWeight", "privacyWeight"].forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener("input", updateWeightSum);
+});
+
+function renderRouterConfig() {
+  const s = state.settings;
+  if (!s) return;
+  const w = s.routerWeights || { speed: 0.3, quality: 0.5, privacy: 0.2 };
+  if ($("speedWeight")) { $("speedWeight").value = w.speed; $("speedWeightVal").textContent = Number(w.speed).toFixed(1); }
+  if ($("qualityWeight")) { $("qualityWeight").value = w.quality; $("qualityWeightVal").textContent = Number(w.quality).toFixed(1); }
+  if ($("privacyWeight")) { $("privacyWeight").value = w.privacy; $("privacyWeightVal").textContent = Number(w.privacy).toFixed(1); }
+  updateWeightSum();
+  if ($("sensitivePatterns")) $("sensitivePatterns").value = (s.sensitivePatterns || []).join("\n");
+  const modes = new Set(s.localOnlyModes || ["build", "fix"]);
+  document.querySelectorAll("#localOnlyModeChecks input[type=checkbox]").forEach(cb => {
+    cb.checked = modes.has(cb.value);
+  });
+}
+
+if ($("saveRouterConfigBtn")) {
+  $("saveRouterConfigBtn").addEventListener("click", async () => {
+    const msg = $("routerConfigMsg");
+    msg.className = "form-msg";
+    msg.textContent = "";
+    const speed = parseFloat($("speedWeight").value);
+    const quality = parseFloat($("qualityWeight").value);
+    const privacy = parseFloat($("privacyWeight").value);
+    const sum = Math.round((speed + quality + privacy) * 10) / 10;
+    if (Math.abs(sum - 1.0) > 0.01) {
+      msg.className = "form-msg error"; msg.textContent = `Weights must sum to 1.0 (current: ${sum}).`; return;
+    }
+    const patternsRaw = $("sensitivePatterns").value.trim();
+    const sensitivePatterns = patternsRaw ? patternsRaw.split("\n").map(l => l.trim()).filter(Boolean) : [];
+    const localOnlyModes = Array.from(document.querySelectorAll("#localOnlyModeChecks input:checked")).map(cb => cb.value);
+    try {
+      await api("/api/admin/settings", { method: "POST", body: JSON.stringify({
+        routerWeights: { speed, quality, privacy },
+        sensitivePatterns,
+        localOnlyModes,
+      }) });
+      msg.className = "form-msg success"; msg.textContent = "Router config saved.";
+      await loadState();
+    } catch (err) {
+      msg.className = "form-msg error"; msg.textContent = err.message;
+    }
+  });
+}
+
+// Extend switchTab to load providers
+const _origSwitchTab = switchTab;
+function switchTab(tab) {
+  _origSwitchTab(tab);
+  if (tab === "providers") loadProviders();
+}
+
+// Extend renderAll to include router config
+const _origRenderAll = renderAll;
+function renderAll() {
+  _origRenderAll();
+  renderRouterConfig();
+}
 
 loadState().then(checkOllama);
 /* Re-check Ollama every 30 seconds so status stays current without a page reload */

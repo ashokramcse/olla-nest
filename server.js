@@ -18,6 +18,9 @@ const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || "CHANGE_ME_
 const DEFAULT_USER_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "CHANGE_ME_ON_FIRST_BOOT";
 const STATIC_DIR = path.join(__dirname, "public");
 const sessions = new Map();
+const STORAGE_MODE = process.env.STORAGE_MODE || "local";
+const SECRET_KEY = process.env.SECRET_KEY || crypto.randomBytes(32).toString("hex");
+const SESSION_SECRET = process.env.SESSION_SECRET || "change-this-in-production";
 
 function enforceDockerRuntime() {
   const inDocker = fs.existsSync("/.dockerenv") || process.env.OLLA_NEST_DOCKER_RUNTIME === "true";
@@ -115,7 +118,89 @@ function openSql() {
       expires_at TEXT,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT 'New Chat',
+      pinned INTEGER NOT NULL DEFAULT 0,
+      archived INTEGER NOT NULL DEFAULT 0,
+      unread INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      mode TEXT,
+      model_id TEXT,
+      model_name TEXT,
+      route_reason TEXT,
+      live INTEGER DEFAULT 1,
+      artifacts_json TEXT,
+      extracted_files_json TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS audit_events (
+      id TEXT PRIMARY KEY,
+      actor TEXT,
+      action TEXT NOT NULL,
+      detail TEXT,
+      extra_json TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS router_traces (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      session_id TEXT,
+      message TEXT,
+      mode TEXT,
+      selected_model_id TEXT,
+      tags_json TEXT,
+      candidates_json TEXT,
+      live INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS workspace_prefs (
+      user_id TEXT PRIMARY KEY,
+      workspace_root TEXT NOT NULL,
+      permission_mode TEXT NOT NULL DEFAULT 'default',
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS api_providers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL,
+      base_url TEXT,
+      api_key_enc TEXT NOT NULL,
+      enabled INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS api_models (
+      id TEXT PRIMARY KEY,
+      provider_id TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      capability_tags TEXT,
+      context_window INTEGER,
+      is_approved INTEGER DEFAULT 0,
+      governance_tag TEXT DEFAULT 'approved',
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS feedback (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      comment TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
+  db.exec("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=NORMAL;");
   seedSql(db);
   return db;
 }
@@ -366,6 +451,184 @@ function upsertModel(db, model) {
 
 function cleanBaseUrl(value) {
   return String(value || "").replace(/\/+$/, "");
+}
+
+// ─── Encryption ───────────────────────────────────────────────────────────────
+function encryptKey(plaintext) {
+  const iv = crypto.randomBytes(12);
+  const key = crypto.createHash("sha256").update(SECRET_KEY).digest();
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted.toString("hex")}`;
+}
+
+function decryptKey(stored) {
+  try {
+    const [ivHex, tagHex, encHex] = stored.split(":");
+    const key = crypto.createHash("sha256").update(SECRET_KEY).digest();
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(ivHex, "hex"));
+    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+    return decipher.update(Buffer.from(encHex, "hex")) + decipher.final("utf8");
+  } catch {
+    return "";
+  }
+}
+
+// ─── Provider call ────────────────────────────────────────────────────────────
+async function callProvider(provider, modelId, messages, options = {}) {
+  const timeout = options.timeout || 300000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  const apiKey = decryptKey(provider.api_key_enc);
+  try {
+    let response, data;
+    if (provider.type === "ollama") {
+      const base = cleanBaseUrl(provider.base_url || OLLAMA_URL);
+      response = await fetch(`${base}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({ model: modelId, messages, stream: false, options: { temperature: 0.5, num_predict: 4096 } }),
+      });
+      if (!response.ok) { const err = new Error(`Ollama ${response.status}`); err.code = response.status === 401 ? "AUTH_ERROR" : "MODEL_ERROR"; throw err; }
+      data = await response.json();
+      return { content: cleanModelOutput(data.message?.content || data.response || ""), tokensUsed: data.eval_count || 0, providerName: provider.name || "Ollama" };
+    } else if (provider.type === "anthropic") {
+      const base = cleanBaseUrl(provider.base_url || "https://api.anthropic.com");
+      const anthropicMessages = messages.filter(m => m.role !== "system");
+      const systemMsg = messages.find(m => m.role === "system");
+      response = await fetch(`${base}/v1/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "x-api-key": apiKey },
+        signal: controller.signal,
+        body: JSON.stringify({ model: modelId, max_tokens: 4096, system: systemMsg?.content || "", messages: anthropicMessages }),
+      });
+      if (!response.ok) { const err = new Error(`Anthropic ${response.status}`); err.code = response.status === 401 ? "AUTH_ERROR" : response.status === 429 ? "RATE_LIMIT" : "MODEL_ERROR"; throw err; }
+      data = await response.json();
+      return { content: data.content?.[0]?.text || "", tokensUsed: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0), providerName: "Anthropic" };
+    } else if (provider.type === "openai" || provider.type === "groq" || provider.type === "custom") {
+      const base = cleanBaseUrl(provider.base_url || (provider.type === "groq" ? "https://api.groq.com/openai" : "https://api.openai.com/v1"));
+      const url = provider.type === "openai" || provider.type === "custom" ? `${base}/chat/completions` : `${base}/v1/chat/completions`;
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        signal: controller.signal,
+        body: JSON.stringify({ model: modelId, messages, stream: false }),
+      });
+      if (!response.ok) { const err = new Error(`Provider ${response.status}`); err.code = response.status === 401 ? "AUTH_ERROR" : response.status === 429 ? "RATE_LIMIT" : "MODEL_ERROR"; throw err; }
+      data = await response.json();
+      const choice = data.choices?.[0];
+      return { content: choice?.message?.content || "", tokensUsed: data.usage?.total_tokens || 0, providerName: provider.name || provider.type };
+    }
+    throw new Error(`Unknown provider type: ${provider.type}`);
+  } catch (err) {
+    if (err.name === "AbortError") { const e = new Error("Provider call timed out"); e.code = "NETWORK_ERROR"; throw e; }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callProviderStream(provider, modelId, messages, options, onToken, onDone, signal) {
+  const apiKey = decryptKey(provider.api_key_enc);
+  let totalTokens = 0;
+  try {
+    let response;
+    if (provider.type === "ollama") {
+      const base = cleanBaseUrl(provider.base_url || OLLAMA_URL);
+      response = await fetch(`${base}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal,
+        body: JSON.stringify({ model: modelId, messages, stream: true, options: { temperature: 0.5, num_predict: 4096 } }),
+      });
+      if (!response.ok) throw new Error(`Ollama ${response.status}`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const parsed = JSON.parse(line);
+            const token = parsed.message?.content || "";
+            if (token) { onToken(token); }
+            if (parsed.eval_count) totalTokens = parsed.eval_count;
+            if (parsed.done) break;
+          } catch {}
+        }
+      }
+    } else if (provider.type === "anthropic") {
+      const base = cleanBaseUrl(provider.base_url || "https://api.anthropic.com");
+      const anthropicMessages = messages.filter(m => m.role !== "system");
+      const systemMsg = messages.find(m => m.role === "system");
+      response = await fetch(`${base}/v1/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01", "x-api-key": apiKey },
+        signal,
+        body: JSON.stringify({ model: modelId, max_tokens: 4096, stream: true, system: systemMsg?.content || "", messages: anthropicMessages }),
+      });
+      if (!response.ok) throw new Error(`Anthropic ${response.status}`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            if (parsed.type === "content_block_delta") { onToken(parsed.delta?.text || ""); }
+            if (parsed.type === "message_delta") { totalTokens = parsed.usage?.output_tokens || totalTokens; }
+          } catch {}
+        }
+      }
+    } else {
+      const base = cleanBaseUrl(provider.base_url || (provider.type === "groq" ? "https://api.groq.com/openai" : "https://api.openai.com/v1"));
+      const url = provider.type === "groq" ? `${base}/v1/chat/completions` : `${base}/chat/completions`;
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        signal,
+        body: JSON.stringify({ model: modelId, messages, stream: true }),
+      });
+      if (!response.ok) throw new Error(`Provider ${response.status}`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(payload);
+            const token = parsed.choices?.[0]?.delta?.content || "";
+            if (token) onToken(token);
+            if (parsed.usage?.total_tokens) totalTokens = parsed.usage.total_tokens;
+          } catch {}
+        }
+      }
+    }
+  } catch (err) {
+    if (err.name !== "AbortError") throw err;
+  }
+  onDone(totalTokens);
 }
 
 function ollamaUrl(db) {
@@ -623,14 +886,25 @@ function classifyRequest(message, mode = "ask") {
 }
 
 function routeModel(db, user, message, mode) {
-  const candidates = allowedModels(db, user);
+  let candidates = allowedModels(db, user);
   const tags = classifyRequest(message, mode);
+  const weights = safeJson(setting(db, "routerWeights", null), { speed: 0.3, quality: 0.5, privacy: 0.2 });
+  const localOnlyModes = safeJson(setting(db, "localOnlyModes", null), ["build", "fix"]);
+  const sensitivityResult = detectSensitiveContent(message, db);
+  const privacyBlocked = sensitivityResult.isSensitive || localOnlyModes.includes(mode);
+
+  if (privacyBlocked) {
+    candidates = candidates.filter(m => m.privacy === "local");
+  }
+
   if (!setting(db, "routerEnabled", true)) {
     return {
       selected: candidates[0],
       tags: ["router-disabled"],
       candidates: candidates.map((model) => ({ id: model.id, name: model.name, score: 0 })),
       reason: "Auto Router is disabled by admin, so the first approved model was selected.",
+      privacyBlocked,
+      sensitiveReasons: sensitivityResult.reasons,
     };
   }
 
@@ -638,11 +912,12 @@ function routeModel(db, user, message, mode) {
     const matches = model.capabilities.filter((capability) => tags.includes(capability));
     const capabilityScore = matches.length * 35;
     const specialistScore = ["medical", "ocr", "vision", "coding"].some((tag) => tags.includes(tag) && model.capabilities.includes(tag)) ? 45 : 0;
-    const speedWeight = message.length < 240 ? 0.34 : 0.22;
-    const qualityWeight = 0.44;
-    const privacyScore = model.privacy === "local" ? 10 : setting(db, "allowApiModels", false) ? 0 : -100;
-    const score = capabilityScore + specialistScore + model.speedScore * speedWeight + model.qualityScore * qualityWeight + privacyScore;
-    return { model, score: Math.round(score), matches };
+    const speedW = Number(weights.speed) || 0.3;
+    const qualityW = Number(weights.quality) || 0.5;
+    const privacyW = Number(weights.privacy) || 0.2;
+    const privacyScore = model.privacy === "local" ? 100 * privacyW : setting(db, "allowApiModels", false) ? 0 : -100;
+    const score = capabilityScore + specialistScore + model.speedScore * speedW + model.qualityScore * qualityW + privacyScore;
+    return { model, score: Math.round(score), matches, breakdown: { capabilityMatch: capabilityScore, speedScore: model.speedScore * speedW, qualityScore: model.qualityScore * qualityW, privacyScore, weightedTotal: score } };
   });
 
   scored.sort((a, b) => b.score - a.score);
@@ -650,35 +925,20 @@ function routeModel(db, user, message, mode) {
   return {
     selected,
     tags,
-    candidates: scored.map((item) => ({ id: item.model.id, name: item.model.name, score: item.score, matches: item.matches })),
+    candidates: scored.map((item) => ({ id: item.model.id, name: item.model.name, score: item.score, matches: item.matches, breakdown: item.breakdown })),
     reason: selected
       ? `Selected ${selected.name} by matching request capabilities, speed, quality, privacy, and the user's approved access.`
       : "No approved active model is available for this user.",
+    privacyBlocked,
+    sensitiveReasons: sensitivityResult.reasons,
   };
 }
 
 async function ollamaGenerate(db, model, prompt) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 300000); /* 5 min — large models need time to load */
-  try {
-    const response = await fetch(`${ollamaUrl(db)}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model,
-        prompt,
-        stream: false,
-        think: false,
-        options: { temperature: 0.5, num_predict: 4096 },
-      }),
-    });
-    if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
-    const data = await response.json();
-    return cleanModelOutput(data.response || data.message?.content || data.output || "");
-  } finally {
-    clearTimeout(timeout);
-  }
+  const provider = { type: "ollama", base_url: ollamaUrl(db), api_key_enc: encryptKey(""), name: "Ollama" };
+  const messages = [{ role: "user", content: prompt }];
+  const result = await callProvider(provider, model, messages, { timeout: 300000 });
+  return result.content;
 }
 
 function cleanModelOutput(content) {
@@ -820,13 +1080,12 @@ function normalizePermissionMode(mode) {
 }
 
 function workspaceForUser(db, userId) {
-  const docs = readDocs();
-  const prefs = docs.workspacePrefs?.[userId] || {};
-  const root = path.resolve(String(prefs.workspaceRoot || workspaceRoot(db)));
+  const prefs = db.prepare("SELECT workspace_root, permission_mode FROM workspace_prefs WHERE user_id = ?").get(userId);
+  const root = path.resolve(String(prefs?.workspace_root || workspaceRoot(db)));
   return {
     workspaceRoot: root,
     outputFolder: path.join(root, "olla-nest-output"),
-    permissionMode: normalizePermissionMode(prefs.permissionMode || setting(db, "localPermissionMode", "default")),
+    permissionMode: normalizePermissionMode(prefs?.permission_mode || setting(db, "localPermissionMode", "default")),
     localWritesEnabled: setting(db, "localWritesEnabled", true),
   };
 }
@@ -854,17 +1113,84 @@ function writeLocalArtifacts(db, workspace, message, mode, content) {
 }
 
 function appendAudit(actor, action, detail, extra = {}) {
-  const docs = readDocs();
-  docs.audit.push({ id: uid("audit"), actor, action, detail, extra, createdAt: new Date().toISOString() });
-  docs.audit = docs.audit.slice(-200);
-  writeDocs(docs);
+  try {
+    const db = openSql();
+    try {
+      db.prepare("INSERT INTO audit_events (id, actor, action, detail, extra_json, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+        uid("audit"), actor, action, detail || "", JSON.stringify(extra), new Date().toISOString()
+      );
+    } finally { db.close(); }
+  } catch {}
 }
 
-function appendTrace(trace) {
-  const docs = readDocs();
-  docs.routerTraces.push({ id: uid("trace"), ...trace, createdAt: new Date().toISOString() });
-  docs.routerTraces = docs.routerTraces.slice(-200);
-  writeDocs(docs);
+function appendTrace(trace, db) {
+  try {
+    const run = (d) => d.prepare(
+      "INSERT INTO router_traces (id, user_id, session_id, message, mode, selected_model_id, tags_json, candidates_json, live, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run(uid("trace"), trace.userId || null, trace.sessionId || null, trace.message || "", trace.mode || "",
+      trace.selectedModelId || null, JSON.stringify(trace.tags || []), JSON.stringify(trace.candidates || []),
+      trace.live ? 1 : 0, new Date().toISOString());
+    if (db) { run(db); } else { const d = openSql(); try { run(d); } finally { d.close(); } }
+  } catch {}
+}
+
+// ─── SQL Chat helpers ─────────────────────────────────────────────────────────
+function parseMessage(row) {
+  return {
+    id: row.id,
+    role: row.role,
+    content: row.content,
+    mode: row.mode || undefined,
+    modelId: row.model_id || undefined,
+    modelName: row.model_name || undefined,
+    routeReason: row.route_reason || undefined,
+    live: row.live !== 0,
+    artifacts: safeJson(row.artifacts_json, []),
+    extractedFiles: safeJson(row.extracted_files_json, []),
+    createdAt: row.created_at,
+  };
+}
+
+function buildChatObject(db, session) {
+  const msgs = db.prepare("SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC").all(session.id);
+  return {
+    id: session.id,
+    userId: session.user_id,
+    title: session.title,
+    pinned: Boolean(session.pinned),
+    archived: Boolean(session.archived),
+    unread: Boolean(session.unread),
+    isActive: Boolean(session.is_active),
+    messages: msgs.map(parseMessage),
+    createdAt: session.created_at,
+    updatedAt: session.updated_at,
+  };
+}
+
+function getActiveChatSession(db, userId) {
+  return db.prepare("SELECT * FROM chat_sessions WHERE user_id = ? AND is_active = 1 ORDER BY updated_at DESC LIMIT 1").get(userId);
+}
+
+function getActiveChat(db, userId) {
+  let session = getActiveChatSession(db, userId);
+  if (!session) {
+    const now = new Date().toISOString();
+    const sessionId = uid("chat");
+    db.prepare("INSERT INTO chat_sessions (id, user_id, title, pinned, archived, unread, is_active, created_at, updated_at) VALUES (?, ?, ?, 0, 0, 0, 1, ?, ?)").run(sessionId, userId, "New Chat", now, now);
+    db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_name, live, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)").run(
+      uid("msg"), sessionId, "assistant", "Ready. Ask once, and Auto Router will choose the best approved model for your task.", "Olla Nest", now
+    );
+    session = db.prepare("SELECT * FROM chat_sessions WHERE id = ?").get(sessionId);
+  }
+  return buildChatObject(db, session);
+}
+
+function archiveCurrentChat(db, userId) {
+  const session = getActiveChatSession(db, userId);
+  if (!session) return;
+  const hasUserMsg = db.prepare("SELECT id FROM chat_messages WHERE session_id = ? AND role = 'user' LIMIT 1").get(session.id);
+  if (!hasUserMsg) return;
+  db.prepare("UPDATE chat_sessions SET is_active = 0, updated_at = ? WHERE id = ?").run(new Date().toISOString(), session.id);
 }
 
 function chatFor(userId) {
@@ -910,7 +1236,33 @@ function settingsState(db) {
     customName: setting(db, "customName", ""),
     customApiKey: setting(db, "customApiKey", "") ? "set" : "",
     customBaseUrl: setting(db, "customBaseUrl", ""),
+    routerWeights: safeJson(setting(db, "routerWeights", null), { speed: 0.3, quality: 0.5, privacy: 0.2 }),
+    sensitivePatterns: safeJson(setting(db, "sensitivePatterns", null), []),
+    localOnlyModes: safeJson(setting(db, "localOnlyModes", null), ["build", "fix"]),
   };
+}
+
+// ─── Sensitive content detection ───────────────────────────────────────────────
+function detectSensitiveContent(text, db) {
+  const reasons = [];
+  const builtinPatterns = [
+    { pattern: /\b\d{3}-\d{2}-\d{4}\b/, label: "SSN" },
+    { pattern: /\b\d{4}[- ]\d{4}[- ]\d{4}[- ]\d{4}\b/, label: "credit card" },
+    { pattern: /sk-[a-zA-Z0-9]{20,}/, label: "API key" },
+    { pattern: /diagnosis|prescription|patient\s+record|PHI|HIPAA/i, label: "medical/PHI" },
+  ];
+  for (const { pattern, label } of builtinPatterns) {
+    if (pattern.test(text)) reasons.push(label);
+  }
+  try {
+    const adminPatterns = db ? safeJson(setting(db, "sensitivePatterns", null), []) : [];
+    for (const pat of adminPatterns) {
+      try {
+        if (new RegExp(pat).test(text)) reasons.push(`admin pattern: ${pat}`);
+      } catch {}
+    }
+  } catch {}
+  return { isSensitive: reasons.length > 0, reasons };
 }
 
 function parseCookies(req) {
@@ -1019,8 +1371,16 @@ app.get("/api/state", requireAuth, async (req, res) => {
     setSetting(db, "activeUserId", req.user.id);
     await syncOllamaModels(db).catch(() => []);
     const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
-    const docs = readDocs();
     const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
+    let chats;
+    if (user.role === "admin") {
+      const sessions = db.prepare("SELECT * FROM chat_sessions WHERE is_active = 1 ORDER BY updated_at DESC").all();
+      chats = sessions.map(s => buildChatObject(db, s));
+    } else {
+      chats = [getActiveChat(db, user.id)];
+    }
+    const auditRows = db.prepare("SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 30").all();
+    const audit = auditRows.map(r => ({ id: r.id, actor: r.actor, action: r.action, detail: r.detail, extra: safeJson(r.extra_json, {}), createdAt: r.created_at }));
     res.json({
       activeUser: user,
       users: getUsers(db),
@@ -1028,8 +1388,8 @@ app.get("/api/state", requireAuth, async (req, res) => {
       groups: rows(db, "SELECT id, name FROM groups ORDER BY name"),
       models,
       settings: settingsState(db),
-      chats: user.role === "admin" ? Object.values(docs.chats) : [chatFor(user.id)],
-      audit: docs.audit.slice(-30).reverse(),
+      chats,
+      audit,
       allowedModelIds: allowedModelIds(db, user),
       roles: roleCatalog(db),
       permissions: permissionCatalog(db),
@@ -1087,22 +1447,16 @@ app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
   try {
     const workspaceRootInput = String(req.body.workspaceRoot || "").trim();
     const permissionMode = normalizePermissionMode(req.body.permissionMode);
-    const docs = readDocs();
     if (!workspaceRootInput) {
-      /* clear user's custom workspace — revert to global default */
-      delete docs.workspacePrefs[req.user.id];
-      writeDocs(docs);
+      db.prepare("DELETE FROM workspace_prefs WHERE user_id = ?").run(req.user.id);
       appendAudit(req.user.name, "workspace.local.clear", "Cleared local workspace folder");
       return res.json({ ok: true, workspace: workspaceForUser(db, req.user.id) });
     }
     const nextRoot = path.resolve(workspaceRootInput);
     fs.mkdirSync(nextRoot, { recursive: true });
-    docs.workspacePrefs[req.user.id] = {
-      workspaceRoot: nextRoot,
-      permissionMode,
-      updatedAt: new Date().toISOString(),
-    };
-    writeDocs(docs);
+    db.prepare("INSERT OR REPLACE INTO workspace_prefs (user_id, workspace_root, permission_mode, updated_at) VALUES (?, ?, ?, ?)").run(
+      req.user.id, nextRoot, permissionMode, new Date().toISOString()
+    );
     appendAudit(req.user.name, "workspace.local.save", `Updated local workspace folder to ${nextRoot}`, { permissionMode });
     res.json({ ok: true, workspace: workspaceForUser(db, req.user.id) });
   } finally {
@@ -1156,31 +1510,25 @@ app.post("/api/chat", requireAuth, async (req, res) => {
         .trim();
     }
 
-    const docs = readDocs();
-    const chat = chatFor(user.id);
+    const chat = getActiveChat(db, user.id);
     const now = new Date().toISOString();
-    chat.messages.push({ role: "user", content: message, mode, createdAt: now });
-    chat.messages.push({
-      role: "assistant",
-      content: chatContent,
-      modelId: route.selected.id,
-      modelName: route.selected.name,
-      routeReason: route.reason,
-      live,
-      artifacts,
-      extractedFiles,
-      createdAt: now,
-    });
+    const userMsgId = uid("msg");
+    const asstMsgId = uid("msg");
+    db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, "user", message, mode, now);
+    db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), now
+    );
     /* Auto-set title from first user message if still default */
-    if (!chat.title || chat.title === "New Chat" || chat.title === "New workspace") {
-      chat.title = autoTitle(chat.messages);
+    const currentSession = db.prepare("SELECT * FROM chat_sessions WHERE id = ?").get(chat.id);
+    let title = currentSession?.title || "New Chat";
+    if (!title || title === "New Chat" || title === "New workspace") {
+      title = message.slice(0, 45).trim() + (message.length > 45 ? "…" : "");
     }
-    chat.updatedAt = now;
-    docs.chats[user.id] = chat;
-    writeDocs(docs);
-    appendTrace({ userId: user.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live, artifacts, workspace });
+    db.prepare("UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?").run(title, now, chat.id);
+    const updatedChat = buildChatObject(db, db.prepare("SELECT * FROM chat_sessions WHERE id = ?").get(chat.id));
+    appendTrace({ userId: user.id, sessionId: chat.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live }, db);
     appendAudit(user.name, "chat.request", `${mode.toUpperCase()} routed to ${route.selected.name}`, { live, artifacts });
-    res.json({ content, route, model: route.selected, live, artifacts, extractedFiles, chat });
+    res.json({ content, route, model: route.selected, live, artifacts, extractedFiles, chat: updatedChat });
   } finally {
     db.close();
   }
@@ -1215,10 +1563,12 @@ function archiveCurrentChat(userId) {
 app.delete("/api/chat", requireAuth, (req, res) => {
   const db = openSql();
   try {
-    const docs = readDocs();
-    delete docs.chats[req.user.id];
-    writeDocs(docs);
-    chatFor(req.user.id);
+    const session = getActiveChatSession(db, req.user.id);
+    if (session) {
+      db.prepare("DELETE FROM chat_messages WHERE session_id = ?").run(session.id);
+      db.prepare("DELETE FROM chat_sessions WHERE id = ?").run(session.id);
+    }
+    getActiveChat(db, req.user.id);
     res.json({ ok: true });
   } finally {
     db.close();
@@ -1228,12 +1578,8 @@ app.delete("/api/chat", requireAuth, (req, res) => {
 app.post("/api/chat/clear", requireAuth, (req, res) => {
   const db = openSql();
   try {
-    const user = req.user;
-    archiveCurrentChat(user.id);
-    const docs = readDocs();
-    delete docs.chats[user.id];
-    writeDocs(docs);
-    chatFor(user.id);
+    archiveCurrentChat(db, req.user.id);
+    getActiveChat(db, req.user.id);
     res.json({ ok: true });
   } finally {
     db.close();
@@ -1244,12 +1590,10 @@ app.get("/api/threads", requireAuth, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
-    const docs = readDocs();
-    const active = docs.chats[user.id] || null;
-    const history = (docs.chatHistory[user.id] || []).slice().sort((a, b) => {
-      if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
-      return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
-    });
+    const activeSessions = db.prepare("SELECT * FROM chat_sessions WHERE user_id = ? AND is_active = 1 ORDER BY updated_at DESC").all(user.id);
+    const historySessions = db.prepare("SELECT * FROM chat_sessions WHERE user_id = ? AND is_active = 0 ORDER BY pinned DESC, updated_at DESC").all(user.id);
+    const active = activeSessions.length ? buildChatObject(db, activeSessions[0]) : null;
+    const history = historySessions.map(s => buildChatObject(db, s));
     res.json({ active, history });
   } finally {
     db.close();
@@ -1260,9 +1604,10 @@ app.delete("/api/threads/:id", requireAuth, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
-    const docs = readDocs();
-    docs.chatHistory[user.id] = (docs.chatHistory[user.id] || []).filter(t => t.id !== req.params.id);
-    writeDocs(docs);
+    const session = db.prepare("SELECT id FROM chat_sessions WHERE id = ? AND user_id = ?").get(req.params.id, user.id);
+    if (!session) return res.status(404).json({ error: "Thread not found" });
+    db.prepare("DELETE FROM chat_messages WHERE session_id = ?").run(req.params.id);
+    db.prepare("DELETE FROM chat_sessions WHERE id = ? AND user_id = ?").run(req.params.id, user.id);
     res.json({ ok: true });
   } finally {
     db.close();
@@ -1273,24 +1618,16 @@ app.patch("/api/threads/:id", requireAuth, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
-    const docs = readDocs();
-    const allowed = ["title", "pinned", "archived", "unread"];
-    // Check active chat first
-    if (docs.chats[user.id] && docs.chats[user.id].id === req.params.id) {
-      allowed.forEach(k => { if (req.body[k] !== undefined) docs.chats[user.id][k] = req.body[k]; });
-      docs.chats[user.id].updatedAt = new Date().toISOString();
-      writeDocs(docs);
-      return res.json({ ok: true, thread: docs.chats[user.id] });
-    }
-    // Fall back to history
-    const threads = docs.chatHistory[user.id] || [];
-    const idx = threads.findIndex(t => t.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: "Thread not found" });
-    allowed.forEach(k => { if (req.body[k] !== undefined) threads[idx][k] = req.body[k]; });
-    threads[idx].updatedAt = new Date().toISOString();
-    docs.chatHistory[user.id] = threads;
-    writeDocs(docs);
-    res.json({ ok: true, thread: threads[idx] });
+    const session = db.prepare("SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?").get(req.params.id, user.id);
+    if (!session) return res.status(404).json({ error: "Thread not found" });
+    const now = new Date().toISOString();
+    if (typeof req.body.title !== "undefined") db.prepare("UPDATE chat_sessions SET title = ? WHERE id = ?").run(req.body.title, req.params.id);
+    if (typeof req.body.pinned !== "undefined") db.prepare("UPDATE chat_sessions SET pinned = ? WHERE id = ?").run(req.body.pinned ? 1 : 0, req.params.id);
+    if (typeof req.body.archived !== "undefined") db.prepare("UPDATE chat_sessions SET archived = ? WHERE id = ?").run(req.body.archived ? 1 : 0, req.params.id);
+    if (typeof req.body.unread !== "undefined") db.prepare("UPDATE chat_sessions SET unread = ? WHERE id = ?").run(req.body.unread ? 1 : 0, req.params.id);
+    db.prepare("UPDATE chat_sessions SET updated_at = ? WHERE id = ?").run(now, req.params.id);
+    const updated = db.prepare("SELECT * FROM chat_sessions WHERE id = ?").get(req.params.id);
+    res.json({ ok: true, thread: buildChatObject(db, updated) });
   } finally {
     db.close();
   }
@@ -1300,15 +1637,10 @@ app.post("/api/threads/:id/activate", requireAuth, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
-    archiveCurrentChat(user.id);
-    const docs = readDocs();
-    const threads = docs.chatHistory[user.id] || [];
-    const idx = threads.findIndex(t => t.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: "Thread not found" });
-    const thread = threads[idx];
-    docs.chatHistory[user.id] = threads.filter((_, i) => i !== idx);
-    docs.chats[user.id] = { ...thread, unread: false };
-    writeDocs(docs);
+    const target = db.prepare("SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?").get(req.params.id, user.id);
+    if (!target) return res.status(404).json({ error: "Thread not found" });
+    archiveCurrentChat(db, user.id);
+    db.prepare("UPDATE chat_sessions SET is_active = 1, unread = 0, updated_at = ? WHERE id = ?").run(new Date().toISOString(), req.params.id);
     res.json({ ok: true });
   } finally {
     db.close();
@@ -1319,24 +1651,20 @@ app.post("/api/threads/:id/fork", requireAuth, (req, res) => {
   const db = openSql();
   try {
     const user = req.user;
-    archiveCurrentChat(user.id);
-    const docs = readDocs();
-    const threads = docs.chatHistory[user.id] || [];
-    const src = threads.find(t => t.id === req.params.id)
-      || (docs.chats[user.id]?.id === req.params.id ? docs.chats[user.id] : null);
+    const src = db.prepare("SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?").get(req.params.id, user.id);
     if (!src) return res.status(404).json({ error: "Thread not found" });
-    const forked = {
-      ...src,
-      id: uid("chat"),
-      title: `Fork of ${src.title}`,
-      pinned: false,
-      archived: false,
-      unread: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    docs.chats[user.id] = forked;
-    writeDocs(docs);
+    archiveCurrentChat(db, user.id);
+    const now = new Date().toISOString();
+    const newId = uid("chat");
+    db.prepare("INSERT INTO chat_sessions (id, user_id, title, pinned, archived, unread, is_active, created_at, updated_at) VALUES (?, ?, ?, 0, 0, 0, 1, ?, ?)").run(
+      newId, user.id, `Fork of ${src.title}`, now, now
+    );
+    const srcMsgs = db.prepare("SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC").all(src.id);
+    for (const msg of srcMsgs) {
+      db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+        uid("msg"), newId, msg.role, msg.content, msg.mode, msg.model_id, msg.model_name, msg.route_reason, msg.live, msg.artifacts_json, msg.extracted_files_json, msg.created_at
+      );
+    }
     res.json({ ok: true });
   } finally {
     db.close();
@@ -1355,6 +1683,10 @@ app.post("/api/admin/settings", requireAdmin, (req, res) => {
     ].forEach((key) => {
       if (typeof req.body[key] !== "undefined") setSetting(db, key, req.body[key]);
     });
+    // Router config
+    if (typeof req.body.routerWeights !== "undefined") setSetting(db, "routerWeights", JSON.stringify(req.body.routerWeights));
+    if (typeof req.body.sensitivePatterns !== "undefined") setSetting(db, "sensitivePatterns", JSON.stringify(req.body.sensitivePatterns));
+    if (typeof req.body.localOnlyModes !== "undefined") setSetting(db, "localOnlyModes", JSON.stringify(req.body.localOnlyModes));
     if (typeof req.body.workspaceRoot !== "undefined") {
       const nextRoot = path.resolve(String(req.body.workspaceRoot || DEFAULT_WORKSPACE_ROOT));
       setSetting(db, "workspaceRoot", nextRoot);
@@ -1579,6 +1911,393 @@ app.patch("/api/admin/models/:id/governance", requireAdmin, (req, res) => {
   }
 });
 
+// ─── SSE Streaming ────────────────────────────────────────────────────────────
+app.post("/api/chat/stream", requireAuth, async (req, res) => {
+  const db = openSql();
+  let dbClosed = false;
+  const closeDb = () => { if (!dbClosed) { dbClosed = true; try { db.close(); } catch {} } };
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  const keepAlive = setInterval(() => { res.write(": keepalive\n\n"); }, 15000);
+
+  const abort = new AbortController();
+  req.on("close", () => { abort.abort(); clearInterval(keepAlive); closeDb(); });
+
+  try {
+    const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
+    if (!hasRight(user, "chat:use")) { res.write(`data: ${JSON.stringify({ type: "error", message: "Chat access not enabled" })}\n\n`); return res.end(); }
+    const { message, mode = "ask", manualModelId } = req.body;
+    if (!message || !message.trim()) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message is required" })}\n\n`); return res.end(); }
+    await syncOllamaModels(db).catch(() => []);
+
+    const manualModel = manualModelId ? allowedModels(db, user).find(m => m.id === manualModelId) : null;
+    const route = manualModel
+      ? { selected: manualModel, tags: ["manual"], candidates: [], reason: "User manually selected an approved model.", privacyBlocked: false, sensitiveReasons: [] }
+      : routeModel(db, user, message, mode);
+
+    if (!route.selected) { res.write(`data: ${JSON.stringify({ type: "error", message: route.reason })}\n\n`); return res.end(); }
+
+    res.write(`data: ${JSON.stringify({ type: "routing", model: route.selected.name, provider: route.selected.provider, reason: route.reason })}\n\n`);
+
+    const workspace = workspaceForUser(db, user.id);
+    const prompt = modelPrompt(message, mode, route, workspace);
+    const messages = [{ role: "user", content: prompt }];
+
+    let fullContent = "";
+    let tokensUsed = 0;
+    let live = true;
+    const startMs = Date.now();
+
+    try {
+      let provider;
+      if (route.selected.provider === "ollama") {
+        provider = { type: "ollama", base_url: ollamaUrl(db), api_key_enc: encryptKey(""), name: "Ollama" };
+      } else {
+        provider = db.prepare("SELECT * FROM api_providers WHERE id = ?").get(route.selected.provider);
+        if (!provider) throw new Error("Provider not found");
+      }
+      await callProviderStream(provider, route.selected.model, messages, {}, (token) => {
+        fullContent += token;
+        res.write(`data: ${JSON.stringify({ type: "token", content: token })}\n\n`);
+      }, (total) => { tokensUsed = total; }, abort.signal);
+    } catch (err) {
+      live = false;
+      fullContent = `Auto Router selected ${route.selected.name}, but the model call did not complete.\n\nReason: ${err.message}`;
+      res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
+    }
+
+    fullContent = cleanModelOutput(fullContent);
+    const writeApproved = Boolean(req.body.writeToWorkspace) || workspace.permissionMode === "full";
+    const shouldWriteLocal = live && workspace.localWritesEnabled && writeApproved;
+    const artifacts = shouldWriteLocal ? writeLocalArtifacts(db, workspace, message, mode, fullContent) : [];
+    const extractedFiles = live ? extractArtifacts(fullContent, message).map(a => ({ name: a.name, content: a.content })) : [];
+    let chatContent = fullContent;
+    if (artifacts.length || extractedFiles.length) {
+      chatContent = fullContent.replace(/```[\s\S]*?```/g, "").replace(/\n{3,}/g, "\n\n").trim();
+    }
+
+    if (!dbClosed) {
+      const chat = getActiveChat(db, user.id);
+      const now = new Date().toISOString();
+      const userMsgId = uid("msg");
+      const asstMsgId = uid("msg");
+      db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, "user", message, mode, now);
+      db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+        asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), now
+      );
+      const currentSession = db.prepare("SELECT * FROM chat_sessions WHERE id = ?").get(chat.id);
+      let title = currentSession?.title || "New Chat";
+      if (!title || title === "New Chat") title = message.slice(0, 45).trim() + (message.length > 45 ? "…" : "");
+      db.prepare("UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?").run(title, now, chat.id);
+      appendTrace({ userId: user.id, sessionId: chat.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live }, db);
+      appendAudit(user.name, "chat.stream", `${mode.toUpperCase()} streamed to ${route.selected.name}`, { live });
+    }
+
+    const latencyMs = Date.now() - startMs;
+    res.write(`data: ${JSON.stringify({ type: "done", tokensUsed, latencyMs, messageId: uid("msg"), live, artifacts, extractedFiles })}\n\n`);
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
+  } finally {
+    clearInterval(keepAlive);
+    closeDb();
+    res.end();
+  }
+});
+
+// ─── Feedback ─────────────────────────────────────────────────────────────────
+app.post("/api/feedback", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const { messageId, sessionId, rating, comment } = req.body;
+    if (!messageId || !sessionId || (rating !== 1 && rating !== -1)) {
+      return res.status(400).json({ error: "messageId, sessionId, and rating (1 or -1) are required" });
+    }
+    db.prepare("INSERT INTO feedback (id, message_id, session_id, user_id, rating, comment, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      uid("fb"), messageId, sessionId, req.user.id, rating, comment || null, new Date().toISOString()
+    );
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+app.get("/api/admin/feedback", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const rows = db.prepare(`
+      SELECT cm.model_name, f.rating, f.comment, f.created_at
+      FROM feedback f
+      LEFT JOIN chat_messages cm ON cm.id = f.message_id
+      ORDER BY f.created_at DESC
+    `).all();
+    const models = {};
+    for (const row of rows) {
+      const key = row.model_name || "unknown";
+      if (!models[key]) models[key] = { modelName: key, thumbsUp: 0, thumbsDown: 0, totalRatings: 0, comments: [] };
+      models[key].totalRatings++;
+      if (row.rating === 1) models[key].thumbsUp++;
+      else models[key].thumbsDown++;
+      if (row.comment && models[key].comments.length < 10) models[key].comments.push(row.comment);
+    }
+    res.json({ ok: true, feedback: Object.values(models) });
+  } finally {
+    db.close();
+  }
+});
+
+// ─── API Provider admin routes ────────────────────────────────────────────────
+app.get("/api/admin/providers", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const providers = db.prepare("SELECT id, name, type, base_url, enabled, created_at, updated_at FROM api_providers ORDER BY name").all();
+    const result = providers.map(p => ({
+      ...p,
+      enabled: Boolean(p.enabled),
+      modelCount: db.prepare("SELECT COUNT(*) AS c FROM api_models WHERE provider_id = ?").get(p.id).c,
+    }));
+    res.json({ ok: true, providers: result });
+  } finally {
+    db.close();
+  }
+});
+
+app.post("/api/admin/providers", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const { name, type, base_url, api_key } = req.body;
+    if (!name || !type || !api_key) return res.status(400).json({ error: "name, type, and api_key are required" });
+    const id = uid("prov");
+    const now = new Date().toISOString();
+    db.prepare("INSERT INTO api_providers (id, name, type, base_url, api_key_enc, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)").run(
+      id, name, type, base_url || null, encryptKey(api_key), now, now
+    );
+    appendAudit(req.user.name, "admin.provider.create", `Created provider ${name}`);
+    res.json({ ok: true, provider: { id, name, type, base_url, enabled: true } });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.put("/api/admin/providers/:id", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const { name, type, base_url, api_key, enabled } = req.body;
+    const now = new Date().toISOString();
+    const existing = db.prepare("SELECT * FROM api_providers WHERE id = ?").get(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Provider not found" });
+    const newName = name || existing.name;
+    const newType = type || existing.type;
+    const newBaseUrl = typeof base_url !== "undefined" ? base_url : existing.base_url;
+    const newKeyEnc = api_key ? encryptKey(api_key) : existing.api_key_enc;
+    const newEnabled = typeof enabled !== "undefined" ? (enabled ? 1 : 0) : existing.enabled;
+    db.prepare("UPDATE api_providers SET name=?, type=?, base_url=?, api_key_enc=?, enabled=?, updated_at=? WHERE id=?").run(newName, newType, newBaseUrl, newKeyEnc, newEnabled, now, req.params.id);
+    appendAudit(req.user.name, "admin.provider.update", `Updated provider ${req.params.id}`);
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+app.delete("/api/admin/providers/:id", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const existing = db.prepare("SELECT id, name FROM api_providers WHERE id = ?").get(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Provider not found" });
+    db.prepare("DELETE FROM api_models WHERE provider_id = ?").run(req.params.id);
+    db.prepare("DELETE FROM api_providers WHERE id = ?").run(req.params.id);
+    appendAudit(req.user.name, "admin.provider.delete", `Deleted provider ${existing.name}`);
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+app.post("/api/admin/providers/:id/test", requireAdmin, async (req, res) => {
+  const db = openSql();
+  try {
+    const provider = db.prepare("SELECT * FROM api_providers WHERE id = ?").get(req.params.id);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const start = Date.now();
+    try {
+      await callProvider(provider, provider.type === "anthropic" ? "claude-3-5-haiku-20241022" : "gpt-3.5-turbo",
+        [{ role: "user", content: "Hi" }], { timeout: 15000 });
+      res.json({ ok: true, latency_ms: Date.now() - start });
+    } catch (err) {
+      res.json({ ok: false, latency_ms: Date.now() - start, error: err.message });
+    }
+  } finally {
+    db.close();
+  }
+});
+
+app.post("/api/admin/providers/:id/sync", requireAdmin, async (req, res) => {
+  const db = openSql();
+  try {
+    const provider = db.prepare("SELECT * FROM api_providers WHERE id = ?").get(req.params.id);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    let models = [];
+    if (provider.type === "anthropic") {
+      models = [
+        { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", context: 200000 },
+        { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku", context: 200000 },
+        { id: "claude-3-opus-20240229", name: "Claude 3 Opus", context: 200000 },
+      ];
+    } else {
+      const base = cleanBaseUrl(provider.base_url || "https://api.openai.com/v1");
+      const apiKey = decryptKey(provider.api_key_enc);
+      const url = provider.type === "groq" ? `${base}/v1/models` : `${base}/models`;
+      const response = await fetch(url, { headers: { "Authorization": `Bearer ${apiKey}` } });
+      if (response.ok) {
+        const data = await response.json();
+        models = (data.data || data.models || []).map(m => ({ id: m.id || m.name, name: m.id || m.name, context: m.context_window || null }));
+      }
+    }
+    const now = new Date().toISOString();
+    for (const m of models) {
+      const rowId = `${provider.id}:${m.id}`;
+      const existing = db.prepare("SELECT id FROM api_models WHERE id = ?").get(rowId);
+      if (!existing) {
+        db.prepare("INSERT INTO api_models (id, provider_id, model_id, display_name, context_window, is_approved, governance_tag, created_at) VALUES (?, ?, ?, ?, ?, 0, 'approved', ?)").run(rowId, provider.id, m.id, m.name, m.context || null, now);
+      }
+    }
+    appendAudit(req.user.name, "admin.provider.sync", `Synced models for provider ${provider.name}`);
+    res.json({ ok: true, synced: models.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    db.close();
+  }
+});
+
+app.get("/api/admin/providers/:id/models", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const models = db.prepare("SELECT * FROM api_models WHERE provider_id = ? ORDER BY display_name").all(req.params.id);
+    res.json({ ok: true, models: models.map(m => ({ ...m, isApproved: Boolean(m.is_approved) })) });
+  } finally {
+    db.close();
+  }
+});
+
+app.put("/api/admin/providers/:id/models/:modelId", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const rowId = `${req.params.id}:${req.params.modelId}`;
+    const existing = db.prepare("SELECT id FROM api_models WHERE id = ?").get(rowId);
+    if (!existing) return res.status(404).json({ error: "Model not found" });
+    const { governance_tag, is_approved, display_name } = req.body;
+    if (typeof governance_tag !== "undefined") db.prepare("UPDATE api_models SET governance_tag = ? WHERE id = ?").run(governance_tag, rowId);
+    if (typeof is_approved !== "undefined") db.prepare("UPDATE api_models SET is_approved = ? WHERE id = ?").run(is_approved ? 1 : 0, rowId);
+    if (typeof display_name !== "undefined") db.prepare("UPDATE api_models SET display_name = ? WHERE id = ?").run(display_name, rowId);
+    res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+// ─── Migration ─────────────────────────────────────────────────────────────────
+function migrateDocumentsJson(db) {
+  if (!fs.existsSync(DOC_PATH)) return;
+  const migratedPath = DOC_PATH + ".migrated";
+  if (fs.existsSync(migratedPath)) { console.log("[migration] documents.json already migrated, skipping."); return; }
+  console.log("[migration] Migrating documents.json to SQLite…");
+  let docs;
+  try { docs = JSON.parse(fs.readFileSync(DOC_PATH, "utf8")); } catch { console.log("[migration] Could not parse documents.json, skipping."); return; }
+
+  const now = new Date().toISOString();
+  let sessionCount = 0, msgCount = 0, auditCount = 0, traceCount = 0, prefCount = 0;
+
+  // Migrate chats
+  for (const [userId, chat] of Object.entries(docs.chats || {})) {
+    try {
+      const sessionId = chat.id || uid("chat");
+      const existing = db.prepare("SELECT id FROM chat_sessions WHERE id = ?").get(sessionId);
+      if (!existing) {
+        db.prepare("INSERT INTO chat_sessions (id, user_id, title, pinned, archived, unread, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)").run(
+          sessionId, userId, chat.title || "New Chat", chat.pinned ? 1 : 0, chat.archived ? 1 : 0, chat.unread ? 1 : 0, chat.createdAt || now, chat.updatedAt || now
+        );
+        sessionCount++;
+        for (const msg of (chat.messages || [])) {
+          db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+            uid("msg"), sessionId, msg.role, msg.content, msg.mode || null, msg.modelId || null, msg.modelName || null, msg.routeReason || null, msg.live !== false ? 1 : 0, JSON.stringify(msg.artifacts || []), JSON.stringify(msg.extractedFiles || []), msg.createdAt || now
+          );
+          msgCount++;
+        }
+      }
+    } catch {}
+  }
+
+  // Migrate chat history
+  for (const [userId, threads] of Object.entries(docs.chatHistory || {})) {
+    for (const chat of (threads || [])) {
+      try {
+        const sessionId = chat.id || uid("chat");
+        const existing = db.prepare("SELECT id FROM chat_sessions WHERE id = ?").get(sessionId);
+        if (!existing) {
+          db.prepare("INSERT INTO chat_sessions (id, user_id, title, pinned, archived, unread, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)").run(
+            sessionId, userId, chat.title || "Archived Chat", chat.pinned ? 1 : 0, chat.archived ? 1 : 0, chat.unread ? 1 : 0, chat.createdAt || now, chat.updatedAt || now
+          );
+          sessionCount++;
+          for (const msg of (chat.messages || [])) {
+            db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+              uid("msg"), sessionId, msg.role, msg.content, msg.mode || null, msg.modelId || null, msg.modelName || null, msg.routeReason || null, msg.live !== false ? 1 : 0, JSON.stringify(msg.artifacts || []), JSON.stringify(msg.extractedFiles || []), msg.createdAt || now
+            );
+            msgCount++;
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // Migrate audit
+  for (const item of (docs.audit || [])) {
+    try {
+      const existing = db.prepare("SELECT id FROM audit_events WHERE id = ?").get(item.id);
+      if (!existing) {
+        db.prepare("INSERT INTO audit_events (id, actor, action, detail, extra_json, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+          item.id || uid("audit"), item.actor || "", item.action || "", item.detail || "", JSON.stringify(item.extra || {}), item.createdAt || now
+        );
+        auditCount++;
+      }
+    } catch {}
+  }
+
+  // Migrate router traces
+  for (const trace of (docs.routerTraces || [])) {
+    try {
+      const existing = db.prepare("SELECT id FROM router_traces WHERE id = ?").get(trace.id);
+      if (!existing) {
+        db.prepare("INSERT INTO router_traces (id, user_id, message, mode, selected_model_id, tags_json, candidates_json, live, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+          trace.id || uid("trace"), trace.userId || null, trace.message || "", trace.mode || "", trace.selectedModelId || null, JSON.stringify(trace.tags || []), JSON.stringify(trace.candidates || []), trace.live ? 1 : 0, trace.createdAt || now
+        );
+        traceCount++;
+      }
+    } catch {}
+  }
+
+  // Migrate workspace prefs
+  for (const [userId, prefs] of Object.entries(docs.workspacePrefs || {})) {
+    try {
+      const existing = db.prepare("SELECT user_id FROM workspace_prefs WHERE user_id = ?").get(userId);
+      if (!existing && prefs.workspaceRoot) {
+        db.prepare("INSERT INTO workspace_prefs (user_id, workspace_root, permission_mode, updated_at) VALUES (?, ?, ?, ?)").run(
+          userId, prefs.workspaceRoot, prefs.permissionMode || "default", prefs.updatedAt || now
+        );
+        prefCount++;
+      }
+    } catch {}
+  }
+
+  console.log(`[migration] Done: ${sessionCount} sessions, ${msgCount} messages, ${auditCount} audit events, ${traceCount} traces, ${prefCount} workspace prefs.`);
+  try { fs.renameSync(DOC_PATH, migratedPath); console.log(`[migration] Renamed documents.json → documents.json.migrated`); } catch {}
+}
+
 app.get("/", (req, res) => res.redirect("/login"));
 
 app.get("/login", (req, res) => {
@@ -1605,6 +2324,7 @@ app.use((req, res) => {
 app.listen(PORT, async () => {
   const db = openSql();
   try {
+    migrateDocumentsJson(db);
     await syncOllamaModels(db).catch(() => []);
   } finally {
     db.close();

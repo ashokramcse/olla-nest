@@ -11,6 +11,8 @@ services:
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-CHANGE_ME_ON_FIRST_BOOT}
       DEFAULT_USER_PASSWORD: ${DEFAULT_USER_PASSWORD:-CHANGE_ME_ON_FIRST_BOOT}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      SECRET_KEY: ${SECRET_KEY:-}
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-in-production}
       SQLITE_PATH: /app/data/olla-nest.sqlite
       DOCUMENT_DB_PATH: /app/data/documents.json
       WORKSPACE_ROOT: /app/data/workspace
