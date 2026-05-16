@@ -207,11 +207,10 @@ async function checkOllama() {
 }
 
 function updateWriteToggle() {
-  const isBuildFix = ["build", "fix", "debug", "test", "docs"].includes(activeMode);
   const label = $("writeToggleLabel");
   const ws = state?.workspace;
   const hasWorkspace = ws?.workspaceRoot;
-  label.style.display = (isBuildFix && hasWorkspace) ? "flex" : "none";
+  label.style.display = hasWorkspace ? "flex" : "none";
   if (ws?.permissionMode === "full") {
     $("writeToWorkspace").checked = true;
     label.classList.add("enabled");
@@ -224,18 +223,6 @@ function updateWriteToggle() {
 }
 
 // Events
-$all(".mode-btn[data-mode]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    activeMode = btn.dataset.mode;
-    $all(".mode-btn[data-mode]").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    updateWriteToggle();
-    const modeLabel = $("currentModeLabel");
-    if (modeLabel) modeLabel.textContent = activeMode.charAt(0).toUpperCase() + activeMode.slice(1);
-    const infoMode = $("infoMode");
-    if (infoMode) infoMode.textContent = activeMode.charAt(0).toUpperCase() + activeMode.slice(1);
-  });
-});
 
 $("writeToWorkspace").addEventListener("change", (e) => {
   $("writeToggleLabel").classList.toggle("enabled", e.target.checked);
@@ -287,7 +274,7 @@ $("chatForm").addEventListener("submit", async (e) => {
   const asstBubbleId = "streaming-asst-" + Date.now();
   msgs.insertAdjacentHTML("beforeend", `
     <div class="message-wrap user" id="${userBubbleId}">
-      <div class="message-meta">${esc(state?.activeUser?.name || "You")} · <span class="badge badge-default" style="font-size:10px;">${esc(activeMode)}</span></div>
+      <div class="message-meta">${esc(state?.activeUser?.name || "You")}</div>
       <div class="message-bubble user-bubble">${esc(message)}</div>
     </div>
     <div class="message-wrap assistant" id="${asstBubbleId}">
