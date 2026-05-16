@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
 :root{
   --ink:#15140f;--ink-2:#1d1c17;
@@ -1185,25 +1188,27 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 /* Message thread */
 #chatMessages{
   flex:1;overflow-y:auto;
-  padding:32px 48px;
+  padding:36px 52px 40px;
   scroll-behavior:smooth;
-  background:#fff;
+  background:linear-gradient(180deg,#fefdf7 0%,#fff 100%);
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;
 }
-#chatMessages::-webkit-scrollbar{width:4px;}
-#chatMessages::-webkit-scrollbar-thumb{background:#0000001a;border-radius:4px;}
+#chatMessages::-webkit-scrollbar{width:5px;}
+#chatMessages::-webkit-scrollbar-thumb{background:#0000001a;border-radius:6px;}
+#chatMessages::-webkit-scrollbar-thumb:hover{background:#00000030;}
 
 /* Typing indicator */
 .typing-row{display:flex;align-items:center;gap:10px;}
-.typing-timer{font-size:11px;color:#aaa;font-variant-numeric:tabular-nums;min-width:24px;}
-.typing-dots{display:flex;align-items:center;gap:4px;padding:4px 0;}
+.typing-timer{font-size:11px;color:#aaa;font-variant-numeric:tabular-nums;min-width:28px;letter-spacing:.02em;}
+.typing-dots{display:flex;align-items:center;gap:5px;padding:6px 2px;}
 .typing-dots span{
-  width:7px;height:7px;border-radius:50%;background:#bbb;
+  width:8px;height:8px;border-radius:50%;
+  background:linear-gradient(135deg,#f4d33a,#e8a020);
   animation:td-bounce .9s ease-in-out infinite;
 }
 .typing-dots span:nth-child(2){animation-delay:.18s;}
 .typing-dots span:nth-child(3){animation-delay:.36s;}
-@keyframes td-bounce{0%,80%,100%{transform:scale(.8);opacity:.5}40%{transform:scale(1.1);opacity:1}}
+@keyframes td-bounce{0%,80%,100%{transform:translateY(0) scale(.8);opacity:.4}40%{transform:translateY(-4px) scale(1);opacity:1}}
 
 /* Composer */
 #chatComposer{
@@ -1242,118 +1247,158 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 #chatSendBtn svg{width:16px;height:16px;flex-shrink:0;}
 
 /* ── Messages ── */
+/* ── Message rows ── */
 .cmsg-user{
   display:flex;flex-direction:column;
-  align-items:flex-end;margin-bottom:28px;
+  align-items:flex-end;margin-bottom:32px;
 }
-.cmsg-ai{margin-bottom:28px;}
+.cmsg-ai{
+  display:flex;flex-direction:row;
+  align-items:flex-start;gap:12px;
+  margin-bottom:32px;
+}
+.cmsg-ai-avatar{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;margin-top:2px;
+  background:linear-gradient(135deg,#f4d33a 0%,#f0a020 100%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:#15140f;
+  box-shadow:0 2px 8px rgba(244,211,58,.35);
+}
+.cmsg-ai-body{flex:1;min-width:0;}
 
 .cmsg-meta{
-  font-size:11.5px;font-weight:500;
-  color:#999;margin-bottom:6px;
-  display:flex;align-items:center;gap:6px;
+  font-size:11.5px;font-weight:600;
+  color:var(--mute);margin-bottom:7px;
+  display:flex;align-items:center;gap:5px;
+  letter-spacing:.01em;
 }
-.cmsg-meta-dot{
-  width:18px;height:18px;border-radius:50%;
-  background:var(--ink);color:#fff;
-  font-size:9px;font-weight:700;
-  display:inline-flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-}
-.cmsg-meta-dot.ai-dot{
-  background:linear-gradient(135deg,#f4d33a,#e8a020);
-  color:#15140f;
+.cmsg-meta-model-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  background:#f4f3ec;border:1px solid #e8e5d8;
+  border-radius:20px;padding:1px 8px;
+  font-size:10.5px;font-weight:500;color:#5a5a52;
 }
 
 /* User bubble */
 .cmsg-bubble-user{
   background:var(--ink);color:#fff;
-  border-radius:20px 20px 4px 20px;
-  padding:11px 16px;font-size:14px;
-  line-height:1.6;max-width:72%;
+  border-radius:20px 20px 5px 20px;
+  padding:12px 18px;font-size:14px;
+  line-height:1.65;max-width:68%;
   word-break:break-word;
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  box-shadow:0 2px 12px rgba(21,20,15,.14);
 }
 
-/* AI response — no card, just clean text */
+/* AI response */
 .cmsg-bubble-ai{
-  font-size:14.5px;line-height:1.75;
+  font-size:14.5px;line-height:1.8;
   color:var(--ink);word-break:break-word;
-  max-width:90%;
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;
-  background:#fff; /* explicit white — prevents any dark bleed */
 }
-/* reset ANY stray pre/code that marked might generate outside code blocks */
 .cmsg-bubble-ai pre:not(.chat-code-block pre){
   background:#f6f4ee;border-radius:10px;
-  padding:12px 14px;overflow-x:auto;
+  padding:14px 16px;overflow-x:auto;
   margin:12px 0;white-space:pre-wrap;
-  font-family:'SF Mono','Fira Code',monospace;
+  font-family:'Fira Code',monospace;
   font-size:13px;color:var(--ink);
 }
-.cmsg-bubble-ai p{margin:0 0 12px;}
+.cmsg-bubble-ai p{margin:0 0 14px;}
 .cmsg-bubble-ai p:last-child{margin-bottom:0;}
-.cmsg-bubble-ai ul,.cmsg-bubble-ai ol{margin:0 0 12px;padding-left:22px;}
-.cmsg-bubble-ai li{margin-bottom:5px;}
+.cmsg-bubble-ai ul,.cmsg-bubble-ai ol{margin:0 0 14px;padding-left:22px;}
+.cmsg-bubble-ai li{margin-bottom:6px;line-height:1.7;}
 .cmsg-bubble-ai h1,.cmsg-bubble-ai h2,.cmsg-bubble-ai h3{
-  font-weight:600;margin:18px 0 8px;letter-spacing:-.01em;
+  font-weight:700;letter-spacing:-.02em;
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  border-bottom:1px solid var(--line-soft);padding-bottom:6px;
 }
-.cmsg-bubble-ai h1{font-size:18px;}
-.cmsg-bubble-ai h2{font-size:16px;}
-.cmsg-bubble-ai h3{font-size:14.5px;}
-.cmsg-bubble-ai strong{font-weight:600;}
-.cmsg-bubble-ai em{font-style:italic;}
-.cmsg-footer{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;}
-.cmsg-elapsed{font-size:11px;color:var(--mute,#9a9a8e);font-family:'Plus Jakarta Sans',system-ui,sans-serif;letter-spacing:.01em;}
-.cmsg-artifact-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:#5a5a52;background:#f0ede0;border:1px solid #e0ddd0;border-radius:6px;padding:2px 8px;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
-.cmsg-dl-btn{cursor:pointer;transition:background .12s,border-color .12s;}
-.cmsg-dl-btn:hover{background:#e8e4cf;border-color:#c8c4b0;}
+.cmsg-bubble-ai h1{font-size:19px;margin:20px 0 10px;}
+.cmsg-bubble-ai h2{font-size:16.5px;margin:18px 0 8px;}
+.cmsg-bubble-ai h3{font-size:14.5px;margin:14px 0 6px;}
+.cmsg-bubble-ai strong{font-weight:650;}
+.cmsg-bubble-ai em{font-style:italic;color:#555;}
 .cmsg-bubble-ai blockquote{
-  border-left:3px solid #e8c624;margin:12px 0;
-  padding:6px 14px;color:#666;font-style:italic;
+  border-left:3px solid #f4d33a;margin:14px 0;
+  padding:8px 16px;color:#666;background:#fffdf0;
+  border-radius:0 8px 8px 0;font-style:italic;
 }
-.cmsg-bubble-ai table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px;}
-.cmsg-bubble-ai th,.cmsg-bubble-ai td{border:1px solid var(--line-soft);padding:8px 12px;}
-.cmsg-bubble-ai th{background:#f9f8f2;font-weight:600;}
+.cmsg-bubble-ai table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px;border-radius:10px;overflow:hidden;}
+.cmsg-bubble-ai th{background:#f5f3e8;font-weight:600;padding:9px 14px;text-align:left;border-bottom:2px solid #e8e5d8;}
+.cmsg-bubble-ai td{padding:8px 14px;border-bottom:1px solid #f0ede4;}
+.cmsg-bubble-ai tr:last-child td{border-bottom:none;}
 /* inline code */
 .cmsg-bubble-ai :not(.chat-code-block) > code{
-  background:#f2f0e8;border-radius:5px;
-  padding:2px 6px;font-size:12.5px;
-  font-family:'SF Mono','Fira Code',monospace;
-  color:var(--ink);
+  background:#f0eddf;border-radius:6px;
+  padding:2px 7px;font-size:12.5px;
+  font-family:'Fira Code','JetBrains Mono',monospace;
+  color:#c7254e;border:1px solid #e8e3d0;
 }
+/* footer */
+.cmsg-footer{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px;}
+.cmsg-elapsed{
+  font-size:11px;color:var(--mute);
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  display:flex;align-items:center;gap:3px;
+}
+.cmsg-artifact-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11.5px;font-weight:500;color:#5a5a52;
+  background:#f5f3ea;border:1px solid #e5e2d4;
+  border-radius:8px;padding:3px 10px;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+.cmsg-dl-btn{cursor:pointer;transition:background .12s,border-color .12s,color .12s;}
+.cmsg-dl-btn:hover{background:#e8e4cf;border-color:#bbb8a8;color:#2563eb;}
 
 /* ── Code blocks ── */
 .chat-code-block{
-  position:relative;margin:14px 0;
-  border-radius:12px;background:#1a1a1a;overflow:hidden;
+  position:relative;margin:16px 0;
+  border-radius:14px;overflow:hidden;
+  background:#0d1117;
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 4px 24px rgba(0,0,0,.18);
+}
+.chat-code-block .code-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;
+  background:#161b22;
+  border-bottom:1px solid rgba(255,255,255,.07);
 }
 .chat-code-block .code-lang{
-  position:absolute;top:11px;left:14px;
-  font-size:11px;color:rgba(255,255,255,.35);
-  font-family:'Fira Code',monospace;pointer-events:none;
-  text-transform:lowercase;
+  font-size:11.5px;color:rgba(255,255,255,.5);
+  font-family:'Fira Code','JetBrains Mono',monospace;
+  text-transform:lowercase;letter-spacing:.03em;
+  display:flex;align-items:center;gap:6px;
+}
+.chat-code-block .code-lang::before{
+  content:'';width:8px;height:8px;border-radius:50%;
+  background:#f4d33a;display:inline-block;flex-shrink:0;
 }
 .chat-code-block .code-copy{
-  position:absolute;top:8px;right:10px;
-  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);
-  color:rgba(255,255,255,.65);border-radius:6px;
-  padding:3px 10px;font-size:11px;cursor:pointer;
-  font-family:inherit;transition:all .12s;
+  display:flex;align-items:center;gap:5px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  color:rgba(255,255,255,.6);border-radius:7px;
+  padding:4px 12px;font-size:11.5px;cursor:pointer;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  font-weight:500;transition:all .15s;letter-spacing:.01em;
 }
 .chat-code-block .code-copy:hover{
-  background:rgba(255,255,255,.18);color:#fff;
+  background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.22);
+}
+.chat-code-block .code-copy.copied{
+  background:rgba(74,222,128,.12);border-color:rgba(74,222,128,.3);color:#4ade80;
 }
 .chat-code-block pre{
-  margin:0;padding:38px 16px 16px;
+  margin:0;padding:18px 20px 18px;
   overflow-x:auto;background:transparent;
 }
-.chat-code-block pre code{
-  color:#e8e6df;font-size:13px;
-  font-family:'Fira Code',monospace;
-  background:transparent;padding:0;
-  line-height:1.6;
+.chat-code-block pre::-webkit-scrollbar{height:4px;}
+.chat-code-block pre::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:4px;}
+.chat-code-block pre code.hljs{
+  font-size:13px;
+  font-family:'Fira Code','JetBrains Mono','Cascadia Code',monospace;
+  background:transparent!important;padding:0!important;
+  line-height:1.65;tab-size:2;
 }
 
 /* ── Model selector bar (Claude-style) ── */
@@ -1439,11 +1484,25 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 .chat-empty{
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  height:100%;padding:40px 20px;color:var(--mute);
+  height:100%;padding:60px 20px;color:var(--mute);
+  text-align:center;
 }
-.chat-empty-icon{font-size:32px;margin-bottom:16px;opacity:.6;}
-.chat-empty-title{font-size:16px;font-weight:600;color:var(--ink);margin-bottom:8px;}
-.chat-empty-sub{font-size:13px;line-height:1.6;text-align:center;max-width:300px;}
+.chat-empty-icon{
+  width:56px;height:56px;border-radius:50%;
+  background:linear-gradient(135deg,#f4d33a 0%,#f0a020 100%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;margin-bottom:20px;
+  box-shadow:0 4px 20px rgba(244,211,58,.35);
+}
+.chat-empty-title{font-size:18px;font-weight:700;color:var(--ink);margin-bottom:10px;letter-spacing:-.02em;}
+.chat-empty-sub{font-size:13px;line-height:1.7;text-align:center;max-width:320px;color:var(--mute);}
+.chat-empty-pills{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:20px;}
+.chat-empty-pill{
+  font-size:12px;font-weight:500;color:#5a5a52;
+  background:#f5f3ea;border:1px solid #e5e2d4;
+  border-radius:20px;padding:5px 13px;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+}
 
 /* ── Composer extras ── */
 #chatComposer{position:relative;}
@@ -1731,8 +1790,14 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var code = btn.closest(".chat-code-block").querySelector("code");
     if (!code) return;
     navigator.clipboard.writeText(code.innerText).then(function () {
-      btn.textContent = "Copied!";
-      setTimeout(function () { btn.textContent = "Copy"; }, 2000);
+      var checkSvg = btn.dataset.checkSvg || "";
+      var copySvg  = btn.dataset.copySvg  || "";
+      btn.innerHTML = checkSvg + " Copied!";
+      btn.classList.add("copied");
+      setTimeout(function () {
+        btn.innerHTML = copySvg + " Copy";
+        btn.classList.remove("copied");
+      }, 2000);
     });
   };
 
@@ -1746,12 +1811,28 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     r.code = function (token) {
       var raw  = typeof token === "object" ? token.text : String(token);
       var lang = typeof token === "object" ? (token.lang || "") : "";
-      var code = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      var langTag = lang ? '<span class="code-lang">' + esc(lang) + '</span>' : "";
+      /* strip filename hint like "jsx:filename.jsx" */
+      var displayLang = lang ? lang.split(":")[0] : "";
+      var highlighted;
+      try {
+        if (displayLang && typeof hljs !== "undefined" && hljs.getLanguage(displayLang)) {
+          highlighted = hljs.highlight(raw, { language: displayLang, ignoreIllegals: true }).value;
+        } else if (typeof hljs !== "undefined") {
+          highlighted = hljs.highlightAuto(raw).value;
+        } else {
+          highlighted = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+      } catch(e) {
+        highlighted = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+      var copySvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      var checkSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
       return '<div class="chat-code-block">'
-        + langTag
-        + '<button class="code-copy" onclick="window._chatCopyCode(this)">Copy</button>'
-        + '<pre><code>' + code + '</code></pre>'
+        + '<div class="code-header">'
+        + '<span class="code-lang">' + esc(displayLang || "code") + '</span>'
+        + '<button class="code-copy" onclick="window._chatCopyCode(this)" data-copy-svg="' + copySvg.replace(/"/g,"&quot;") + '" data-check-svg="' + checkSvg.replace(/"/g,"&quot;") + '">' + copySvg + ' Copy</button>'
+        + '</div>'
+        + '<pre><code class="hljs">' + highlighted + '</code></pre>'
         + '</div>';
     };
     return marked.parse(text, { renderer: r });
@@ -1779,7 +1860,14 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       el.innerHTML = '<div class="chat-empty">'
         + '<div class="chat-empty-icon">✦</div>'
         + '<div class="chat-empty-title">Ready when you are</div>'
-        + '<div class="chat-empty-sub">Ask · Build · Debug · Review · Test · Docs · Plan · Learn</div>'
+        + '<div class="chat-empty-sub">Your AI workspace assistant. Ask questions, generate code, debug issues, and build faster.</div>'
+        + '<div class="chat-empty-pills">'
+        + '<span class="chat-empty-pill">Ask a question</span>'
+        + '<span class="chat-empty-pill">Build a component</span>'
+        + '<span class="chat-empty-pill">Debug an error</span>'
+        + '<span class="chat-empty-pill">Review code</span>'
+        + '<span class="chat-empty-pill">Write tests</span>'
+        + '</div>'
         + '</div>';
       return;
     }
@@ -1791,9 +1879,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     el.innerHTML = msgs.map(function (msg, idx) {
       if (msg.role === "user") {
         return '<div class="cmsg-user">'
-          + '<div class="cmsg-meta">'
-          + '<span class="cmsg-meta-dot">' + userInitial + '</span>'
+          + '<div class="cmsg-meta" style="justify-content:flex-end;">'
           + esc(userName)
+          + '<span class="cmsg-meta-dot" style="background:var(--ink);color:#fff;">' + userInitial + '</span>'
           + '</div>'
           + '<div class="cmsg-bubble-user">' + esc(msg.content) + '</div>'
           + '</div>';
@@ -1855,12 +1943,18 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       }
 
       return '<div class="cmsg-ai">'
+        + '<div class="cmsg-ai-avatar">' + modelInitial + '</div>'
+        + '<div class="cmsg-ai-body">'
         + '<div class="cmsg-meta">'
-        + '<span class="cmsg-meta-dot ai-dot">' + modelInitial + '</span>'
+        + '<span class="cmsg-meta-model-badge">'
+        + '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>'
         + esc(modelLabel)
+        + '</span>'
+        + (msg.live === false ? '<span style="font-size:10px;color:#f59e0b;background:#fef3c7;border:1px solid #fde68a;border-radius:5px;padding:1px 6px;">setup needed</span>' : '')
         + '</div>'
         + '<div class="cmsg-bubble-ai">' + renderMd(msg.content) + '</div>'
         + footer
+        + '</div>'
         + '</div>';
     }).join("");
 
@@ -2038,18 +2132,26 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     /* user bubble */
     var userDiv = document.createElement("div");
     userDiv.className = "cmsg-user";
-    userDiv.innerHTML = '<div class="cmsg-meta"><span class="cmsg-meta-dot">' + userInitial + '</span>' + esc(userName) + '</div>'
+    userDiv.innerHTML = '<div class="cmsg-meta" style="justify-content:flex-end;">'
+      + esc(userName)
+      + '<span class="cmsg-meta-dot" style="background:var(--ink);color:#fff;">' + userInitial + '</span>'
+      + '</div>'
       + '<div class="cmsg-bubble-user">' + esc(text) + '</div>';
     el.appendChild(userDiv);
     /* typing indicator with live elapsed timer */
     var typingDiv = document.createElement("div");
     typingDiv.className = "cmsg-ai";
     typingDiv.id = "chatTypingIndicator";
-    typingDiv.innerHTML = '<div class="cmsg-meta"><span class="cmsg-meta-dot ai-dot">✦</span>Olla Nest</div>'
+    typingDiv.innerHTML = '<div class="cmsg-ai-avatar">✦</div>'
+      + '<div class="cmsg-ai-body">'
+      + '<div class="cmsg-meta"><span class="cmsg-meta-model-badge">'
+      + '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>'
+      + 'Olla Nest</span></div>'
       + '<div class="cmsg-bubble-ai">'
       + '<div class="typing-row">'
       + '<div class="typing-dots"><span></span><span></span><span></span></div>'
       + '<span class="typing-timer" id="chatTypingTimer">0s</span>'
+      + '</div>'
       + '</div>'
       + '</div>';
     el.appendChild(typingDiv);
