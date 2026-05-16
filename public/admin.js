@@ -273,6 +273,7 @@ function renderAll() {
   renderAccessControl();
   renderSettings();
   renderAudit();
+  renderRouterConfig();
 }
 
 async function loadState() {
@@ -321,6 +322,7 @@ function switchTab(tab) {
   if (navEl) navEl.classList.add("active");
   const titleEl = $("tabTitle");
   if (titleEl) titleEl.textContent = tabTitles[tab] || tab;
+  if (tab === "providers") loadProviders();
 }
 
 $all(".nav-item[data-tab]").forEach(btn => {
@@ -937,20 +939,6 @@ if ($("saveRouterConfigBtn")) {
       msg.className = "form-msg error"; msg.textContent = err.message;
     }
   });
-}
-
-// Extend switchTab to load providers
-const _origSwitchTab = switchTab;
-function switchTab(tab) {
-  _origSwitchTab(tab);
-  if (tab === "providers") loadProviders();
-}
-
-// Extend renderAll to include router config
-const _origRenderAll = renderAll;
-function renderAll() {
-  _origRenderAll();
-  renderRouterConfig();
 }
 
 loadState().then(checkOllama);
