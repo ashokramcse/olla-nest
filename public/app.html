@@ -413,10 +413,6 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
       <h1 class="welcome" id="topbarTitle">Welcome</h1>
       <div class="stat-row">
         <div class="stat-pill">
-          <span class="lab">Mode</span>
-          <span class="pill dark" id="currentModeLabel">Ask</span>
-        </div>
-        <div class="stat-pill">
           <span class="lab">Router</span>
           <span class="pill yellow">Auto</span>
         </div>
@@ -529,17 +525,8 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
     <div class="card" style="padding:0;overflow:hidden;">
       <div class="chat-wrap">
 
-        <!-- Mode bar -->
-        <div class="mode-bar">
-          <button class="mode-btn active" data-mode="ask">Ask</button>
-          <button class="mode-btn" data-mode="build">Build</button>
-          <button class="mode-btn" data-mode="fix">Fix</button>
-          <button class="mode-btn" data-mode="debug">Debug</button>
-          <button class="mode-btn" data-mode="review">Review</button>
-          <button class="mode-btn" data-mode="test">Test</button>
-          <button class="mode-btn" data-mode="docs">Docs</button>
-          <button class="mode-btn" data-mode="plan">Plan</button>
-          <button class="mode-btn" data-mode="learn">Learn</button>
+        <!-- New chat -->
+        <div class="mode-bar" style="justify-content:flex-end;">
           <button class="mode-btn new-chat" id="newChatBtn" type="button">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New chat
@@ -617,10 +604,6 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
       <div class="card" style="margin-top:16px;">
         <div class="card-head">
           <div class="card-title">Session</div>
-        </div>
-        <div class="info-row">
-          <span class="info-row-label">Mode</span>
-          <span class="info-row-value" id="infoMode">Ask</span>
         </div>
         <div class="info-row">
           <span class="info-row-label">Department</span>
