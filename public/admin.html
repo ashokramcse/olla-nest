@@ -880,7 +880,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                 </div>
                 <div>
                   <label class="form-label">Team</label>
-                  <input class="input input-sm" id="newUserTeam" placeholder="Product" />
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <select class="input input-sm" id="newUserTeam" style="flex:1;"></select>
+                    <button type="button" class="btn ghost sm" id="createTeamBtn" title="Create new team" style="flex-shrink:0;padding:7px 10px;">+ Team</button>
+                  </div>
                 </div>
                 <div>
                   <label class="form-label">Tier</label>
@@ -914,9 +917,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
       <!-- ── ACCESS CONTROL ── -->
       <div class="tab-view" id="tab-access">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
           <!-- User effective access -->
-          <div class="card">
+          <div class="card" style="height:100%;box-sizing:border-box;">
             <div class="card-head"><div class="card-title">User Access</div></div>
             <div style="margin-bottom:12px;">
               <label class="form-label">Select employee</label>
@@ -925,9 +928,9 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
             <div id="effectiveAccessPanel"></div>
           </div>
           <!-- Override -->
-          <div class="card">
+          <div class="card" style="height:100%;box-sizing:border-box;">
             <div class="card-head"><div class="card-title">Apply Override</div></div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;flex-direction:column;gap:14px;">
               <div>
                 <label class="form-label">Permission</label>
                 <select class="input input-sm" id="overridePermission"></select>
@@ -947,7 +950,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                 <label class="form-label">Expires</label>
                 <input class="input input-sm" id="overrideExpires" type="datetime-local" />
               </div>
-              <div style="padding-top:4px;"><button class="btn dark sm" id="saveOverrideBtn" style="width:auto;padding:10px 24px;">Apply Override</button></div>
+              <div><button class="btn dark sm" id="saveOverrideBtn" style="width:auto;padding:10px 24px;">Apply Override</button></div>
               <div id="overrideMsg" class="form-msg"></div>
             </div>
           </div>
@@ -3634,6 +3637,172 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   document.getElementById("profileClose").addEventListener("click", closeDrawer);
   document.getElementById("profileBackdrop").addEventListener("click", closeDrawer);
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeDrawer(); });
+})();
+</script>
+
+<!-- ═══════════════════ Invite Credentials Modal ═══════════════════ -->
+<style>
+.invite-modal-overlay{position:fixed;inset:0;background:#00000055;backdrop-filter:blur(3px);z-index:1000;display:flex;align-items:center;justify-content:center;display:none;}
+.invite-modal-overlay.open{display:flex;}
+.invite-modal{background:#fefcec;border-radius:24px;padding:32px;width:460px;max-width:92vw;box-shadow:0 24px 64px #00000030;position:relative;}
+.invite-modal h2{font-size:20px;font-weight:600;margin:0 0 6px;color:#1a1a0e;}
+.invite-modal p{font-size:13px;color:#888;margin:0 0 22px;}
+.invite-cred-box{background:#1a1a0e;border-radius:16px;padding:20px;margin-bottom:16px;}
+.invite-cred-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;}
+.invite-cred-row+.invite-cred-row{border-top:1px solid #ffffff14;}
+.invite-cred-label{font-size:11px;color:#ffffff60;letter-spacing:.06em;text-transform:uppercase;}
+.invite-cred-val{font-size:13px;color:#fff;font-family:monospace;font-weight:600;}
+.invite-copy-all{width:100%;padding:11px;border-radius:12px;border:none;background:var(--yellow);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px;transition:opacity .15s;}
+.invite-copy-all:hover{opacity:.85;}
+.invite-dismiss{width:100%;padding:10px;border-radius:12px;border:1.5px solid #e5e0c8;background:transparent;font-size:14px;cursor:pointer;color:#666;}
+.invite-dismiss:hover{border-color:#ccc;}
+.invite-enterprise-notice{background:#e3f2fd;border:1px solid #90caf9;border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:12px;color:#1565c0;line-height:1.6;}
+/* Team create mini-modal */
+.team-modal-overlay{position:fixed;inset:0;background:#00000050;backdrop-filter:blur(2px);z-index:1100;display:none;align-items:center;justify-content:center;}
+.team-modal-overlay.open{display:flex;}
+.team-modal{background:#fefcec;border-radius:20px;padding:28px;width:380px;max-width:92vw;box-shadow:0 20px 60px #00000028;}
+.team-modal h3{font-size:17px;font-weight:600;margin:0 0 18px;color:#1a1a0e;}
+</style>
+
+<!-- Invite modal -->
+<div class="invite-modal-overlay" id="inviteModalOverlay">
+  <div class="invite-modal">
+    <h2>🎉 Account Created</h2>
+    <p>Share these credentials with the new employee to log in for the first time.</p>
+    <div class="invite-enterprise-notice" id="inviteEnterpriseNote" style="display:none;">
+      <strong>Enterprise account:</strong> This user should log in using their company SSO / LDAP credentials. The password below is only a fallback — your IT team may disable it once directory sync is configured.
+    </div>
+    <div class="invite-cred-box">
+      <div class="invite-cred-row">
+        <span class="invite-cred-label">Login URL</span>
+        <span class="invite-cred-val" id="inviteUrl">—</span>
+      </div>
+      <div class="invite-cred-row">
+        <span class="invite-cred-label">Email</span>
+        <span class="invite-cred-val" id="inviteEmail">—</span>
+      </div>
+      <div class="invite-cred-row">
+        <span class="invite-cred-label">Password</span>
+        <span class="invite-cred-val" id="invitePassword">—</span>
+      </div>
+    </div>
+    <button class="invite-copy-all" id="inviteCopyBtn">📋 Copy credentials to clipboard</button>
+    <button class="invite-dismiss" id="inviteDismissBtn">Done</button>
+  </div>
+</div>
+
+<!-- Team create modal -->
+<div class="team-modal-overlay" id="teamModalOverlay">
+  <div class="team-modal">
+    <h3>Create New Team</h3>
+    <div style="margin-bottom:12px;">
+      <label class="form-label">Team name</label>
+      <input class="input input-sm" id="teamModalName" placeholder="e.g. Platform Engineering" />
+    </div>
+    <div style="margin-bottom:18px;">
+      <label class="form-label">Description <span style="color:#aaa;font-size:11px;">(optional)</span></label>
+      <input class="input input-sm" id="teamModalDesc" placeholder="What does this team do?" />
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn dark sm" id="teamModalSave" style="flex:1;">Create Team</button>
+      <button class="btn ghost sm" id="teamModalCancel" style="flex:1;">Cancel</button>
+    </div>
+    <div id="teamModalMsg" class="form-msg" style="margin-top:8px;"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════ Invite Modal ═════════════════════
+(function(){
+  var overlay = document.getElementById("inviteModalOverlay");
+  var _creds = null;
+
+  window.showInviteModal = function(credentials, isEnterprise) {
+    _creds = credentials;
+    var loginUrl = window.location.origin + (credentials.loginUrl || "/login");
+    document.getElementById("inviteUrl").textContent = loginUrl;
+    document.getElementById("inviteEmail").textContent = credentials.email;
+    document.getElementById("invitePassword").textContent = credentials.password;
+    document.getElementById("inviteEnterpriseNote").style.display = isEnterprise ? "" : "none";
+    overlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+  };
+
+  document.getElementById("inviteDismissBtn").addEventListener("click", function(){
+    overlay.classList.remove("open"); document.body.style.overflow = "";
+  });
+  overlay.addEventListener("click", function(e){ if(e.target===overlay){ overlay.classList.remove("open"); document.body.style.overflow=""; } });
+
+  document.getElementById("inviteCopyBtn").addEventListener("click", function(){
+    var loginUrl = window.location.origin + (_creds.loginUrl || "/login");
+    var text = "Olla Nest Login Credentials\n\nURL: " + loginUrl + "\nEmail: " + _creds.email + "\nPassword: " + _creds.password + "\n\nPlease change your password after first login.";
+    navigator.clipboard.writeText(text).then(function(){
+      var btn = document.getElementById("inviteCopyBtn");
+      btn.textContent = "✓ Copied!";
+      setTimeout(function(){ btn.textContent = "📋 Copy credentials to clipboard"; }, 2500);
+    }).catch(function(){ alert(text); });
+  });
+})();
+
+// ═══════════════════ Team Create Modal ════════════════
+(function(){
+  var overlay = document.getElementById("teamModalOverlay");
+
+  function openTeamModal() {
+    document.getElementById("teamModalName").value = "";
+    document.getElementById("teamModalDesc").value = "";
+    document.getElementById("teamModalMsg").textContent = "";
+    overlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+    setTimeout(function(){ document.getElementById("teamModalName").focus(); }, 50);
+  }
+  function closeTeamModal() {
+    overlay.classList.remove("open"); document.body.style.overflow = "";
+  }
+
+  var createBtn = document.getElementById("createTeamBtn");
+  if(createBtn) createBtn.addEventListener("click", openTeamModal);
+  document.getElementById("teamModalCancel").addEventListener("click", closeTeamModal);
+  overlay.addEventListener("click", function(e){ if(e.target===overlay) closeTeamModal(); });
+
+  document.getElementById("teamModalSave").addEventListener("click", async function(){
+    var btn = this;
+    var name = document.getElementById("teamModalName").value.trim();
+    var desc = document.getElementById("teamModalDesc").value.trim();
+    var msg  = document.getElementById("teamModalMsg");
+    if(!name){ msg.className="form-msg error"; msg.textContent="Team name is required"; return; }
+    btn.disabled=true; btn.textContent="Creating…";
+    try {
+      var r = await fetch("/api/admin/teams", {
+        method:"POST", credentials:"include",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({name, description: desc})
+      });
+      var d = await r.json();
+      if(d.ok) {
+        // Add to state and refresh dropdown
+        if(typeof state !== "undefined" && state.teams) {
+          state.teams.push(d.team);
+          state.teams.sort(function(a,b){ return a.name.localeCompare(b.name); });
+          populateTeamDropdown(d.team.name);
+        }
+        msg.className="form-msg success"; msg.textContent="Team created!";
+        setTimeout(closeTeamModal, 800);
+      } else {
+        msg.className="form-msg error"; msg.textContent=d.error||"Failed";
+      }
+    } catch(e) {
+      msg.className="form-msg error"; msg.textContent="Network error";
+    } finally { btn.disabled=false; btn.textContent="Create Team"; }
+  });
+
+  window.populateTeamDropdown = function(selectName) {
+    var sel = document.getElementById("newUserTeam");
+    if(!sel) return;
+    var teams = (typeof state !== "undefined" && state.teams) ? state.teams : [];
+    sel.innerHTML = '<option value="">— No team —</option>' +
+      teams.map(function(t){ return '<option value="'+t.name+'"'+(t.name===selectName?' selected':'')+'>'+t.name+'</option>'; }).join("");
+  };
 })();
 </script>
 

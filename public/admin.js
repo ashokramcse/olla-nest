@@ -123,6 +123,8 @@ function renderUsers() {
   $("newUserDept").innerHTML = state.departments.map(d =>
     `<option value="${esc(d.id)}">${esc(d.name)}</option>`
   ).join("");
+  // Populate team dropdown
+  if (typeof populateTeamDropdown === "function") populateTeamDropdown();
 
   // User list
   $("userList").innerHTML = state.users.map(u => {
@@ -488,7 +490,9 @@ $("createUserForm").addEventListener("submit", async (e) => {
   msg.className = "form-message";
   msg.textContent = "";
   try {
-    await api("/api/admin/users", {
+    const teamSel = $("newUserTeam");
+    const teamVal = teamSel ? teamSel.value : "";
+    const result = await api("/api/admin/users", {
       method: "POST",
       body: JSON.stringify({
         name: $("newUserName").value.trim(),
@@ -497,7 +501,7 @@ $("createUserForm").addEventListener("submit", async (e) => {
         departmentId: $("newUserDept").value,
         password: $("newUserPassword").value || undefined,
         designation: $("newUserDesignation").value.trim(),
-        team: $("newUserTeam").value.trim(),
+        team: teamVal,
         aiAccessTier: $("newUserTier").value,
         dailyTokenLimit: Number($("newUserDailyTokens").value || 50000),
         rights: role === "admin"
@@ -513,6 +517,10 @@ $("createUserForm").addEventListener("submit", async (e) => {
     msg.className = "form-message success";
     msg.textContent = "Account created successfully.";
     await loadState();
+    // Show invite modal with credentials
+    if (result.credentials && typeof showInviteModal === "function") {
+      showInviteModal(result.credentials, result.user?.isEnterprise || false);
+    }
   } catch (err) {
     msg.className = "form-message error";
     msg.textContent = err.message;

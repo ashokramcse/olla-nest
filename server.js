@@ -60,6 +60,12 @@ function openSql() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS teams (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -654,7 +660,14 @@ async function fetchOllamaModels(url = OLLAMA_URL) {
 }
 
 async function syncOllamaModels(db) {
-  const installed = await fetchOllamaModels(ollamaUrl(db));
+  let installed;
+  try {
+    installed = await fetchOllamaModels(ollamaUrl(db));
+  } catch {
+    // Ollama unreachable — mark ALL local models as missing so UI reflects reality
+    db.prepare("UPDATE models SET status = 'missing' WHERE provider = 'ollama'").run();
+    return [];
+  }
   const seenIds = [];
   for (const item of installed) {
     const modelRef = item.name;
@@ -674,7 +687,6 @@ async function syncOllamaModels(db) {
     upsertModel(db, model);
     seenIds.push(model.id);
   }
-
   if (seenIds.length) {
     const placeholders = seenIds.map(() => "?").join(",");
     db.prepare(`UPDATE models SET status = 'missing' WHERE provider = 'ollama' AND id NOT IN (${placeholders})`).run(...seenIds);
@@ -1441,6 +1453,7 @@ app.get("/api/state", requireAuth, async (req, res) => {
       users: getUsers(db),
       departments: rows(db, "SELECT id, name FROM departments ORDER BY name"),
       groups: rows(db, "SELECT id, name FROM groups ORDER BY name"),
+      teams: rows(db, "SELECT id, name, description FROM teams ORDER BY name"),
       models,
       settings: settingsState(db),
       chats,
@@ -1799,7 +1812,10 @@ app.post("/api/admin/users", requireAdmin, (req, res) => {
     );
     db.prepare("INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)").run(id, "group-all");
     appendAudit(req.user.name, "admin.user.create", `Created user ${email}`);
-    res.json({ ok: true, user: publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, id)) });
+    const createdUser = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, id));
+    // Return plaintext password only on creation so admin can share credentials
+    const plainPassword = String(password || DEFAULT_USER_PASSWORD);
+    res.json({ ok: true, user: createdUser, credentials: { email, password: plainPassword, loginUrl: "/login" } });
   } catch (error) {
     res.status(400).json({ error: error.message });
   } finally {
@@ -1905,6 +1921,36 @@ app.post("/api/admin/users/:id/overrides", requireAdmin, (req, res) => {
   } finally {
     db.close();
   }
+});
+
+// ─── Teams CRUD ───────────────────────────────────────────────────────────────
+app.get("/api/admin/teams", requireAdmin, (req, res) => {
+  const db = openSql();
+  try { res.json({ teams: rows(db, "SELECT * FROM teams ORDER BY name") }); }
+  finally { db.close(); }
+});
+
+app.post("/api/admin/teams", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const { name, description = "" } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: "Team name is required" });
+    const id = uid("team");
+    db.prepare("INSERT INTO teams (id, name, description, created_at) VALUES (?, ?, ?, ?)").run(id, name.trim(), description.trim(), new Date().toISOString());
+    appendAudit(req.user.name, "admin.team.create", `Created team: ${name.trim()}`);
+    res.json({ ok: true, team: { id, name: name.trim(), description: description.trim() } });
+  } catch (err) {
+    res.status(400).json({ error: err.message.includes("UNIQUE") ? "A team with that name already exists" : err.message });
+  } finally { db.close(); }
+});
+
+app.delete("/api/admin/teams/:id", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    db.prepare("DELETE FROM teams WHERE id = ?").run(req.params.id);
+    appendAudit(req.user.name, "admin.team.delete", `Deleted team ${req.params.id}`);
+    res.json({ ok: true });
+  } finally { db.close(); }
 });
 
 app.delete("/api/admin/overrides/:id", requireAdmin, (req, res) => {
