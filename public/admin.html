@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{
   --ink:#15140f;--ink-2:#1d1c17;
@@ -556,6 +557,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       <button class="nav-item" data-tab="access">Access Control</button>
       <button class="nav-item" data-tab="settings">Settings</button>
       <button class="nav-item" data-tab="providers">Providers</button>
+      <button class="nav-item" data-tab="reports">Reports</button>
       <button class="nav-item" data-tab="audit" style="display:none;">Audit Log</button>
 
     </div>
@@ -1189,6 +1191,93 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
           </div>
 
           <div id="providerList"><div style="padding:20px;text-align:center;color:var(--mute);">Loading providers…</div></div>
+        </div>
+      </div>
+
+      <!-- ── REPORTS ── -->
+      <div class="tab-view" id="tab-reports">
+        <!-- Summary KPI strip -->
+        <div id="reportKpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;"></div>
+
+        <!-- Period selector -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h2 style="font-size:18px;font-weight:500;margin:0;">Analytics &amp; Reports</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:12px;color:#888;">Period:</span>
+            <select class="input input-sm" id="reportPeriod" style="width:120px;">
+              <option value="7">Last 7 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+            <button class="btn dark sm" id="refreshReportsBtn" style="padding:7px 16px;">Refresh</button>
+          </div>
+        </div>
+
+        <!-- Row 1: Daily activity + Model usage -->
+        <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="card">
+            <div class="card-head"><div class="card-title">📈 Daily Messages &amp; Tokens</div></div>
+            <canvas id="chartDailyActivity" height="180"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">🤖 Model Usage</div></div>
+            <canvas id="chartModelUsage" height="180"></canvas>
+          </div>
+        </div>
+
+        <!-- Row 2: Mode breakdown + Live vs Failed + Tier dist -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="card">
+            <div class="card-head"><div class="card-title">💬 Request Modes</div></div>
+            <canvas id="chartModeBreakdown" height="200"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">✅ Response Quality</div></div>
+            <canvas id="chartLiveVsFailed" height="200"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">🏷️ Access Tier Distribution</div></div>
+            <canvas id="chartTierDist" height="200"></canvas>
+          </div>
+        </div>
+
+        <!-- Row 3: Department usage + Response latency -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="card">
+            <div class="card-head"><div class="card-title">🏢 Department Token Usage</div></div>
+            <canvas id="chartDeptUsage" height="180"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">⚡ Response Latency by Model</div></div>
+            <canvas id="chartLatency" height="180"></canvas>
+          </div>
+        </div>
+
+        <!-- Row 4: Audit timeline + Audit breakdown -->
+        <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:20px;">
+          <div class="card">
+            <div class="card-head"><div class="card-title">🔐 Audit Events Timeline</div></div>
+            <canvas id="chartAuditTimeline" height="160"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">📋 Top Audit Actions</div></div>
+            <canvas id="chartAuditBreakdown" height="160"></canvas>
+          </div>
+        </div>
+
+        <!-- Token Leaderboard -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head">
+            <div class="card-title">🏆 Token Usage Leaderboard</div>
+            <span style="font-size:12px;color:#888;">Ranked by total tokens consumed</span>
+          </div>
+          <div id="reportLeaderboard"></div>
+        </div>
+
+        <!-- Model efficiency table -->
+        <div class="card">
+          <div class="card-head"><div class="card-title">📊 Model Efficiency Summary</div></div>
+          <div id="reportModelTable"></div>
         </div>
       </div>
 

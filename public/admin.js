@@ -949,6 +949,312 @@ if ($("saveRouterConfigBtn")) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  REPORTS
+// ═══════════════════════════════════════════════════════════════════
+
+const BRAND = {
+  yellow:   "#f0d74b",
+  yellowDk: "#e8c520",
+  ink:      "#1a1a0e",
+  cream:    "#fefcec",
+  pale:     "#fbf3c8",
+  muted:    "#aaa",
+  green:    "#4caf50",
+  red:      "#ef5350",
+  blue:     "#42a5f5",
+  orange:   "#ffa726",
+  purple:   "#ab47bc",
+  teal:     "#26a69a",
+  pink:     "#ec407a",
+  indigo:   "#5c6bc0",
+  lime:     "#9ccc65",
+  amber:    "#ffca28",
+};
+
+const PALETTE = [
+  BRAND.yellow, BRAND.teal, BRAND.blue, BRAND.orange,
+  BRAND.purple, BRAND.green, BRAND.pink, BRAND.indigo,
+  BRAND.lime, BRAND.amber,
+];
+
+// Global chart registry so we can destroy before re-creating
+const _charts = {};
+
+function mkChart(id, type, data, opts = {}) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+  const ctx = canvas.getContext("2d");
+  _charts[id] = new Chart(ctx, {
+    type,
+    data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          labels: { color: BRAND.ink, font: { family: "inherit", size: 11 }, boxWidth: 12 },
+        },
+        tooltip: {
+          backgroundColor: BRAND.ink,
+          titleColor: "#fff",
+          bodyColor: "#ffffffcc",
+          cornerRadius: 8,
+          padding: 10,
+        },
+      },
+      scales: type === "bar" || type === "line" ? {
+        x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c820" } },
+        y: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" } },
+      } : undefined,
+      ...opts,
+    },
+  });
+}
+
+function fmt(n) { return Number(n || 0).toLocaleString(); }
+function ms(n)  { return n > 0 ? (n >= 1000 ? (n/1000).toFixed(1)+"s" : Math.round(n)+"ms") : "—"; }
+
+function renderKpis(s) {
+  const kpis = [
+    { label: "Total Users", value: fmt(s.total_users), icon: "👤" },
+    { label: "Chat Sessions", value: fmt(s.total_sessions), icon: "💬" },
+    { label: "Messages", value: fmt(s.total_messages), icon: "✉️" },
+    { label: "Tokens Used", value: fmt(s.total_tokens), icon: "🔢" },
+    { label: "Avg Latency", value: ms(s.avg_latency), icon: "⚡" },
+  ];
+  $("reportKpis").innerHTML = kpis.map(k => `
+    <div style="background:#fff;border:1px solid var(--line-soft);border-radius:20px;padding:18px 20px;text-align:center;">
+      <div style="font-size:24px;margin-bottom:6px;">${k.icon}</div>
+      <div style="font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-.02em;">${k.value}</div>
+      <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.07em;margin-top:3px;">${k.label}</div>
+    </div>
+  `).join("");
+}
+
+function renderLeaderboard(rows) {
+  if (!rows.length) { $("reportLeaderboard").innerHTML = `<p style="color:#aaa;text-align:center;padding:24px;">No data yet — start chatting!</p>`; return; }
+  const medals = ["🥇","🥈","🥉"];
+  $("reportLeaderboard").innerHTML = `
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#aaa;border-bottom:1px solid var(--line-soft);">
+          <th style="padding:8px 12px;text-align:left;">#</th>
+          <th style="padding:8px 12px;text-align:left;">Employee</th>
+          <th style="padding:8px 12px;text-align:left;">Tier</th>
+          <th style="padding:8px 12px;text-align:right;">Sessions</th>
+          <th style="padding:8px 12px;text-align:right;">Messages</th>
+          <th style="padding:8px 12px;text-align:right;">Total Tokens</th>
+          <th style="padding:8px 12px;text-align:right;">Avg/Msg</th>
+          <th style="padding:8px 12px;text-align:right;">% of Limit</th>
+          <th style="padding:8px 12px;text-align:right;">Last Active</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((u, i) => {
+          const pct = u.daily_token_limit > 0 ? Math.min(100, Math.round(u.total_tokens / u.daily_token_limit * 100)) : 0;
+          const barColor = pct > 90 ? BRAND.red : pct > 60 ? BRAND.orange : BRAND.green;
+          const rank = medals[i] || `<span style="color:#aaa;">${i+1}</span>`;
+          const av = (u.name || "?").split(" ").map(p => p[0]).slice(0,2).join("").toUpperCase();
+          const lastActive = u.last_active ? u.last_active.slice(0,10) : "—";
+          return `<tr style="border-bottom:1px solid #f5f0e0;transition:background .1s;" onmouseenter="this.style.background='#fef9e0'" onmouseleave="this.style.background=''">
+            <td style="padding:12px 12px;font-size:18px;">${rank}</td>
+            <td style="padding:12px 12px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:34px;height:34px;border-radius:50%;background:${BRAND.yellow};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${BRAND.ink};flex-shrink:0;">${esc(av)}</div>
+                <div>
+                  <div style="font-size:13px;font-weight:500;">${esc(u.name)}</div>
+                  <div style="font-size:11px;color:#aaa;">${esc(u.email)}</div>
+                </div>
+              </div>
+            </td>
+            <td style="padding:12px 12px;"><span class="badge badge-blue" style="font-size:11px;">${esc(u.ai_access_tier||"standard")}</span></td>
+            <td style="padding:12px 12px;text-align:right;font-size:13px;">${fmt(u.sessions)}</td>
+            <td style="padding:12px 12px;text-align:right;font-size:13px;">${fmt(u.messages)}</td>
+            <td style="padding:12px 12px;text-align:right;font-size:14px;font-weight:600;">${fmt(u.total_tokens)}</td>
+            <td style="padding:12px 12px;text-align:right;font-size:12px;color:#666;">${fmt(Math.round(u.avg_tokens_per_msg))}</td>
+            <td style="padding:12px 12px;text-align:right;">
+              <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+                <div style="width:60px;height:5px;background:#e5e0c8;border-radius:3px;overflow:hidden;">
+                  <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px;"></div>
+                </div>
+                <span style="font-size:11px;color:#888;min-width:30px;">${pct}%</span>
+              </div>
+            </td>
+            <td style="padding:12px 12px;text-align:right;font-size:11px;color:#aaa;">${lastActive}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderModelTable(rows) {
+  if (!rows.length) { $("reportModelTable").innerHTML = `<p style="color:#aaa;text-align:center;padding:20px;">No model data yet.</p>`; return; }
+  $("reportModelTable").innerHTML = `
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#aaa;border-bottom:1px solid var(--line-soft);">
+          <th style="padding:8px 12px;text-align:left;">Model</th>
+          <th style="padding:8px 12px;text-align:right;">Uses</th>
+          <th style="padding:8px 12px;text-align:right;">Total Tokens</th>
+          <th style="padding:8px 12px;text-align:right;">Avg Latency</th>
+          <th style="padding:8px 12px;text-align:left;">Usage bar</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((m, i) => {
+          const maxUses = rows[0].uses || 1;
+          const pct = Math.round(m.uses / maxUses * 100);
+          return `<tr style="border-bottom:1px solid #f5f0e0;" onmouseenter="this.style.background='#fef9e0'" onmouseleave="this.style.background=''">
+            <td style="padding:10px 12px;font-weight:500;">${esc(m.model_name||"—")}</td>
+            <td style="padding:10px 12px;text-align:right;">${fmt(m.uses)}</td>
+            <td style="padding:10px 12px;text-align:right;">${fmt(m.total_tokens)}</td>
+            <td style="padding:10px 12px;text-align:right;">${ms(m.avg_latency)}</td>
+            <td style="padding:10px 12px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="flex:1;height:6px;background:#e5e0c8;border-radius:3px;overflow:hidden;">
+                  <div style="width:${pct}%;height:100%;background:${PALETTE[i%PALETTE.length]};border-radius:3px;"></div>
+                </div>
+                <span style="font-size:11px;color:#888;min-width:32px;">${pct}%</span>
+              </div>
+            </td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function loadReports() {
+  const days = $("reportPeriod") ? $("reportPeriod").value : 30;
+  let d;
+  try {
+    d = await api(`/api/admin/reports?days=${days}`);
+  } catch(e) {
+    console.error("Reports load failed:", e);
+    return;
+  }
+
+  // KPIs
+  renderKpis(d.summary || {});
+
+  // 1. Daily Messages & Tokens — dual-axis bar+line
+  const labels1 = d.dailyActivity.map(r => r.day.slice(5)); // MM-DD
+  mkChart("chartDailyActivity", "bar", {
+    labels: labels1,
+    datasets: [
+      {
+        label: "Messages",
+        data: d.dailyActivity.map(r => r.messages),
+        backgroundColor: BRAND.yellow + "cc",
+        borderColor: BRAND.yellowDk,
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: "y",
+      },
+      {
+        label: "Tokens",
+        type: "line",
+        data: d.dailyActivity.map(r => r.tokens),
+        borderColor: BRAND.teal,
+        backgroundColor: BRAND.teal + "20",
+        borderWidth: 2,
+        pointRadius: 3,
+        tension: 0.4,
+        fill: true,
+        yAxisID: "y1",
+      },
+    ],
+  }, {
+    scales: {
+      x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c820" } },
+      y: { position: "left", ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" }, title: { display: true, text: "Messages", color: BRAND.muted, font: { size: 10 } } },
+      y1: { position: "right", ticks: { color: BRAND.teal, font: { size: 10 } }, grid: { drawOnChartArea: false }, title: { display: true, text: "Tokens", color: BRAND.teal, font: { size: 10 } } },
+    },
+  });
+
+  // 2. Model usage — donut
+  const mu = d.modelUsage.slice(0,8);
+  mkChart("chartModelUsage", "doughnut", {
+    labels: mu.map(r => r.model_name || "?"),
+    datasets: [{ data: mu.map(r => r.uses), backgroundColor: PALETTE, borderColor: "#fff", borderWidth: 2, hoverOffset: 6 }],
+  }, { cutout: "62%", plugins: { legend: { position: "bottom", labels: { color: BRAND.ink, font: { size: 10 }, boxWidth: 10, padding: 8 } } } });
+
+  // 3. Mode breakdown — donut
+  const mb = d.modeBreakdown;
+  mkChart("chartModeBreakdown", "doughnut", {
+    labels: mb.map(r => r.mode || "ask"),
+    datasets: [{ data: mb.map(r => r.count), backgroundColor: PALETTE.slice(2), borderColor: "#fff", borderWidth: 2, hoverOffset: 6 }],
+  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: BRAND.ink, font: { size: 11 }, boxWidth: 10 } } } });
+
+  // 4. Live vs Failed — pie
+  const lf = d.liveVsFailed;
+  mkChart("chartLiveVsFailed", "doughnut", {
+    labels: ["Successful", "Failed"],
+    datasets: [{ data: [lf.live_count||0, lf.failed_count||0], backgroundColor: [BRAND.green, BRAND.red], borderColor: "#fff", borderWidth: 3, hoverOffset: 6 }],
+  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: BRAND.ink, font: { size: 11 }, boxWidth: 10 } } } });
+
+  // 5. Tier distribution — pie
+  const td = d.tierDist;
+  mkChart("chartTierDist", "doughnut", {
+    labels: td.map(r => r.tier || "standard"),
+    datasets: [{ data: td.map(r => r.count), backgroundColor: [BRAND.yellow, BRAND.blue, BRAND.purple, BRAND.teal], borderColor: "#fff", borderWidth: 2, hoverOffset: 6 }],
+  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: BRAND.ink, font: { size: 11 }, boxWidth: 10 } } } });
+
+  // 6. Department token usage — horizontal bar
+  const du = d.deptUsage.filter(r => r.dept);
+  mkChart("chartDeptUsage", "bar", {
+    labels: du.map(r => r.dept),
+    datasets: [
+      { label: "Tokens", data: du.map(r => r.tokens), backgroundColor: BRAND.yellow + "cc", borderColor: BRAND.yellowDk, borderWidth: 1, borderRadius: 4 },
+      { label: "Sessions", data: du.map(r => r.sessions), backgroundColor: BRAND.teal + "99", borderColor: BRAND.teal, borderWidth: 1, borderRadius: 4 },
+    ],
+  }, { indexAxis: "y", scales: { x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" } }, y: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c820" } } } });
+
+  // 7. Response latency — horizontal bar
+  const lat = d.latencyByModel;
+  mkChart("chartLatency", "bar", {
+    labels: lat.map(r => (r.model_name||"?").slice(0,18)),
+    datasets: [{ label: "Avg Latency (ms)", data: lat.map(r => r.avg_ms), backgroundColor: PALETTE, borderWidth: 0, borderRadius: 4 }],
+  }, { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" } }, y: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { display: false } } } });
+
+  // 8. Audit timeline — line
+  const at = d.auditTimeline;
+  mkChart("chartAuditTimeline", "line", {
+    labels: at.map(r => r.day.slice(5)),
+    datasets: [{ label: "Audit Events", data: at.map(r => r.events), borderColor: BRAND.orange, backgroundColor: BRAND.orange + "25", borderWidth: 2, pointRadius: 3, tension: 0.4, fill: true }],
+  });
+
+  // 9. Audit action breakdown — horizontal bar
+  const ab = d.auditBreakdown;
+  mkChart("chartAuditBreakdown", "bar", {
+    labels: ab.map(r => r.action.replace(/\./g, " ")),
+    datasets: [{ label: "Count", data: ab.map(r => r.count), backgroundColor: BRAND.indigo + "cc", borderColor: BRAND.indigo, borderWidth: 1, borderRadius: 4 }],
+  }, { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" } }, y: { ticks: { color: BRAND.muted, font: { size: 9 } }, grid: { display: false } } } });
+
+  // Leaderboard & model table
+  renderLeaderboard(d.tokenLeaderboard);
+  renderModelTable(d.modelUsage);
+}
+
+if ($("refreshReportsBtn")) {
+  $("refreshReportsBtn").addEventListener("click", loadReports);
+}
+if ($("reportPeriod")) {
+  $("reportPeriod").addEventListener("change", loadReports);
+}
+
+// Load reports when switching to the tab
+const _origSwitchTabForReports = switchTab;
+// We can't wrap switchTab (hoisting issue), so we listen on nav items
+document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
+  if (btn.dataset.tab === "reports") {
+    btn.addEventListener("click", function() { setTimeout(loadReports, 50); }, true);
+  }
+});
+
 loadState().then(checkOllama);
 /* Re-check Ollama every 30 seconds so status stays current without a page reload */
 setInterval(checkOllama, 30000);

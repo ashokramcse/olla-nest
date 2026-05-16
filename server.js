@@ -397,6 +397,10 @@ function seedSql(db) {
   if (!userColumns.includes("auth_provider")) db.exec("ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'");
   if (!userColumns.includes("phone")) db.exec("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''");
   if (!userColumns.includes("avatar_initials")) db.exec("ALTER TABLE users ADD COLUMN avatar_initials TEXT NOT NULL DEFAULT ''");
+  // chat_messages migrations
+  const msgColumns = db.prepare("PRAGMA table_info(chat_messages)").all().map(r => r.name);
+  if (!msgColumns.includes("tokens_used")) db.exec("ALTER TABLE chat_messages ADD COLUMN tokens_used INTEGER NOT NULL DEFAULT 0");
+  if (!msgColumns.includes("latency_ms")) db.exec("ALTER TABLE chat_messages ADD COLUMN latency_ms INTEGER NOT NULL DEFAULT 0");
   const admin = db.prepare("SELECT id, email, password_hash FROM users WHERE id = 'u-admin'").get();
   if (admin && (!admin.email || !admin.password_hash)) {
     db.prepare("UPDATE users SET email = ?, password_hash = ? WHERE id = 'u-admin'").run(DEFAULT_ADMIN_EMAIL, bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, 12));
@@ -2066,9 +2070,10 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
       const now = new Date().toISOString();
       const userMsgId = uid("msg");
       const asstMsgId = uid("msg");
+      const latencyMs = Date.now() - startMs;
       db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, "user", message, mode, now);
-      db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-        asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), now
+      db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, tokens_used, latency_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+        asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), tokensUsed, latencyMs, now
       );
       const currentSession = db.prepare("SELECT * FROM chat_sessions WHERE id = ?").get(chat.id);
       let title = currentSession?.title || "New Chat";
@@ -2076,6 +2081,8 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
       db.prepare("UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?").run(title, now, chat.id);
       appendTrace({ userId: user.id, sessionId: chat.id, message, mode, selectedModelId: route.selected.id, tags: route.tags, candidates: route.candidates, live }, db);
       appendAudit(user.name, "chat.stream", `${mode.toUpperCase()} streamed to ${route.selected.name}`, { live });
+      res.write(`data: ${JSON.stringify({ type: "done", tokensUsed, latencyMs, messageId: asstMsgId, live, artifacts, extractedFiles })}\n\n`);
+      return;
     }
 
     const latencyMs = Date.now() - startMs;
@@ -2101,6 +2108,140 @@ app.post("/api/feedback", requireAuth, (req, res) => {
       uid("fb"), messageId, sessionId, req.user.id, rating, comment || null, new Date().toISOString()
     );
     res.json({ ok: true });
+  } finally {
+    db.close();
+  }
+});
+
+// ─── Reports ──────────────────────────────────────────────────────────────────
+app.get("/api/admin/reports", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const days = Number(req.query.days || 30);
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+
+    // 1. Daily message & token activity (last N days)
+    const dailyActivity = db.prepare(`
+      SELECT substr(created_at,1,10) AS day,
+             COUNT(*) AS messages,
+             SUM(CASE WHEN role='assistant' THEN tokens_used ELSE 0 END) AS tokens
+      FROM chat_messages
+      WHERE created_at >= ?
+      GROUP BY day ORDER BY day
+    `).all(since);
+
+    // 2. Model usage distribution
+    const modelUsage = db.prepare(`
+      SELECT model_name, COUNT(*) AS uses,
+             SUM(tokens_used) AS total_tokens,
+             AVG(latency_ms) AS avg_latency
+      FROM chat_messages
+      WHERE role='assistant' AND model_name IS NOT NULL AND model_name != ''
+      GROUP BY model_name ORDER BY uses DESC LIMIT 10
+    `).all();
+
+    // 3. Token leaderboard (users ranked by total tokens)
+    const tokenLeaderboard = db.prepare(`
+      SELECT u.name, u.email, u.role, u.department_id,
+             u.ai_access_tier, u.daily_token_limit,
+             COUNT(DISTINCT cs.id) AS sessions,
+             COUNT(cm.id) AS messages,
+             COALESCE(SUM(cm.tokens_used),0) AS total_tokens,
+             COALESCE(AVG(cm.tokens_used),0) AS avg_tokens_per_msg,
+             MAX(cs.updated_at) AS last_active
+      FROM users u
+      LEFT JOIN chat_sessions cs ON cs.user_id = u.id
+      LEFT JOIN chat_messages cm ON cm.session_id = cs.id AND cm.role = 'assistant'
+      WHERE u.active = 1
+      GROUP BY u.id ORDER BY total_tokens DESC LIMIT 20
+    `).all();
+
+    // 4. Mode breakdown (ask / build / fix / review etc.)
+    const modeBreakdown = db.prepare(`
+      SELECT mode, COUNT(*) AS count
+      FROM router_traces WHERE created_at >= ? AND mode IS NOT NULL
+      GROUP BY mode ORDER BY count DESC
+    `).all(since);
+
+    // 5. Department usage
+    const deptUsage = db.prepare(`
+      SELECT d.name AS dept,
+             COUNT(DISTINCT cs.id) AS sessions,
+             COALESCE(SUM(cm.tokens_used),0) AS tokens
+      FROM departments d
+      LEFT JOIN users u ON u.department_id = d.id
+      LEFT JOIN chat_sessions cs ON cs.user_id = u.id AND cs.created_at >= ?
+      LEFT JOIN chat_messages cm ON cm.session_id = cs.id AND cm.role = 'assistant'
+      GROUP BY d.id ORDER BY tokens DESC
+    `).all(since);
+
+    // 6. Access tier user distribution
+    const tierDist = db.prepare(`
+      SELECT ai_access_tier AS tier, COUNT(*) AS count
+      FROM users WHERE active = 1
+      GROUP BY ai_access_tier ORDER BY count DESC
+    `).all();
+
+    // 7. Live vs failed responses
+    const liveVsFailed = db.prepare(`
+      SELECT SUM(CASE WHEN live=1 THEN 1 ELSE 0 END) AS live_count,
+             SUM(CASE WHEN live=0 THEN 1 ELSE 0 END) AS failed_count
+      FROM chat_messages WHERE role='assistant' AND created_at >= ?
+    `).get(since);
+
+    // 8. Audit event breakdown (top action types)
+    const auditBreakdown = db.prepare(`
+      SELECT action, COUNT(*) AS count
+      FROM audit_events WHERE created_at >= ?
+      GROUP BY action ORDER BY count DESC LIMIT 10
+    `).all(since);
+
+    // 9. Daily audit events over time
+    const auditTimeline = db.prepare(`
+      SELECT substr(created_at,1,10) AS day, COUNT(*) AS events
+      FROM audit_events WHERE created_at >= ?
+      GROUP BY day ORDER BY day
+    `).all(since);
+
+    // 10. Response latency by model (avg ms)
+    const latencyByModel = db.prepare(`
+      SELECT model_name,
+             ROUND(AVG(latency_ms)) AS avg_ms,
+             MIN(latency_ms) AS min_ms,
+             MAX(latency_ms) AS max_ms,
+             COUNT(*) AS count
+      FROM chat_messages
+      WHERE role='assistant' AND model_name IS NOT NULL AND model_name != ''
+        AND latency_ms > 0
+      GROUP BY model_name ORDER BY avg_ms ASC LIMIT 10
+    `).all();
+
+    // Summary stats
+    const summary = db.prepare(`
+      SELECT COUNT(DISTINCT u.id) AS total_users,
+             COUNT(DISTINCT cs.id) AS total_sessions,
+             COUNT(cm.id) AS total_messages,
+             COALESCE(SUM(cm.tokens_used),0) AS total_tokens,
+             ROUND(AVG(cm.latency_ms)) AS avg_latency
+      FROM users u
+      LEFT JOIN chat_sessions cs ON cs.user_id = u.id
+      LEFT JOIN chat_messages cm ON cm.session_id = cs.id AND cm.role='assistant'
+      WHERE u.active = 1
+    `).get();
+
+    res.json({
+      summary,
+      dailyActivity,
+      modelUsage,
+      tokenLeaderboard,
+      modeBreakdown,
+      deptUsage,
+      tierDist,
+      liveVsFailed: liveVsFailed || { live_count: 0, failed_count: 0 },
+      auditBreakdown,
+      auditTimeline,
+      latencyByModel,
+    });
   } finally {
     db.close();
   }
