@@ -1540,26 +1540,6 @@ function autoTitle(messages) {
   return String(first.content).slice(0, 45).trim() + (first.content.length > 45 ? "…" : "");
 }
 
-function archiveCurrentChat(userId) {
-  const docs = readDocs();
-  const chat = docs.chats[userId];
-  if (!chat) return;
-  const hasUserMsg = (chat.messages || []).some(m => m.role === "user");
-  if (!hasUserMsg) return;
-  if (!docs.chatHistory[userId]) docs.chatHistory[userId] = [];
-  const thread = {
-    ...chat,
-    title: chat.title && chat.title !== "New workspace" ? chat.title : autoTitle(chat.messages),
-    pinned: false,
-    archived: false,
-    unread: false,
-    updatedAt: new Date().toISOString(),
-  };
-  docs.chatHistory[userId].unshift(thread);
-  docs.chatHistory[userId] = docs.chatHistory[userId].slice(0, 100);
-  writeDocs(docs);
-}
-
 app.delete("/api/chat", requireAuth, (req, res) => {
   const db = openSql();
   try {
