@@ -2330,10 +2330,8 @@ app.get("/api/state", requireAuth, async (req, res) => {
   const db = openSql();
   try {
     setSetting(db, "activeUserId", req.user.id);
-    // Fire Ollama sync in background with its OWN db connection so db.close()
-    // in this request's finally block doesn't close the connection mid-write.
-    const syncDb = openSql();
-    syncOllamaModels(syncDb).catch(() => {}).finally(() => syncDb.close());
+    // Model state is kept fresh by the background sync timer started at server boot.
+    // No sync needed here — just read cached DB state.
     const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
     const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
     let chats;
@@ -2539,7 +2537,6 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ error: "Message is required" });
     if (String(message).length > 16000) return res.status(400).json({ error: "Message exceeds maximum length of 16,000 characters" });
-    await syncOllamaModels(db).catch(() => ({ ok: false, models: [] }));
 
     const manualModel = manualModelId ? allowedModels(db, user).find((model) => model.id === manualModelId) : null;
     const route = manualModel
@@ -3031,7 +3028,6 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message is required" })}\n\n`); return res.end(); }
     if (String(message).length > 16000) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message exceeds maximum length of 16,000 characters" })}\n\n`); return res.end(); }
-    await syncOllamaModels(db).catch(() => ({ ok: false, models: [] }));
 
     const manualModel = manualModelId ? allowedModels(db, user).find(m => m.id === manualModelId) : null;
     const route = manualModel
@@ -3761,12 +3757,29 @@ wss.on("connection", (ws, req, user) => {
 });
 
 server.listen(PORT, async () => {
+  // Initial startup tasks
   const db = openSql();
   try {
     migrateDocumentsJson(db);
-    await syncOllamaModels(db).catch(() => ({ ok: false, models: [] }));
   } finally {
     db.close();
   }
+
+  // Initial Ollama sync then background refresh every 30 seconds.
+  // Each tick opens and closes its own DB connection — completely independent
+  // of any HTTP request lifecycle, no race conditions possible.
+  async function runOllamaSync() {
+    const syncDb = openSql();
+    try {
+      await syncOllamaModels(syncDb);
+    } catch (_) {
+      // unreachable — syncOllamaModels catches internally
+    } finally {
+      syncDb.close();
+    }
+  }
+  runOllamaSync(); // run immediately on boot
+  setInterval(runOllamaSync, 30000); // then every 30 seconds
+
   console.log(`Olla Nest running at http://localhost:${PORT}`);
 });
