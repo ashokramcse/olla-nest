@@ -1,7 +1,95 @@
 # Changelog
 
 All notable changes to Olla Nest are documented here.  
-Format: [Semantic-ish versioning](https://semver.org) with release dates.
+Versioning scheme: `v{YEAR}.{MINOR}.{PATCH}` — see [VERSION.md](VERSION.md).
+
+---
+
+## [v2026.0.10] — 2026-05-17
+
+### ✨ Features
+
+- **Full external provider support**: Any configured Anthropic, OpenAI, Groq, or custom provider now works in both streaming and non-streaming chat. The old hardcoded block (`"API connector not configured in this MVP"`) is removed entirely.
+- **Provider test — dynamic model selection**: The Test Connection button in Admin → Providers no longer uses hardcoded model names (`claude-3-5-haiku`, `gpt-3.5-turbo`). It picks the first real synced model from the provider's `api_models` table. If no models have been synced yet, it tells you to run Sync Models first.
+- **Anthropic model sync — real API**: Syncing an Anthropic provider now calls the real Anthropic `/v1/models` endpoint and returns exactly the models your API key can access. Previously this returned a hardcoded 3-model static list.
+- **External models visible to router**: When an admin approves a model from `api_models` (Admin → Providers → Approve), it is now mirrored into the main `models` table. The Auto Router and model picker immediately see it — no restart needed. Removing approval removes it from the router.
+- **Context window lookup for cloud models**: The sliding-window history algorithm now checks `api_models.context_window` for external provider models. Claude gets 200k tokens, Groq models get their real limits — not a fallback 8192.
+
+### 🛠 Internal
+
+- `resolveProvider(db, route)` helper centralises provider resolution for both `/api/chat` and `/api/chat/stream` — removes duplicated inline provider lookup code.
+- `mirrorApiModelToModels(db, provider, apiModel)` helper keeps `api_models` and `models` tables in sync when approval status changes.
+
+---
+
+## [v2026.0.9] — 2026-05-17
+
+### ✨ Features
+
+- **Model-agnostic context window**: Removed all hardcoded model name pattern matching (`/gemma4/`, `/qwen/`, etc.) from `contextWindowForModel()`. Now queries Ollama's `/api/show` endpoint for the real context length of each local model. Results are cached in `models.context_size` on every sync so lookups are instant.
+- **Universal fallback**: Any model whose context window cannot be determined from Ollama or the provider falls back to 8192 tokens — a safe universal default.
+
+---
+
+## [v2026.0.8] — 2026-05-17
+
+### ✨ Features
+
+- **Chat session memory**: Every chat message now loads the full conversation history from the database and passes it to the model. Conversations are contextually aware across turns — the model can reference earlier messages exactly like Claude Chat. Uses a sliding-window algorithm: walks history newest→oldest, keeps messages that fit within the model's token budget, drops the oldest when the window is full.
+- **File upload in composer**: New attachment button (📎) in the chat composer. Supports images (`jpg`, `png`, `webp`, `gif`) and text files (`txt`, `md`, `json`, `js`, `ts`, `py`, `html`, `css`, `yaml`, `csv`). Images are sent as base64 to Ollama's multimodal endpoint (works with `gemma4:26b`, `llava`, etc.). Text files are appended as code blocks in the message body. Preview chips shown before sending; up to 5 attachments; click × to remove any attachment.
+- **Model picker dropdown fix**: The Claude-style model picker in the composer was clipped by `overflow:hidden` on the composer wrapper. Fixed by switching to `position:fixed` with dynamic `getBoundingClientRect()` positioning — the dropdown now renders as a proper popup, fully visible above the textarea.
+
+### 🛠 Internal
+
+- `buildSystemPrompt(mode, route, workspace)` — extracted from `modelPrompt()` to return only the system-level instructions (no user message). Enables clean multi-turn message arrays.
+- `buildContextMessages(db, sessionId, systemPrompt, userMessage, modelName, images)` — builds the full `[system, ...history, user]` array with sliding-window budget management.
+- `estimateTokens(text)` — `Math.ceil(length / 4)` token estimator for budget calculations.
+
+---
+
+## [v2026.0.7] — 2026-05-17
+
+### ✨ Features
+
+- **Auto-save governance tier**: The "Save policy" button is removed from the model governance dropdown in Admin → Models. The tier now auto-saves on dropdown change — no extra click required.
+- **Claude-style model picker in workspace**: The plain `<select>` model dropdown in the employee chat composer is replaced with a Claude-style popup picker showing model name, availability dot, and context window size. The hidden `<select>` is kept for form submit compatibility.
+- **LAN IP false warning removed**: The preemptive warning that fired on LAN IP addresses (even when Ollama was reachable) is removed. Instead, Olla Nest auto-tests the connection after saving and shows the real result (model count or error).
+- **Ollama header updates after save**: Saving a new Ollama URL now auto-pings the new address and immediately updates the header connection dot and label — no page refresh needed.
+
+### 🐛 Bug Fixes
+
+- `forceLogoutUser` used `state.me?.id` — property is `state.activeUser`. Fixed to prevent admins from accidentally logging themselves out.
+
+---
+
+## [v2026.0.6] — 2026-05-17
+
+### ✨ Features
+
+- **Branded toast notifications**: `showToast(msg, type, duration)` — bottom-right slide-in toasts replacing all native `alert()` calls. Types: `success`, `error`, `warning`, `info`.
+- **Branded confirm dialogs**: `showConfirm(msg, onConfirm)` — overlay confirmation dialog replacing all native `confirm()` calls. Consistent with app design system.
+- **Permission groups with colour coding**: The inline employee edit panel now renders permissions in 4 colour-coded groups — Core (green), Models (blue), Workspace (amber), Admin (red) — with coloured headers and bordered sections for instant visual scanning.
+- **CSP fix for admin markdown**: `cdnjs.cloudflare.com` added to `script-src` and `style-src` in the Content Security Policy. This was blocking `marked.js` and `highlight.js` in the admin chat tab, causing plain-text rendering.
+- **Ollama sync diagnosis**: Admin sync button now pings Ollama first with a 10-second timeout. Shows model count on success, shows the exact URL and error on failure. Never hangs indefinitely.
+
+### 🐛 Bug Fixes
+
+- Fixed `syncOllamaModels()` returning a plain array — now returns `{ ok, models, error }` object so callers can distinguish success from failure.
+- Fixed "Ollama connected" showing falsely when Ollama was unreachable — `checkOllama()` now uses the `/api/admin/ollama/ping` diagnostic endpoint.
+
+### 🗑️ Removed
+
+- **Apply Override** card removed from Access Control tab — was confusing and not needed.
+- **Active Sessions** card removed — expanded User Access card to full width.
+- **Security Policies** card removed — expanded Department Defaults card to full width.
+
+---
+
+## [v2026.0.5] — 2026-05-17
+
+### 🐛 Bug Fixes
+
+- **Docker cache not showing changes**: Added `?v=2026.0.x` version query strings to all `<script>` tags. Reduced JS/CSS `Cache-Control` from `max-age=86400` (1 day) to `max-age=300` (5 minutes) so rebuilds are always reflected in the browser.
 
 ---
 
@@ -9,13 +97,13 @@ Format: [Semantic-ish versioning](https://semver.org) with release dates.
 
 ### ✨ Features
 
-- **Inline employee editor**: Each user row in the Admin → Users tab now has an Edit button. Clicking it expands an inline panel below the row containing all editable fields (name, email, role, department, token limits, API rate limit), a full permission checkbox grid, a Change Password button, and a Deactivate/Reactivate button — no page navigation required.
-- **Human-readable permissions**: All permission keys (e.g. `models:local:use`) are now replaced with clear labels (e.g. **Local AI Models**) throughout the admin UI. Every badge and checkbox includes a native tooltip (hover) with a plain-English description of what the permission actually grants.
-- **Permission risk indicators**: High-risk permissions (Terminal & Workspace, Admin Panel) are visually highlighted with a red border on their checkbox cards so admins can spot them at a glance.
+- **Inline employee editor**: Each user row in Admin → Users now has an Edit button. Clicking it expands an inline panel with all editable fields (name, email, role, department, token limits, API rate limit), a full permission checkbox grid, a Change Password button, and a Deactivate / Reactivate button — no page navigation required.
+- **Human-readable permissions**: All permission keys (e.g. `models:local:use`) are replaced with clear labels (e.g. **Local AI Models**) throughout the admin UI. Every badge and checkbox includes a tooltip with a plain-English description.
+- **Permission risk indicators**: High-risk permissions (Terminal & Workspace, Admin Panel) are visually highlighted with a red border on their checkbox cards.
 
 ### 🐛 Bug Fixes
 
-- **Edit panel save**: Saving an employee now PATCHes all fields (name, email, department, role, token limits, rights array) in a single request and re-renders the user list
+- Edit panel save PATCHes all fields (name, email, department, role, token limits, rights array) in a single request and re-renders the user list.
 
 ---
 
@@ -23,30 +111,30 @@ Format: [Semantic-ish versioning](https://semver.org) with release dates.
 
 ### 🔒 Security
 
-- **HSTS**: `Strict-Transport-Security` header now sent on HTTPS connections (1-year max-age, includeSubDomains)
-- **XSS prevention**: AI-generated markdown output now sanitized with DOMPurify before rendering — prevents prompt-injection attacks from executing scripts in the browser
-- **Session fixation fix**: Old session token is now explicitly invalidated when a user logs in — prevents parallel session reuse
-- **Logout CSRF**: `POST /api/auth/logout` now requires `X-Requested-With: XMLHttpRequest` header — prevents cross-origin logout attacks
-- **CSP improvement**: `connect-src` now explicitly allows `ws:` and `wss:` for the WebSocket terminal (was implicitly blocked on some browsers)
-- **workspace:build risk level**: Updated to `critical` in the permission catalog — this permission grants interactive terminal shell access inside the container
+- **HSTS**: `Strict-Transport-Security` header added for HTTPS connections (1-year max-age, includeSubDomains).
+- **XSS prevention**: AI-generated markdown now sanitised with DOMPurify before rendering — prevents prompt-injection attacks from executing scripts in the browser.
+- **Session fixation fix**: Old session token explicitly invalidated on login.
+- **Logout CSRF**: `POST /api/auth/logout` now requires `X-Requested-With: XMLHttpRequest` header.
+- **CSP improvement**: `connect-src` explicitly allows `ws:` and `wss:` for the WebSocket terminal.
+- **`workspace:build` risk level**: Updated to `critical` in the permission catalog — this grants interactive shell access inside the container.
 
 ### ⚡ Performance
 
-- **6 database indexes added** — all were missing, causing full table scans on every chat and report load:
-  - `chat_messages(session_id)` — every message load
-  - `chat_messages(created_at)` — token usage queries and reports
-  - `chat_sessions(user_id, is_active)` — per-user chat session lookup
-  - `audit_events(created_at)` — all report and audit queries
-  - `router_traces(created_at)` — router report queries
+- **6 database indexes added** — all were missing, causing full table scans:
+  - `chat_messages(session_id)` — message load
+  - `chat_messages(created_at)` — usage reports
+  - `chat_sessions(user_id, is_active)` — per-user session lookup
+  - `audit_events(created_at)` — audit/reports
+  - `router_traces(created_at)` — router reports
   - `feedback(message_id)` — feedback lookup
-- **Static asset caching**: JS, CSS, fonts now served with `Cache-Control: public, max-age=86400`; HTML pages served with `no-cache`
+- Static assets served with `Cache-Control: public, max-age=86400`.
 
 ### 🐛 Bug Fixes
 
-- **Chat rate limiting now enforced**: `api_rate_limit_per_minute` per user was stored in the database but never checked server-side — now enforced on both `/api/chat` and `/api/chat/stream` with a sliding-window in-memory limiter
-- **Model status pill**: Fixed wrong status check (`"approved"` → `"available"`) — Ollama models use `"available"` as their active status
-- **Streaming done event**: When the database is closed mid-stream (client disconnect), the done event now sends `messageId: null` instead of a non-existent ID — feedback buttons are correctly hidden when no message was persisted
-- **Feedback submission guard**: `submitFeedback()` now returns early if `messageId` is null — prevents silent 404 API calls
+- Chat rate limiting now enforced server-side on both `/api/chat` and `/api/chat/stream`.
+- Model status pill: fixed wrong status check (`"approved"` → `"available"`).
+- Streaming done event: sends `messageId: null` on DB-closed mid-stream — feedback buttons correctly hidden.
+- `submitFeedback()` returns early if `messageId` is null.
 
 ---
 
@@ -54,20 +142,14 @@ Format: [Semantic-ish versioning](https://semver.org) with release dates.
 
 ### ✨ Features
 
-- **Separate login UX**: Distinct pages for admins (`/admin-login` — dark, professional) and employees (`/login` — warm, friendly). Admin login rejects non-admin accounts with a clear message.
-- **Model connected status**: Hero bar now shows which Ollama model is currently approved and connected.
-- **Daily token usage pill**: Visual usage indicator (`10,000 / 50,000`) with colour-coded progress bar (yellow → amber → red) driven by the new `/api/account/usage` endpoint.
-- **Integrated terminal**: xterm.js PTY terminal panel for workspace:build users; "Run in terminal" button on shell code blocks; backtick keyboard shortcut to toggle.
-- **Admin-only terminal access**: WebSocket terminal gated by `workspace:build` permission or `admin` role.
-
-### 🔒 Security
-
-- `/admin` now redirects unauthenticated visitors to `/admin-login` instead of `/login`.
-- `adminOnly: true` flag sent from admin login page; non-admin users rejected at the browser before session creation.
+- **Separate login pages**: Distinct pages for admins (`/admin-login`) and employees (`/login`). Admin login rejects non-admin accounts with a clear message.
+- **Model connected status pill**: Hero bar shows which model is approved and available.
+- **Daily token usage pill**: Visual `10,000 / 50,000` indicator with colour-coded progress bar.
+- **Integrated terminal**: xterm.js PTY terminal for `workspace:build` users; "Run in terminal" button on shell code blocks.
 
 ### 🛠 API
 
-- `GET /api/account/usage` — returns `tokensUsedToday`, `dailyTokenLimit`, `tokensUsedMonth`, `monthlyTokenLimit` for the logged-in user.
+- `GET /api/account/usage` — returns today's and monthly token usage for the current user.
 
 ---
 
@@ -75,72 +157,31 @@ Format: [Semantic-ish versioning](https://semver.org) with release dates.
 
 ### 🚀 First public MVP release
 
-This is the inaugural release of Olla Nest — a company-ready local AI workspace built on top of Ollama with admin controls, automatic model routing, and enterprise-grade governance.
-
-### ✨ Features
-
 **Core**
-- Auto Router: classifies every request and picks the best approved local model by capability, speed, quality, and privacy score
+- Auto Router: classifies requests and picks the best approved local model by capability, speed, quality, and privacy score
 - SSE streaming chat with real-time token streaming and abort support
 - Manual model override via composer dropdown
-- Sensitive content detection (SSN, credit card, PHI, API keys) forces local-only routing
+- Sensitive content detection forces local-only routing
 
 **Admin Dashboard**
-- Overview tab: live metrics (models, users, groups, departments), audit feed
-- Models tab: Ollama model sync with speed/quality scores, governance tier tagging
-- Users tab: create/edit employees with enterprise profile fields (employee ID, designation, team, branch, manager, department, AI access tier, token limits)
-- Access Control tab: RBAC role catalog, effective access inspector, per-user permission overrides with expiry
-- Settings tab: Auto Router toggle, local write config, workspace root, API model access
-- Providers tab: Ollama status + model pills, API provider configuration (OpenAI, Anthropic, Groq, custom)
-- Reports tab: 10 interactive Chart.js charts (daily activity, model usage, token leaderboard, mode breakdown, dept usage, tier distribution, live vs failed, audit timeline, latency, model efficiency)
-- Chat tab: admin test chat with full router panel
+- Overview · Models · Users · Access Control · Settings · Providers · Reports · Chat tabs
+- RBAC role catalog, effective access inspector, per-user permission overrides
+- 10 interactive Chart.js charts, paginated token leaderboard
 
 **Employee Workspace**
 - Chat history with session management (pin, archive, fork, rename)
-- Workspace integration: generated files saved to configured local folder
-- Profile drawer: edit name, phone, designation, team, branch; change password; enterprise field-locking for SSO accounts
-- Auto Router panel shows which model was selected and why
+- Workspace integration: generated files saved to local folder
+- Profile drawer with enterprise field-locking
 
-**Teams**
-- Teams table with create/delete
-- Team dropdown in user creation with inline team creation modal
-
-**Invitations**
-- Credentials (email + default password) displayed on employee creation with copy-to-clipboard
-- Enterprise note on invite modal
-
-**Reporting**
-- Token leaderboard paginated (10 per page)
-- `tokens_used` and `latency_ms` tracked per assistant message
-
-### 🔒 Security
-
-- Session cookies: `HttpOnly`, `SameSite=Lax`, `Secure` when behind HTTPS
-- Login rate limiting: 10 failed attempts per IP per 15-minute window
-- CSRF protection via `X-Requested-With` header check on all state-changing endpoints
-- HTTP security headers: `X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`, `Referrer-Policy`, `CSP`, `Permissions-Policy`
-- Chat message length limit: 16,000 characters
-- Express JSON body limit: 512 KB
-- Password hashing: bcrypt cost factor 12
-- API key encryption: AES-256-GCM
+**Security**
+- `HttpOnly` session cookies, bcrypt passwords, AES-256-GCM API key encryption
+- Login rate limiting, CSRF protection, HTTP security headers, DOMPurify XSS sanitisation
 - Workspace path traversal protection
-- Filesystem browse restricted to admin role
-- Admin email removed from unauthenticated `/api/bootstrap` response
 
-### 🐛 Bug Fixes
-
-- Fixed SSE streaming crash ("database is not open") — switched `req.on('close')` to `res.on('close')` for correct abort signal timing
-- Fixed admin UI infinite recursion crash on page load — removed hoisted function wrapper pattern
-- Fixed models showing as "available" when Ollama is offline — now marks all ollama models as `missing` on connection failure
-- Fixed Access Control cards overlapping — corrected grid layout for natural equal height
-- Removed mode bar (Ask/Build/Fix/Debug/…) from chat — simplified to single chat UX; router handles task detection
-
-### 🗄️ Database
-
+**Database**
 - SQLite with WAL mode
-- Tables: `users`, `departments`, `groups`, `teams`, `models`, `access_grants`, `role_catalog`, `permission_catalog`, `user_overrides`, `chat_sessions`, `chat_messages`, `audit_events`, `router_traces`, `workspace_prefs`, `api_providers`, `api_models`, `feedback`, `settings`
+- 18 tables: `users`, `departments`, `groups`, `teams`, `models`, `access_grants`, `role_catalog`, `permission_catalog`, `user_overrides`, `chat_sessions`, `chat_messages`, `audit_events`, `router_traces`, `workspace_prefs`, `api_providers`, `api_models`, `feedback`, `settings`
 - Auto migrations via `seedSql()` — safe to upgrade without data loss
-- Migration from legacy `documents.json` to SQLite on startup
 
 ---
 
@@ -150,4 +191,4 @@ _Future changes will be listed here before each release._
 
 ---
 
-*See [VERSION.md](VERSION.md) for a detailed commit-by-commit version tracker.*
+*See [VERSION.md](VERSION.md) for a commit-by-commit version tracker.*

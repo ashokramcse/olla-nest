@@ -1,7 +1,7 @@
 {
   "name": "olla-nest",
-  "version": "1.0.0",
-  "description": "Company-ready local AI workspace for Ollama with admin controls and automatic model routing.",
+  "version": "2026.0.10",
+  "description": "Company-ready AI workspace — local Ollama models, cloud providers (Anthropic/OpenAI/Groq), chat memory, file upload, and full admin control.",
   "main": "server.js",
   "license": "MIT",
   "author": "Ashok Ram",

@@ -1,34 +1,36 @@
 # Olla Nest
 
-**Company-ready local AI workspace built on Ollama.**  
-**Current release: [v2026.0.1.mvp](https://github.com/ashokramcse/olla-nest/releases/tag/v2026.0.1.mvp)**
+**Company-ready AI workspace — local models, cloud providers, and full admin control.**  
+**Current release: [v2026.0.10](https://github.com/ashokramcse/olla-nest/releases/tag/v2026.0.10)**
 
-Olla Nest gives teams a private, admin-controlled AI workspace where employees type once and the system automatically routes each request to the best approved local model — with no cloud dependency, no data leaving the network, and no employee needing to understand model names.
+Olla Nest gives teams a private, admin-controlled AI workspace. Employees type once and the system automatically routes each request to the best available model — whether that is a local Ollama model on your own hardware or a cloud provider like Anthropic or OpenAI. No employee needs to understand model names or manage API keys.
 
 ---
 
 ## What Makes Olla Nest Different
 
-Most AI dashboards make users choose the model. Olla Nest adds a company control layer on top of Ollama:
-
-- **Auto Router** — analyses every request and picks the best approved model automatically
-- **Admin control** — manage which employees, groups, or departments access which models
-- **Local-first** — all AI runs on your infrastructure via Ollama; no API keys, no external calls
-- **Local file output** — generated code files are saved directly to a company workspace folder
-- **Audit trail** — every routing decision and admin action is logged
-- **Reports & analytics** — 10 interactive charts, token usage leaderboard, latency tracking
-- **User profiles** — employee self-service profile with enterprise field-locking for SSO accounts
-- **Teams management** — create and assign teams with inline team creation in user creation flow
-- **Invite workflow** — auto-generated credentials shown on employee creation with copy support
+| Feature | How it works |
+|---|---|
+| **Auto Router** | Classifies every request and picks the best approved model by capability, speed, quality, and privacy score |
+| **Multi-provider** | Ollama (local) + Anthropic, OpenAI, Groq, and any OpenAI-compatible endpoint |
+| **Chat memory** | Sliding-window context history — the model remembers everything said in the current session |
+| **File upload** | Attach images (vision models) or text files directly in the chat composer |
+| **Admin control** | Manage which employees, groups, or departments access which models |
+| **Local-first** | Ollama runs on your own hardware — zero data leaves your network |
+| **Cloud-optional** | Add a provider key in Admin → Providers to unlock cloud models |
+| **Audit trail** | Every routing decision and admin action is logged |
+| **Reports** | 10 interactive charts — token leaderboard, latency by model, dept usage, live vs failed |
+| **Enterprise profiles** | Employee fields (designation, team, branch, manager), SSO-compatible field locking |
+| **Invite workflow** | Auto-generated credentials shown on employee creation with copy support |
 
 ---
 
 ## Requirements
 
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose v2
-- [Ollama](https://ollama.com) running on the host machine with at least one model pulled
+- [Ollama](https://ollama.com) running on the host (for local models), **or** an API key from Anthropic / OpenAI / Groq (for cloud models)
 
-Olla Nest is **Docker-only**. The app intentionally does not support `npm start`, `node server.js`, or a local frontend dev server on the host machine. Docker is the product runtime, so every user, contributor, and deployment follows the same path.
+Olla Nest is **Docker-only**. No `npm start` or local `node server.js`. Docker is the runtime for every environment — dev, staging, production.
 
 ---
 
@@ -50,29 +52,39 @@ Open **http://localhost:3000** — you will be redirected to the login page.
 | Email    | `admin@ollanest.local`            |
 | Password | `CHANGE_ME_ON_FIRST_BOOT` |
 
-> ⚠️ Change the admin password immediately after first login via the avatar pill → **My Profile** or set `DEFAULT_ADMIN_PASSWORD` in `.env` before first boot.
+> ⚠️ Change the admin password immediately after first login via **Admin → Users → Edit** or set `DEFAULT_ADMIN_PASSWORD` in `.env` before first boot.
 
 ---
 
-## Ollama Setup
+## Ollama Setup (Local Models)
 
-Ollama must run on the host machine. The Docker container reaches it via `host.docker.internal`.
+Ollama runs on the host machine. The Docker container reaches it via `host.docker.internal`.
 
-**macOS / Windows Docker Desktop** — works out of the box. No extra config needed.
-
-**Linux** — `extra_hosts: host.docker.internal:host-gateway` is already set in `docker-compose.yml`. Works automatically.
-
-**Ollama on a different machine** — set `OLLAMA_URL` in `.env`:
-
-```env
-OLLAMA_URL=http://192.168.1.50:11434
-```
+| Platform | What to do |
+|---|---|
+| **macOS / Windows** (Docker Desktop) | Works out of the box — no extra config |
+| **Linux** | `host.docker.internal` is set via `extra_hosts` in `docker-compose.yml` — works automatically |
+| **Remote machine** | Set `OLLAMA_URL=http://192.168.x.x:11434` in `.env` |
 
 Pull at least one model before starting:
 
 ```bash
-ollama pull qwen2.5:7b
+ollama pull gemma3:4b        # fast, 4 GB — good default
+ollama pull qwen2.5:7b       # great all-rounder
+ollama pull llama3.1:8b      # strong reasoning, 128k context
 ```
+
+---
+
+## Cloud Provider Setup (Optional)
+
+To use Anthropic, OpenAI, Groq, or any OpenAI-compatible endpoint:
+
+1. Open **Admin → Providers**
+2. Click **Add Provider**, choose your type, enter your API key
+3. Click **Sync Models** — Olla Nest calls the provider's real model list API (no hardcoded lists)
+4. **Approve** the models you want employees to access
+5. Approved models immediately appear in the Auto Router and model picker — no restart needed
 
 ---
 
@@ -86,9 +98,10 @@ DEFAULT_ADMIN_PASSWORD=replace-with-a-strong-password
 DEFAULT_USER_PASSWORD=replace-with-employee-default
 OLLAMA_URL=http://host.docker.internal:11434
 SECRET_KEY=replace-with-a-random-64-char-hex-string
+SESSION_SECRET=replace-with-random-string
 ```
 
-Restart the container after changing `.env`:
+Restart after changing `.env`:
 
 ```bash
 docker compose down && docker compose up --build
@@ -100,140 +113,147 @@ docker compose down && docker compose up --build
 
 | Command | Description |
 |---|---|
-| `docker compose up --build` | Build image and start all services |
-| `docker compose up -d --build` | Same, detached (background) |
-| `docker compose down` | Stop and remove containers |
+| `docker compose up --build` | Build image and start |
+| `docker compose up -d --build` | Build and start in background |
+| `docker compose down` | Stop and remove containers (data persists) |
+| `docker compose down -v` | Stop **and delete all data** (destructive) |
 | `docker compose logs -f app` | Stream app logs |
-| `docker compose restart app` | Restart app (no rebuild — use `up --build` for code changes) |
-| `docker compose pull` | Pull latest base images |
+| `docker compose restart app` | Restart without rebuild |
 
 ---
 
 ## App Routes
 
-| Route | Description |
-|---|---|
-| `/login` | Sign-in page |
-| `/app` | Employee AI workspace |
-| `/admin` | Admin dashboard (admin accounts only) |
+| Route | Who | Description |
+|---|---|---|
+| `/login` | Employees | Employee sign-in |
+| `/admin-login` | Admins | Admin-only sign-in (rejects non-admin accounts) |
+| `/app` | Employees | AI workspace |
+| `/admin` | Admins | Admin dashboard |
 
 ---
 
 ## Employee Workspace (`/app`)
 
-Employees access `/app` and can:
-
-- **Chat** — type any question, Auto Router picks the best model
-- **Generate code** — model returns runnable files; optionally written to a local workspace folder
-- **Manual model select** — override Auto Router via the model picker in the composer
-- **Workspace** — configure a local project folder; generated files are saved there automatically
-- **My Profile** — update name, phone, designation, team, branch; change password (enterprise fields locked for SSO users)
-- **Chat history** — browse, resume, pin, archive, fork past chat threads
+| Feature | Details |
+|---|---|
+| **Chat** | Type anything — Auto Router picks the best approved model automatically |
+| **Chat memory** | The model remembers the full current session via sliding-window history |
+| **File upload** | Attach images (sent to vision models as base64) or text files (appended as code blocks) |
+| **Model picker** | Override Auto Router with a specific model via the composer dropdown |
+| **Mode buttons** | Ask · Build · Review · Fix · Learn · Debug · Test · Docs · Plan |
+| **Workspace** | Configure a local project folder — generated files are saved there automatically |
+| **Chat history** | Browse, resume, pin, archive, fork past chat threads |
+| **Profile** | Edit name, phone, designation, team, branch; change password |
 
 ---
 
 ## Admin Dashboard (`/admin`)
 
-Admins access `/admin` and can:
-
-| Tab | Features |
+| Tab | What you can do |
 |---|---|
-| **Overview** | Live stats: model count, user count, group count, audit feed |
-| **Chat** | Test chat with full router visibility and model streaming |
-| **Models** | Sync Ollama models; set governance tier, resource tier, context size |
-| **Users** | Create employees; set department, team, role, AI access tier; reset passwords; invite credentials shown on creation |
-| **Access Control** | RBAC role catalog, effective access inspector, per-user permission overrides |
-| **Settings** | Auto Router toggle, local write config, workspace root, API model access |
-| **Providers** | Ollama status + model pills; configure OpenAI / Anthropic / Groq / custom providers |
-| **Reports** | 10 interactive charts: daily activity, model usage, token leaderboard (paginated), mode breakdown, department usage, tier distribution, live vs failed, audit timeline, latency by model |
+| **Overview** | Live stats (models, users, groups), audit event feed, quick actions |
+| **Chat** | Admin test chat with full router panel, model streaming, markdown rendering |
+| **Models** | Sync Ollama models; set governance tier, resource tier, speed/quality scores |
+| **Users** | Create employees; set department, team, role, AI access tier, token limits; inline edit panel; permission grid with colour-coded risk groups |
+| **Access Control** | Department permission defaults, RBAC role catalog, per-user permission matrix |
+| **Settings** | Auto Router toggle, local write config, workspace root, API model access, governance defaults |
+| **Providers** | Ollama status + model pills; configure Anthropic/OpenAI/Groq/custom; sync real model lists; approve individual models |
+| **Reports** | 10 interactive Chart.js charts + paginated token leaderboard |
 
 ---
 
-## Auto Model Router
+## Auto Router
 
-The router runs on every request:
+The router runs on every chat message:
 
-1. Classifies the request (coding, writing, medical, OCR, review, general, etc.)
-2. Checks which models the user is approved to access (user, group, department grants)
-3. Scores each candidate model by capability match, speed, quality, and privacy weight
-4. Selects the highest-scoring approved model
-5. Falls back gracefully if no model is available
-6. Enforces local-only routing for sensitive content (SSN, credit card, PHI, API keys detected)
+1. **Classify** — detects request type (coding, writing, reasoning, OCR, medical, general…)
+2. **Authorise** — finds which models the user can access via user, group, and department grants
+3. **Score** — ranks each candidate by capability match × speed × quality × privacy weight
+4. **Select** — picks the highest-scoring approved available model
+5. **Fallback** — if no model is available, returns a clear error with configuration guidance
+6. **Privacy enforcement** — SSN, credit card, PHI, or API key patterns detected → local-only routing regardless of user preferences
 
-The routing decision is visible in the **Auto Router** panel on the right side of the workspace.
+The routing decision (selected model, reason, candidate scores) is shown in the **Auto Router** panel on the right side of the workspace.
+
+---
+
+## Chat Context — How Memory Works
+
+Every chat session's history is stored in SQLite. Before each model call:
+
+1. The system prompt is built (instructions + workspace context + mode)
+2. All prior messages for the session are loaded from the database
+3. A **sliding window** algorithm trims the history to fit the model's context window:
+   - Walks messages **newest → oldest**
+   - Keeps messages until the token budget runs out
+   - Budget = model context limit − system prompt tokens − new message tokens − 512 buffer
+4. The final array sent to the model: `[system, ...history, new user message]`
+
+Context limits are looked up dynamically — from Ollama's `/api/show` for local models, from `api_models.context_window` for cloud providers. No hardcoded model names.
 
 ---
 
 ## Security
 
-Olla Nest v2026.0.1.mvp ships with:
-
-- **Session cookies** — `HttpOnly`, `SameSite=Lax`, `Secure` (when behind HTTPS proxy), 12-hour expiry
-- **Login rate limiting** — 10 failed attempts per IP per 15 minutes before lockout
-- **CSRF protection** — `X-Requested-With` header required on all state-changing endpoints
-- **HTTP security headers** — `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection`, `Referrer-Policy`, `CSP`, `Permissions-Policy`
-- **Input validation** — 16,000 character max on chat messages; 512 KB max JSON body
-- **Password hashing** — bcrypt with cost factor 12
-- **API key encryption** — AES-256-GCM for stored provider keys
-- **Workspace path traversal protection** — file writes restricted to workspace root
-- **Admin-only filesystem browse** — `/api/workspace/browse` restricted to admin role
-- **Sensitive content detection** — SSN, credit card, PHI patterns force local-only model routing
+| Control | Details |
+|---|---|
+| Session cookies | `HttpOnly`, `SameSite=Lax`, `Secure` (HTTPS), 12-hour expiry |
+| Login rate limiting | 10 failed attempts per IP per 15 minutes |
+| CSRF protection | `X-Requested-With` header required on all state-changing requests |
+| HTTP security headers | `X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`, `Referrer-Policy`, CSP, `Permissions-Policy` |
+| Input validation | 16,000 char max on messages; 512 KB max JSON body |
+| Password hashing | bcrypt cost factor 12 |
+| API key encryption | AES-256-GCM for all stored provider keys |
+| XSS sanitisation | AI output sanitised with DOMPurify before rendering |
+| Path traversal | File writes restricted to workspace root |
+| Sensitive content | SSN, credit card, PHI patterns → force local-only routing |
 
 ---
 
 ## Data Storage
 
-Olla Nest uses local SQLite inside the Docker volume — no external databases required.
+SQLite inside a Docker volume — no external database required.
 
-| Store | File | Contains |
+| What | Where | Contains |
 |---|---|---|
-| SQLite | `/app/data/olla-nest.sqlite` | Users, roles, permissions, departments, groups, teams, models, chat sessions, messages, audit, router traces |
-| Volume | `app-data` | Persistent data across restarts |
-
-Data persists across `docker compose down / up` via the named `app-data` volume. To reset all data:
-
-```bash
-docker compose down -v   # removes the volume — destructive
-```
+| Database | `/app/data/olla-nest.sqlite` | Users, roles, permissions, departments, models, chats, audit, router traces, provider config |
+| Volume | `app-data` (named Docker volume) | Persists across restarts |
+| Workspace | Configurable path (bind mount) | Generated files from Build mode |
 
 ---
 
 ## Project Structure
 
 ```text
-server.js               Express backend — API, auth, routing, Ollama, SSE streaming
-package.json            Scripts and metadata
+server.js               Express backend — all API routes, auth, routing engine, Ollama sync, SSE streaming
+package.json            Metadata and npm scripts
 public/
-  login.html            Sign-in page
-  login.js
-  app.html              Employee workspace
-  app.js
-  admin.html            Admin dashboard (3,700+ lines)
-  admin.js              Admin JS logic (1,300+ lines)
-  dropdown.js           Shared dropdown utility
-  styles.css            Design system
-data/                   Generated at runtime — gitignored
+  login.html / login.js         Employee sign-in page
+  app.html   / app.js           Employee workspace SPA
+  admin.html / admin.js         Admin dashboard SPA (~3,700 + ~1,300 lines)
+  dropdown.js                   Shared dropdown utility
+  styles.css                    Design system
+data/                   Runtime only — gitignored
   olla-nest.sqlite
   workspace/
-infra/
-  postgres/init.sql     Future production PostgreSQL schema
+docs/
+  ARCHITECTURE.md               System design and component diagram
+  ENTERPRISE_ACCESS_CONTROL.md  RBAC, permission groups, department defaults
+  DEPLOYMENT.md                 Production deployment guide
+CHANGELOG.md            Full version history
+VERSION.md              Version tracker with per-commit log
+CONTRIBUTING.md         Contribution guide
 docker-compose.yml      App service with volume and host routing
 Dockerfile              Node 24 Alpine image
 .env.example            Environment variable reference
-docs/
-  ARCHITECTURE.md
-  ENTERPRISE_ACCESS_CONTROL.md
-  DEPLOYMENT.md
-CHANGELOG.md            Full version history
-VERSION.md              Version tracker with commit log
-CONTRIBUTING.md
 ```
 
 ---
 
 ## Production Deployment
 
-For a team or company deployment, set real credentials in `.env` before first boot:
+Set real credentials before first boot:
 
 ```env
 DEFAULT_ADMIN_EMAIL=admin@yourcompany.com
@@ -244,34 +264,32 @@ SECRET_KEY=replace-with-64-char-hex
 SESSION_SECRET=replace-with-random-string
 ```
 
-Then start:
-
 ```bash
 docker compose up -d --build
 ```
 
-Put Nginx or a reverse proxy in front for HTTPS and a custom domain.
+Put Nginx or Caddy in front for HTTPS and a custom domain. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for a full guide.
 
 ---
 
 ## Roadmap
 
 - [ ] Real SSO / LDAP / SAML integration
+- [ ] RAG document knowledge base
 - [ ] Department and group policy editor UI
-- [ ] Visual diff for generated file changes
-- [ ] Full RAG / document knowledge base
-- [ ] API model provider integration (OpenAI, Anthropic, Groq) — foundation in place
 - [ ] Usage analytics dashboard for employees
+- [ ] Visual diff for generated file changes
 - [ ] Desktop app (Tauri) for macOS, Windows, Linux
-- [ ] Mobile app
+- [ ] Mobile PWA
 - [ ] Team-based workspace folders
 - [ ] Webhook / notification support for admin alerts
+- [ ] Conversation summarisation for ultra-long sessions
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Contributions should keep the project:
+See [CONTRIBUTING.md](CONTRIBUTING.md). Keep contributions:
 - Local-first and self-hostable
 - Simple to run (Docker only)
 - Safe for employees (no data exfiltration)
@@ -279,12 +297,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Contributions should keep the project:
 
 ---
 
-## Sponsoring
-
-If Olla Nest is saving your team time or money, consider [sponsoring the project on GitHub](https://github.com/sponsors/ashokramcse). Every sponsor helps fund continued development, security updates, and new features.
-
----
-
 ## Links
 
-[Architecture](docs/ARCHITECTURE.md) · [Enterprise Access Control](docs/ENTERPRISE_ACCESS_CONTROL.md) · [Deployment](docs/DEPLOYMENT.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Releases](https://github.com/ashokramcse/olla-nest/releases)
+[Architecture](docs/ARCHITECTURE.md) · [Enterprise Access Control](docs/ENTERPRISE_ACCESS_CONTROL.md) · [Deployment](docs/DEPLOYMENT.md) · [Changelog](CHANGELOG.md) · [Version History](VERSION.md) · [Contributing](CONTRIBUTING.md) · [Releases](https://github.com/ashokramcse/olla-nest/releases)
