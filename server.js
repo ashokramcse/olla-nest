@@ -2340,7 +2340,13 @@ app.get("/api/state", requireAuth, async (req, res) => {
       const sessions = db.prepare("SELECT * FROM chat_sessions WHERE is_active = 1 ORDER BY updated_at DESC").all();
       chats = sessions.map(s => buildChatObject(db, s));
     } else {
-      chats = [getActiveChat(db, user.id)];
+      // Ensure an active session exists (creates one if the user has none)
+      getActiveChat(db, user.id);
+      // Return ALL sessions for this user so the sidebar shows full chat history
+      const allSessions = db.prepare(
+        "SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY pinned DESC, updated_at DESC LIMIT 50"
+      ).all(user.id);
+      chats = allSessions.map(s => buildChatObject(db, s));
     }
     const auditRows = db.prepare("SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 30").all();
     const audit = auditRows.map(r => ({ id: r.id, actor: r.actor, action: r.action, detail: r.detail, extra: safeJson(r.extra_json, {}), createdAt: r.created_at }));

@@ -294,7 +294,7 @@ function renderSidebarChats() {
   el.innerHTML = chats.map(c => {
     const title = esc(c.title || "New Chat");
     const ago = timeAgo(c.updatedAt || c.createdAt);
-    const isActive = c.id === (state.chats?.[0]?.id);
+    const isActive = c.isActive === 1 || c.isActive === true;
     const pinned = c.pinned ? " pinned" : "";
     return `<div class="sidebar-chat-item${isActive ? " active" : ""}${pinned}" data-chat-id="${esc(c.id)}" title="${title}">
       <div class="chat-pin-dot"></div>
