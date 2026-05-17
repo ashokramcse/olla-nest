@@ -55,7 +55,10 @@ function renderSidebar() {
   $("adminLink").style.display = u.role === "admin" ? "flex" : "none";
 
   // Welcome bar
-  const firstName = (u.name || "").split(" ")[0];
+  // If name looks like an email (old autofill bug), use the part before @
+  const rawName = u.name || u.email || "";
+  const displayName = rawName.includes("@") ? rawName.split("@")[0] : rawName;
+  const firstName = displayName.split(" ")[0];
   $("topbarTitle").textContent = `Welcome, ${firstName}`;
   $("topbarSub").textContent = `${dept?.name || "General"} · Auto Router active`;
   const statWs = document.getElementById("statWorkspace");
@@ -120,7 +123,7 @@ function renderSidebar() {
     $("permissionModeSelect").value = ws.permissionMode || "default";
   }
 
-  // Access policy
+  // Access policy (profile drawer)
   const rights = u.rights || [];
   $("accessPolicy").innerHTML = `
     <strong>${u.email || ""}</strong><br>
@@ -128,6 +131,60 @@ function renderSidebar() {
     <span style="font-size:11px;">Rights: ${rights.map(r => `<span class="badge badge-indigo" style="margin:1px 2px;">${esc(r)}</span>`).join(" ")}</span><br><br>
     <span style="font-size:12px;">${models.length} model${models.length !== 1 ? "s" : ""} approved — access comes from your user, group, and department grants.</span>
   `;
+
+  // Sidebar "My Access" card — show rights as pills
+  const accessRightsEl = document.getElementById("sidebarAccessRights");
+  if (accessRightsEl) {
+    const rightLabels = {
+      "chat:use": "Chat",
+      "models:local:use": "Local Models",
+      "models:coding:use": "Coding Models",
+      "models:reasoning:use": "Reasoning Models",
+      "models:external:use": "External Models",
+      "workspace:build": "Terminal",
+      "files:upload": "File Upload",
+      "tools:call": "Tools",
+      "api:use": "API Access",
+      "admin:manage": "Admin",
+      "users:manage": "User Mgmt",
+      "models:manage": "Model Mgmt",
+      "audit:read": "Audit Logs",
+    };
+    accessRightsEl.innerHTML = rights.map(r =>
+      `<span class="right-badge">${esc(rightLabels[r] || r)}</span>`
+    ).join("") || `<span style="font-size:12px;color:var(--mute);">No rights configured</span>`;
+  }
+
+  // Terminal note in access card
+  const termNote = document.getElementById("sidebarTerminalNote");
+  const canTerminal = u.role === "admin" || rights.includes("workspace:build");
+  if (termNote) termNote.style.display = canTerminal ? "block" : "none";
+
+  // Role chip in sidebar profile card
+  const roleChip = document.getElementById("sidebarRoleChip");
+  if (roleChip) roleChip.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
+
+  // Sidebar chat history
+  renderSidebarChats();
+}
+
+function renderSidebarChats() {
+  const el = document.getElementById("sidebarChats");
+  if (!el) return;
+  const chats = state.chats || [];
+  if (!chats.length) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--mute);padding:4px 0;">No conversations yet</div>`;
+    return;
+  }
+  el.innerHTML = chats.map(c => {
+    const title = esc(c.title || "New Chat");
+    const ago = timeAgo(c.updatedAt || c.createdAt);
+    const isActive = c.id === (state.chats?.[0]?.id);
+    return `<div class="sidebar-chat-item${isActive ? " active" : ""}" title="${title}" data-chat-id="${esc(c.id)}">
+      <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;">${title}</div>
+      <div class="sidebar-chat-time">${ago}</div>
+    </div>`;
+  }).join("");
 }
 
 function renderMarkdown(content) {
@@ -308,10 +365,23 @@ $("writeToWorkspace").addEventListener("change", (e) => {
   $("writeToggleLabel").classList.toggle("enabled", e.target.checked);
 });
 
-$("newChatBtn").addEventListener("click", async () => {
+async function startNewChat() {
   await api("/api/chat/clear", { method: "POST", body: "{}" });
   renderRouter(null);
   await loadState();
+}
+$("newChatBtn").addEventListener("click", startNewChat);
+
+// Sidebar new chat button
+const sideNewChatBtn = document.getElementById("newChatSideBtn");
+if (sideNewChatBtn) sideNewChatBtn.addEventListener("click", startNewChat);
+
+// Sidebar chat item click — delegate
+document.getElementById("sidebarChats")?.addEventListener("click", (e) => {
+  const item = e.target.closest(".sidebar-chat-item");
+  if (!item) return;
+  // For now users have one session — just scroll chat to top
+  document.getElementById("messages")?.scrollTo({ top: 0, behavior: "smooth" });
 });
 
 let activeStreamReader = null;

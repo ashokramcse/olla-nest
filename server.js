@@ -942,6 +942,24 @@ function allowedModelIds(db, user) {
   for (const [type, id] of subjects) {
     stmt.all(type, id).forEach((row) => ids.add(row.model_id));
   }
+
+  // If user has models:local:use (or models:manage) via their rights OR department defaults,
+  // grant access to all available local (non-API) models.
+  // This ensures newly created users don't get "No approved active model" just because
+  // no explicit access_grants rows exist for them yet.
+  const effectiveRights = new Set([
+    ...(user.rights || []),
+    ...departmentDefaults(user.departmentId),
+  ]);
+  if (effectiveRights.has("models:local:use") || effectiveRights.has("models:manage") || effectiveRights.has("models:external:use")) {
+    rows(db, "SELECT id FROM models WHERE provider != 'api' AND status != 'disabled'")
+      .forEach(row => ids.add(row.id));
+  }
+  if (effectiveRights.has("models:external:use") || effectiveRights.has("api:use")) {
+    rows(db, "SELECT id FROM models WHERE provider = 'api' AND status != 'disabled'")
+      .forEach(row => ids.add(row.id));
+  }
+
   for (const override of userOverrides(db, user.id)) {
     if (!override.modelId) continue;
     if (override.expiresAt && new Date(override.expiresAt).getTime() < Date.now()) continue;
@@ -1668,7 +1686,7 @@ app.get("/api/workspace/browse", requireAdmin, (req, res) => {
   }
 });
 
-app.post("/api/workspace/local-settings", requireAdmin, (req, res) => {
+app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
   const db = openSql();
   try {
     const workspaceRootInput = String(req.body.workspaceRoot || "").trim();

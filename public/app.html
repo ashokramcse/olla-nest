@@ -188,6 +188,13 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
 
 /* Workspace */
 .ws-path{font-size:12px;color:var(--mute);font-family:'Fira Code',monospace;word-break:break-all;margin-bottom:8px;background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;line-height:1.5;display:block;overflow-wrap:break-word;}
+/* Sidebar chat history */
+.sidebar-chat-item{padding:8px 10px;border-radius:12px;cursor:pointer;transition:background .15s;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid transparent;}
+.sidebar-chat-item:hover{background:rgba(0,0,0,0.05);}
+.sidebar-chat-item.active{background:rgba(0,0,0,0.07);border-color:#00000012;}
+.sidebar-chat-time{font-size:11px;color:var(--mute);margin-top:1px;}
+/* Access rights badges */
+.right-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:500;background:rgba(0,0,0,0.06);color:var(--ink-2);border:1px solid #00000010;}
 .ws-mode-tag{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:var(--yellow);color:var(--ink);font-size:11px;font-weight:500}
 
 /* Chat */
@@ -465,8 +472,21 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
         <div class="user-name-lg" id="userName">Loading…</div>
         <div class="user-sub" id="userMeta">workspace</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;">
-          <div class="role-chip">Member</div>
+          <div class="role-chip" id="sidebarRoleChip">Member</div>
           <span style="font-size:11px;color:#ffffff80;background:rgba(255,255,255,0.1);padding:3px 8px;border-radius:6px;">Edit profile →</span>
+        </div>
+      </div>
+
+      <!-- Chat history (user's conversations) -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Chats</div>
+          <button class="card-action" id="newChatSideBtn" title="New chat">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div id="sidebarChats" style="display:flex;flex-direction:column;gap:4px;">
+          <div style="font-size:12px;color:var(--mute);padding:4px 0;">Loading…</div>
         </div>
       </div>
 
@@ -483,58 +503,15 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
         </div>
       </div>
 
-      <!-- Capability coverage -->
-      <div class="card" id="capabilityCard" style="display:none;">
+      <!-- Access level (user's rights) -->
+      <div class="card" id="accessLevelCard">
         <div class="card-head">
-          <div class="card-title">Coverage</div>
+          <div class="card-title">My Access</div>
         </div>
-        <div class="mini-bar-row">
-          <span class="mini-bar-label">Reasoning</span>
-          <div class="mini-bar-track"><div class="mini-bar-fill yellow" style="width:80%"></div></div>
-          <span class="mini-bar-pct">80%</span>
-        </div>
-        <div class="mini-bar-row">
-          <span class="mini-bar-label">Code</span>
-          <div class="mini-bar-track"><div class="mini-bar-fill green" style="width:90%"></div></div>
-          <span class="mini-bar-pct">90%</span>
-        </div>
-        <div class="mini-bar-row">
-          <span class="mini-bar-label">Speed</span>
-          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:65%"></div></div>
-          <span class="mini-bar-pct">65%</span>
-        </div>
-        <div class="mini-bar-row">
-          <span class="mini-bar-label">Privacy</span>
-          <div class="mini-bar-track"><div class="mini-bar-fill green" style="width:100%"></div></div>
-          <span class="mini-bar-pct">100%</span>
-        </div>
-      </div>
-
-      <!-- Workspace -->
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title">Workspace</div>
-          <button class="card-action" id="configWorkspaceBtn" title="Configure">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          </button>
-        </div>
-        <div class="ws-path" id="workspacePath">Not configured</div>
-        <div id="workspaceModeTag"></div>
-
-        <div id="workspaceConfigPanel" style="display:none;" class="ws-config-panel">
-          <div style="font-size:12px;color:var(--mute);margin-bottom:8px;">Folder path</div>
-          <input class="ap-input" id="workspaceFolderInput" placeholder="/path/to/project" />
-          <div style="font-size:12px;color:var(--mute);margin-bottom:6px;">Permission mode</div>
-          <select class="ap-input" id="permissionModeSelect" style="margin-bottom:10px;">
-            <option value="default">Approve writes</option>
-            <option value="review">Auto-review</option>
-            <option value="full">Full access</option>
-          </select>
-          <div style="display:flex;gap:8px;">
-            <button class="ap-btn dark" id="saveWorkspaceBtn" style="flex:1;padding:9px;">Save</button>
-            <button class="ap-btn ghost" id="cancelWorkspaceBtn" style="flex:1;padding:9px;">Cancel</button>
-          </div>
-          <div id="workspaceSaveMsg" style="font-size:12px;color:var(--green-deep);margin-top:6px;min-height:14px;"></div>
+        <div id="sidebarAccessRights" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+        <div id="sidebarTerminalNote" style="display:none;font-size:11px;color:var(--mute);border-top:1px solid #00000010;padding-top:8px;margin-top:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Terminal access enabled — press <kbd style="background:#00000012;border-radius:3px;padding:1px 4px;font-size:10px;">` </kbd> or click the <strong>&gt;_</strong> button (bottom-right).
         </div>
       </div>
 
@@ -635,6 +612,34 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
         <div class="info-row">
           <span class="info-row-label">Runtime</span>
           <span class="info-row-value">Local</span>
+        </div>
+      </div>
+
+      <!-- Workspace -->
+      <div class="card" style="margin-top:16px;">
+        <div class="card-head">
+          <div class="card-title">Workspace</div>
+          <button class="card-action" id="configWorkspaceBtn" title="Configure workspace folder">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </button>
+        </div>
+        <div class="ws-path" id="workspacePath">Not configured</div>
+        <div id="workspaceModeTag"></div>
+
+        <div id="workspaceConfigPanel" style="display:none;" class="ws-config-panel">
+          <div style="font-size:12px;color:var(--mute);margin-bottom:8px;">Folder path</div>
+          <input class="ap-input" id="workspaceFolderInput" placeholder="/path/to/project" />
+          <div style="font-size:12px;color:var(--mute);margin-bottom:6px;">Permission mode</div>
+          <select class="ap-input" id="permissionModeSelect" style="margin-bottom:10px;">
+            <option value="default">Approve writes</option>
+            <option value="review">Auto-review</option>
+            <option value="full">Full access</option>
+          </select>
+          <div style="display:flex;gap:8px;">
+            <button class="ap-btn dark" id="saveWorkspaceBtn" style="flex:1;padding:9px;">Save</button>
+            <button class="ap-btn ghost" id="cancelWorkspaceBtn" style="flex:1;padding:9px;">Cancel</button>
+          </div>
+          <div id="workspaceSaveMsg" style="font-size:12px;color:var(--green-deep);margin-top:6px;min-height:14px;"></div>
         </div>
       </div>
 
