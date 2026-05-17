@@ -165,13 +165,14 @@ function renderSidebar() {
   const availableModels = allowedModels();
   $("sidebarModels").innerHTML = allConfigured.length
     ? allConfigured.map(m => {
-        const isAvailable = m.status === "available";
-        const dotStyle = isAvailable ? "" : `style="background:#555"`;
-        const nameStyle = isAvailable ? "" : `style="color:#999"`;
-        const badge = isAvailable ? "" : `<span style="font-size:10px;color:#777;margin-left:auto;background:#2a2a2a;border-radius:4px;padding:1px 5px;">${m.status}</span>`;
-        return `<div class="model-item">${badge}<div class="model-dot" ${dotStyle}></div><div class="model-name" title="${esc(m.name)}" ${nameStyle}>${esc(m.name)}</div></div>`;
+        const ok = m.status === "available";
+        return `<div class="model-item">
+          <div class="model-dot" style="background:${ok ? "#4caf50" : "#555"};flex-shrink:0;"></div>
+          <div class="model-name" title="${esc(m.name)}" style="color:${ok ? "" : "#888"}">${esc(m.name)}</div>
+          ${ok ? "" : `<span style="margin-left:auto;font-size:10px;color:#555;font-style:italic;">offline</span>`}
+        </div>`;
       }).join("")
-    : `<div class="model-item"><div class="model-dot" style="background:#555"></div><div class="model-name" style="color:#999">No approved models</div></div>`;
+    : `<div class="model-item"><div class="model-dot" style="background:#555;flex-shrink:0;"></div><div class="model-name" style="color:#999">No approved models</div></div>`;
 
   // Repopulate the Claude-style picker dropdown — only AVAILABLE models shown
   populateAppModelPicker(availableModels);

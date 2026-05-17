@@ -1048,7 +1048,7 @@ function ollamaUrl(db) {
 
 /**
  * Fetches the list of installed models from Ollama's /api/tags endpoint.
- * Times out after 15 seconds so a slow/unreachable Ollama does not block the request.
+ * Times out after 3 seconds so a slow/unreachable Ollama does not block page load.
  *
  * @param {string} [url=OLLAMA_URL] - Ollama base URL.
  * @returns {Promise<Array>} Array of model objects as returned by Ollama (name, size, etc.).
@@ -1057,7 +1057,7 @@ function ollamaUrl(db) {
 async function fetchOllamaModels(url = OLLAMA_URL) {
   const baseUrl = cleanBaseUrl(url);
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 15000);
+  const t = setTimeout(() => controller.abort(), 3000);
   let response;
   try {
     response = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal });
@@ -1606,7 +1606,7 @@ async function fetchOllamaModelInfo(baseUrl, modelName) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: modelName }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -2330,6 +2330,8 @@ app.get("/api/state", requireAuth, async (req, res) => {
   const db = openSql();
   try {
     setSetting(db, "activeUserId", req.user.id);
+    // Sync Ollama with a hard 3-second timeout (enforced inside fetchOllamaModels).
+    // If Ollama is unreachable the sync fails fast and marks models "missing" in DB.
     await syncOllamaModels(db).catch(() => ({ ok: false, models: [] }));
     const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
     const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
