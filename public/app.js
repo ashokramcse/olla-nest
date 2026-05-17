@@ -1,18 +1,65 @@
+/**
+ * @file app.js
+ * @description Olla Nest — main workspace SPA script (served at /app).
+ *
+ * Responsibilities:
+ *   - Loads full application state from GET /api/state on boot and after each chat turn
+ *   - Renders the sidebar (user info, allowed models, chat history, workspace config)
+ *   - Handles SSE-based streaming chat via POST /api/chat/stream
+ *   - Renders AI responses using marked.js (Markdown) + DOMPurify (XSS sanitisation)
+ *   - Shows router decision panel (selected model, reason, candidate scores)
+ *   - Manages file upload queue (images + text, up to 5 attachments)
+ *   - Renders the Claude-style model picker dropdown with context window sizes
+ *   - Handles password change, workspace folder save, and logout flows
+ *
+ * Global state:
+ *   `state`   — the last full response from /api/state (models, user, chats, workspace, settings)
+ *   `activeMode` — currently selected chat mode (ask|build|review|fix|learn|debug|test|docs|plan)
+ *   `uploadedFiles` — files queued for the next message [{name, type, data}]
+ *
+ * Key flows:
+ *   Page load → loadState() → renderSidebar() + renderMessages()
+ *   User submits → chatForm submit → SSE stream → token events → renderMarkdown()
+ *     → done event → loadState() (refresh sidebar + chat history)
+ */
+
 let state = null;
 let activeMode = "ask";
 let accountOpen = false;
 let workspaceConfigOpen = false;
 
+/** Shorthand: getElementById */
 const $ = (id) => document.getElementById(id);
+/** Shorthand: querySelector */
 const $q = (sel) => document.querySelector(sel);
+/** Shorthand: querySelectorAll → Array */
 const $all = (sel) => Array.from(document.querySelectorAll(sel));
 
+/**
+ * HTML-escapes a value for safe insertion into innerHTML.
+ * Converts the five dangerous HTML characters to their entity equivalents.
+ * Always call this before inserting any server-provided or user-provided string into HTML.
+ *
+ * @param {*} v - Value to escape (non-strings are coerced via String()).
+ * @returns {string} Safe HTML string.
+ */
 function esc(v) {
   return String(v ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
+/**
+ * Wrapper around fetch() for all JSON API calls.
+ * Always adds Content-Type and X-Requested-With headers (the latter satisfies
+ * the server's CSRF guard on state-changing requests).
+ * Redirects to /login on 401 so all callers can assume the user is authenticated.
+ *
+ * @param {string} path - API path (e.g. "/api/state").
+ * @param {RequestInit} [opts={}] - fetch() options (method, body, etc.).
+ * @returns {Promise<object|null>} Parsed JSON response, or null on 401.
+ * @throws {Error} On non-2xx responses (message from data.error).
+ */
 async function api(path, opts = {}) {
   const headers = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...(opts.headers || {}) };
   const res = await fetch(path, { ...opts, headers });
@@ -22,10 +69,23 @@ async function api(path, opts = {}) {
   return data;
 }
 
+/**
+ * Generates 1–2 uppercase initials from a display name.
+ * "Jane Smith" → "JS", "Alice" → "A", undefined → "?"
+ *
+ * @param {string} name - Display name.
+ * @returns {string} 1–2 character initials string.
+ */
 function initials(name) {
   return (name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
+/**
+ * Filters the global state.models list to the models the current user is
+ * allowed to use.  Also hides API models when allowApiModels is false globally.
+ *
+ * @returns {object[]} Array of allowed model objects from state.
+ */
 function allowedModels() {
   if (!state) return [];
   return state.models.filter(m =>
@@ -35,6 +95,13 @@ function allowedModels() {
   );
 }
 
+/**
+ * Returns a human-friendly relative time string ("3m ago", "2h ago", "1d ago").
+ * Used in the sidebar chat history and message footers.
+ *
+ * @param {string|null} iso - ISO 8601 timestamp string.
+ * @returns {string} Relative time label or "" if iso is falsy.
+ */
 function timeAgo(iso) {
   if (!iso) return "";
   const diff = Date.now() - new Date(iso).getTime();
@@ -46,6 +113,12 @@ function timeAgo(iso) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+/**
+ * Re-renders the entire sidebar from the current global `state`.
+ * Called after every loadState() — covers user info, department, model list,
+ * model picker, token usage pill, workspace path, access policy card,
+ * terminal FAB visibility, and the chat history list.
+ */
 function renderSidebar() {
   const u = state.activeUser;
   $("userAvatar").textContent = initials(u.name);
@@ -170,6 +243,11 @@ function renderSidebar() {
   renderSidebarChats();
 }
 
+/**
+ * Renders the compact chat history list in the sidebar.
+ * Shows title + relative time for each session in state.chats.
+ * The first chat (most recent active) is highlighted.
+ */
 function renderSidebarChats() {
   const el = document.getElementById("sidebarChats");
   if (!el) return;
@@ -189,6 +267,21 @@ function renderSidebarChats() {
   }).join("");
 }
 
+/**
+ * Converts a Markdown string to safe HTML for display in the chat UI.
+ *
+ * Uses marked.js with a custom renderer that adds:
+ *   - Language label on code fences
+ *   - "Copy" button on every code block
+ *   - "Run in terminal" button on single-line shell-like commands
+ *
+ * Output is sanitised with DOMPurify (allowing onclick attributes so the
+ * Copy/Run buttons work) to prevent XSS from AI-generated HTML.
+ * Falls back to a plain <pre> if marked.js is not loaded.
+ *
+ * @param {string} content - Raw Markdown/text from the model.
+ * @returns {string} Safe HTML string.
+ */
 function renderMarkdown(content) {
   if (typeof marked === "undefined") return `<pre style="white-space:pre-wrap;">${esc(content)}</pre>`;
   marked.setOptions({ breaks: true, gfm: true });
@@ -212,6 +305,12 @@ function renderMarkdown(content) {
     : raw;
 }
 
+/**
+ * Copies the code inside the nearest code block to the clipboard.
+ * Provides brief "Copied!" feedback on the button, then resets after 2s.
+ *
+ * @param {HTMLButtonElement} btn - The "Copy" button element inside the code block.
+ */
 function copyCode(btn) {
   const code = btn.parentElement.querySelector("code").innerText;
   navigator.clipboard.writeText(code).then(() => {
@@ -220,6 +319,13 @@ function copyCode(btn) {
   });
 }
 
+/**
+ * Sends a code block's content to the embedded terminal via the global
+ * window.termSendCommand() function (set up by the terminal panel script).
+ * Shows an alert if the terminal is not available (no workspace:build right).
+ *
+ * @param {HTMLButtonElement} btn - The "Run" button inside the code block.
+ */
 function runInTerminal(btn) {
   const code = btn.closest(".md-code-block").querySelector("code").innerText.trim();
   if (!code) return;
@@ -238,6 +344,12 @@ function runInTerminal(btn) {
   }
 }
 
+/**
+ * Re-renders the entire messages list from state.chats.
+ * User bubbles show plain text; assistant bubbles use renderMarkdown().
+ * Each assistant message footer shows: model name tag, saved artifact chips.
+ * Auto-scrolls to the bottom after rendering.
+ */
 function renderMessages() {
   const chat = state.chats?.find(c => c.userId === state.activeUser.id) || state.chats?.[0];
   const msgs = chat?.messages || [];
@@ -276,6 +388,13 @@ function renderMessages() {
   $("messages").scrollTop = $("messages").scrollHeight;
 }
 
+/**
+ * Renders the Auto Router panel (right sidebar) showing which model was chosen,
+ * the routing reason, capability tags, and the top candidate scores.
+ * Call with null to show the default empty-state prompt.
+ *
+ * @param {{ selected: object, reason: string, tags: string[], candidates: object[] }|null} route
+ */
 function renderRouter(route) {
   if (!route || !route.selected) {
     $("routerContent").innerHTML = `<div class="router-empty">Send a request to see how Auto Router selects the best model for your task.</div>`;
@@ -298,6 +417,12 @@ function renderRouter(route) {
     </div>`;
 }
 
+/**
+ * Fetches full application state from GET /api/state and re-renders the UI.
+ * Sets window.state so the terminal panel and other scripts can access it.
+ * Also dispatches a "olla-state-updated" CustomEvent with the new state for
+ * any listeners that need to react (e.g. terminal workspace path sync).
+ */
 async function loadState() {
   state = await api("/api/state");
   if (!state) return;
@@ -308,6 +433,11 @@ async function loadState() {
   window.dispatchEvent(new CustomEvent("olla-state-updated", { detail: state }));
 }
 
+/**
+ * Fetches today's and this month's token usage from GET /api/account/usage
+ * and updates the token usage pill in the sidebar.
+ * The bar turns orange at 70% and red at 90% of the daily limit.
+ */
 async function loadTokenUsage() {
   const pill = document.getElementById("statTokenPill");
   const used = document.getElementById("statTokenUsed");
@@ -326,6 +456,10 @@ async function loadTokenUsage() {
   } catch {}
 }
 
+/**
+ * Polls GET /api/ollama/models to check whether Ollama is reachable and updates
+ * the status dot + label in the sidebar header.
+ */
 async function checkOllama() {
   const label = $("ollamaStatus");
   const dot = $("ollamaStatusDot");
@@ -345,6 +479,11 @@ async function checkOllama() {
   }
 }
 
+/**
+ * Shows or hides the "Save to workspace" toggle based on whether the user has
+ * a workspace configured.  Auto-checks the toggle if permissionMode is "full"
+ * (meaning writes are always approved without the user toggling each time).
+ */
 function updateWriteToggle() {
   const label = $("writeToggleLabel");
   const ws = state?.workspace;
@@ -367,6 +506,11 @@ $("writeToWorkspace").addEventListener("change", (e) => {
   $("writeToggleLabel").classList.toggle("enabled", e.target.checked);
 });
 
+/**
+ * Archives the current chat thread and starts a fresh one.
+ * POSTs to /api/chat/clear then reloads state so the sidebar and message
+ * panel both reflect the new empty session.
+ */
 async function startNewChat() {
   await api("/api/chat/clear", { method: "POST", body: "{}" });
   renderRouter(null);
@@ -390,6 +534,16 @@ let activeStreamReader = null;
 let streamingSessionId = null;
 let streamingMessageId = null;
 
+/**
+ * Submits a thumbs-up (1) or thumbs-down (-1) rating for an assistant message.
+ * Called from the feedback buttons injected into assistant message wrappers after streaming.
+ * Marks the clicked button with "voted" CSS class for visual confirmation.
+ *
+ * @param {HTMLButtonElement} btn - The thumb button that was clicked.
+ * @param {string|null} messageId - The persisted chat_messages.id (null if stream failed).
+ * @param {string} sessionId - The chat_sessions.id for the current thread.
+ * @param {1|-1} rating - Thumbs up (1) or thumbs down (-1).
+ */
 function submitFeedback(btn, messageId, sessionId, rating) {
   if (!messageId) return; // no persisted message (e.g. DB was closed during stream)
   fetch("/api/feedback", {
@@ -402,6 +556,21 @@ function submitFeedback(btn, messageId, sessionId, rating) {
   }).catch(() => {});
 }
 
+/**
+ * Chat form submit handler — the main user interaction entry point.
+ *
+ * Flow:
+ *  1. Disable send button, show stop button, inject optimistic user + assistant bubbles.
+ *  2. Append any attached text files to the message body as fenced code blocks.
+ *  3. POST to /api/chat/stream with message, mode, model override, images, writeToWorkspace flag.
+ *  4. Read SSE stream:
+ *     - "routing" event: update router panel + assistant bubble model label.
+ *     - "token" event: append token to fullContent, re-render Markdown live.
+ *     - "done" event: finalise bubble, inject feedback buttons, reload state.
+ *     - "error" event: show error in assistant bubble.
+ *  5. On AbortError (stop button), silently end — partial content stays visible.
+ *  6. Re-enable send button in finally block.
+ */
 $("chatForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("messageInput");
@@ -632,6 +801,15 @@ $("messageInput").addEventListener("keydown", (e) => {
 });
 
 // ── Claude-style app model picker ───────────────────────────────────────────
+
+/**
+ * Looks up the real context window size for a model by name from global state.
+ * Falls back to 8192 if the model is not found or has no contextSize stored.
+ * Used to display the context window next to each model in the picker dropdown.
+ *
+ * @param {string} name - Model name (display name or model_ref).
+ * @returns {number} Context window size in tokens.
+ */
 function estimateCtxApp(name) {
   // Use the real context_size stored from Ollama /api/show — no hardcoded guessing
   const m = (state?.models || []).find(m => m.name === name || m.model === name);
@@ -639,6 +817,14 @@ function estimateCtxApp(name) {
 }
 function fmtCtx(n) { return n >= 1000 ? (n / 1000).toFixed(0) + "k" : String(n); }
 
+/**
+ * Populates the model picker dropdown with "Auto Router" + one item per allowed model.
+ * Shows a green/grey dot for availability, the model name, and the context window size.
+ * The active selection (matching manualModel hidden select value) gets a checkmark.
+ * Clicking an item updates the hidden manualModel select and closes the dropdown.
+ *
+ * @param {object[]} models - Array of allowed model objects from state.
+ */
 function populateAppModelPicker(models) {
   const list = document.getElementById("appModelList");
   if (!list) return;
@@ -675,6 +861,10 @@ function populateAppModelPicker(models) {
 const appPicker = document.getElementById("appModelPicker");
 const appDropdown = document.getElementById("appModelDropdown");
 
+/**
+ * Opens the model picker dropdown, positioning it above or below the trigger
+ * button depending on available screen space (prevents clipping at viewport edges).
+ */
 function openAppModelDropdown() {
   if (!appDropdown) return;
   const models = (state?.models || []).filter(m => (state?.approvedModels || []).some(a => a.id === m.id) || m.status === "available");
@@ -710,6 +900,10 @@ document.addEventListener("click", (e) => {
 });
 
 // ─── File upload ──────────────────────────────────────────────────────────────
+// Files are stored in-memory until the next message is sent, then attached and cleared.
+// Images are read as base64 (sent to provider's multimodal field).
+// Text files are read as plain text and appended to the message as fenced code blocks.
+// Max 5 files per message to keep payloads reasonable.
 const uploadedFiles = []; // { name, type, data } — data is base64 for images, text for others
 
 const uploadFileBtn = document.getElementById("uploadFileBtn");
@@ -718,6 +912,11 @@ const filePreviewBar = document.getElementById("filePreviewBar");
 
 if (uploadFileBtn) uploadFileBtn.addEventListener("click", () => fileInput?.click());
 
+/**
+ * Re-renders the file preview bar above the message input.
+ * Shows image thumbnails or a file icon + name + remove button for each queued file.
+ * Hides the bar entirely when uploadedFiles is empty.
+ */
 function renderFilePreviews() {
   if (!filePreviewBar) return;
   if (!uploadedFiles.length) { filePreviewBar.style.display = "none"; filePreviewBar.innerHTML = ""; return; }

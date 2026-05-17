@@ -1,3 +1,29 @@
+/**
+ * @file server.js
+ * @description Olla Nest — main Express server.
+ *
+ * Responsibilities:
+ *   - Bootstraps SQLite database (openSql / seedSql) with all tables and seed data
+ *   - Serves the static SPA assets (login, app, admin) with appropriate cache headers
+ *   - Provides all REST API routes under /api/*
+ *   - Implements the Auto Router: classifyRequest → routeModel → callProvider(Stream)
+ *   - Manages session-based auth with HttpOnly cookies; CSRF guard via X-Requested-With
+ *   - Encrypts API keys at rest using AES-256-GCM with a per-deployment SECRET_KEY
+ *   - Exposes a WebSocket endpoint (/ws/terminal) that spawns a PTY shell for
+ *     users with the workspace:build permission
+ *   - On startup: migrates legacy documents.json data into SQLite, then syncs Ollama
+ *
+ * Key data flows:
+ *   User sends message → POST /api/chat/stream (SSE)
+ *     → syncOllamaModels (ensure DB reflects current Ollama state)
+ *     → routeModel (score all allowed models; pick best)
+ *     → resolveProvider (find the right provider config)
+ *     → buildContextMessages (sliding window token-budget trimmer)
+ *     → callProviderStream (stream tokens back via SSE)
+ *     → persist user + assistant messages in chat_messages
+ *     → optionally write code artifacts to the user's workspace folder
+ */
+
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -11,34 +37,93 @@ let pty;
 try { pty = require("node-pty"); } catch { pty = null; }
 
 const app = express();
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+/** TCP port the HTTP server listens on. Override with PORT env var. */
 const PORT = process.env.PORT || 3000;
+
+/**
+ * Base URL of the Ollama instance visible from inside the container.
+ * host.docker.internal resolves to the host's loopback address on Docker
+ * Desktop (Mac/Windows).  On Linux you may need to set this to the container
+ * gateway IP.  Override with OLLAMA_URL env var.
+ */
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://host.docker.internal:11434";
+
+/** Persistent data directory mounted inside the container (Docker volume). */
 const DATA_DIR = path.join(__dirname, "data");
+
+/**
+ * Root folder where AI-generated code files are written when the user enables
+ * "Save to workspace".  Can be overridden per-user via workspace_prefs table
+ * or for the whole platform via the workspaceRoot setting.
+ */
 const DEFAULT_WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || path.join(DATA_DIR, "workspace");
+
+/** Path to the SQLite database file.  Override with SQLITE_PATH env var. */
 const SQL_PATH = process.env.SQLITE_PATH || path.join(DATA_DIR, "olla-nest.sqlite");
+
+/**
+ * Legacy JSON document store path — only used for the one-time migration to
+ * SQLite.  Once migrated it is renamed to documents.json.migrated.
+ */
 const DOC_PATH = process.env.DOCUMENT_DB_PATH || path.join(DATA_DIR, "documents.json");
+
+/**
+ * Default admin credentials seeded on first boot.  The /api/bootstrap endpoint
+ * returns these only while the default password is still in use so the UI can
+ * display an auto-fill prompt.  Change the password immediately after first login.
+ */
 const DEFAULT_ADMIN_EMAIL = process.env.DEFAULT_ADMIN_EMAIL || "admin@ollanest.local";
 const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || "CHANGE_ME_ON_FIRST_BOOT";
 const DEFAULT_USER_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "CHANGE_ME_ON_FIRST_BOOT";
+
+/** Absolute path to the /public directory that contains all SPA HTML/JS/CSS. */
 const STATIC_DIR = path.join(__dirname, "public");
+
+/**
+ * In-memory session store.  Maps random 32-byte hex token → { user, expiresAt }.
+ * Sessions survive server restarts only if the container is not restarted
+ * (i.e. they are ephemeral).  12-hour TTL set in setSession().
+ */
 const sessions = new Map();
+
 // In-memory login rate limiter: track failed attempts per IP
 const loginAttempts = new Map(); // ip -> { count, resetAt }
+
+/** Maximum failed login attempts before a 15-minute lockout is triggered. */
 const LOGIN_MAX_ATTEMPTS = 10;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 // Per-user chat rate limiter (sliding window — timestamps per user)
 const chatRateLimiter = new Map(); // userId -> [timestamp, ...]
+
+/**
+ * Checks whether a user is within their per-minute chat rate limit.
+ *
+ * Uses a sliding-window algorithm: keep only timestamps that fall within the
+ * last 60 seconds, then compare the count against the user's configured limit.
+ *
+ * @param {string} userId - The authenticated user's ID.
+ * @param {number} limitPerMinute - The user's api_rate_limit_per_minute setting.
+ *   A value of 0 or falsy means unlimited.
+ * @returns {boolean} true if the request is allowed, false if the limit is exceeded.
+ */
 function checkChatRateLimit(userId, limitPerMinute) {
   if (!limitPerMinute || limitPerMinute <= 0) return true; // unlimited
   const now = Date.now();
   const windowStart = now - 60_000;
+  // 1. Discard timestamps older than the 60-second window
   const times = (chatRateLimiter.get(userId) || []).filter(t => t > windowStart);
+  // 2. Reject if already at or over the limit
   if (times.length >= limitPerMinute) return false;
+  // 3. Record this request and persist the updated window
   times.push(now);
   chatRateLimiter.set(userId, times);
   return true;
 }
+
 // Clean up old rate limiter entries every 5 minutes
 setInterval(() => {
   const cutoff = Date.now() - 60_000;
@@ -48,10 +133,34 @@ setInterval(() => {
     else chatRateLimiter.set(uid, fresh);
   }
 }, 5 * 60 * 1000).unref();
+
+/**
+ * Storage mode determines which SQL/document/realtime providers are configured
+ * in the settings table on first boot.  "local" uses SQLite + JSON; "production"
+ * seeds PostgreSQL/MongoDB/Redis placeholders (not yet fully implemented).
+ */
 const STORAGE_MODE = process.env.STORAGE_MODE || "local";
+
+/**
+ * 256-bit key used for AES-256-GCM encryption of API keys stored in
+ * api_providers.api_key_enc.  MUST be set to a stable value in production
+ * via the SECRET_KEY env var — if left as a random value, keys become
+ * unreadable after every container restart.
+ */
 const SECRET_KEY = process.env.SECRET_KEY || crypto.randomBytes(32).toString("hex");
+
+/** Legacy session secret (currently unused — cookie-based sessions are used instead). */
 const SESSION_SECRET = process.env.SESSION_SECRET || "change-this-in-production";
 
+/**
+ * Guards against running Olla Nest outside Docker.
+ *
+ * Olla Nest depends on Docker networking (host.docker.internal) and assumes
+ * the /data volume is mounted.  Running it bare on the host will silently
+ * break Ollama connectivity and may write data to unexpected paths.
+ *
+ * The check is bypassed by setting ALLOW_NON_DOCKER=1 for diagnostic runs only.
+ */
 function enforceDockerRuntime() {
   const inDocker = fs.existsSync("/.dockerenv") || process.env.OLLA_NEST_DOCKER_RUNTIME === "true";
   if (!inDocker && process.env.ALLOW_NON_DOCKER !== "1") {
@@ -99,36 +208,73 @@ app.use(express.static(STATIC_DIR, {
   },
 }));
 
+// ── Utility helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Generates a collision-resistant, human-readable ID.
+ *
+ * Format: `{prefix}-{base36 timestamp}-{6 random chars}`
+ * Example: "msg-lrk4z2-a8xf3q"
+ *
+ * This is not a UUID — it is intentionally shorter and sortable by
+ * insertion time (the timestamp component is the dominant part).
+ *
+ * @param {string} prefix - Short string to prepend (e.g. "msg", "chat", "u").
+ * @returns {string} A unique ID string.
+ */
 function uid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Creates the /data directory if it does not already exist.
+ * Called before every database open and document read to ensure the
+ * Docker volume mount has been initialised.
+ */
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+/**
+ * Opens (or creates) the SQLite database, creates all tables idempotently,
+ * adds performance indexes, and runs seedSql() to populate defaults on
+ * first boot.  Also applies any pending ALTER TABLE column migrations so
+ * the schema always matches the current codebase without a manual migration step.
+ *
+ * Called at the start of every request handler — DatabaseSync is synchronous
+ * and lightweight enough that opening/closing per-request is safe and avoids
+ * connection-pooling complexity.
+ *
+ * @returns {DatabaseSync} An open SQLite database handle.  Caller MUST call
+ *   db.close() in a finally block to release the file lock.
+ */
 function openSql() {
   ensureDataDir();
   const db = new DatabaseSync(SQL_PATH);
   db.exec(`
+    -- settings: key/value store for all platform configuration (router flags, API keys, workspace root, etc.)
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    -- departments: org units (General, Product, Support) — drive default rights via deptDefaultRights setting
     CREATE TABLE IF NOT EXISTS departments (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL
     );
+    -- groups: logical collections used in access_grants (All Employees, Builders, Admins)
     CREATE TABLE IF NOT EXISTS groups (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL
     );
+    -- teams: optional team labels that can be attached to users (separate from departments)
     CREATE TABLE IF NOT EXISTS teams (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       description TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     );
+    -- users: all platform accounts; rights is a JSON array of permission keys; password_hash is bcrypt
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -139,11 +285,15 @@ function openSql() {
       department_id TEXT,
       active INTEGER NOT NULL DEFAULT 1
     );
+    -- user_groups: many-to-many join between users and groups (used for access_grants resolution)
     CREATE TABLE IF NOT EXISTS user_groups (
       user_id TEXT NOT NULL,
       group_id TEXT NOT NULL,
       PRIMARY KEY (user_id, group_id)
     );
+    -- models: all known AI models (Ollama-local + approved external); id = "ollama:name" or "provId:modelId"
+    --   capabilities is a JSON array (e.g. ["coding","general"]); privacy is "local" or "external"
+    --   status: available | missing | disabled | configured
     CREATE TABLE IF NOT EXISTS models (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -157,6 +307,7 @@ function openSql() {
       context_size INTEGER,
       last_seen_at TEXT
     );
+    -- access_grants: links a subject (user/group/department) to a model with can_use flag
     CREATE TABLE IF NOT EXISTS access_grants (
       id TEXT PRIMARY KEY,
       subject_type TEXT NOT NULL,
@@ -164,6 +315,7 @@ function openSql() {
       model_id TEXT NOT NULL,
       can_use INTEGER NOT NULL DEFAULT 1
     );
+    -- role_catalog: named sets of permissions (e.g. "ai-developer"); permissions is JSON array of keys
     CREATE TABLE IF NOT EXISTS role_catalog (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -171,12 +323,14 @@ function openSql() {
       permissions TEXT NOT NULL DEFAULT '[]',
       system_role INTEGER NOT NULL DEFAULT 0
     );
+    -- permission_catalog: master list of all valid permission keys with human labels and risk levels
     CREATE TABLE IF NOT EXISTS permission_catalog (
       key TEXT PRIMARY KEY,
       category TEXT NOT NULL,
       description TEXT NOT NULL,
       risk_level TEXT NOT NULL DEFAULT 'low'
     );
+    -- user_overrides: per-user permission exceptions (allow/deny a specific key, optionally time-limited)
     CREATE TABLE IF NOT EXISTS user_overrides (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -187,6 +341,7 @@ function openSql() {
       expires_at TEXT,
       created_at TEXT NOT NULL
     );
+    -- chat_sessions: one row per conversation thread; is_active=1 means the current open thread
     CREATE TABLE IF NOT EXISTS chat_sessions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -198,6 +353,8 @@ function openSql() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    -- chat_messages: every user/assistant turn; live=0 means the model call failed; artifacts_json holds
+    --   saved workspace files; extracted_files_json holds code blocks available for client-side save
     CREATE TABLE IF NOT EXISTS chat_messages (
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL,
@@ -212,6 +369,7 @@ function openSql() {
       extracted_files_json TEXT,
       created_at TEXT NOT NULL
     );
+    -- audit_events: immutable log of significant actions (login, chat, admin changes) for compliance
     CREATE TABLE IF NOT EXISTS audit_events (
       id TEXT PRIMARY KEY,
       actor TEXT,
@@ -220,6 +378,7 @@ function openSql() {
       extra_json TEXT,
       created_at TEXT NOT NULL
     );
+    -- router_traces: debug log of every Auto Router decision — which model was picked and why
     CREATE TABLE IF NOT EXISTS router_traces (
       id TEXT PRIMARY KEY,
       user_id TEXT,
@@ -232,12 +391,15 @@ function openSql() {
       live INTEGER DEFAULT 1,
       created_at TEXT NOT NULL
     );
+    -- workspace_prefs: per-user override for workspace root path and write-permission mode
     CREATE TABLE IF NOT EXISTS workspace_prefs (
       user_id TEXT PRIMARY KEY,
       workspace_root TEXT NOT NULL,
       permission_mode TEXT NOT NULL DEFAULT 'default',
       updated_at TEXT NOT NULL
     );
+    -- api_providers: external AI provider credentials (Anthropic, OpenAI, Groq, custom); api_key_enc
+    --   stores the AES-256-GCM encrypted key — never stored in plaintext
     CREATE TABLE IF NOT EXISTS api_providers (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
@@ -248,6 +410,8 @@ function openSql() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    -- api_models: models fetched from an external provider's /models endpoint; is_approved=1 mirrors
+    --   the row into the main models table so the Auto Router can see and score it
     CREATE TABLE IF NOT EXISTS api_models (
       id TEXT PRIMARY KEY,
       provider_id TEXT NOT NULL,
@@ -259,6 +423,7 @@ function openSql() {
       governance_tag TEXT DEFAULT 'approved',
       created_at TEXT NOT NULL
     );
+    -- feedback: thumbs-up/down ratings on individual assistant messages; rating is 1 or -1
     CREATE TABLE IF NOT EXISTS feedback (
       id TEXT PRIMARY KEY,
       message_id TEXT NOT NULL,
@@ -283,6 +448,16 @@ function openSql() {
   return db;
 }
 
+/**
+ * Reads (or initialises) the legacy documents.json flat-file store.
+ *
+ * This file was the original persistence layer before SQLite was introduced.
+ * It is kept alive only to support the one-time migrateDocumentsJson() call on
+ * startup.  After migration it is renamed to documents.json.migrated and this
+ * function effectively becomes a no-op.
+ *
+ * @returns {{ chats: object, audit: Array, routerTraces: Array, workspacePrefs: object }} Parsed doc store.
+ */
 function readDocs() {
   ensureDataDir();
   if (!fs.existsSync(DOC_PATH)) {
@@ -313,10 +488,24 @@ function readDocs() {
   return docs;
 }
 
+/**
+ * Persists the in-memory documents object back to documents.json.
+ * @param {object} docs - The full document store object returned by readDocs().
+ */
 function writeDocs(docs) {
   fs.writeFileSync(DOC_PATH, JSON.stringify(docs, null, 2));
 }
 
+/**
+ * Reads a single platform setting from the settings table.
+ * Returns `fallback` if the key does not exist.
+ * Automatically coerces the stored string "true"/"false" to booleans.
+ *
+ * @param {DatabaseSync} db - Open database handle.
+ * @param {string} key - Settings key (e.g. "routerEnabled").
+ * @param {*} fallback - Value returned when the key is absent.
+ * @returns {string|boolean} The stored value or fallback.
+ */
 function setting(db, key, fallback) {
   const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key);
   if (!row) return fallback;
@@ -325,19 +514,59 @@ function setting(db, key, fallback) {
   return row.value;
 }
 
+/**
+ * Upserts a setting into the settings table (INSERT OR REPLACE).
+ * @param {DatabaseSync} db - Open database handle.
+ * @param {string} key - Settings key.
+ * @param {*} value - Value to store (converted to string).
+ */
 function setSetting(db, key, value) {
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, String(value));
 }
 
+/**
+ * Returns the total row count for a given table.  Used by seedSql() to check
+ * whether default data already exists before attempting to insert it.
+ *
+ * @param {DatabaseSync} db - Open database handle.
+ * @param {string} table - Table name (not user-supplied — always a literal in this codebase).
+ * @returns {number} Row count.
+ */
 function tableCount(db, table) {
   return db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count;
 }
 
+/**
+ * Adds a column to a table only if it does not already exist.
+ * Used for schema migrations — safe to call repeatedly on every startup.
+ *
+ * @param {DatabaseSync} db - Open database handle.
+ * @param {string} table - Target table name.
+ * @param {string} column - Column name to add.
+ * @param {string} definition - SQL type + constraints (e.g. "TEXT NOT NULL DEFAULT ''").
+ */
 function ensureColumn(db, table, column, definition) {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((row) => row.name);
   if (!columns.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
+/**
+ * Seeds all default data into a fresh database on first boot.
+ * Also runs additive column migrations (ensureColumn) on every boot so the
+ * schema stays up to date as new fields are added.
+ *
+ * Seed blocks are guarded by tableCount checks — they run exactly once and
+ * are skipped on subsequent restarts so existing data is never overwritten.
+ *
+ * Data seeded:
+ *   - Extra columns on users and models tables (migration)
+ *   - Default settings (routerEnabled, OLLAMA_URL, etc.)
+ *   - Three departments, three groups, 18 permissions, 9 roles
+ *   - Four demo users (admin, employee, builder, support)
+ *   - Default group memberships
+ *
+ * @param {DatabaseSync} db - Open database handle.
+ */
 function seedSql(db) {
   [
     ["employee_id", "TEXT"],
@@ -479,6 +708,14 @@ function seedSql(db) {
   }
 }
 
+/**
+ * Heuristically infers capability tags from an Ollama model name.
+ * Used when syncing Ollama models — Ollama itself does not expose capability metadata,
+ * so we use regex patterns on the model name to determine what the model is good at.
+ *
+ * @param {string} modelName - The model's full name/tag (e.g. "deepseek-coder:6.7b").
+ * @returns {string[]} Array of capability tags (e.g. ["coding", "debugging", "general"]).
+ */
 function inferCapabilities(modelName) {
   const text = modelName.toLowerCase();
   const caps = new Set(["general", "ask"]);
@@ -490,6 +727,18 @@ function inferCapabilities(modelName) {
   return Array.from(caps);
 }
 
+/**
+ * Estimates speed and quality scores for an Ollama model based on its name and
+ * file size.  Smaller models are faster; larger models with known-quality
+ * architectures get a quality bonus.
+ *
+ * Scores are stored in the models table and used by the Auto Router's weighted
+ * scoring formula: score = capability + speed*w + quality*w + privacy*w.
+ *
+ * @param {string} modelName - Model name string.
+ * @param {number} [sizeBytes=0] - Model file size in bytes from Ollama /api/tags.
+ * @returns {{ speedScore: number, qualityScore: number }} Both values clamped to [10, 100].
+ */
 function inferScores(modelName, sizeBytes = 0) {
   const text = modelName.toLowerCase();
   const sizeGb = Number(sizeBytes || 0) / 1024 ** 3;
@@ -503,6 +752,14 @@ function inferScores(modelName, sizeBytes = 0) {
   };
 }
 
+/**
+ * Inserts or updates a model row in the models table (INSERT OR UPDATE).
+ * Called for every model returned by Ollama /api/tags during syncOllamaModels().
+ *
+ * @param {DatabaseSync} db - Open database handle.
+ * @param {{ id, name, provider, modelRef, status, capabilities, speedScore,
+ *           qualityScore, privacy, contextSize, lastSeenAt }} model - Model descriptor.
+ */
 function upsertModel(db, model) {
   db.prepare(
     `INSERT INTO models
@@ -534,11 +791,29 @@ function upsertModel(db, model) {
   );
 }
 
+/**
+ * Strips trailing slashes from a URL string so fetch() calls can safely
+ * append paths like "/api/chat" without double-slash issues.
+ *
+ * @param {*} value - Raw URL string (may be null/undefined).
+ * @returns {string} Cleaned URL with no trailing slash.
+ */
 function cleanBaseUrl(value) {
   return String(value || "").replace(/\/+$/, "");
 }
 
 // ─── Encryption ───────────────────────────────────────────────────────────────
+
+/**
+ * Encrypts a plaintext API key using AES-256-GCM.
+ *
+ * Format stored in DB: `{iv_hex}:{auth_tag_hex}:{ciphertext_hex}`
+ * A fresh random 12-byte IV is generated per encryption call so two encryptions
+ * of the same plaintext produce different ciphertext (semantic security).
+ *
+ * @param {string} plaintext - The raw API key to encrypt.
+ * @returns {string} Encoded string suitable for storage in api_providers.api_key_enc.
+ */
 function encryptKey(plaintext) {
   const iv = crypto.randomBytes(12);
   const key = crypto.createHash("sha256").update(SECRET_KEY).digest();
@@ -548,6 +823,15 @@ function encryptKey(plaintext) {
   return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted.toString("hex")}`;
 }
 
+/**
+ * Decrypts an AES-256-GCM encrypted API key produced by encryptKey().
+ * Returns an empty string (not an exception) on failure so callers always
+ * get a string — an invalid/empty key will simply result in a 401 from the
+ * provider, which surfaces a clear error to the user.
+ *
+ * @param {string} stored - The `iv:tag:ciphertext` hex string from the database.
+ * @returns {string} Decrypted plaintext API key, or "" on failure.
+ */
 function decryptKey(stored) {
   try {
     const [ivHex, tagHex, encHex] = stored.split(":");
@@ -561,6 +845,24 @@ function decryptKey(stored) {
 }
 
 // ─── Provider call ────────────────────────────────────────────────────────────
+
+/**
+ * Makes a non-streaming inference call to any supported provider.
+ *
+ * Supports four provider types: "ollama", "anthropic", "openai"/"groq"/"custom".
+ * Each type uses its own wire protocol:
+ *   - Ollama:    POST /api/chat with stream:false
+ *   - Anthropic: POST /v1/messages (x-api-key header, separate system field)
+ *   - OpenAI/Groq/custom: POST /chat/completions (Authorization: Bearer)
+ *
+ * @param {{ type: string, base_url: string, api_key_enc: string, name: string }} provider
+ *   Provider config row from api_providers (or a synthetic Ollama object).
+ * @param {string} modelId - The provider-native model identifier (e.g. "llama3.2:3b").
+ * @param {{ role: string, content: string }[]} messages - Conversation turns.
+ * @param {{ timeout?: number }} [options={}] - Optional overrides; timeout defaults to 5 minutes.
+ * @returns {Promise<{ content: string, tokensUsed: number, providerName: string }>}
+ * @throws {Error} With .code "AUTH_ERROR", "RATE_LIMIT", "MODEL_ERROR", or "NETWORK_ERROR".
+ */
 async function callProvider(provider, modelId, messages, options = {}) {
   const timeout = options.timeout || 300000;
   const controller = new AbortController();
@@ -615,6 +917,23 @@ async function callProvider(provider, modelId, messages, options = {}) {
   }
 }
 
+/**
+ * Streams an inference response from any supported provider token-by-token.
+ *
+ * Reads the SSE/NDJSON response body incrementally, calling `onToken` for each
+ * piece of generated text, and `onDone` once with the final token count.
+ * AbortError (from the client closing the SSE connection) is silently swallowed
+ * so the stream gracefully ends without an unhandled rejection.
+ *
+ * @param {{ type: string, base_url: string, api_key_enc: string }} provider
+ * @param {string} modelId - Provider-native model ID.
+ * @param {{ role: string, content: string }[]} messages
+ * @param {object} options - Reserved for future per-call overrides.
+ * @param {(token: string) => void} onToken - Called for each streamed token fragment.
+ * @param {(totalTokens: number) => void} onDone - Called once when the stream ends.
+ * @param {AbortSignal} signal - Pass req.signal or an AbortController.signal to cancel.
+ * @returns {Promise<void>}
+ */
 async function callProviderStream(provider, modelId, messages, options, onToken, onDone, signal) {
   const apiKey = decryptKey(provider.api_key_enc);
   let totalTokens = 0;
@@ -716,10 +1035,25 @@ async function callProviderStream(provider, modelId, messages, options, onToken,
   onDone(totalTokens);
 }
 
+/**
+ * Returns the configured Ollama base URL from settings, stripping trailing slashes.
+ * Falls back to the OLLAMA_URL constant (from the env var) if not yet configured.
+ *
+ * @param {DatabaseSync} db - Open database handle.
+ * @returns {string} Clean base URL, e.g. "http://host.docker.internal:11434".
+ */
 function ollamaUrl(db) {
   return cleanBaseUrl(setting(db, "ollamaUrl", OLLAMA_URL));
 }
 
+/**
+ * Fetches the list of installed models from Ollama's /api/tags endpoint.
+ * Times out after 15 seconds so a slow/unreachable Ollama does not block the request.
+ *
+ * @param {string} [url=OLLAMA_URL] - Ollama base URL.
+ * @returns {Promise<Array>} Array of model objects as returned by Ollama (name, size, etc.).
+ * @throws {Error} If Ollama is unreachable or returns a non-200 status.
+ */
 async function fetchOllamaModels(url = OLLAMA_URL) {
   const baseUrl = cleanBaseUrl(url);
   const controller = new AbortController();
@@ -735,6 +1069,22 @@ async function fetchOllamaModels(url = OLLAMA_URL) {
   return data.models || [];
 }
 
+/**
+ * Synchronises the models table with the currently installed Ollama models.
+ *
+ * Steps:
+ *  1. Fetch model list from Ollama /api/tags.
+ *  2. For each model, fetch its real context window via /api/show.
+ *  3. Upsert the model row (infer capabilities + scores).
+ *  4. Mark any previously-seen model not in the new list as "missing".
+ *  5. Call ensureDefaultAccess() to create group-level grants if none exist yet.
+ *
+ * On Ollama unreachable, all local models are marked "missing" so the UI
+ * correctly shows no available models rather than stale "available" rows.
+ *
+ * @param {DatabaseSync} db - Open database handle.
+ * @returns {Promise<{ ok: boolean, models: Array, error?: string }>}
+ */
 async function syncOllamaModels(db) {
   let installed;
   try {
@@ -776,6 +1126,13 @@ async function syncOllamaModels(db) {
   return { ok: true, models: installed };
 }
 
+/**
+ * Creates a default "group-all can use every Ollama model" access grant set if no
+ * grants exist yet.  This fires once after the very first Ollama sync so new
+ * deployments work out of the box without requiring an admin to manually grant access.
+ *
+ * @param {DatabaseSync} db - Open database handle.
+ */
 function ensureDefaultAccess(db) {
   const models = db.prepare("SELECT id FROM models WHERE provider = 'ollama'").all();
   const grants = db.prepare("SELECT COUNT(*) AS count FROM access_grants").get().count;
@@ -786,14 +1143,35 @@ function ensureDefaultAccess(db) {
   }
 }
 
+/**
+ * Convenience wrapper — prepares and runs a SELECT that may return multiple rows.
+ * @param {DatabaseSync} db
+ * @param {string} query - Parameterised SQL.
+ * @param {...*} params - Positional bind parameters.
+ * @returns {object[]} Array of row objects.
+ */
 function rows(db, query, ...params) {
   return db.prepare(query).all(...params);
 }
 
+/**
+ * Convenience wrapper — prepares and runs a SELECT that returns at most one row.
+ * @param {DatabaseSync} db
+ * @param {string} query - Parameterised SQL.
+ * @param {...*} params - Positional bind parameters.
+ * @returns {object|undefined} Single row object or undefined.
+ */
 function one(db, query, ...params) {
   return db.prepare(query).get(...params);
 }
 
+/**
+ * Maps a raw models table row to the camelCase object shape used in API responses.
+ * Parses the capabilities JSON array and normalises numeric fields.
+ *
+ * @param {object} row - Raw SQLite row from the models table.
+ * @returns {object} Parsed model descriptor.
+ */
 function parseModel(row) {
   return {
     id: row.id,
@@ -817,6 +1195,14 @@ function parseModel(row) {
   };
 }
 
+/**
+ * Maps a raw users table row (with camelCase column aliases) to the safe public
+ * user shape sent to clients.  Strips password_hash and normalises types.
+ * Returns null if given a falsy row so callers can check for 404 simply.
+ *
+ * @param {object|null} row - Raw SQLite row (may use snake_case or camelCase aliases).
+ * @returns {object|null} Safe public user object.
+ */
 function publicUser(row) {
   if (!row) return null;
   return {
@@ -853,6 +1239,14 @@ function publicUser(row) {
   };
 }
 
+/**
+ * Parses a JSON string, returning `fallback` instead of throwing on invalid input.
+ * Used throughout to safely read JSON columns from SQLite (rights, capabilities, etc.).
+ *
+ * @param {string|null} value - JSON string to parse.
+ * @param {*} fallback - Returned when value is null, empty, or malformed.
+ * @returns {*} Parsed value or fallback.
+ */
 function safeJson(value, fallback) {
   try {
     return JSON.parse(value || "");
@@ -909,6 +1303,20 @@ function userOverrides(db, userId) {
   return rows(db, "SELECT id, user_id AS userId, permission_key AS permissionKey, model_id AS modelId, effect, reason, expires_at AS expiresAt, created_at AS createdAt FROM user_overrides WHERE user_id = ? ORDER BY created_at DESC", userId);
 }
 
+/**
+ * Computes a user's effective permission set by merging:
+ *   1. Explicit rights stored on the user row
+ *   2. Department default rights (from deptDefaultRights setting)
+ *   3. Role catalog permissions (if user.role matches a role_catalog id)
+ *   4. Per-user overrides (allow/deny, respecting expiry times)
+ *
+ * Deny overrides take final precedence — they are removed from the merged set last.
+ *
+ * @param {DatabaseSync} db
+ * @param {object} user - publicUser() shaped object.
+ * @returns {{ permissions: string[], denied: string[], allowedModelIds: string[],
+ *             groups: string[], sourcePriority: string[], quotas: object }}
+ */
 function effectiveAccess(db, user) {
   const role = one(db, "SELECT permissions FROM role_catalog WHERE id = ?", user.role) || null;
   const permissions = new Set([...(user.rights || []), ...departmentDefaults(user.departmentId), ...safeJson(role?.permissions, [])]);
@@ -937,6 +1345,21 @@ function effectiveAccess(db, user) {
   };
 }
 
+/**
+ * Returns the list of model IDs a user is allowed to use.
+ *
+ * Resolution order:
+ *  1. Admins: all non-disabled models.
+ *  2. access_grants rows matching user / department / any group the user belongs to.
+ *  3. Implicit grants: if user has models:local:use right, grant all available non-API models;
+ *     if user has models:external:use, also grant API models.  This avoids requiring an admin
+ *     to create explicit grants for every new model when users already have the broad permission.
+ *  4. user_overrides: allow/deny individual model IDs (respecting expiry).
+ *
+ * @param {DatabaseSync} db
+ * @param {object} user - publicUser() shaped object.
+ * @returns {string[]} Array of allowed model IDs.
+ */
 function allowedModelIds(db, user) {
   if (user.role === "admin") {
     return rows(db, "SELECT id FROM models WHERE status != 'disabled'").map((row) => row.id);
@@ -987,6 +1410,18 @@ function allowedModels(db, user) {
     .filter((model) => ids.has(model.id) && (model.provider !== "api" || allowApi));
 }
 
+/**
+ * Classifies a user's message into a set of capability tags used by the Auto Router
+ * to match against model capabilities.
+ *
+ * Tags are produced by regex pattern matching on the message text and the `mode`
+ * string (e.g. mode="build" always adds the "coding" tag).  If no patterns match,
+ * ["general", "ask"] are returned as defaults so there is always at least one tag.
+ *
+ * @param {string} message - The raw user message.
+ * @param {string} [mode="ask"] - Chat mode (ask|build|review|fix|learn|debug|test|docs|plan).
+ * @returns {string[]} Array of capability tag strings.
+ */
 function classifyRequest(message, mode = "ask") {
   const text = message.toLowerCase();
   const tags = new Set();
@@ -1005,6 +1440,29 @@ function classifyRequest(message, mode = "ask") {
   return Array.from(tags);
 }
 
+/**
+ * Core Auto Router: selects the best model from the user's approved models.
+ *
+ * Scoring formula per candidate:
+ *   score = (capabilityMatch * 35)
+ *         + (specialistBonus 45 if request has specialist tag model also has)
+ *         + speedScore  * weights.speed
+ *         + qualityScore * weights.quality
+ *         + privacyScore * weights.privacy    (local=100*w, external=0 or -100)
+ *
+ * Privacy override: if the message contains sensitive content (PII/API keys/PHI)
+ * or the mode is in the "localOnlyModes" list (default: build, fix), all external
+ * models are removed from the candidate pool before scoring.
+ *
+ * If routerEnabled=false, the first allowed model is returned without scoring.
+ *
+ * @param {DatabaseSync} db
+ * @param {object} user - publicUser() shaped object.
+ * @param {string} message - User's raw message.
+ * @param {string} mode - Chat mode string.
+ * @returns {{ selected: object|null, tags: string[], candidates: object[],
+ *             reason: string, privacyBlocked: boolean, sensitiveReasons: string[] }}
+ */
 function routeModel(db, user, message, mode) {
   let candidates = allowedModels(db, user);
   const tags = classifyRequest(message, mode);
@@ -1061,7 +1519,16 @@ async function ollamaGenerate(db, model, prompt) {
   return result.content;
 }
 
-// Resolve the right provider object for any model route — Ollama or any external provider
+/**
+ * Resolves the provider configuration object for a given router result.
+ * For Ollama models, synthesises a provider object from the configured ollamaUrl.
+ * For external models, looks up the api_providers row and validates it is enabled.
+ *
+ * @param {DatabaseSync} db
+ * @param {{ selected: { provider: string } }} route - Result of routeModel().
+ * @returns {object} Provider config object ready to pass to callProvider/callProviderStream.
+ * @throws {Error} If the provider is not configured or is disabled.
+ */
 function resolveProvider(db, route) {
   if (route.selected.provider === "ollama") {
     return { type: "ollama", base_url: ollamaUrl(db), api_key_enc: encryptKey(""), name: "Ollama" };
@@ -1072,6 +1539,16 @@ function resolveProvider(db, route) {
   return p;
 }
 
+/**
+ * Strips internal chain-of-thought `<think>…</think>` blocks from model output.
+ * Some reasoning models (DeepSeek R1, QwQ) emit these blocks before their final
+ * answer — they are not useful to users and should not appear in the chat UI.
+ * If a `<think>` block is unclosed, the function falls back to finding the first
+ * recognisable code/HTML/React marker and returns everything from that point.
+ *
+ * @param {string} content - Raw model response string.
+ * @returns {string} Cleaned response with think blocks removed.
+ */
 function cleanModelOutput(content) {
   let output = String(content || "")
     .replace(/<think>[\s\S]*?<\/think>/gi, "")
@@ -1109,6 +1586,15 @@ function listWorkspaceFiles(workspaceRoot, maxFiles = 50) {
 }
 
 // ─── Context window helpers ───────────────────────────────────────────────────
+
+/**
+ * Rough token count estimate: ~4 characters per token (industry rule of thumb for
+ * English text with common code).  Used for context budget calculations where an
+ * exact BPE tokeniser is unavailable and speed matters more than precision.
+ *
+ * @param {string} text
+ * @returns {number} Estimated token count.
+ */
 function estimateTokens(text) {
   return Math.ceil((text || "").length / 4);
 }
@@ -1138,6 +1624,15 @@ async function fetchOllamaModelInfo(baseUrl, modelName) {
   }
 }
 
+/**
+ * Returns the context window size for a model in tokens.
+ * Checks the main models table first (Ollama models populated from /api/show),
+ * then the api_models table (external providers), then defaults to 8192.
+ *
+ * @param {DatabaseSync} db
+ * @param {string} modelName - Model name or model_ref string.
+ * @returns {number} Context window in tokens.
+ */
 function getModelContextWindow(db, modelName) {
   // Check main models table first (Ollama models have context_size from /api/show)
   const row = db.prepare("SELECT context_size FROM models WHERE model_ref = ? OR name = ? LIMIT 1").get(modelName, modelName);
@@ -1148,6 +1643,30 @@ function getModelContextWindow(db, modelName) {
   return 8192;
 }
 
+/**
+ * Builds the messages array to send to a provider, honouring the model's context window.
+ *
+ * Sliding-window algorithm (newest-first trimming):
+ *   Step 1: Look up the model's actual context window from the DB (default 8192 tokens).
+ *   Step 2: Reserve tokens for the system prompt, the new user message, and 512 tokens
+ *           of response headroom.  What remains is the `budget` for history.
+ *   Step 3: Load all prior messages for the session, oldest → newest.
+ *   Step 4: Walk the history from newest → oldest, keeping messages that fit in
+ *           the remaining budget.  Stop as soon as adding the next message would
+ *           exceed the budget.  This preserves the most recent context.
+ *   Step 5: Re-reverse the kept messages back to chronological order.
+ *   Step 6: Assemble final array: [system, ...kept history, new user message].
+ *
+ * Images are attached to the final user message (Ollama multimodal format).
+ *
+ * @param {DatabaseSync} db
+ * @param {string} sessionId - chat_sessions.id for the current conversation.
+ * @param {string} systemPrompt - System prompt string.
+ * @param {string} userMessage - The new user message (not yet in DB).
+ * @param {string} modelName - Used to look up context window size.
+ * @param {string[]|null} images - Base64 image strings for multimodal requests.
+ * @returns {{ role: string, content: string }[]} Messages array ready for the provider.
+ */
 function buildContextMessages(db, sessionId, systemPrompt, userMessage, modelName, images) {
   const tokenLimit = getModelContextWindow(db, modelName);
   const reservedTokens = estimateTokens(systemPrompt) + estimateTokens(userMessage) + 512;
@@ -1178,6 +1697,28 @@ function buildContextMessages(db, sessionId, systemPrompt, userMessage, modelNam
   ];
 }
 
+/**
+ * Constructs the system prompt for a given chat request.
+ *
+ * The prompt always includes:
+ *   - Platform identity ("You are Olla Nest")
+ *   - Selected model name and routing reason (so the model doesn't answer with only its name)
+ *   - An explicit instruction to suppress <think> blocks
+ *
+ * If the user has a workspace configured, the prompt also includes:
+ *   - Active project folder path
+ *   - Write permission mode
+ *   - Instruction to use ```lang:filename fence format for saved files
+ *   - Current project file list (up to 50 files)
+ *
+ * A mode-specific instruction is appended last (e.g. "build" instructs returning
+ * a complete runnable file, "debug" instructs showing the root cause).
+ *
+ * @param {string} mode - Chat mode string.
+ * @param {{ selected: { name: string }, reason: string }} route - Router result.
+ * @param {{ workspaceRoot?: string, permissionMode?: string }|null} workspace
+ * @returns {string} Full system prompt.
+ */
 function buildSystemPrompt(mode, route, workspace) {
   const base = [
     "You are Olla Nest, a company AI workspace assistant.",
@@ -1295,6 +1836,22 @@ function workspaceForUser(db, userId) {
   };
 }
 
+/**
+ * Extracts code artifacts from a model response and writes them to the user's
+ * workspace folder on disk.
+ *
+ * Path traversal is prevented by checking that every resolved path starts with
+ * the workspace root + path separator before writing.
+ *
+ * Returns an empty array if localWritesEnabled=false or no code blocks found.
+ *
+ * @param {DatabaseSync} db
+ * @param {{ workspaceRoot: string }} workspace - Workspace descriptor from workspaceForUser().
+ * @param {string} message - Original user message (for artifact base-name generation).
+ * @param {string} mode - Chat mode.
+ * @param {string} content - Full model response.
+ * @returns {{ name: string, path: string, relativePath: string, bytes: number }[]}
+ */
 function writeLocalArtifacts(db, workspace, message, mode, content) {
   if (!setting(db, "localWritesEnabled", true)) return [];
   const artifacts = extractArtifacts(content, message);
@@ -1317,6 +1874,17 @@ function writeLocalArtifacts(db, workspace, message, mode, content) {
   }).filter(Boolean);
 }
 
+/**
+ * Appends an event to the audit_events table.
+ * Opens its own DB connection so it can be called from any context without
+ * requiring the caller to pass a handle.  Errors are silently swallowed —
+ * an audit write failure must never crash the main request.
+ *
+ * @param {string} actor - Human-readable name of the actor (usually user.name).
+ * @param {string} action - Dot-separated action key (e.g. "chat.stream").
+ * @param {string|null} detail - Short description of what happened.
+ * @param {object} [extra={}] - Additional structured data stored as JSON.
+ */
 function appendAudit(actor, action, detail, extra = {}) {
   try {
     const db = openSql();
@@ -1328,6 +1896,14 @@ function appendAudit(actor, action, detail, extra = {}) {
   } catch {}
 }
 
+/**
+ * Records a router_traces row for observability and debugging.
+ * If a db handle is provided it is reused; otherwise a new connection is opened.
+ * Errors are silently swallowed — trace failures must never break the chat flow.
+ *
+ * @param {{ userId, sessionId, message, mode, selectedModelId, tags, candidates, live }} trace
+ * @param {DatabaseSync|null} [db] - Optional open handle (avoids extra open/close).
+ */
 function appendTrace(trace, db) {
   try {
     const run = (d) => d.prepare(
@@ -1372,6 +1948,14 @@ function buildChatObject(db, session) {
   };
 }
 
+/**
+ * Returns the most recently updated active chat session for a user, or undefined.
+ * "Active" means is_active=1 — it is the current open thread.
+ *
+ * @param {DatabaseSync} db
+ * @param {string} userId
+ * @returns {object|undefined} chat_sessions row or undefined.
+ */
 function getActiveChatSession(db, userId) {
   return db.prepare("SELECT * FROM chat_sessions WHERE user_id = ? AND is_active = 1 ORDER BY updated_at DESC LIMIT 1").get(userId);
 }
@@ -1448,6 +2032,16 @@ function settingsState(db) {
 }
 
 // ─── Sensitive content detection ───────────────────────────────────────────────
+/**
+ * Scans a message for sensitive content that should never be routed to an external provider.
+ *
+ * Built-in patterns detect: SSNs, credit card numbers, API key prefixes, and medical/PHI terms.
+ * Admins can extend this list via the sensitivePatterns setting (an array of regex strings).
+ *
+ * @param {string} text - The message to scan.
+ * @param {DatabaseSync|null} db - Optional open handle for reading admin patterns.
+ * @returns {{ isSensitive: boolean, reasons: string[] }}
+ */
 function detectSensitiveContent(text, db) {
   const reasons = [];
   const builtinPatterns = [
@@ -1494,6 +2088,14 @@ function sessionUser(req) {
   return session.user;
 }
 
+/**
+ * Express middleware that requires an authenticated admin session.
+ * Also enforces the CSRF guard on state-changing requests: non-GET requests
+ * must include the `X-Requested-With: XMLHttpRequest` header (set by every
+ * api() call in the frontend).  This prevents cross-site form submissions.
+ *
+ * Attaches req.user = the session user object on success.
+ */
 function requireAdmin(req, res, next) {
   const user = sessionUser(req);
   if (!user) return res.status(401).json({ error: "Login required" });
@@ -1506,6 +2108,11 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+/**
+ * Express middleware that requires any authenticated session (any role).
+ * Applies the same CSRF guard as requireAdmin on non-GET requests.
+ * Attaches req.user on success.
+ */
 function requireAuth(req, res, next) {
   const user = sessionUser(req);
   if (!user) return res.status(401).json({ error: "Login required" });
@@ -1517,6 +2124,14 @@ function requireAuth(req, res, next) {
   next();
 }
 
+/**
+ * Returns true if the user has a specific permission right.
+ * Admins always return true regardless of their rights array.
+ *
+ * @param {object} user - publicUser() shaped object.
+ * @param {string} right - Permission key to check (e.g. "chat:use").
+ * @returns {boolean}
+ */
 function hasRight(user, right) {
   return user.role === "admin" || (user.rights || []).includes(right);
 }
@@ -1537,6 +2152,7 @@ function setSession(res, user, req) {
   res.setHeader("Set-Cookie", `olla_nest_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200${secureFlag}`);
 }
 
+// [POST] /api/auth/login — Auth: public — Purpose: authenticate with email+password; sets HttpOnly session cookie
 app.post("/api/auth/login", (req, res) => {
   // Rate limit by IP
   const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
@@ -1570,6 +2186,7 @@ app.post("/api/auth/login", (req, res) => {
   }
 });
 
+// [POST] /api/auth/logout — Auth: public (CSRF checked) — Purpose: invalidate session cookie
 app.post("/api/auth/logout", (req, res) => {
   if (req.headers["x-requested-with"] !== "XMLHttpRequest") {
     return res.status(403).json({ error: "Forbidden" });
@@ -1580,11 +2197,13 @@ app.post("/api/auth/logout", (req, res) => {
   res.json({ ok: true });
 });
 
+// [GET] /api/auth/me — Auth: public — Purpose: check if the browser has a valid session; used on page load
 app.get("/api/auth/me", (req, res) => {
   const user = sessionUser(req);
   res.json({ authenticated: Boolean(user), user });
 });
 
+// [GET] /api/bootstrap — Auth: public — Purpose: return default admin credentials hint on first boot only
 app.get("/api/bootstrap", (req, res) => {
   // Only expose admin email+password hint on first-boot (when default password is still in use)
   const db = openSql();
@@ -1600,6 +2219,7 @@ app.get("/api/bootstrap", (req, res) => {
   }
 });
 
+// [POST] /api/account/password — Auth: requireAuth — Purpose: self-service password change (requires current password)
 app.post("/api/account/password", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -1617,7 +2237,7 @@ app.post("/api/account/password", requireAuth, (req, res) => {
   }
 });
 
-// Profile — self-service update (enterprise users have fewer editable fields)
+// [PATCH] /api/account/profile — Auth: requireAuth — Purpose: self-service profile update (name, phone, etc.)
 app.patch("/api/account/profile", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -1650,7 +2270,7 @@ app.patch("/api/account/profile", requireAuth, (req, res) => {
   }
 });
 
-// GET profile (current user's full profile)
+// [GET] /api/account/profile — Auth: requireAuth — Purpose: fetch current user's full profile with department name
 app.get("/api/account/profile", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -1664,6 +2284,7 @@ app.get("/api/account/profile", requireAuth, (req, res) => {
   }
 });
 
+// [GET] /api/account/usage — Auth: requireAuth — Purpose: return today's and this month's token usage for the token bar UI
 app.get("/api/account/usage", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -1703,6 +2324,8 @@ app.get("/api/account/usage", requireAuth, (req, res) => {
   }
 });
 
+// [GET] /api/state — Auth: requireAuth — Purpose: return the full app state (user, models, chats, settings, access)
+//   in one call so the SPA can hydrate with a single fetch on load
 app.get("/api/state", requireAuth, async (req, res) => {
   const db = openSql();
   try {
@@ -1745,6 +2368,7 @@ app.get("/api/state", requireAuth, async (req, res) => {
   }
 });
 
+// [GET] /api/ollama/models — Auth: requireAuth — Purpose: trigger an Ollama sync and return result (used by sync button)
 app.get("/api/ollama/models", requireAuth, async (req, res) => {
   const db = openSql();
   try {
@@ -1757,7 +2381,7 @@ app.get("/api/ollama/models", requireAuth, async (req, res) => {
   }
 });
 
-// Diagnostic: raw Ollama connectivity test — returns exact URL tried and error if any
+// [GET] /api/admin/ollama/ping — Auth: requireAdmin — Purpose: test raw Ollama connectivity; returns URL tried + model count
 app.get("/api/admin/ollama/ping", requireAdmin, async (req, res) => {
   const db = openSql();
   const url = ollamaUrl(db);
@@ -1775,6 +2399,7 @@ app.get("/api/admin/ollama/ping", requireAdmin, async (req, res) => {
   }
 });
 
+// [GET] /api/admin/sessions/active — Auth: requireAdmin — Purpose: list all active in-memory sessions (for security panel)
 app.get("/api/admin/sessions/active", requireAdmin, (req, res) => {
   const list = [];
   for (const [token, s] of sessions) {
@@ -1790,6 +2415,7 @@ app.get("/api/admin/sessions/active", requireAdmin, (req, res) => {
   res.json({ sessions: list });
 });
 
+// [DELETE] /api/admin/sessions/user/:userId — Auth: requireAdmin — Purpose: force-logout a specific user
 app.delete("/api/admin/sessions/user/:userId", requireAdmin, (req, res) => {
   const { userId } = req.params;
   let count = 0;
@@ -1799,6 +2425,7 @@ app.delete("/api/admin/sessions/user/:userId", requireAdmin, (req, res) => {
   res.json({ ok: true, cleared: count });
 });
 
+// [GET] /api/admin/departments — Auth: requireAdmin — Purpose: list all departments with their default rights
 app.get("/api/admin/departments", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -1811,6 +2438,7 @@ app.get("/api/admin/departments", requireAdmin, (req, res) => {
   } finally { db.close(); }
 });
 
+// [PATCH] /api/admin/departments/:id/rights — Auth: requireAdmin — Purpose: set default permission rights for a department
 app.patch("/api/admin/departments/:id/rights", requireAdmin, (req, res) => {
   if (!req.headers["x-requested-with"]) return res.status(403).json({ error: "Forbidden: missing CSRF header" });
   const db = openSql();
@@ -1827,7 +2455,7 @@ app.patch("/api/admin/departments/:id/rights", requireAdmin, (req, res) => {
 
 const MAC_HOME = "/mac-home"; /* bind-mounted from ${HOME} on the host */
 
-/* Browse local filesystem directories — admin only */
+// [GET] /api/workspace/browse — Auth: requireAdmin — Purpose: browse host filesystem dirs for workspace folder picker
 app.get("/api/workspace/browse", requireAdmin, (req, res) => {
   /* Prefer Mac home if mounted, else fall back to container workspace */
   const defaultHome = fs.existsSync(MAC_HOME) ? MAC_HOME : path.join(DATA_DIR, "workspace");
@@ -1854,6 +2482,7 @@ app.get("/api/workspace/browse", requireAdmin, (req, res) => {
   }
 });
 
+// [POST] /api/workspace/local-settings — Auth: requireAuth — Purpose: save or clear per-user workspace folder + permission mode
 app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -1876,6 +2505,7 @@ app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
   }
 });
 
+// [POST] /api/chat — Auth: requireAuth — Purpose: non-streaming chat request (legacy/fallback); returns full response JSON
 app.post("/api/chat", requireAuth, async (req, res) => {
   const db = openSql();
   try {
@@ -1959,6 +2589,7 @@ function autoTitle(messages) {
   return String(first.content).slice(0, 45).trim() + (first.content.length > 45 ? "…" : "");
 }
 
+// [DELETE] /api/chat — Auth: requireAuth — Purpose: permanently delete the current active chat and create a fresh one
 app.delete("/api/chat", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -1974,6 +2605,7 @@ app.delete("/api/chat", requireAuth, (req, res) => {
   }
 });
 
+// [POST] /api/chat/clear — Auth: requireAuth — Purpose: archive the current chat and start a fresh active session
 app.post("/api/chat/clear", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -1985,6 +2617,7 @@ app.post("/api/chat/clear", requireAuth, (req, res) => {
   }
 });
 
+// [GET] /api/threads — Auth: requireAuth — Purpose: list user's active thread and full history for the sidebar
 app.get("/api/threads", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -1999,6 +2632,7 @@ app.get("/api/threads", requireAuth, (req, res) => {
   }
 });
 
+// [DELETE] /api/threads/:id — Auth: requireAuth — Purpose: permanently delete a specific thread (user must own it)
 app.delete("/api/threads/:id", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -2013,6 +2647,7 @@ app.delete("/api/threads/:id", requireAuth, (req, res) => {
   }
 });
 
+// [PATCH] /api/threads/:id — Auth: requireAuth — Purpose: update thread metadata (title, pinned, archived, unread)
 app.patch("/api/threads/:id", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -2032,6 +2667,7 @@ app.patch("/api/threads/:id", requireAuth, (req, res) => {
   }
 });
 
+// [POST] /api/threads/:id/activate — Auth: requireAuth — Purpose: make a history thread the active thread (archives current)
 app.post("/api/threads/:id/activate", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -2046,6 +2682,7 @@ app.post("/api/threads/:id/activate", requireAuth, (req, res) => {
   }
 });
 
+// [POST] /api/threads/:id/fork — Auth: requireAuth — Purpose: duplicate a thread's messages into a new active thread
 app.post("/api/threads/:id/fork", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -2070,6 +2707,7 @@ app.post("/api/threads/:id/fork", requireAuth, (req, res) => {
   }
 });
 
+// [POST] /api/admin/settings — Auth: requireAdmin — Purpose: update platform settings (router, Ollama URL, API keys, workspace)
 app.post("/api/admin/settings", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2104,6 +2742,7 @@ app.post("/api/admin/settings", requireAdmin, (req, res) => {
 });
 
 
+// [POST] /api/admin/users — Auth: requireAdmin — Purpose: create a new user account; returns credentials for invite modal
 app.post("/api/admin/users", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2164,6 +2803,7 @@ app.post("/api/admin/users", requireAdmin, (req, res) => {
   }
 });
 
+// [PATCH] /api/admin/users/:id — Auth: requireAdmin — Purpose: update any user field (name, role, rights, quotas, status)
 app.patch("/api/admin/users/:id", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2213,6 +2853,7 @@ app.patch("/api/admin/users/:id", requireAdmin, (req, res) => {
   }
 });
 
+// [POST] /api/admin/users/:id/reset-password — Auth: requireAdmin — Purpose: admin-forced password reset (captcha in UI)
 app.post("/api/admin/users/:id/reset-password", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2227,6 +2868,7 @@ app.post("/api/admin/users/:id/reset-password", requireAdmin, (req, res) => {
   }
 });
 
+// [GET] /api/admin/users/:id/effective-access — Auth: requireAdmin — Purpose: compute merged permissions + allowed models for a user
 app.get("/api/admin/users/:id/effective-access", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2238,6 +2880,7 @@ app.get("/api/admin/users/:id/effective-access", requireAdmin, (req, res) => {
   }
 });
 
+// [POST] /api/admin/users/:id/overrides — Auth: requireAdmin — Purpose: add an allow/deny permission override (optionally time-limited)
 app.post("/api/admin/users/:id/overrides", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2265,12 +2908,14 @@ app.post("/api/admin/users/:id/overrides", requireAdmin, (req, res) => {
 });
 
 // ─── Teams CRUD ───────────────────────────────────────────────────────────────
+// [GET] /api/admin/teams — Auth: requireAdmin — Purpose: list all teams
 app.get("/api/admin/teams", requireAdmin, (req, res) => {
   const db = openSql();
   try { res.json({ teams: rows(db, "SELECT * FROM teams ORDER BY name") }); }
   finally { db.close(); }
 });
 
+// [POST] /api/admin/teams — Auth: requireAdmin — Purpose: create a new team (name must be unique)
 app.post("/api/admin/teams", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2285,6 +2930,7 @@ app.post("/api/admin/teams", requireAdmin, (req, res) => {
   } finally { db.close(); }
 });
 
+// [DELETE] /api/admin/teams/:id — Auth: requireAdmin — Purpose: delete a team by ID
 app.delete("/api/admin/teams/:id", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2294,6 +2940,7 @@ app.delete("/api/admin/teams/:id", requireAdmin, (req, res) => {
   } finally { db.close(); }
 });
 
+// [DELETE] /api/admin/overrides/:id — Auth: requireAdmin — Purpose: remove a per-user permission override
 app.delete("/api/admin/overrides/:id", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2306,6 +2953,7 @@ app.delete("/api/admin/overrides/:id", requireAdmin, (req, res) => {
   }
 });
 
+// [PATCH] /api/admin/models/:id/governance — Auth: requireAdmin — Purpose: update model governance fields (tier, GPU, sensitivity)
 app.patch("/api/admin/models/:id/governance", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2334,6 +2982,8 @@ app.patch("/api/admin/models/:id/governance", requireAdmin, (req, res) => {
 });
 
 // ─── SSE Streaming ────────────────────────────────────────────────────────────
+// [POST] /api/chat/stream — Auth: requireAuth — Purpose: primary chat endpoint; streams tokens via SSE then persists messages
+//   SSE event types: "routing" (model chosen), "token" (incremental text), "done" (final metadata), "error"
 app.post("/api/chat/stream", requireAuth, async (req, res) => {
   const db = openSql();
   let dbClosed = false;
@@ -2438,6 +3088,7 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
 });
 
 // ─── Feedback ─────────────────────────────────────────────────────────────────
+// [POST] /api/feedback — Auth: requireAuth — Purpose: submit thumbs-up/down rating for an assistant message
 app.post("/api/feedback", requireAuth, (req, res) => {
   const db = openSql();
   try {
@@ -2455,6 +3106,8 @@ app.post("/api/feedback", requireAuth, (req, res) => {
 });
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
+// [GET] /api/admin/reports — Auth: requireAdmin — Purpose: return aggregated analytics (daily activity, model usage,
+//   token leaderboard, mode breakdown, department usage, latency) for the Reports tab
 app.get("/api/admin/reports", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2588,6 +3241,7 @@ app.get("/api/admin/reports", requireAdmin, (req, res) => {
   }
 });
 
+// [GET] /api/admin/feedback — Auth: requireAdmin — Purpose: aggregate thumbs ratings per model (model quality scorecard)
 app.get("/api/admin/feedback", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2613,6 +3267,7 @@ app.get("/api/admin/feedback", requireAdmin, (req, res) => {
 });
 
 // ─── API Provider admin routes ────────────────────────────────────────────────
+// [GET] /api/admin/providers — Auth: requireAdmin — Purpose: list all external AI providers with model counts
 app.get("/api/admin/providers", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2628,6 +3283,7 @@ app.get("/api/admin/providers", requireAdmin, (req, res) => {
   }
 });
 
+// [POST] /api/admin/providers — Auth: requireAdmin — Purpose: add a new external provider (API key is AES-encrypted at rest)
 app.post("/api/admin/providers", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2647,6 +3303,7 @@ app.post("/api/admin/providers", requireAdmin, (req, res) => {
   }
 });
 
+// [PUT] /api/admin/providers/:id — Auth: requireAdmin — Purpose: update provider (name, URL, key, enabled state)
 app.put("/api/admin/providers/:id", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2667,6 +3324,7 @@ app.put("/api/admin/providers/:id", requireAdmin, (req, res) => {
   }
 });
 
+// [DELETE] /api/admin/providers/:id — Auth: requireAdmin — Purpose: delete provider and all its synced api_models rows
 app.delete("/api/admin/providers/:id", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2681,6 +3339,7 @@ app.delete("/api/admin/providers/:id", requireAdmin, (req, res) => {
   }
 });
 
+// [POST] /api/admin/providers/:id/test — Auth: requireAdmin — Purpose: send a trivial prompt to verify provider connectivity
 app.post("/api/admin/providers/:id/test", requireAdmin, async (req, res) => {
   const db = openSql();
   try {
@@ -2705,8 +3364,19 @@ app.post("/api/admin/providers/:id/test", requireAdmin, async (req, res) => {
   }
 });
 
-// Mirror an approved api_models row into the main models table so the router can see it.
-// Removes from models table when is_approved = false.
+/**
+ * Keeps the main models table in sync with the api_models approval state.
+ *
+ * When a model is approved (is_approved=1), an "available" row is upserted into
+ * models so the Auto Router can score and select it.  When approval is removed,
+ * the row is deleted from models so the router stops seeing it.
+ *
+ * The model ID format in models is `{providerId}:{modelId}` (e.g. "prov-abc:claude-3-5-sonnet").
+ *
+ * @param {DatabaseSync} db
+ * @param {{ id: string }} provider - api_providers row.
+ * @param {{ model_id: string, display_name: string, context_window: number, is_approved: number|boolean }} apiModel
+ */
 function mirrorApiModelToModels(db, provider, apiModel) {
   const modelId = `${provider.id}:${apiModel.model_id}`;
   if (apiModel.is_approved) {
@@ -2723,6 +3393,7 @@ function mirrorApiModelToModels(db, provider, apiModel) {
   }
 }
 
+// [POST] /api/admin/providers/:id/sync — Auth: requireAdmin — Purpose: fetch model list from provider API and upsert into api_models
 app.post("/api/admin/providers/:id/sync", requireAdmin, async (req, res) => {
   const db = openSql();
   try {
@@ -2782,6 +3453,7 @@ app.post("/api/admin/providers/:id/sync", requireAdmin, async (req, res) => {
   }
 });
 
+// [GET] /api/admin/providers/:id/models — Auth: requireAdmin — Purpose: list all api_models for a provider with approval status
 app.get("/api/admin/providers/:id/models", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2792,6 +3464,7 @@ app.get("/api/admin/providers/:id/models", requireAdmin, (req, res) => {
   }
 });
 
+// [PUT] /api/admin/providers/:id/models/:modelId — Auth: requireAdmin — Purpose: approve/restrict a model and mirror to main models table
 app.put("/api/admin/providers/:id/models/:modelId", requireAdmin, (req, res) => {
   const db = openSql();
   try {
@@ -2817,6 +3490,21 @@ app.put("/api/admin/providers/:id/models/:modelId", requireAdmin, (req, res) => 
 });
 
 // ─── Migration ─────────────────────────────────────────────────────────────────
+
+/**
+ * One-time migration: reads documents.json (the legacy flat-file store) and
+ * imports all chats, chat history, audit events, router traces, and workspace
+ * prefs into SQLite.
+ *
+ * The migration is idempotent: if documents.json.migrated already exists, it
+ * returns immediately.  After a successful import, documents.json is renamed
+ * to documents.json.migrated so the function never runs again.
+ *
+ * Individual record failures are silently swallowed so a single malformed
+ * message cannot abort the entire migration.
+ *
+ * @param {DatabaseSync} db - Open database handle.
+ */
 function migrateDocumentsJson(db) {
   if (!fs.existsSync(DOC_PATH)) return;
   const migratedPath = DOC_PATH + ".migrated";
@@ -2913,18 +3601,22 @@ function migrateDocumentsJson(db) {
   try { fs.renameSync(DOC_PATH, migratedPath); console.log(`[migration] Renamed documents.json → documents.json.migrated`); } catch {}
 }
 
+// [GET] / — Auth: public — Purpose: redirect root to /login
 app.get("/", (req, res) => res.redirect("/login"));
 
+// [GET] /login — Auth: public — Purpose: serve login.html; redirects to /app if already authenticated
 app.get("/login", (req, res) => {
   if (sessionUser(req)) return res.redirect("/app");
   res.sendFile(path.join(STATIC_DIR, "login.html"));
 });
 
+// [GET] /app — Auth: requireAuth (redirect) — Purpose: serve app.html; redirects to /login if unauthenticated
 app.get("/app", (req, res) => {
   if (!sessionUser(req)) return res.redirect("/login");
   res.sendFile(path.join(STATIC_DIR, "app.html"));
 });
 
+// [GET] /admin-login — Auth: public — Purpose: serve admin-login.html; redirects admins to /admin, other users to /app
 app.get("/admin-login", (req, res) => {
   const user = sessionUser(req);
   if (user && user.role === "admin") return res.redirect("/admin");
@@ -2932,6 +3624,7 @@ app.get("/admin-login", (req, res) => {
   res.sendFile(path.join(STATIC_DIR, "admin-login.html"));
 });
 
+// [GET] /admin — Auth: admin session (redirect) — Purpose: serve admin.html; non-admins redirected to /app
 app.get("/admin", (req, res) => {
   const user = sessionUser(req);
   if (!user) return res.redirect("/admin-login");
@@ -2944,6 +3637,15 @@ app.use((req, res) => {
 });
 
 // ─── WebSocket Terminal (PTY) ─────────────────────────────────────────────────
+// The terminal is exposed at ws://<host>/ws/terminal.
+// Auth: the session cookie is read during the HTTP upgrade handshake (before the
+//   WebSocket is established) — only users with workspace:build or admin role are allowed.
+// If node-pty is not installed (e.g. in environments that cannot compile native modules),
+//   the WebSocket connection is accepted then immediately closed with an error message.
+// The PTY is spawned in the user's workspace_root directory so shell commands run there.
+// Bidirectional bridge:
+//   PTY output → JSON { type:"output", data:"…" } sent to the WebSocket client (xterm.js)
+//   WebSocket messages → type:"input" (keystrokes) or type:"resize" (terminal size change)
 const server = http.createServer(app);
 
 const wss = new WebSocketServer({ noServer: true });

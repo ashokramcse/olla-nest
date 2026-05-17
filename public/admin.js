@@ -1,6 +1,42 @@
+/**
+ * @file admin.js
+ * @description Olla Nest — admin dashboard SPA script (served at /admin).
+ *
+ * Responsibilities:
+ *   - Loads full application state from GET /api/state on boot
+ *   - Renders 7 tabs: Overview, Models, Users, Access Control, Settings, Providers, Audit
+ *   - Reports tab: fetches GET /api/admin/reports and renders 9 Chart.js charts + KPI cards +
+ *     paginated token leaderboard + model usage table
+ *   - Handles all admin CRUD: create/edit/deactivate users, govern models, add providers,
+ *     sync provider models, approve/restrict individual models, manage overrides + teams
+ *   - Manages router config (weights, sensitive patterns, local-only modes)
+ *   - Provides change-password modal with arithmetic captcha to prevent accidental resets
+ *   - Force-logout individual users or all active sessions
+ *   - Tests and saves Ollama URL; tests external provider connectivity
+ *
+ * Global state:
+ *   `state`        — full state from /api/state (users, models, settings, departments, etc.)
+ *   `activeTab`    — currently visible tab id
+ *   `editingUserId` — user ID currently expanded in the inline edit panel (or null)
+ *   `_charts`      — Chart.js instance registry (keyed by canvas id) for destroy-before-recreate
+ *
+ * Key flows:
+ *   Page load → loadState() → renderAll()
+ *   Tab click → switchTab() → (loadProviders() for providers tab)
+ *   Sync button → checkOllama() + /api/ollama/models → loadState() → renderModels()
+ *   Reports tab → loadReports() → GET /api/admin/reports → mkChart() × 9
+ */
+
 let state = null;
 let activeTab = "overview";
 
+/**
+ * Permission metadata registry.
+ * Maps every permission key to a human label, tooltip description, CSS badge colour,
+ * and logical group (core | models | workspace | admin).
+ * Used throughout the admin UI for rendering permission checkboxes, badges, and tooltips.
+ * Groups drive the visual section headers in the user edit panel.
+ */
 // Human-readable permission labels with descriptions (for tooltips + UI)
 const PERM_META = {
   "chat:use":                  { label: "Chat Access",           desc: "Send messages and chat with AI models",                     color: "badge-green",  group: "core"      },
@@ -22,38 +58,74 @@ const PERM_META = {
   "ollama:modelfile:create":   { label: "Create Modelfiles",     desc: "Create custom Ollama model configurations",                 color: "badge-blue",   group: "admin"     },
 };
 
+/** Returns the human-readable label for a permission key, or the key itself as fallback. */
 function permLabel(key) {
   return PERM_META[key]?.label || key;
 }
+/** Returns the tooltip description for a permission key. */
 function permDesc(key) {
   return PERM_META[key]?.desc || key;
 }
+/** Returns the CSS badge class for a permission key (e.g. "badge-red"). */
 function permColor(key) {
   return PERM_META[key]?.color || "badge-gray";
 }
+/**
+ * Renders a styled badge HTML span for a permission key.
+ * @param {string} key - Permission key.
+ * @param {string} [extra] - Optional inline style additions.
+ * @returns {string} HTML badge string.
+ */
 function permBadge(key, extra) {
   return `<span class="badge ${permColor(key)}" title="${esc(permDesc(key))}" style="cursor:help;${extra||""}">${esc(permLabel(key))}</span>`;
 }
 
+/** Shorthand: getElementById */
 const $ = (id) => document.getElementById(id);
+/** Shorthand: querySelectorAll → Array */
 const $all = (sel) => Array.from(document.querySelectorAll(sel));
 
+/**
+ * HTML-escapes a value for safe innerHTML insertion.
+ * @param {*} v
+ * @returns {string}
+ */
 function esc(v) {
   return String(v ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
+/**
+ * Fetch wrapper for all admin API calls.
+ * Adds CSRF header (X-Requested-With) and Content-Type automatically.
+ * Redirects to /login on 401, /app on 403 (non-admin user).
+ *
+ * @param {string} path - API path.
+ * @param {RequestInit} [opts={}]
+ * @returns {Promise<object|null>}
+ * @throws {Error} On non-2xx responses.
+ */
 async function api(path, opts = {}) {
   const headers = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...(opts.headers || {}) };
   const res = await fetch(path, { ...opts, headers });
   if (res.status === 401) { window.location.href = "/login"; return null; }
-  if (res.status === 403) { window.location.href = "/app"; return null; }
+  if (res.status === 403) { window.location.href = "/app"; return null; } // non-admin users get bounced to /app
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
+/**
+ * Displays a toast notification in the bottom-right corner.
+ * Creates the #toastContainer lazily if it doesn't exist yet.
+ * Toasts auto-dismiss after `duration` ms (0 = sticky until clicked).
+ *
+ * @param {string} msg - Message to display.
+ * @param {"info"|"success"|"warning"|"error"} [type="info"] - Visual style.
+ * @param {number} [duration=4000] - Auto-dismiss delay in ms.
+ * @returns {HTMLElement} The toast element.
+ */
 function showToast(msg, type = "info", duration = 4000) {
   let container = document.getElementById("toastContainer");
   if (!container) {
@@ -78,6 +150,13 @@ function showToast(msg, type = "info", duration = 4000) {
   return toast;
 }
 
+/**
+ * Displays a modal confirmation dialog.  Calls `onConfirm` only when the user
+ * clicks the "Confirm" button.  Clicking outside or "Cancel" closes without action.
+ *
+ * @param {string} msg - Confirmation question to display.
+ * @param {() => void} onConfirm - Callback invoked on confirmation.
+ */
 function showConfirm(msg, onConfirm) {
   let overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000;display:flex;align-items:center;justify-content:center;";
@@ -96,10 +175,20 @@ function showConfirm(msg, onConfirm) {
   overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 }
 
+/**
+ * Generates uppercase initials from a name string.
+ * @param {string} name
+ * @returns {string} 1–2 character initials.
+ */
 function initials(name) {
   return (name || "A").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
+/**
+ * Relative time label from an ISO timestamp.
+ * @param {string|null} iso
+ * @returns {string}
+ */
 function timeAgo(iso) {
   if (!iso) return "";
   const diff = Date.now() - new Date(iso).getTime();
@@ -113,12 +202,19 @@ function timeAgo(iso) {
 
 // === RENDER FUNCTIONS ===
 
+/**
+ * Renders the admin identity bar (avatar initials + name) in the top-left.
+ */
 function renderIdentity() {
   const u = state.activeUser;
   $("adminAvatar").textContent = initials(u.name);
   $("adminName").textContent = u.name;
 }
 
+/**
+ * Renders the Overview tab metric cards (model count, user count, groups, departments,
+ * roles, permissions, governed models, external access status).
+ */
 function renderOverview() {
   const localModels = state.models.filter(m => m.provider === "ollama" && m.status === "available");
   $("metricModels").textContent = localModels.length;
@@ -131,6 +227,13 @@ function renderOverview() {
   if ($("metricExternalAccess")) $("metricExternalAccess").textContent = state.settings.allowApiModels ? "On" : "Off";
 }
 
+/**
+ * Renders up to 4 capability tag badges for a model row.
+ * Each capability gets a colour-coded badge (indigo for coding, blue for vision, etc.).
+ *
+ * @param {string[]} caps - Array of capability tag strings.
+ * @returns {string} HTML string of badge spans.
+ */
 function capBadges(caps) {
   const colors = {
     coding: "badge-indigo", debugging: "badge-indigo", build: "badge-indigo",
@@ -143,6 +246,11 @@ function capBadges(caps) {
   ).join("");
 }
 
+/**
+ * Renders the Models tab table for all Ollama-provided models.
+ * Each row shows: name, provider badge, status badge, speed/quality score bars,
+ * a governance tier dropdown (auto-saves on change), resource info, and capability badges.
+ */
 function renderModels() {
   const models = state.models.filter(m => m.provider === "ollama");
   if (!models.length) {
@@ -197,6 +305,11 @@ function renderModels() {
 
 let editingUserId = null;
 
+/**
+ * Renders the Users tab list.  Each user row shows avatar, name, email, department,
+ * access tier, and daily token limit.  An inline edit panel expands when the "Edit"
+ * button is clicked (tracked by editingUserId module-level variable).
+ */
 function renderUsers() {
   $("newUserDept").innerHTML = state.departments.map(d =>
     `<option value="${esc(d.id)}">${esc(d.name)}</option>`
@@ -229,6 +342,19 @@ function renderUsers() {
   }).join("");
 }
 
+/**
+ * Builds the inline edit panel HTML for a user.
+ * The panel contains:
+ *   - Basic info fields (name, email, role, department, designation, tier, token limits)
+ *   - Permission checkboxes grouped by category (core / models / workspace / admin)
+ *   - Save, change-password, and activate/deactivate buttons
+ *
+ * High-risk permissions (admin, users:manage, workspace:build) get a red border and
+ * different background.  The admin:manage checkbox is locked for admin users.
+ *
+ * @param {object} u - publicUser() shaped object for the user being edited.
+ * @returns {string} HTML string for the edit panel div.
+ */
 function buildEditPanel(u) {
   const allPerms = Object.keys(PERM_META);
   const userRights = new Set(u.rights || []);
@@ -321,6 +447,14 @@ function buildEditPanel(u) {
   </div>`;
 }
 
+/**
+ * Renders the Access Control tab:
+ *   - User selector for viewing effective access
+ *   - Role matrix table (all role_catalog rows with their permission badges)
+ *   - Department default permission grid
+ *   - Override form (add allow/deny per-user permission exceptions)
+ *   - Active sessions panel (loaded separately via loadActiveSessions())
+ */
 function renderAccessControl() {
   if (!$("accessUserSelect")) return;
   $("accessUserSelect").innerHTML = state.users.map(u => `<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.email)}</option>`).join("");
@@ -343,6 +477,11 @@ function renderAccessControl() {
   renderEffectiveAccess();
 }
 
+/**
+ * Fetches the active session list from GET /api/admin/sessions/active and renders it.
+ * Each session shows name, email, role, and a "Logout" button (except for the
+ * current admin who cannot log themselves out this way).
+ */
 async function loadActiveSessions() {
   const el = $("activeSessionsList");
   if (!el) return;
@@ -369,6 +508,10 @@ async function loadActiveSessions() {
   }
 }
 
+/**
+ * Prompts for confirmation then force-logs-out a user by deleting their sessions.
+ * @param {string} userId
+ */
 async function forceLogoutUser(userId) {
   showConfirm("Force logout this user?", async () => {
     await api(`/api/admin/sessions/user/${encodeURIComponent(userId)}`, { method: "DELETE" });
@@ -376,6 +519,11 @@ async function forceLogoutUser(userId) {
   });
 }
 
+/**
+ * Renders the department default permission checkbox grid for the currently
+ * selected department in the Access Control tab.
+ * Pre-checks boxes that are already in the department's defaultRights array.
+ */
 async function renderDeptPermGrid() {
   const el = $("deptPermGrid");
   if (!el) return;
@@ -391,6 +539,11 @@ async function renderDeptPermGrid() {
   `).join("");
 }
 
+/**
+ * Fetches and renders the effective access summary for the selected user.
+ * Calls GET /api/admin/users/:id/effective-access to get the merged permission set,
+ * allowed model list, and resource quotas, then renders them in the access panel.
+ */
 async function renderEffectiveAccess() {
   if (!$("effectiveAccessPanel")) return;
   const user = state.users.find(u => u.id === $("accessUserSelect").value) || state.users[0];
@@ -435,6 +588,11 @@ function maskKey(el, isSet) {
   el.dataset.masked = isSet ? "1" : "0";
 }
 
+/**
+ * Renders the Settings tab form fields from state.settings.
+ * Populates checkbox toggles, select dropdowns, and the workspace root input.
+ * Also calls renderSourcePills() to show enabled provider badges.
+ */
 function renderSettings() {
   const s = state.settings;
   $("routerEnabled").checked = !!s.routerEnabled;
@@ -446,6 +604,10 @@ function renderSettings() {
   renderSourcePills();
 }
 
+/**
+ * Renders the "active sources" badge pills in the Settings tab header.
+ * Shows one pill per enabled provider (Ollama is always shown; others only when enabled).
+ */
 function renderSourcePills() {
   const s = state.settings;
   const active = [
@@ -460,6 +622,10 @@ function renderSourcePills() {
   ).join("");
 }
 
+/**
+ * Renders the Audit tab event list from state.audit (last 30 events).
+ * Each entry shows actor name, action detail, and relative timestamp.
+ */
 function renderAudit() {
   const items = state.audit || [];
   if (!items.length) {
@@ -477,6 +643,10 @@ function renderAudit() {
     </div>`).join("");
 }
 
+/**
+ * Renders all tab views from the current state.
+ * Called after every loadState() so the entire dashboard stays in sync.
+ */
 function renderAll() {
   renderIdentity();
   renderOverview();
@@ -489,12 +659,19 @@ function renderAll() {
   renderOllamaProvider();
 }
 
+/**
+ * Fetches full application state from GET /api/state and re-renders all tabs.
+ */
 async function loadState() {
   state = await api("/api/state");
   if (!state) return;
   renderAll();
 }
 
+/**
+ * Pings Ollama via GET /api/admin/ollama/ping and updates the header status dot + label.
+ * Called on page load and every 30 seconds (setInterval at bottom of file).
+ */
 async function checkOllama() {
   const label = $("ollamaStatus");
   const dot = $("ollamaStatusDot");
@@ -516,6 +693,7 @@ async function checkOllama() {
 }
 
 // === TAB NAVIGATION ===
+// Tab titles displayed in the page header when each tab is active.
 const tabTitles = {
   overview: "Company Dashboard",
   models: "Local Models",
@@ -526,6 +704,13 @@ const tabTitles = {
   audit: "Audit Trail",
 };
 
+/**
+ * Switches the active admin tab.
+ * Toggles the "active" CSS class on both the tab-view div and the nav button.
+ * Lazily loads provider data when the "providers" tab is opened.
+ *
+ * @param {string} tab - Tab id (e.g. "overview", "users", "providers").
+ */
 function switchTab(tab) {
   activeTab = tab;
   $all(".tab-view").forEach(v => v.classList.remove("active"));
@@ -600,7 +785,15 @@ $("syncModelsBtn").addEventListener("click", async () => {
   }
 });
 
-// Auto-save governance tier on dropdown change (replaces "Save policy" button)
+/**
+ * Auto-saves a model's governance tier when its dropdown changes.
+ * Also derives gpuRequired and resourceTier from the selected tier value so the
+ * three fields stay consistent without requiring the admin to set each separately.
+ * Shows an inline status label ("Saving…" → "✓ Saved") and a toast.
+ *
+ * @param {HTMLSelectElement} selectEl - The governance tier dropdown that changed.
+ * @param {string} modelId - models.id for the row (e.g. "ollama:llama3.2:3b").
+ */
 async function autoSaveModelTier(selectEl, modelId) {
   const tier = selectEl.value;
   const statusEl = document.getElementById(`tier-status-${modelId}`);
@@ -870,9 +1063,17 @@ $("userList").addEventListener("click", async (e) => {
 });
 
 // === CHANGE PASSWORD MODAL ===
+// An arithmetic captcha (random a OP b) is generated each time the modal opens and
+// each time a wrong answer is given.  This prevents accidental password resets and
+// ensures the admin actively reads the dialog rather than just clicking through.
 let changePwUserId = null;
-let captchaExpected = null;
+let captchaExpected = null; // correct numeric answer for the current captcha
 
+/**
+ * Generates a random arithmetic captcha question (+, -, ×) and updates the UI.
+ * Ensures subtraction results are never negative (swaps operands if needed).
+ * Sets captchaExpected to the correct answer for later validation.
+ */
 function generateCaptcha() {
   const ops = ["+", "-", "×"];
   const op = ops[Math.floor(Math.random() * ops.length)];
@@ -884,6 +1085,13 @@ function generateCaptcha() {
   $("captchaAnswer").value = "";
 }
 
+/**
+ * Opens the change-password modal for a specific user.
+ * Resets all fields and generates a fresh captcha challenge.
+ *
+ * @param {string} userId - The target user's ID.
+ * @param {string} name - Display name shown in the modal heading.
+ */
 function openChangePwModal(userId, name) {
   changePwUserId = userId;
   $("changePwTarget").textContent = `Changing password for ${name}`;
@@ -896,6 +1104,7 @@ function openChangePwModal(userId, name) {
   modal.style.display = "flex";
 }
 
+/** Closes and resets the change-password modal. */
 function closeChangePwModal() {
   $("changePwModal").style.display = "none";
   changePwUserId = null;
@@ -953,6 +1162,11 @@ $("changePwForm").addEventListener("submit", async (e) => {
 
 // === PROVIDERS ===
 
+/**
+ * Renders the Ollama provider card in the Providers tab.
+ * Shows the current Ollama URL, connection status dot, and a pill list of synced models.
+ * Called after every state load and after Ollama URL is saved/tested.
+ */
 function renderOllamaProvider() {
   const urlEl = $("provOllamaUrl");
   if (!urlEl) return;
@@ -1059,6 +1273,12 @@ if (document.getElementById("provOllamaSaveBtn")) {
   });
 }
 
+/**
+ * Fetches external providers from GET /api/admin/providers and renders provider cards.
+ * Each card shows name, type, enabled status, model count, and action buttons
+ * (Test Connection, Sync Models, Enable/Disable, Delete).
+ * Also re-renders the Ollama card at the top of the providers tab.
+ */
 async function loadProviders() {
   renderOllamaProvider();
   const list = $("providerList");
@@ -1095,6 +1315,12 @@ async function loadProviders() {
   }
 }
 
+/**
+ * Sends a test-connection request for an external provider and shows the result inline.
+ *
+ * @param {string} id  - Provider ID (UUID).
+ * @param {HTMLElement} btn - The "Test Connection" button element (disabled while in-flight).
+ */
 async function testProvider(id, btn) {
   const msg = $(`pcard-msg-${id}`);
   btn.disabled = true; btn.textContent = "Testing…";
@@ -1111,6 +1337,14 @@ async function testProvider(id, btn) {
   }
 }
 
+/**
+ * Syncs models from an external provider and renders an inline governance table.
+ * After syncing, an editable table shows each model's governance tag and approved flag;
+ * a "Save model policies" button persists changes via saveModelPolicies().
+ *
+ * @param {string} id  - Provider ID (UUID).
+ * @param {HTMLElement} btn - The "Sync Models" button (disabled while in-flight).
+ */
 async function syncProviderModels(id, btn) {
   const msg = $(`pcard-msg-${id}`);
   btn.disabled = true; btn.textContent = "Syncing…";
@@ -1141,6 +1375,14 @@ async function syncProviderModels(id, btn) {
   }
 }
 
+/**
+ * Persists governance_tag and is_approved for every model row shown in the
+ * inline sync table. Iterates over all [data-gov] selects inside the card,
+ * sending one PUT request per model.
+ *
+ * @param {string} providerId - Provider ID (UUID) whose model cards are being saved.
+ * @param {HTMLElement} btn   - "Save model policies" button; disabled during save.
+ */
 async function saveModelPolicies(providerId, btn) {
   const rows = document.querySelectorAll(`[data-gov]`);
   btn.disabled = true;
@@ -1160,6 +1402,14 @@ async function saveModelPolicies(providerId, btn) {
   setTimeout(() => { btn.textContent = "Save model policies"; }, 1500);
 }
 
+/**
+ * Toggles an external provider's enabled state via PUT /api/admin/providers/:id,
+ * then refreshes the provider list.
+ *
+ * @param {string}  id         - Provider ID (UUID).
+ * @param {boolean} newEnabled - Desired enabled state.
+ * @param {HTMLElement} btn    - The Enable/Disable button (disabled while in-flight).
+ */
 async function toggleProvider(id, newEnabled, btn) {
   btn.disabled = true;
   try {
@@ -1168,6 +1418,14 @@ async function toggleProvider(id, newEnabled, btn) {
   } finally { btn.disabled = false; }
 }
 
+/**
+ * Asks for confirmation then deletes an external provider and all its synced models.
+ * Calls DELETE /api/admin/providers/:id and refreshes the provider list on success.
+ *
+ * @param {string} id   - Provider ID (UUID).
+ * @param {string} name - Human-readable provider name shown in the confirmation dialog.
+ * @param {HTMLElement} btn - The "Delete" button (disabled while in-flight).
+ */
 async function deleteProvider(id, name, btn) {
   showConfirm(`Delete provider "${name}"? This will also delete all its synced models.`, async () => {
     btn.disabled = true;
@@ -1181,8 +1439,8 @@ async function deleteProvider(id, name, btn) {
   });
 }
 
-// Add provider form
-// Show/hide API key
+// Add provider form event handlers
+// Show/hide API key — toggles the newProviderApiKey input between password and text
 const _toggleApiKey = $("toggleProviderApiKey");
 if (_toggleApiKey) {
   _toggleApiKey.addEventListener("click", () => {
@@ -1239,6 +1497,13 @@ if ($("saveProviderBtn")) {
 }
 
 // === ROUTER CONFIG ===
+
+/**
+ * Reads the three weight sliders (speed, quality, privacy), computes their sum,
+ * updates the live "(sum=X.X)" label in green (valid) or red (invalid),
+ * and refreshes the numeric display beside each slider.
+ * Called on every `input` event so the admin sees real-time feedback before saving.
+ */
 function updateWeightSum() {
   const s = parseFloat($("speedWeight").value);
   const q = parseFloat($("qualityWeight").value);
@@ -1256,6 +1521,13 @@ function updateWeightSum() {
   if (el) el.addEventListener("input", updateWeightSum);
 });
 
+/**
+ * Populates the Router Config panel from `state.settings`:
+ *   - Sets the three weight slider values and their display labels.
+ *   - Fills the sensitive-patterns textarea (one regex per line).
+ *   - Checks the local-only mode checkboxes that match `settings.localOnlyModes`.
+ * Called after every loadState() so the panel always reflects the server state.
+ */
 function renderRouterConfig() {
   const s = state.settings;
   if (!s) return;
@@ -1300,7 +1572,10 @@ if ($("saveRouterConfigBtn")) {
   });
 }
 
-// Load reports when switching to the tab
+// === REPORTS / ANALYTICS ===
+
+// Configure Chart.js global defaults to match the Olla Nest design system.
+// Applied once on load; every mkChart() call inherits these defaults.
 if (typeof Chart !== 'undefined') {
   Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   Chart.defaults.font.size = 12;
@@ -1311,6 +1586,7 @@ if (typeof Chart !== 'undefined') {
   Chart.defaults.plugins.tooltip.padding = 12;
 }
 
+/** Olla Nest brand colour palette used across all Chart.js charts and inline styles. */
 const BRAND = {
   yellow:   "#f0d74b",
   yellowDk: "#e8c520",
@@ -1330,15 +1606,30 @@ const BRAND = {
   amber:    "#ffca28",
 };
 
+/** Ordered colour sequence used for multi-series charts (bar, donut slices, etc.). */
 const PALETTE = [
   BRAND.yellow, BRAND.teal, BRAND.blue, BRAND.orange,
   BRAND.purple, BRAND.green, BRAND.pink, BRAND.indigo,
   BRAND.lime, BRAND.amber,
 ];
 
-// Global chart registry so we can destroy before re-creating
+/**
+ * Global Chart.js instance registry keyed by canvas element ID.
+ * Before creating a new chart, mkChart() calls _charts[id].destroy() to
+ * prevent canvas reuse errors when reports are refreshed.
+ */
 const _charts = {};
 
+/**
+ * Chart.js factory with destroy-before-recreate semantics.
+ * Applies brand-consistent defaults for line, bar, and doughnut/pie charts,
+ * then merges caller-supplied `opts` for per-chart overrides.
+ *
+ * @param {string} id   - The canvas element's DOM id.
+ * @param {string} type - Chart.js chart type ("bar", "line", "doughnut", "pie").
+ * @param {object} data - Chart.js `data` object (labels + datasets).
+ * @param {object} [opts={}] - Extra Chart.js `options` to merge (deep-last-wins).
+ */
 function mkChart(id, type, data, opts = {}) {
   const canvas = document.getElementById(id);
   if (!canvas) return;
@@ -1402,9 +1693,29 @@ function mkChart(id, type, data, opts = {}) {
   });
 }
 
+/**
+ * Formats a number with locale-specific thousands separators.
+ * @param {number} n - The number to format.
+ * @returns {string} Formatted string, e.g. "1,234,567".
+ */
 function fmt(n) { return Number(n || 0).toLocaleString(); }
+
+/**
+ * Formats a duration in milliseconds as a human-readable string.
+ * Values ≥ 1000 ms are shown as seconds (e.g. "1.2s"); smaller values as "NNms".
+ * Returns "—" for zero/null.
+ * @param {number} n - Duration in milliseconds.
+ * @returns {string} Formatted duration string.
+ */
 function ms(n)  { return n > 0 ? (n >= 1000 ? (n/1000).toFixed(1)+"s" : Math.round(n)+"ms") : "—"; }
 
+/**
+ * Renders the five top-level KPI cards in the Reports tab.
+ * Cards: Total Users, Chat Sessions, Messages, Tokens Used, Avg Latency.
+ *
+ * @param {object} s - Summary object from GET /api/admin/reports (d.summary).
+ *   Expected keys: total_users, total_sessions, total_messages, total_tokens, avg_latency.
+ */
 function renderKpis(s) {
   const kpis = [
     { label: "Total Users", value: fmt(s.total_users), icon: "👤" },
@@ -1422,15 +1733,31 @@ function renderKpis(s) {
   `).join("");
 }
 
+/** Current leaderboard page index (0-based). Reset to 0 on each data refresh. */
 let _lbPage = 0;
+/** Full leaderboard dataset; sliced per page by renderLeaderboardPage(). */
 let _lbData = [];
 
+/**
+ * Stores leaderboard data and renders the first page.
+ * Subsequent navigation uses lbPrev / lbNext / lbGoTo which call renderLeaderboardPage().
+ *
+ * @param {Array<object>} rows - Leaderboard rows from d.tokenLeaderboard.
+ *   Each row: { name, email, ai_access_tier, sessions, messages, total_tokens,
+ *               avg_tokens_per_msg, daily_token_limit, last_active }.
+ */
 function renderLeaderboard(rows) {
   _lbData = rows;
   _lbPage = 0;
   renderLeaderboardPage();
 }
 
+/**
+ * Renders a single page (10 rows) of the leaderboard table from `_lbData`.
+ * Includes medal icons for top 3 ranks, an avatar circle, a token-usage progress bar
+ * (green < 60%, orange < 90%, red ≥ 90% of daily limit), and pagination controls.
+ * Called by renderLeaderboard() and the lbPrev/lbNext/lbGoTo navigation functions.
+ */
 function renderLeaderboardPage() {
   const PAGE = 10;
   const rows = _lbData;
@@ -1513,10 +1840,20 @@ function renderLeaderboardPage() {
   $("reportLeaderboard").innerHTML = tableHtml + paginationHtml;
 }
 
+// Leaderboard pagination helpers — exposed on window so inline onclick="" attributes in
+// dynamically generated HTML can call them without a module scope barrier.
 window.lbPrev = function() { if(_lbPage>0){_lbPage--;renderLeaderboardPage();} };
 window.lbNext = function() { if(_lbPage<Math.ceil(_lbData.length/10)-1){_lbPage++;renderLeaderboardPage();} };
 window.lbGoTo = function(p) { _lbPage=p; renderLeaderboardPage(); };
 
+/**
+ * Renders the model performance table beneath the Reports leaderboard.
+ * Shows model name, total uses, total tokens, average latency, and a relative
+ * usage bar (100% = the top model's use count).
+ *
+ * @param {Array<object>} rows - Model usage rows from d.modelUsage.
+ *   Each row: { model_name, uses, total_tokens, avg_latency }.
+ */
 function renderModelTable(rows) {
   if (!rows.length) { $("reportModelTable").innerHTML = `<p style="color:#aaa;text-align:center;padding:20px;">No model data yet.</p>`; return; }
   $("reportModelTable").innerHTML = `
@@ -1554,6 +1891,21 @@ function renderModelTable(rows) {
   `;
 }
 
+/**
+ * Fetches analytics data from GET /api/admin/reports?days=N and renders all 9 charts
+ * plus KPI cards, the leaderboard, and the model table.
+ *
+ * Charts built:
+ *   1. chartDailyActivity  — dual-axis bar (messages) + line (tokens) by day
+ *   2. chartModelUsage     — doughnut of top-8 models by use count
+ *   3. chartModeBreakdown  — doughnut of chat-mode distribution
+ *   4. chartLiveVsFailed   — doughnut of successful vs failed AI calls
+ *   5. chartTierDist       — doughnut of user tier distribution
+ *   6. chartDeptUsage      — horizontal bar of tokens + sessions by department
+ *   7. chartLatency        — horizontal bar of average latency per model
+ *   8. chartAuditTimeline  — line of audit events per day
+ *   9. chartAuditBreakdown — horizontal bar of audit event counts by action type
+ */
 async function loadReports() {
   const days = $("reportPeriod") ? $("reportPeriod").value : 30;
   let d;
@@ -1668,20 +2020,25 @@ async function loadReports() {
   renderModelTable(d.modelUsage);
 }
 
+// Refresh reports manually or when the time-period selector changes
 if ($("refreshReportsBtn")) {
   $("refreshReportsBtn").addEventListener("click", loadReports);
 }
 if ($("reportPeriod")) {
+  // Re-fetch data whenever the admin selects a different look-back period (7/30/90 days)
   $("reportPeriod").addEventListener("change", loadReports);
 }
 
-// Load reports when switching to the tab — listen on nav items
+// Load reports when switching to the Reports tab.
+// A 50 ms delay ensures the tab panel is fully visible before Chart.js measures canvas dimensions.
 document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
   if (btn.dataset.tab === "reports") {
     btn.addEventListener("click", function() { setTimeout(loadReports, 50); }, true);
   }
 });
 
+// Bootstrap: load all state, then verify Ollama connectivity.
+// Subsequent Ollama checks run every 30 s so the header status dot stays current.
 loadState().then(checkOllama);
 /* Re-check Ollama every 30 seconds so status stays current without a page reload */
 setInterval(checkOllama, 30000);
