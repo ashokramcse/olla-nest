@@ -16,28 +16,33 @@ module.exports = function(deps) {
 
   // [POST] /api/auth/login — Auth: public — Purpose: authenticate with email+password; sets HttpOnly session cookie
   router.post("/login", (req, res) => {
-    // Rate limit by IP
+    // Rate limit by IP — stored in SQLite so all cluster workers share the same counter
     const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
     const now = Date.now();
-    const attempt = loginAttempts.get(ip) || { count: 0, resetAt: now + LOGIN_WINDOW_MS };
-    if (now > attempt.resetAt) { attempt.count = 0; attempt.resetAt = now + LOGIN_WINDOW_MS; }
-    if (attempt.count >= LOGIN_MAX_ATTEMPTS) {
-      const retryAfter = Math.ceil((attempt.resetAt - now) / 1000);
-      return res.status(429).json({ error: `Too many login attempts. Try again in ${Math.ceil(retryAfter / 60)} minutes.` });
-    }
 
     const db = openSql();
     try {
+      // Load or initialise the attempt row for this IP
+      let attempt = db.prepare("SELECT count, reset_at FROM login_attempts WHERE ip = ?").get(ip);
+      if (!attempt || now > attempt.reset_at) {
+        // No record or window expired — start fresh
+        db.prepare("INSERT OR REPLACE INTO login_attempts (ip, count, reset_at) VALUES (?, 0, ?)").run(ip, now + LOGIN_WINDOW_MS);
+        attempt = { count: 0, reset_at: now + LOGIN_WINDOW_MS };
+      }
+      if (attempt.count >= LOGIN_MAX_ATTEMPTS) {
+        const retryAfter = Math.ceil((attempt.reset_at - now) / 1000);
+        return res.status(429).json({ error: `Too many login attempts. Try again in ${Math.ceil(retryAfter / 60)} minutes.` });
+      }
+
       const { email, password } = req.body;
       if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
       const row = one(db, `SELECT ${USER_SELECT}, password_hash FROM users WHERE email = ? AND active = 1`, email);
       if (!row || !row.password_hash || !bcrypt.compareSync(String(password || ""), row.password_hash)) {
-        attempt.count++;
-        loginAttempts.set(ip, attempt);
+        db.prepare("UPDATE login_attempts SET count = count + 1 WHERE ip = ?").run(ip);
         return res.status(401).json({ error: "Invalid email or password" });
       }
       // Successful login — reset attempt counter
-      loginAttempts.delete(ip);
+      db.prepare("DELETE FROM login_attempts WHERE ip = ?").run(ip);
       const user = publicUser(row);
       setSetting(db, "activeUserId", user.id);
       setSession(res, user, req);

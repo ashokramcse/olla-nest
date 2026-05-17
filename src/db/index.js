@@ -256,6 +256,14 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_access_grants_subject ON access_grants(subject_type, subject_id);
     CREATE INDEX IF NOT EXISTS idx_user_overrides_user ON user_overrides(user_id);
   `);
+  // Login rate-limiting table — shared across all cluster workers via SQLite
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      ip TEXT PRIMARY KEY,
+      count INTEGER NOT NULL DEFAULT 0,
+      reset_at INTEGER NOT NULL
+    );
+  `);
   seedSql(db);
   } finally {
     db.close();

@@ -55,9 +55,11 @@ if (cluster.isPrimary) {
     runOllamaSync(); // run immediately on boot
     setInterval(runOllamaSync, 30000); // then every 30 seconds
 
-    // Daily SQLite backup
-    runBackup(); // run once at boot
-    setInterval(() => runBackup(), 24 * 60 * 60 * 1000);
+    // Daily SQLite backup — only worker 1 runs it to avoid concurrent VACUUM
+    if (cluster.worker.id === 1) {
+      runBackup(); // run once at boot
+      setInterval(() => runBackup(), 24 * 60 * 60 * 1000);
+    }
 
     console.log(`Olla Nest running at http://localhost:${PORT} (worker ${process.pid})`);
   });

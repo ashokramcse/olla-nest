@@ -15,8 +15,8 @@ module.exports = function(deps) {
     const db = openSql();
     try {
       const userCount = db.prepare("SELECT COUNT(*) as n FROM users").get().n;
-      const sessionCount = db.prepare('SELECT COUNT(*) as n FROM sessions WHERE expires_at > datetime("now")').get().n;
-      const modelCount = db.prepare('SELECT COUNT(*) as n FROM models WHERE status = "available"').get().n;
+      const sessionCount = db.prepare("SELECT COUNT(*) as n FROM sessions WHERE expires_at > datetime('now')").get().n;
+      const modelCount = db.prepare("SELECT COUNT(*) as n FROM models WHERE status = 'available'").get().n;
       res.json({
         status: "ok",
         ...getSnapshot(),
