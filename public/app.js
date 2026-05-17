@@ -983,8 +983,8 @@ const appDropdown = document.getElementById("appModelDropdown");
  */
 function openAppModelDropdown() {
   if (!appDropdown) return;
-  const models = (state?.models || []).filter(m => (state?.approvedModels || []).some(a => a.id === m.id) || m.status === "available");
-  populateAppModelPicker(models.length ? models : (state?.models || []).filter(m => m.status === "available"));
+  const models = allowedModels();
+  populateAppModelPicker(models);
   // Position fixed relative to trigger rect (escapes overflow:hidden parents)
   const rect = appPicker.getBoundingClientRect();
   const dropH = 320; // estimated max height
