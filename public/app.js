@@ -425,10 +425,16 @@ $("chatForm").addEventListener("submit", async (e) => {
   const msgs = $("messages");
   const userBubbleId = "streaming-user-" + Date.now();
   const asstBubbleId = "streaming-asst-" + Date.now();
+  // Show image thumbnails in user bubble (before files are cleared)
+  const imgPreviews = uploadedFiles.filter(f => f.type.startsWith("image/"))
+    .map(f => `<img src="data:${f.type};base64,${f.data}" style="max-height:80px;max-width:120px;border-radius:8px;margin-top:6px;display:block;">`).join("");
+  const textPreviews = uploadedFiles.filter(f => !f.type.startsWith("image/"))
+    .map(f => `<div style="font-size:11px;color:var(--mute);margin-top:4px;">📎 ${esc(f.name)}</div>`).join("");
+
   msgs.insertAdjacentHTML("beforeend", `
     <div class="message-wrap user" id="${userBubbleId}">
       <div class="message-meta">${esc(state?.activeUser?.name || "You")}</div>
-      <div class="message-bubble user-bubble">${esc(message)}</div>
+      <div class="message-bubble user-bubble">${esc(message)}${imgPreviews}${textPreviews}</div>
     </div>
     <div class="message-wrap assistant" id="${asstBubbleId}">
       <div class="message-meta">Olla Nest</div>
@@ -441,14 +447,28 @@ $("chatForm").addEventListener("submit", async (e) => {
   let currentRoute = null;
 
   try {
+    // Collect images (base64) from uploaded files
+    const imageFiles = uploadedFiles.filter(f => f.type.startsWith("image/")).map(f => f.data);
+    const textFiles = uploadedFiles.filter(f => !f.type.startsWith("image/"));
+    // Append text file contents to message
+    let fullMessage = message;
+    if (textFiles.length) {
+      fullMessage += "\n\n" + textFiles.map(f => `\`\`\`${f.name}\n${f.data}\n\`\`\``).join("\n\n");
+    }
+
+    // Clear uploaded files after sending
+    uploadedFiles.length = 0;
+    renderFilePreviews();
+
     const response = await fetch("/api/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
       body: JSON.stringify({
-        message,
+        message: fullMessage,
         mode: activeMode,
         manualModelId: $("manualModel").value || null,
         writeToWorkspace: $("writeToWorkspace")?.checked || false,
+        images: imageFiles.length ? imageFiles : undefined,
       }),
     });
 
@@ -665,6 +685,16 @@ function openAppModelDropdown() {
   if (!appDropdown) return;
   const models = (state?.models || []).filter(m => (state?.approvedModels || []).some(a => a.id === m.id) || m.status === "available");
   populateAppModelPicker(models.length ? models : (state?.models || []).filter(m => m.status === "available"));
+  // Position fixed relative to trigger rect (escapes overflow:hidden parents)
+  const rect = appPicker.getBoundingClientRect();
+  const dropH = 320; // estimated max height
+  const spaceBelow = window.innerHeight - rect.bottom;
+  if (spaceBelow < dropH && rect.top > dropH) {
+    appDropdown.style.top = (rect.top - dropH - 4) + "px";
+  } else {
+    appDropdown.style.top = (rect.bottom + 4) + "px";
+  }
+  appDropdown.style.left = rect.left + "px";
   appPicker?.classList.add("open");
   appDropdown.classList.add("open");
 }
@@ -684,6 +714,59 @@ document.addEventListener("click", (e) => {
     closeAppModelDropdown();
   }
 });
+
+// ─── File upload ──────────────────────────────────────────────────────────────
+const uploadedFiles = []; // { name, type, data } — data is base64 for images, text for others
+
+const uploadFileBtn = document.getElementById("uploadFileBtn");
+const fileInput = document.getElementById("fileInput");
+const filePreviewBar = document.getElementById("filePreviewBar");
+
+if (uploadFileBtn) uploadFileBtn.addEventListener("click", () => fileInput?.click());
+
+function renderFilePreviews() {
+  if (!filePreviewBar) return;
+  if (!uploadedFiles.length) { filePreviewBar.style.display = "none"; filePreviewBar.innerHTML = ""; return; }
+  filePreviewBar.style.display = "flex";
+  filePreviewBar.innerHTML = uploadedFiles.map((f, i) => {
+    const isImg = f.type.startsWith("image/");
+    const thumb = isImg ? `<img src="data:${f.type};base64,${f.data}" alt="">` : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+    return `<div class="file-chip">${thumb}<span class="file-chip-name" title="${esc(f.name)}">${esc(f.name)}</span><span class="file-chip-rm" data-idx="${i}">×</span></div>`;
+  }).join("");
+  filePreviewBar.querySelectorAll(".file-chip-rm").forEach(btn => {
+    btn.addEventListener("click", () => {
+      uploadedFiles.splice(Number(btn.dataset.idx), 1);
+      renderFilePreviews();
+    });
+  });
+}
+
+if (fileInput) {
+  fileInput.addEventListener("change", async () => {
+    const files = Array.from(fileInput.files || []);
+    for (const file of files) {
+      if (uploadedFiles.length >= 5) break; // cap at 5 attachments
+      const isImg = file.type.startsWith("image/");
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          if (isImg) {
+            // strip "data:image/xxx;base64," prefix
+            resolve(e.target.result.split(",")[1]);
+          } else {
+            resolve(e.target.result);
+          }
+        };
+        reader.onerror = reject;
+        if (isImg) reader.readAsDataURL(file);
+        else reader.readAsText(file);
+      });
+      uploadedFiles.push({ name: file.name, type: file.type, data });
+    }
+    fileInput.value = "";
+    renderFilePreviews();
+  });
+}
 
 loadState().then(() => {
   updateWriteToggle();

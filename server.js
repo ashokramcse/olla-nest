@@ -1092,7 +1092,59 @@ function listWorkspaceFiles(workspaceRoot, maxFiles = 50) {
   }
 }
 
-function modelPrompt(message, mode, route, workspace) {
+// ─── Context window helpers ───────────────────────────────────────────────────
+function estimateTokens(text) {
+  return Math.ceil((text || "").length / 4);
+}
+
+function contextWindowForModel(modelName) {
+  const n = (modelName || "").toLowerCase();
+  if (/gemma[34]/.test(n)) return 131072;
+  if (/qwen/.test(n)) return 32768;
+  if (/llama3\.(1|2|3)/.test(n)) return 131072;
+  if (/llama3/.test(n)) return 8192;
+  if (/mistral/.test(n)) return 32768;
+  if (/phi[34]|phi-[34]/.test(n)) return 131072;
+  if (/deepseek/.test(n)) return 131072;
+  if (/codellama/.test(n)) return 16384;
+  if (/lfm/.test(n)) return 32768;
+  if (/granite/.test(n)) return 32768;
+  if (/glm/.test(n)) return 32768;
+  if (/medgemma/.test(n)) return 131072;
+  return 8192;
+}
+
+function buildContextMessages(db, sessionId, systemPrompt, userMessage, modelName, images) {
+  const tokenLimit = contextWindowForModel(modelName);
+  const reservedTokens = estimateTokens(systemPrompt) + estimateTokens(userMessage) + 512;
+  let budget = Math.max(0, tokenLimit - reservedTokens);
+
+  // Load all prior messages oldest→newest (current message not yet inserted)
+  const history = db.prepare(
+    "SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC"
+  ).all(sessionId);
+
+  // Walk newest→oldest, keep pairs that fit in budget
+  const kept = [];
+  for (let i = history.length - 1; i >= 0; i--) {
+    const tokens = estimateTokens(history[i].content);
+    if (budget - tokens < 0) break;
+    budget -= tokens;
+    kept.unshift(history[i]);
+  }
+
+  const userMsg = images && images.length
+    ? { role: "user", content: userMessage, images }
+    : { role: "user", content: userMessage };
+
+  return [
+    { role: "system", content: systemPrompt },
+    ...kept.map(m => ({ role: m.role, content: m.content })),
+    userMsg,
+  ];
+}
+
+function buildSystemPrompt(mode, route, workspace) {
   const base = [
     "You are Olla Nest, a company AI workspace assistant.",
     "Answer the user's request directly and completely.",
@@ -1124,7 +1176,11 @@ function modelPrompt(message, mode, route, workspace) {
     docs: "Generate complete documentation for the provided code, feature, or project. Include: purpose, parameters or props, return values, usage examples, and any important notes. For a project, write a professional README with setup, usage, and API reference sections.",
     plan: "Break this down into a clear implementation plan. Include: recommended tech stack with reasoning, folder/file structure, step-by-step build order, key decisions the developer needs to make, and estimated complexity per phase. Be opinionated and specific.",
   };
-  return `${base.join("\n")}\nMode: ${mode}\nInstruction: ${modeInstructions[mode] || modeInstructions.ask}\n\nUser request:\n${message.trim()}`;
+  return `${base.join("\n")}\nMode: ${mode}\nInstruction: ${modeInstructions[mode] || modeInstructions.ask}`;
+}
+
+function modelPrompt(message, mode, route, workspace) {
+  return `${buildSystemPrompt(mode, route, workspace)}\n\nUser request:\n${message.trim()}`;
 }
 
 function slugify(value, fallback = "artifact") {
@@ -1807,11 +1863,17 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     if (!route.selected) return res.status(403).json({ error: route.reason });
 
     const workspace = workspaceForUser(db, user.id);
+    const chat = getActiveChat(db, user.id);
     let content;
     let live = true;
     try {
       if (route.selected.provider !== "ollama") throw new Error("API connector is not configured in this MVP.");
-      content = await ollamaGenerate(db, route.selected.model, modelPrompt(message, mode, route, workspace));
+      const systemPrompt = buildSystemPrompt(mode, route, workspace);
+      const images = Array.isArray(req.body.images) ? req.body.images : [];
+      const contextMsgs = buildContextMessages(db, chat.id, systemPrompt, message, route.selected.model, images);
+      const provider = { type: "ollama", base_url: ollamaUrl(db), api_key_enc: encryptKey(""), name: "Ollama" };
+      const result = await callProvider(provider, route.selected.model, contextMsgs, { timeout: 300000 });
+      content = result.content;
     } catch (error) {
       live = false;
       content = `Auto Router selected ${route.selected.name}, but the model call did not complete.\n\nReason: ${error.message}\n\nThe route itself is valid; check model availability, startup time, or admin configuration.`;
@@ -1835,8 +1897,6 @@ app.post("/api/chat", requireAuth, async (req, res) => {
         .replace(/\n{3,}/g, "\n\n")
         .trim();
     }
-
-    const chat = getActiveChat(db, user.id);
     const now = new Date().toISOString();
     const userMsgId = uid("msg");
     const asstMsgId = uid("msg");
@@ -2278,8 +2338,12 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
     res.write(`data: ${JSON.stringify({ type: "routing", model: route.selected.name, provider: route.selected.provider, reason: route.reason })}\n\n`);
 
     const workspace = workspaceForUser(db, user.id);
-    const prompt = modelPrompt(message, mode, route, workspace);
-    const messages = [{ role: "user", content: prompt }];
+    const images = Array.isArray(req.body.images) ? req.body.images : [];
+
+    // Load session history for context window
+    const chatSession = getActiveChat(db, user.id);
+    const systemPrompt = buildSystemPrompt(mode, route, workspace);
+    const messages = buildContextMessages(db, chatSession.id, systemPrompt, message, route.selected.model, images);
 
     let fullContent = "";
     let tokensUsed = 0;
@@ -2315,7 +2379,7 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
     }
 
     if (!dbClosed) {
-      const chat = getActiveChat(db, user.id);
+      const chat = chatSession; // already fetched above for context loading
       const now = new Date().toISOString();
       const userMsgId = uid("msg");
       const asstMsgId = uid("msg");
