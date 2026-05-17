@@ -298,7 +298,6 @@ function renderAccessControl() {
     $("deptPermSelect").innerHTML = (state.departments || []).map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("");
     renderDeptPermGrid();
   }
-  loadActiveSessions();
   renderEffectiveAccess();
 }
 

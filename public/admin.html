@@ -933,9 +933,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       <!-- ── ACCESS CONTROL ── -->
       <div class="tab-view" id="tab-access">
 
-        <!-- Row 1: User Access + Active Sessions -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-          <!-- User effective access -->
+        <!-- Row 1: User Access (full width) -->
+        <div style="margin-bottom:16px;">
           <div class="card">
             <div class="card-head"><div class="card-title">User Access</div></div>
             <div style="margin-bottom:12px;">
@@ -943,19 +942,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
               <select class="input input-sm" id="accessUserSelect"></select>
             </div>
             <div id="effectiveAccessPanel"></div>
-          </div>
-          <!-- Active Sessions -->
-          <div class="card">
-            <div class="card-head">
-              <div class="card-title">Active Sessions</div>
-              <button class="btn btn-secondary btn-xs" id="refreshSessionsBtn">↻ Refresh</button>
-            </div>
-            <div id="activeSessionsList" style="display:flex;flex-direction:column;gap:8px;min-height:60px;">
-              <div class="empty-state" style="padding:16px 0;font-size:13px;color:var(--mute);">Loading sessions…</div>
-            </div>
-            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-              <button class="btn btn-danger btn-xs" id="clearAllSessionsBtn">⚠ Force logout all employees</button>
-            </div>
           </div>
         </div>
 
