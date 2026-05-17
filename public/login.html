@@ -290,6 +290,22 @@
     }
     .ws-pill svg { opacity: .5; }
 
+    .admin-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--mute);
+      text-decoration: none;
+      padding: 10px;
+      border-radius: 12px;
+      transition: color .15s, background .15s;
+      margin-top: 4px;
+    }
+    .admin-link:hover { color: var(--ink); background: rgba(0,0,0,0.04); }
+    .admin-link svg { opacity: .5; }
+
     /* responsive */
     @media (max-width: 760px) {
       .page { grid-template-columns: 1fr; max-width: 440px; }
@@ -359,6 +375,11 @@
     <div class="login-hint" id="bootstrapHint"></div>
 
     <div class="divider">Olla Nest · AI Workspace</div>
+
+    <a href="/admin-login" class="admin-link">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Admin? Sign in here instead
+    </a>
 
     <div class="ws-pill">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"

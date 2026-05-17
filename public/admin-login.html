@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Olla Nest — Admin Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0a0a0c 0%, #111115 50%, #0e0e12 100%);
+      color: #e8e8e8;
+      letter-spacing: -0.005em;
+      -webkit-font-smoothing: antialiased;
+      padding: 32px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Background grid */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(240,215,75,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(240,215,75,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* Glow orbs */
+    body::after {
+      content: "";
+      position: fixed;
+      top: -200px; right: -200px;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(240,215,75,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 1080px;
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      gap: 24px;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Left: brand panel ── */
+    .brand-panel {
+      padding: 48px 0;
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 11px 20px;
+      border-radius: 999px;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 52px;
+    }
+    .logo-mark {
+      width: 20px; height: 20px;
+      border-radius: 5px;
+      background: linear-gradient(135deg, #f0d74b 60%, #e8c520 100%);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .logo-mark::after {
+      content: "";
+      position: absolute;
+      inset: 5px 4px 4px 5px;
+      background: #0e0e12;
+      border-radius: 2px;
+    }
+
+    .brand-headline {
+      font-size: 62px;
+      font-weight: 400;
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      margin-bottom: 24px;
+      color: #fff;
+    }
+    .brand-headline em {
+      font-style: normal;
+      color: #f0d74b;
+    }
+
+    .brand-sub {
+      font-size: 16px;
+      color: #888;
+      line-height: 1.6;
+      max-width: 360px;
+      margin-bottom: 44px;
+    }
+
+    .access-chips {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .access-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #aaa;
+      max-width: 340px;
+    }
+    .access-chip .chip-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: rgba(240,215,75,0.1);
+      border: 1px solid rgba(240,215,75,0.15);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      color: #f0d74b;
+    }
+    .access-chip strong { color: #e0e0e0; font-weight: 600; display: block; font-size: 13px; margin-bottom: 1px; }
+
+    /* ── Right: login card ── */
+    .login-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 32px;
+      padding: 44px 40px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 40px 80px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07);
+    }
+
+    .admin-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(240,215,75,0.12);
+      border: 1px solid rgba(240,215,75,0.2);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: #f0d74b;
+      margin-bottom: 22px;
+    }
+    .admin-badge span {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #f0d74b;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50% { opacity:.5; transform:scale(0.8); }
+    }
+
+    .login-title {
+      font-size: 38px;
+      font-weight: 400;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+      margin-bottom: 32px;
+      color: #fff;
+    }
+    .login-title em { font-style:normal; color:#888; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+    .field label {
+      font-size: 12px;
+      color: #666;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .field input {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 15px 18px;
+      font-size: 15px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #e8e8e8;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+      width: 100%;
+    }
+    .field input::placeholder { color: #444; }
+    .field input:focus {
+      border-color: rgba(240,215,75,0.5);
+      box-shadow: 0 0 0 3px rgba(240,215,75,0.08);
+      background: rgba(255,255,255,0.07);
+    }
+
+    .btn-signin {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      background: #f0d74b;
+      color: #0e0e12;
+      border: none;
+      border-radius: 999px;
+      padding: 16px 20px 16px 26px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      margin-top: 26px;
+      transition: background .15s, transform .15s, box-shadow .15s;
+    }
+    .btn-signin:hover {
+      background: #f7e070;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 32px -8px rgba(240,215,75,0.4);
+    }
+    .btn-signin:active { transform: none; box-shadow: none; }
+    .btn-signin:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-signin .arr {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: #0e0e12;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      color: #f0d74b;
+    }
+
+    .login-error {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: #f87171;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 13px;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .login-error.show { display: block; }
+
+    .divider {
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+      margin: 28px 0 20px;
+    }
+
+    .employee-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #555;
+      text-decoration: none;
+      padding: 10px;
+      border-radius: 12px;
+      transition: color .15s, background .15s;
+    }
+    .employee-link:hover { color: #aaa; background: rgba(255,255,255,0.04); }
+    .employee-link svg { opacity: .5; }
+
+    .security-note {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #444;
+      margin-top: 18px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .security-note svg { flex-shrink: 0; color: #f0d74b; opacity: .6; }
+
+    @media (max-width: 760px) {
+      .page { grid-template-columns: 1fr; max-width: 440px; }
+      .brand-panel { padding: 24px 0; }
+      .brand-headline { font-size: 42px; }
+      .login-card { padding: 36px 28px; }
+      .access-chips { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ── Left brand panel ── -->
+  <div class="brand-panel">
+    <div class="logo">
+      <div class="logo-mark"></div>
+      Olla Nest
+    </div>
+
+    <h1 class="brand-headline">Admin<br><em>control</em><br>panel.</h1>
+    <p class="brand-sub">Secure access for platform administrators. Manage users, models, governance, and the full AI workspace from here.</p>
+
+    <div class="access-chips">
+      <div class="access-chip">
+        <div class="chip-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div><strong>User & Team Management</strong>Create employees, assign roles, reset passwords</div>
+      </div>
+      <div class="access-chip">
+        <div class="chip-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        </div>
+        <div><strong>Model Governance</strong>Approve, restrict, and monitor Ollama models</div>
+      </div>
+      <div class="access-chip">
+        <div class="chip-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div><strong>Reports & Audit Trail</strong>Token usage, latency, full audit log</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right login card ── -->
+  <div class="login-card">
+    <div class="admin-badge">
+      <span></span>
+      Admin Access
+    </div>
+
+    <div class="login-title">Sign in<br>as <em>admin.</em></div>
+
+    <form id="loginForm" novalidate autocomplete="off">
+      <div class="login-error" id="loginError"></div>
+
+      <div class="field">
+        <label for="email">Admin Email</label>
+        <input id="email" type="email" autocomplete="username"
+               placeholder="admin@yourcompany.com" required />
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password"
+               placeholder="••••••••••••" required />
+      </div>
+
+      <button class="btn-signin" type="submit" id="submitBtn">
+        <span>Sign in to Admin</span>
+        <span class="arr">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </span>
+      </button>
+    </form>
+
+    <div class="divider"></div>
+
+    <a href="/login" class="employee-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Employee? Sign in here instead
+    </a>
+
+    <div class="security-note">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Admin sessions are audited. All actions are logged.
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var CSRF = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" };
+
+  async function init() {
+    try {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      const me = await res.json();
+      if (me.authenticated && me.user.role === "admin") {
+        window.location.href = "/admin"; return;
+      }
+      if (me.authenticated) {
+        // logged in as non-admin — send to app
+        window.location.href = "/app"; return;
+      }
+    } catch {}
+  }
+
+  document.getElementById("loginForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var err = document.getElementById("loginError");
+    var btn = document.getElementById("submitBtn");
+    err.classList.remove("show");
+    btn.disabled = true;
+    btn.querySelector("span").textContent = "Signing in…";
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: CSRF,
+        body: JSON.stringify({
+          email: document.getElementById("email").value.trim(),
+          password: document.getElementById("password").value,
+          adminOnly: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sign in failed");
+      if (data.user && data.user.role !== "admin") {
+        throw new Error("This login is for administrators only. Use the employee login instead.");
+      }
+      window.location.href = "/admin";
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.classList.add("show");
+      btn.disabled = false;
+      btn.querySelector("span").textContent = "Sign in to Admin";
+    }
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>

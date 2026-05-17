@@ -1484,6 +1484,45 @@ app.get("/api/account/profile", requireAuth, (req, res) => {
   }
 });
 
+app.get("/api/account/usage", requireAuth, (req, res) => {
+  const db = openSql();
+  try {
+    const user = one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayISO = todayStart.toISOString();
+
+    const monthStart = new Date();
+    monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const monthISO = monthStart.toISOString();
+
+    const todayRow = db.prepare(
+      `SELECT COALESCE(SUM(m.tokens_used),0) AS total
+       FROM chat_messages m
+       JOIN chat_sessions s ON s.id = m.session_id
+       WHERE s.user_id = ? AND m.role = 'assistant' AND m.created_at >= ?`
+    ).get(req.user.id, todayISO);
+
+    const monthRow = db.prepare(
+      `SELECT COALESCE(SUM(m.tokens_used),0) AS total
+       FROM chat_messages m
+       JOIN chat_sessions s ON s.id = m.session_id
+       WHERE s.user_id = ? AND m.role = 'assistant' AND m.created_at >= ?`
+    ).get(req.user.id, monthISO);
+
+    res.json({
+      tokensUsedToday: todayRow?.total || 0,
+      dailyTokenLimit: user.dailyTokenLimit || 50000,
+      tokensUsedMonth: monthRow?.total || 0,
+      monthlyTokenLimit: user.monthlyTokenLimit || 1000000,
+    });
+  } finally {
+    db.close();
+  }
+});
+
 app.get("/api/state", requireAuth, async (req, res) => {
   const db = openSql();
   try {
@@ -2582,9 +2621,16 @@ app.get("/app", (req, res) => {
   res.sendFile(path.join(STATIC_DIR, "app.html"));
 });
 
+app.get("/admin-login", (req, res) => {
+  const user = sessionUser(req);
+  if (user && user.role === "admin") return res.redirect("/admin");
+  if (user) return res.redirect("/app");
+  res.sendFile(path.join(STATIC_DIR, "admin-login.html"));
+});
+
 app.get("/admin", (req, res) => {
   const user = sessionUser(req);
-  if (!user) return res.redirect("/login");
+  if (!user) return res.redirect("/admin-login");
   if (user.role !== "admin") return res.redirect("/app");
   res.sendFile(path.join(STATIC_DIR, "admin.html"));
 });

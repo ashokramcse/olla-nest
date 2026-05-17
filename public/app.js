@@ -75,6 +75,22 @@ function renderSidebar() {
   $("manualModel").innerHTML = `<option value="">Auto Router</option>` +
     models.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("");
 
+  // Model connected status pill
+  const statModelPill = document.getElementById("statModelPill");
+  const statModelName = document.getElementById("statModelName");
+  if (statModelPill && statModelName) {
+    const activeM = models.find(m => m.status === "approved") || models[0];
+    if (activeM) {
+      statModelName.textContent = activeM.name;
+      statModelPill.style.display = "flex";
+    } else {
+      statModelPill.style.display = "none";
+    }
+  }
+
+  // Token usage pill
+  loadTokenUsage();
+
   // Update model ring infographic
   if (typeof updateModelRing === "function") updateModelRing(models.length, 10);
   const capCard = document.getElementById("capabilityCard");
@@ -213,6 +229,24 @@ async function loadState() {
   renderMessages();
   // Notify terminal panel about workspace path
   window.dispatchEvent(new CustomEvent("olla-state-updated", { detail: state }));
+}
+
+async function loadTokenUsage() {
+  const pill = document.getElementById("statTokenPill");
+  const used = document.getElementById("statTokenUsed");
+  const limit = document.getElementById("statTokenLimit");
+  const bar = document.getElementById("statTokenBar");
+  if (!pill || !used || !limit || !bar) return;
+  try {
+    const data = await api("/api/account/usage");
+    if (!data) return;
+    const pct = Math.min(100, Math.round((data.tokensUsedToday / data.dailyTokenLimit) * 100));
+    used.textContent = data.tokensUsedToday.toLocaleString();
+    limit.textContent = data.dailyTokenLimit.toLocaleString();
+    bar.style.width = pct + "%";
+    bar.className = "token-bar-fill" + (pct >= 90 ? " over" : pct >= 70 ? " warn" : "");
+    pill.style.display = "flex";
+  } catch {}
 }
 
 async function checkOllama() {

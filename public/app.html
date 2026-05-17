@@ -126,6 +126,13 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
   border:1.5px solid #ffffffcc;color:#000a;
 }
 .pill.outline.sm{min-width:100px}
+.pill.model-status{background:#e8f5e9;color:#1b5e20;min-width:80px;justify-content:center;font-size:13px;gap:6px;height:42px;padding:0 16px}
+.pill.model-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0}
+.pill.token-pill{background:transparent;border:1.5px solid #00000018;min-width:200px;height:42px;padding:0 14px;gap:8px;font-size:13px;color:var(--ink)}
+.token-bar-wrap{flex:1;height:4px;background:#00000012;border-radius:999px;min-width:60px;overflow:hidden}
+.token-bar-fill{height:100%;border-radius:999px;background:var(--yellow);transition:width .5s}
+.token-bar-fill.warn{background:#f59e0b}
+.token-bar-fill.over{background:#ef4444}
 .hero-counters{display:flex;gap:24px;align-items:flex-end}
 .h-counter{display:flex;align-items:flex-end;gap:8px}
 .h-counter .num{font-size:56px;line-height:1;font-weight:400;letter-spacing:-0.04em}
@@ -421,6 +428,17 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
           <span class="pill outline sm" id="statWorkspace">not set</span>
         </div>
         <div class="stat-pill" id="topbarSub" style="display:none;"></div>
+        <div class="stat-pill" id="statModelPill" style="display:none;">
+          <span class="lab">Model</span>
+          <span class="pill model-status" id="statModelName">—</span>
+        </div>
+        <div class="stat-pill" id="statTokenPill" style="display:none;">
+          <span class="lab">Daily Tokens</span>
+          <span class="pill token-pill" id="statTokenPillInner">
+            <span id="statTokenUsed">0</span>/<span id="statTokenLimit">50,000</span>
+            <span class="token-bar-wrap"><span class="token-bar-fill" id="statTokenBar"></span></span>
+          </span>
+        </div>
       </div>
     </div>
     <div class="hero-counters">
