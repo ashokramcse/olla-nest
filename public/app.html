@@ -806,7 +806,7 @@ function updateModelRing(count, max) {
     var u=_profile||{}; var body={name:document.getElementById("profInputName").value.trim(),phone:document.getElementById("profInputPhone").value.trim()};
     if(!u.isEnterprise){body.designation=document.getElementById("profInputDesignation").value.trim();body.team=document.getElementById("profInputTeam").value.trim();body.branch=document.getElementById("profInputBranch").value.trim();}
     if(!body.name){setMsg("profSaveMsg","Name cannot be empty","error");btn.disabled=false;btn.textContent="Save changes";return;}
-    fetch("/api/account/profile",{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+    fetch("/api/account/profile",{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},body:JSON.stringify(body)})
     .then(function(r){return r.json();}).then(function(d){
       if(d.ok){_profile=d.user;populateDrawer(d.user,document.getElementById("profInputDept").value);setMsg("profSaveMsg","Profile saved ✓","ok");}
       else setMsg("profSaveMsg",d.error||"Save failed","error");
@@ -823,7 +823,7 @@ function updateModelRing(count, max) {
     if(nw.length<12){setMsg("profPwMsg","New password must be at least 12 characters","error");return;}
     if(nw!==conf){setMsg("profPwMsg","Passwords do not match","error");return;}
     btn.disabled=true; btn.textContent="Updating…";
-    fetch("/api/account/password",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({currentPassword:cur,newPassword:nw})})
+    fetch("/api/account/password",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},body:JSON.stringify({currentPassword:cur,newPassword:nw})})
     .then(function(r){return r.json();}).then(function(d){
       if(d.ok){setMsg("profPwMsg","Password updated ✓","ok");["profPwCurrent","profPwNew","profPwConfirm"].forEach(function(id){document.getElementById(id).value="";});document.getElementById("profPwSection").classList.remove("open");document.getElementById("profPwToggle").textContent="🔑 Change password";}
       else setMsg("profPwMsg",d.error||"Update failed","error");

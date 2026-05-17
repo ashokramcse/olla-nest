@@ -14,7 +14,8 @@ function esc(v) {
 }
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const headers = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...(opts.headers || {}) };
+  const res = await fetch(path, { ...opts, headers });
   if (res.status === 401) { window.location.href = "/login"; return null; }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Request failed");
@@ -241,7 +242,7 @@ let streamingMessageId = null;
 function submitFeedback(btn, messageId, sessionId, rating) {
   fetch("/api/feedback", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
     body: JSON.stringify({ messageId, sessionId, rating, comment: "" }),
   }).then(r => r.json()).then(() => {
     btn.closest(".feedback-row").querySelectorAll(".thumb-btn").forEach(b => b.classList.remove("voted"));
@@ -290,7 +291,7 @@ $("chatForm").addEventListener("submit", async (e) => {
   try {
     const response = await fetch("/api/chat/stream", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
       body: JSON.stringify({
         message,
         mode: activeMode,

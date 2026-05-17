@@ -11,7 +11,8 @@ function esc(v) {
 }
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const headers = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...(opts.headers || {}) };
+  const res = await fetch(path, { ...opts, headers });
   if (res.status === 401) { window.location.href = "/login"; return null; }
   if (res.status === 403) { window.location.href = "/app"; return null; }
   const data = await res.json();

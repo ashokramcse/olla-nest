@@ -2367,7 +2367,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     try {
       var res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify({
           message: msg,
           mode: chatMode,
@@ -2513,7 +2513,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
   }
 
   function activateThread(tid) {
-    fetch("/api/threads/" + tid + "/activate", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" })
+    fetch("/api/threads/" + tid + "/activate", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: "{}" })
       .then(function () {
         usedTokens = 0; updateCtxBar(null, selectedModelCtx, 0);
         _lastResponseData = null;
@@ -2543,18 +2543,18 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     function wire(id, fn) { var el = get(id); if (el) el.addEventListener("click", function () { closeCtxMenu(); fn(); }); }
 
     wire("tcm-pin", function () {
-      fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pinned: !_ctxThreadPinned }) }).then(loadThreads);
+      fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ pinned: !_ctxThreadPinned }) }).then(loadThreads);
     });
     wire("tcm-rename", function () {
       var item = document.querySelector(".thread-item[data-tid='" + _ctxThreadId + "']");
       if (item) attachRenameInput(item, _ctxThreadId, null);
     });
     wire("tcm-fork", function () {
-      fetch("/api/threads/" + _ctxThreadId + "/fork", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" })
+      fetch("/api/threads/" + _ctxThreadId + "/fork", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: "{}" })
         .then(function () { usedTokens = 0; _lastResponseData = null; if (typeof loadState === "function") loadState().then(function () { renderMessages(); loadThreads(); }); });
     });
     wire("tcm-archive", function () {
-      fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: !_ctxThreadArchived }) }).then(loadThreads);
+      fetch("/api/threads/" + _ctxThreadId, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ archived: !_ctxThreadArchived }) }).then(loadThreads);
     });
     wire("tcm-delete", async function () {
       var _del = await window.ollaConfirm({ icon:"🗑️", title:"Delete chat?", body:"This conversation will be permanently removed.", confirm:"Delete", danger:true });
@@ -2596,7 +2596,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     function save() {
       var val = (input.value || "").trim() || current;
       _renamingTid = null; _renameValue = null;
-      fetch("/api/threads/" + tid, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: val }) }).then(loadThreads);
+      fetch("/api/threads/" + tid, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ title: val }) }).then(loadThreads);
     }
     function cancel() { _renamingTid = null; _renameValue = null; loadThreads(); }
     input.addEventListener("blur", save);
@@ -2627,7 +2627,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var nameEl = get("cmpModelName");
     if (nameEl) nameEl.textContent = "Auto Router";
     updateCtxBar(null, selectedModelCtx, 0);
-    fetch("/api/chat/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+    fetch("/api/chat/clear", { method: "POST", headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: "{}" })
       .then(function () {
         if (typeof loadState === "function") loadState().then(function () { loadThreads(); });
       });
@@ -2941,7 +2941,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     var base = cmd.split(" ")[0];
     switch (base) {
       case "/clear":
-        fetch("/api/chat/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+        fetch("/api/chat/clear", { method: "POST", headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: "{}" })
           .then(function () {
             attachedFiles = []; renderAttachChips();
             if (typeof loadState === "function") loadState().then(function () { if (window.adminChatRefresh) adminChatRefresh(); });
@@ -3555,7 +3555,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     if (!body.name) { setMsg("profSaveMsg","Name cannot be empty","error"); btn.disabled=false; btn.textContent="Save changes"; return; }
     fetch("/api/account/profile", {
       method: "PATCH", credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
       body: JSON.stringify(body)
     })
     .then(function(r){ return r.json(); })
@@ -3591,7 +3591,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
     btn.disabled = true; btn.textContent = "Updating…";
     fetch("/api/account/password", {
       method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
       body: JSON.stringify({ currentPassword: cur, newPassword: nw })
     })
     .then(function(r){ return r.json(); })

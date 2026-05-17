@@ -18,6 +18,10 @@ const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || "CHANGE_ME_
 const DEFAULT_USER_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "CHANGE_ME_ON_FIRST_BOOT";
 const STATIC_DIR = path.join(__dirname, "public");
 const sessions = new Map();
+// In-memory login rate limiter: track failed attempts per IP
+const loginAttempts = new Map(); // ip -> { count, resetAt }
+const LOGIN_MAX_ATTEMPTS = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const STORAGE_MODE = process.env.STORAGE_MODE || "local";
 const SECRET_KEY = process.env.SECRET_KEY || crypto.randomBytes(32).toString("hex");
 const SESSION_SECRET = process.env.SESSION_SECRET || "change-this-in-production";
@@ -33,7 +37,21 @@ function enforceDockerRuntime() {
 
 enforceDockerRuntime();
 
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "512kb" }));
+
+// ─── Security headers ─────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+  );
+  next();
+});
+
 app.use(express.static(STATIC_DIR));
 
 function uid(prefix) {
@@ -1313,17 +1331,25 @@ function sessionUser(req) {
   return session.user;
 }
 
-function requireAuth(req, res, next) {
-  const user = sessionUser(req);
-  if (!user) return res.status(401).json({ error: "Login required" });
-  req.user = user;
-  next();
-}
-
 function requireAdmin(req, res, next) {
   const user = sessionUser(req);
   if (!user) return res.status(401).json({ error: "Login required" });
   if (user.role !== "admin") return res.status(403).json({ error: "Admin access required" });
+  // CSRF guard: non-GET requests from browsers must include this header
+  if (req.method !== "GET" && !req.headers["x-requested-with"]) {
+    return res.status(403).json({ error: "Forbidden: missing CSRF header" });
+  }
+  req.user = user;
+  next();
+}
+
+function requireAuth(req, res, next) {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ error: "Login required" });
+  // CSRF guard on state-changing requests
+  if (req.method !== "GET" && !req.headers["x-requested-with"]) {
+    return res.status(403).json({ error: "Forbidden: missing CSRF header" });
+  }
   req.user = user;
   next();
 }
@@ -1332,23 +1358,40 @@ function hasRight(user, right) {
   return user.role === "admin" || (user.rights || []).includes(right);
 }
 
-function setSession(res, user) {
+function setSession(res, user, req) {
   const token = crypto.randomBytes(32).toString("hex");
   sessions.set(token, { user, expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
-  res.setHeader("Set-Cookie", `olla_nest_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200`);
+  const isSecure = (req?.headers["x-forwarded-proto"] === "https") || req?.secure;
+  const secureFlag = isSecure ? "; Secure" : "";
+  res.setHeader("Set-Cookie", `olla_nest_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200${secureFlag}`);
 }
 
 app.post("/api/auth/login", (req, res) => {
+  // Rate limit by IP
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+  const now = Date.now();
+  const attempt = loginAttempts.get(ip) || { count: 0, resetAt: now + LOGIN_WINDOW_MS };
+  if (now > attempt.resetAt) { attempt.count = 0; attempt.resetAt = now + LOGIN_WINDOW_MS; }
+  if (attempt.count >= LOGIN_MAX_ATTEMPTS) {
+    const retryAfter = Math.ceil((attempt.resetAt - now) / 1000);
+    return res.status(429).json({ error: `Too many login attempts. Try again in ${Math.ceil(retryAfter / 60)} minutes.` });
+  }
+
   const db = openSql();
   try {
     const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
     const row = one(db, `SELECT ${USER_SELECT}, password_hash FROM users WHERE email = ? AND active = 1`, email);
     if (!row || !row.password_hash || !bcrypt.compareSync(String(password || ""), row.password_hash)) {
+      attempt.count++;
+      loginAttempts.set(ip, attempt);
       return res.status(401).json({ error: "Invalid email or password" });
     }
+    // Successful login — reset attempt counter
+    loginAttempts.delete(ip);
     const user = publicUser(row);
     setSetting(db, "activeUserId", user.id);
-    setSession(res, user);
+    setSession(res, user, req);
     appendAudit(user.name, "auth.login", "User signed in");
     res.json({ ok: true, user, redirectTo: user.role === "admin" ? "/admin" : "/app" });
   } finally {
@@ -1369,7 +1412,8 @@ app.get("/api/auth/me", (req, res) => {
 });
 
 app.get("/api/bootstrap", (req, res) => {
-  res.json({ adminEmail: DEFAULT_ADMIN_EMAIL });
+  // Do not expose admin credentials to unauthenticated users
+  res.json({ ready: true });
 });
 
 app.post("/api/account/password", requireAuth, (req, res) => {
@@ -1487,8 +1531,8 @@ app.get("/api/ollama/models", requireAuth, async (req, res) => {
 
 const MAC_HOME = "/mac-home"; /* bind-mounted from ${HOME} on the host */
 
-/* Browse local filesystem directories */
-app.get("/api/workspace/browse", requireAuth, (req, res) => {
+/* Browse local filesystem directories — admin only */
+app.get("/api/workspace/browse", requireAdmin, (req, res) => {
   /* Prefer Mac home if mounted, else fall back to container workspace */
   const defaultHome = fs.existsSync(MAC_HOME) ? MAC_HOME : path.join(DATA_DIR, "workspace");
   fs.mkdirSync(path.join(DATA_DIR, "workspace"), { recursive: true });
@@ -1514,7 +1558,7 @@ app.get("/api/workspace/browse", requireAuth, (req, res) => {
   }
 });
 
-app.post("/api/workspace/local-settings", requireAuth, (req, res) => {
+app.post("/api/workspace/local-settings", requireAdmin, (req, res) => {
   const db = openSql();
   try {
     const workspaceRootInput = String(req.body.workspaceRoot || "").trim();
@@ -1543,6 +1587,7 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     if (!hasRight(user, "chat:use")) return res.status(403).json({ error: "Chat access is not enabled for this account" });
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ error: "Message is required" });
+    if (String(message).length > 16000) return res.status(400).json({ error: "Message exceeds maximum length of 16,000 characters" });
     await syncOllamaModels(db).catch(() => []);
 
     const manualModel = manualModelId ? allowedModels(db, user).find((model) => model.id === manualModelId) : null;
@@ -2017,6 +2062,7 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
     if (!hasRight(user, "chat:use")) { res.write(`data: ${JSON.stringify({ type: "error", message: "Chat access not enabled" })}\n\n`); return res.end(); }
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message is required" })}\n\n`); return res.end(); }
+    if (String(message).length > 16000) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message exceeds maximum length of 16,000 characters" })}\n\n`); return res.end(); }
     await syncOllamaModels(db).catch(() => []);
 
     const manualModel = manualModelId ? allowedModels(db, user).find(m => m.id === manualModelId) : null;
