@@ -3,23 +3,23 @@ let activeTab = "overview";
 
 // Human-readable permission labels with descriptions (for tooltips + UI)
 const PERM_META = {
-  "chat:use":                  { label: "Chat Access",           desc: "Send messages and chat with AI models",                     color: "badge-green" },
-  "models:local:use":          { label: "Local AI Models",       desc: "Use Ollama models running on your server",                  color: "badge-blue"  },
-  "models:coding:use":         { label: "Coding Models",         desc: "Use code-specialised models for programming tasks",         color: "badge-indigo"},
-  "models:reasoning:use":      { label: "Reasoning Models",      desc: "Use advanced reasoning and analysis models",                color: "badge-indigo"},
-  "models:external:use":       { label: "External AI APIs",      desc: "Use cloud AI providers (OpenAI, Anthropic, Groq, etc.)",    color: "badge-blue"  },
-  "workspace:build":           { label: "Terminal & Workspace",  desc: "Open the built-in terminal and write files to the workspace", color: "badge-amber"},
-  "files:upload":              { label: "File Upload",           desc: "Upload files and documents to conversations",               color: "badge-amber" },
-  "tools:call":                { label: "Tool Calls",            desc: "Use AI tool-calling and function execution",                color: "badge-indigo"},
-  "api:use":                   { label: "API Access",            desc: "Access the Olla Nest API directly",                         color: "badge-blue"  },
-  "agents:run":                { label: "Run AI Agents",         desc: "Execute autonomous AI agent workflows",                     color: "badge-indigo"},
-  "admin:manage":              { label: "Admin Control",         desc: "Full administrative control over the entire platform",      color: "badge-red"   },
-  "users:manage":              { label: "Manage Users",          desc: "Create, edit, and deactivate employee accounts",            color: "badge-red"   },
-  "models:manage":             { label: "Manage Models",         desc: "Approve, restrict, and configure AI models",                color: "badge-red"   },
-  "audit:read":                { label: "View Audit Logs",       desc: "Read system audit trails and security logs",                color: "badge-gray"  },
-  "ollama:models:pull":        { label: "Download Models",       desc: "Download new AI models from the Ollama registry",           color: "badge-blue"  },
-  "ollama:models:import":      { label: "Import Models",         desc: "Import custom AI models into Ollama",                      color: "badge-blue"  },
-  "ollama:modelfile:create":   { label: "Create Modelfiles",     desc: "Create custom Ollama model configurations",                 color: "badge-blue"  },
+  "chat:use":                  { label: "Chat Access",           desc: "Send messages and chat with AI models",                     color: "badge-green",  group: "core"      },
+  "files:upload":              { label: "File Upload",           desc: "Upload files and documents to conversations",               color: "badge-amber",  group: "core"      },
+  "models:local:use":          { label: "Local AI Models",       desc: "Use Ollama models running on your server",                  color: "badge-blue",   group: "models"    },
+  "models:coding:use":         { label: "Coding Models",         desc: "Use code-specialised models for programming tasks",         color: "badge-indigo", group: "models"    },
+  "models:reasoning:use":      { label: "Reasoning Models",      desc: "Use advanced reasoning and analysis models",                color: "badge-indigo", group: "models"    },
+  "models:external:use":       { label: "External AI APIs",      desc: "Use cloud AI providers (OpenAI, Anthropic, Groq, etc.)",    color: "badge-blue",   group: "models"    },
+  "workspace:build":           { label: "Terminal & Workspace",  desc: "Open the built-in terminal and write files to the workspace", color: "badge-amber", group: "workspace" },
+  "tools:call":                { label: "Tool Calls",            desc: "Use AI tool-calling and function execution",                color: "badge-indigo", group: "workspace" },
+  "api:use":                   { label: "API Access",            desc: "Access the Olla Nest API directly",                         color: "badge-blue",   group: "workspace" },
+  "agents:run":                { label: "Run AI Agents",         desc: "Execute autonomous AI agent workflows",                     color: "badge-indigo", group: "workspace" },
+  "admin:manage":              { label: "Admin Control",         desc: "Full administrative control over the entire platform",      color: "badge-red",    group: "admin"     },
+  "users:manage":              { label: "Manage Users",          desc: "Create, edit, and deactivate employee accounts",            color: "badge-red",    group: "admin"     },
+  "models:manage":             { label: "Manage Models",         desc: "Approve, restrict, and configure AI models",                color: "badge-red",    group: "admin"     },
+  "audit:read":                { label: "View Audit Logs",       desc: "Read system audit trails and security logs",                color: "badge-gray",   group: "admin"     },
+  "ollama:models:pull":        { label: "Download Models",       desc: "Download new AI models from the Ollama registry",           color: "badge-blue",   group: "admin"     },
+  "ollama:models:import":      { label: "Import Models",         desc: "Import custom AI models into Ollama",                      color: "badge-blue",   group: "admin"     },
+  "ollama:modelfile:create":   { label: "Create Modelfiles",     desc: "Create custom Ollama model configurations",                 color: "badge-blue",   group: "admin"     },
 };
 
 function permLabel(key) {
@@ -192,15 +192,26 @@ function buildEditPanel(u) {
   const userRights = new Set(u.rights || []);
   const isAdmin = u.role === "admin";
 
-  const permCheckboxes = allPerms.map(key => {
-    const checked = userRights.has(key) ? "checked" : "";
-    const meta = PERM_META[key];
-    const isHighRisk = ["admin:manage","users:manage","models:manage","workspace:build"].includes(key);
-    return `<label class="perm-check${isHighRisk ? " perm-high-risk" : ""}" title="${esc(meta.desc)}">
-      <input type="checkbox" name="right_${esc(key)}" value="${esc(key)}" ${checked} ${isAdmin && key === "admin:manage" ? "checked disabled" : ""}>
-      <span class="perm-check-label">${esc(meta.label)}</span>
-      <span class="perm-check-desc">${esc(meta.desc)}</span>
-    </label>`;
+  const groupDefs = [
+    { key: "core",      label: "Core Access",         color: "#16a34a" },
+    { key: "models",    label: "AI Models",            color: "#2563eb" },
+    { key: "workspace", label: "Workspace & Tools",    color: "#d97706" },
+    { key: "admin",     label: "Administration",       color: "#dc2626" },
+  ];
+  const permCheckboxes = groupDefs.map(group => {
+    const groupPerms = allPerms.filter(k => PERM_META[k].group === group.key);
+    if (!groupPerms.length) return "";
+    const cards = groupPerms.map(key => {
+      const checked = userRights.has(key) ? "checked" : "";
+      const meta = PERM_META[key];
+      const isHighRisk = ["admin:manage","users:manage","models:manage","workspace:build"].includes(key);
+      return `<label class="perm-check${isHighRisk ? " perm-high-risk" : ""}" title="${esc(meta.desc)}" style="border-left:3px solid ${group.color}22;position:relative;">
+        <input type="checkbox" name="right_${esc(key)}" value="${esc(key)}" ${checked} ${isAdmin && key === "admin:manage" ? "checked disabled" : ""}>
+        <span class="perm-check-label">${esc(meta.label)}</span>
+        <span class="perm-check-desc">${esc(meta.desc)}</span>
+      </label>`;
+    }).join("");
+    return `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${group.color};margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid ${group.color}22;">${esc(group.label)}</div><div class="perm-grid">${cards}</div>`;
   }).join("");
 
   const deptOptions = state.departments.map(d =>
@@ -256,7 +267,7 @@ function buildEditPanel(u) {
         Permissions
         <span style="font-size:11px;font-weight:400;color:var(--mute);margin-left:8px;">Hover any permission to see what it does</span>
       </div>
-      <div class="perm-grid">${permCheckboxes}</div>
+      ${permCheckboxes}
 
       <div class="edit-panel-actions">
         <button class="btn btn-dark btn-sm" data-save-user="${esc(u.id)}">Save Changes</button>
@@ -271,9 +282,11 @@ function buildEditPanel(u) {
 function renderAccessControl() {
   if (!$("accessUserSelect")) return;
   $("accessUserSelect").innerHTML = state.users.map(u => `<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.email)}</option>`).join("");
-  $("overridePermission").innerHTML = (state.permissions || []).map(p =>
-    `<option value="${esc(p.key)}">${esc(permLabel(p.key))} (${esc(p.riskLevel)} risk)</option>`
-  ).join("");
+  if ($("overridePermission")) {
+    $("overridePermission").innerHTML = (state.permissions || []).map(p =>
+      `<option value="${esc(p.key)}">${esc(permLabel(p.key))} (${esc(p.riskLevel)} risk)</option>`
+    ).join("");
+  }
   $("roleMatrixBody").innerHTML = (state.roles || []).map(role => `
     <tr>
       <td><div class="table-name">${esc(role.name)}</div><div class="table-sub">${esc(role.id)}</div></td>
@@ -281,7 +294,59 @@ function renderAccessControl() {
       <td>${(role.permissions || []).map(p => permBadge(p, "font-size:11px;margin:2px;")).join("")}</td>
     </tr>
   `).join("");
+  if ($("deptPermSelect")) {
+    $("deptPermSelect").innerHTML = (state.departments || []).map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("");
+    renderDeptPermGrid();
+  }
+  loadActiveSessions();
   renderEffectiveAccess();
+}
+
+async function loadActiveSessions() {
+  const el = $("activeSessionsList");
+  if (!el) return;
+  try {
+    const data = await api("/api/admin/sessions/active");
+    if (!data?.sessions?.length) {
+      el.innerHTML = `<div style="padding:12px 0;font-size:13px;color:var(--mute);text-align:center;">No active sessions found.</div>`;
+      return;
+    }
+    el.innerHTML = data.sessions.map(s => `
+      <div class="session-item">
+        <div class="session-item-info">
+          <span class="session-item-name">${esc(s.name || s.email || "Unknown")}</span>
+          <span class="session-item-email">${esc(s.email || "")}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="session-item-role">${esc(s.role || "user")}</span>
+          ${s.userId !== state.me?.id ? `<button class="btn btn-danger btn-xs" onclick="forceLogoutUser('${esc(s.userId)}')">Logout</button>` : `<span style="font-size:11px;color:var(--mute);">(you)</span>`}
+        </div>
+      </div>
+    `).join("");
+  } catch {
+    el.innerHTML = `<div style="padding:12px 0;font-size:13px;color:var(--danger);text-align:center;">Failed to load sessions.</div>`;
+  }
+}
+
+async function forceLogoutUser(userId) {
+  if (!confirm("Force logout this user?")) return;
+  await api(`/api/admin/sessions/user/${encodeURIComponent(userId)}`, { method: "DELETE" });
+  await loadActiveSessions();
+}
+
+async function renderDeptPermGrid() {
+  const el = $("deptPermGrid");
+  if (!el) return;
+  const deptId = $("deptPermSelect")?.value;
+  const dept = (state.departments || []).find(d => d.id === deptId);
+  const currentRights = new Set(dept?.defaultRights || []);
+  el.innerHTML = Object.entries(PERM_META).map(([key, meta]) => `
+    <label class="perm-check${meta.riskLevel === "critical" || meta.riskLevel === "high" ? " perm-high-risk" : ""}" title="${esc(meta.desc)}" style="position:relative;">
+      <input type="checkbox" class="dept-perm-check" data-key="${esc(key)}" ${currentRights.has(key) ? "checked" : ""}>
+      <span class="perm-check-label">${esc(meta.label)}</span>
+      <span class="perm-check-desc">${esc(meta.desc)}</span>
+    </label>
+  `).join("");
 }
 
 async function renderEffectiveAccess() {
@@ -583,6 +648,45 @@ $("createUserForm").addEventListener("submit", async (e) => {
 
 if ($("accessUserSelect")) {
   $("accessUserSelect").addEventListener("change", renderEffectiveAccess);
+}
+
+if ($("deptPermSelect")) {
+  $("deptPermSelect").addEventListener("change", renderDeptPermGrid);
+}
+if ($("saveDeptPermsBtn")) {
+  $("saveDeptPermsBtn").addEventListener("click", async () => {
+    const deptId = $("deptPermSelect")?.value;
+    const checked = [...document.querySelectorAll(".dept-perm-check:checked")].map(el => el.dataset.key);
+    const msg = $("deptPermMsg");
+    try {
+      await api(`/api/admin/departments/${encodeURIComponent(deptId)}/rights`, { method: "PATCH", body: JSON.stringify({ rights: checked }) });
+      msg.textContent = "✓ Saved";
+      msg.style.color = "var(--green-deep)";
+      // update state so re-render is fresh
+      const d = (state.departments || []).find(d => d.id === deptId);
+      if (d) d.defaultRights = checked;
+    } catch (err) {
+      msg.textContent = "Failed: " + err.message;
+      msg.style.color = "var(--danger)";
+    }
+    setTimeout(() => { if (msg) msg.textContent = ""; }, 3000);
+  });
+}
+if ($("refreshSessionsBtn")) {
+  $("refreshSessionsBtn").addEventListener("click", loadActiveSessions);
+}
+if ($("clearAllSessionsBtn")) {
+  $("clearAllSessionsBtn").addEventListener("click", async () => {
+    if (!confirm("This will force-logout all currently logged-in employees. You will stay logged in. Continue?")) return;
+    // logout everyone except current admin
+    const data = await api("/api/admin/sessions/active");
+    for (const s of (data?.sessions || [])) {
+      if (s.userId !== state.me?.id) {
+        await api(`/api/admin/sessions/user/${encodeURIComponent(s.userId)}`, { method: "DELETE" });
+      }
+    }
+    await loadActiveSessions();
+  });
 }
 
 if ($("saveOverrideBtn")) {

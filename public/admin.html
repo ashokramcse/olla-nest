@@ -521,6 +521,11 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 .edit-panel-actions{display:flex;align-items:center;gap:8px;margin-top:18px;flex-wrap:wrap;}
 .btn-danger{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;}
 .btn-danger:hover{background:#fecaca;}
+.session-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:#fff;}
+.session-item-info{display:flex;flex-direction:column;gap:2px;}
+.session-item-name{font-size:13px;font-weight:600;color:var(--ink-2);}
+.session-item-email{font-size:11px;color:var(--mute);}
+.session-item-role{font-size:10px;padding:2px 6px;border-radius:5px;background:var(--yellow-pale);color:var(--yellow-deep);font-weight:600;}
 
 /* ── Permission Checkboxes ── */
 .perm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;}
@@ -927,6 +932,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
       <!-- ── ACCESS CONTROL ── -->
       <div class="tab-view" id="tab-access">
+
+        <!-- Row 1: User Access + Active Sessions -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
           <!-- User effective access -->
           <div class="card">
@@ -937,36 +944,74 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
             </div>
             <div id="effectiveAccessPanel"></div>
           </div>
-          <!-- Override -->
+          <!-- Active Sessions -->
           <div class="card">
-            <div class="card-head"><div class="card-title">Apply Override</div></div>
-            <div style="display:flex;flex-direction:column;gap:14px;">
-              <div>
-                <label class="form-label">Permission</label>
-                <select class="input input-sm" id="overridePermission"></select>
-              </div>
-              <div>
-                <label class="form-label">Effect</label>
-                <select class="input input-sm" id="overrideEffect">
-                  <option value="allow">Allow</option>
-                  <option value="deny">Deny</option>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Reason</label>
-                <input class="input input-sm" id="overrideReason" placeholder="Why this override?" />
-              </div>
-              <div>
-                <label class="form-label">Expires</label>
-                <input class="input input-sm" id="overrideExpires" type="datetime-local" />
-              </div>
-              <div><button class="btn dark sm" id="saveOverrideBtn" style="width:auto;padding:10px 24px;">Apply Override</button></div>
-              <div id="overrideMsg" class="form-msg"></div>
+            <div class="card-head">
+              <div class="card-title">Active Sessions</div>
+              <button class="btn btn-secondary btn-xs" id="refreshSessionsBtn">↻ Refresh</button>
+            </div>
+            <div id="activeSessionsList" style="display:flex;flex-direction:column;gap:8px;min-height:60px;">
+              <div class="empty-state" style="padding:16px 0;font-size:13px;color:var(--mute);">Loading sessions…</div>
+            </div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+              <button class="btn btn-danger btn-xs" id="clearAllSessionsBtn">⚠ Force logout all employees</button>
             </div>
           </div>
         </div>
 
-        <!-- Role matrix -->
+        <!-- Row 2: Department Defaults + Security Policies -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <!-- Department Default Permissions -->
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">Department Defaults</div>
+              <span style="font-size:11px;color:var(--mute);">Permissions auto-granted to new employees</span>
+            </div>
+            <div style="margin-bottom:12px;">
+              <label class="form-label">Select department</label>
+              <select class="input input-sm" id="deptPermSelect"></select>
+            </div>
+            <div id="deptPermGrid" class="perm-grid" style="margin-bottom:12px;"></div>
+            <button class="btn dark sm" id="saveDeptPermsBtn">Save Department Defaults</button>
+            <div id="deptPermMsg" class="form-msg" style="margin-top:8px;"></div>
+          </div>
+          <!-- Security Policies -->
+          <div class="card">
+            <div class="card-head"><div class="card-title">Security Policies</div></div>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div>
+                <div class="edit-section-title" style="margin-bottom:8px;">Login Protection</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+                  <div>
+                    <div style="font-size:13px;font-weight:600;">Max login attempts</div>
+                    <div style="font-size:11px;color:var(--mute);">Lockout period: 15 minutes</div>
+                  </div>
+                  <strong id="maxLoginAttempts">10</strong>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+                  <div>
+                    <div style="font-size:13px;font-weight:600;">Session lifetime</div>
+                    <div style="font-size:11px;color:var(--mute);">Auto logout after inactivity</div>
+                  </div>
+                  <strong>12 hours</strong>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+                  <div>
+                    <div style="font-size:13px;font-weight:600;">CSRF protection</div>
+                    <div style="font-size:11px;color:var(--mute);">X-Requested-With header required</div>
+                  </div>
+                  <span class="badge badge-green" style="font-size:11px;">Active</span>
+                </div>
+              </div>
+              <div>
+                <div class="edit-section-title" style="margin-bottom:8px;">Chat Rate Limits</div>
+                <div style="font-size:12px;color:var(--mute);line-height:1.6;">Per-user rate limits are set in each employee's profile (API Rate Limit field). The default is unlimited. Limits apply per minute using a sliding window.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3: Role matrix -->
         <div class="card" style="margin-top:0;">
           <div class="card-head"><div class="card-title">Role Permission Matrix</div></div>
           <div class="table-wrap">

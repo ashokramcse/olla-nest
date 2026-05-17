@@ -723,7 +723,7 @@ function ollamaUrl(db) {
 async function fetchOllamaModels(url = OLLAMA_URL) {
   const baseUrl = cleanBaseUrl(url);
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 5000);
+  const t = setTimeout(() => controller.abort(), 15000);
   let response;
   try {
     response = await fetch(`${baseUrl}/api/tags`, { signal: controller.signal });
@@ -1631,7 +1631,12 @@ app.get("/api/state", requireAuth, async (req, res) => {
     res.json({
       activeUser: user,
       users: getUsers(db),
-      departments: rows(db, "SELECT id, name FROM departments ORDER BY name"),
+      departments: (() => {
+        const depts = rows(db, "SELECT id, name FROM departments ORDER BY name");
+        let deptRights = {};
+        try { deptRights = JSON.parse(setting(db, "deptDefaultRights", "{}")); } catch {}
+        return depts.map(d => ({ ...d, defaultRights: deptRights[d.id] || [] }));
+      })(),
       groups: rows(db, "SELECT id, name FROM groups ORDER BY name"),
       teams: rows(db, "SELECT id, name, description FROM teams ORDER BY name"),
       models,
@@ -1659,6 +1664,56 @@ app.get("/api/ollama/models", requireAuth, async (req, res) => {
   } finally {
     db.close();
   }
+});
+
+app.get("/api/admin/sessions/active", requireAdmin, (req, res) => {
+  const list = [];
+  for (const [token, s] of sessions) {
+    list.push({
+      userId: s.user?.id,
+      name: s.user?.name,
+      email: s.user?.email,
+      role: s.user?.role,
+      expiresAt: s.expiresAt,
+      token: token.slice(0, 8) + "…", // redact
+    });
+  }
+  res.json({ sessions: list });
+});
+
+app.delete("/api/admin/sessions/user/:userId", requireAdmin, (req, res) => {
+  const { userId } = req.params;
+  let count = 0;
+  for (const [token, s] of sessions) {
+    if (s.user?.id === userId) { sessions.delete(token); count++; }
+  }
+  res.json({ ok: true, cleared: count });
+});
+
+app.get("/api/admin/departments", requireAdmin, (req, res) => {
+  const db = openSql();
+  try {
+    const depts = rows(db, "SELECT id, name FROM departments ORDER BY name");
+    // load default rights per dept from settings
+    const raw = setting(db, "deptDefaultRights", "{}");
+    let deptRights = {};
+    try { deptRights = JSON.parse(raw); } catch { deptRights = {}; }
+    res.json({ departments: depts.map(d => ({ ...d, defaultRights: deptRights[d.id] || [] })) });
+  } finally { db.close(); }
+});
+
+app.patch("/api/admin/departments/:id/rights", requireAdmin, (req, res) => {
+  if (!req.headers["x-requested-with"]) return res.status(403).json({ error: "Forbidden: missing CSRF header" });
+  const db = openSql();
+  try {
+    const { rights } = req.body;
+    const raw = setting(db, "deptDefaultRights", "{}");
+    let deptRights = {};
+    try { deptRights = JSON.parse(raw); } catch { deptRights = {}; }
+    deptRights[req.params.id] = Array.isArray(rights) ? rights : [];
+    setSetting(db, "deptDefaultRights", JSON.stringify(deptRights));
+    res.json({ ok: true });
+  } finally { db.close(); }
 });
 
 const MAC_HOME = "/mac-home"; /* bind-mounted from ${HOME} on the host */
