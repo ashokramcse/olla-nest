@@ -1991,16 +1991,6 @@ app.post("/api/admin/settings", requireAdmin, (req, res) => {
   }
 });
 
-app.post("/api/admin/model-sources/test", requireAdmin, async (req, res) => {
-  try {
-    const testUrl = cleanBaseUrl(req.body.ollamaUrl || OLLAMA_URL);
-    if (!/^https?:\/\/[^ "]+$/.test(testUrl)) return res.status(400).json({ error: "Ollama URL must start with http:// or https://" });
-    const models = await fetchOllamaModels(testUrl);
-    res.json({ ok: true, count: models.length, models });
-  } catch (error) {
-    res.json({ ok: false, error: error.message, count: 0, models: [] });
-  }
-});
 
 app.post("/api/admin/users", requireAdmin, (req, res) => {
   const db = openSql();

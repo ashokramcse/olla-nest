@@ -318,7 +318,7 @@ async function loadActiveSessions() {
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span class="session-item-role">${esc(s.role || "user")}</span>
-          ${s.userId !== state.me?.id ? `<button class="btn btn-danger btn-xs" onclick="forceLogoutUser('${esc(s.userId)}')">Logout</button>` : `<span style="font-size:11px;color:var(--mute);">(you)</span>`}
+          ${s.userId !== state.activeUser?.id ? `<button class="btn btn-danger btn-xs" onclick="forceLogoutUser('${esc(s.userId)}')">Logout</button>` : `<span style="font-size:11px;color:var(--mute);">(you)</span>`}
         </div>
       </div>
     `).join("");
@@ -680,7 +680,7 @@ if ($("clearAllSessionsBtn")) {
     // logout everyone except current admin
     const data = await api("/api/admin/sessions/active");
     for (const s of (data?.sessions || [])) {
-      if (s.userId !== state.me?.id) {
+      if (s.userId !== state.activeUser?.id) {
         await api(`/api/admin/sessions/user/${encodeURIComponent(s.userId)}`, { method: "DELETE" });
       }
     }
@@ -1192,11 +1192,7 @@ if ($("saveRouterConfigBtn")) {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  REPORTS
-// ═══════════════════════════════════════════════════════════════════
-
-// Chart.js global defaults
+// Load reports when switching to the tab
 if (typeof Chart !== 'undefined') {
   Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   Chart.defaults.font.size = 12;
@@ -1455,8 +1451,7 @@ async function loadReports() {
   let d;
   try {
     d = await api(`/api/admin/reports?days=${days}`);
-  } catch(e) {
-    console.error("Reports load failed:", e);
+  } catch {
     return;
   }
 
@@ -1572,9 +1567,7 @@ if ($("reportPeriod")) {
   $("reportPeriod").addEventListener("change", loadReports);
 }
 
-// Load reports when switching to the tab
-const _origSwitchTabForReports = switchTab;
-// We can't wrap switchTab (hoisting issue), so we listen on nav items
+// Load reports when switching to the tab — listen on nav items
 document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
   if (btn.dataset.tab === "reports") {
     btn.addEventListener("click", function() { setTimeout(loadReports, 50); }, true);
