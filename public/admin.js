@@ -1,6 +1,40 @@
 let state = null;
 let activeTab = "overview";
 
+// Human-readable permission labels with descriptions (for tooltips + UI)
+const PERM_META = {
+  "chat:use":                  { label: "Chat Access",           desc: "Send messages and chat with AI models",                     color: "badge-green" },
+  "models:local:use":          { label: "Local AI Models",       desc: "Use Ollama models running on your server",                  color: "badge-blue"  },
+  "models:coding:use":         { label: "Coding Models",         desc: "Use code-specialised models for programming tasks",         color: "badge-indigo"},
+  "models:reasoning:use":      { label: "Reasoning Models",      desc: "Use advanced reasoning and analysis models",                color: "badge-indigo"},
+  "models:external:use":       { label: "External AI APIs",      desc: "Use cloud AI providers (OpenAI, Anthropic, Groq, etc.)",    color: "badge-blue"  },
+  "workspace:build":           { label: "Terminal & Workspace",  desc: "Open the built-in terminal and write files to the workspace", color: "badge-amber"},
+  "files:upload":              { label: "File Upload",           desc: "Upload files and documents to conversations",               color: "badge-amber" },
+  "tools:call":                { label: "Tool Calls",            desc: "Use AI tool-calling and function execution",                color: "badge-indigo"},
+  "api:use":                   { label: "API Access",            desc: "Access the Olla Nest API directly",                         color: "badge-blue"  },
+  "agents:run":                { label: "Run AI Agents",         desc: "Execute autonomous AI agent workflows",                     color: "badge-indigo"},
+  "admin:manage":              { label: "Admin Control",         desc: "Full administrative control over the entire platform",      color: "badge-red"   },
+  "users:manage":              { label: "Manage Users",          desc: "Create, edit, and deactivate employee accounts",            color: "badge-red"   },
+  "models:manage":             { label: "Manage Models",         desc: "Approve, restrict, and configure AI models",                color: "badge-red"   },
+  "audit:read":                { label: "View Audit Logs",       desc: "Read system audit trails and security logs",                color: "badge-gray"  },
+  "ollama:models:pull":        { label: "Download Models",       desc: "Download new AI models from the Ollama registry",           color: "badge-blue"  },
+  "ollama:models:import":      { label: "Import Models",         desc: "Import custom AI models into Ollama",                      color: "badge-blue"  },
+  "ollama:modelfile:create":   { label: "Create Modelfiles",     desc: "Create custom Ollama model configurations",                 color: "badge-blue"  },
+};
+
+function permLabel(key) {
+  return PERM_META[key]?.label || key;
+}
+function permDesc(key) {
+  return PERM_META[key]?.desc || key;
+}
+function permColor(key) {
+  return PERM_META[key]?.color || "badge-gray";
+}
+function permBadge(key, extra) {
+  return `<span class="badge ${permColor(key)}" title="${esc(permDesc(key))}" style="cursor:help;${extra||""}">${esc(permLabel(key))}</span>`;
+}
+
 const $ = (id) => document.getElementById(id);
 const $all = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -119,50 +153,132 @@ function renderModels() {
   }).join("");
 }
 
+let editingUserId = null;
+
 function renderUsers() {
-  // Populate department select
   $("newUserDept").innerHTML = state.departments.map(d =>
     `<option value="${esc(d.id)}">${esc(d.name)}</option>`
   ).join("");
-  // Populate team dropdown
   if (typeof populateTeamDropdown === "function") populateTeamDropdown();
 
-  // User list
   $("userList").innerHTML = state.users.map(u => {
     const dept = state.departments.find(d => d.id === u.departmentId);
     const av = initials(u.name);
     const isActive = u.active;
     const isAdmin = u.role === "admin";
-    const deactivateBtn = isAdmin
-      ? ""
-      : `<button class="btn ${isActive ? "btn-ghost" : "btn-secondary"} btn-xs" data-toggle="${esc(u.id)}" data-next="${isActive ? "0" : "1"}">${isActive ? "Deactivate" : "Activate"}</button>`;
-    return `<div class="user-item">
+    const isEditing = editingUserId === u.id;
+
+    const editPanel = isEditing ? buildEditPanel(u) : "";
+
+    return `<div class="user-item${isEditing ? " editing" : ""}" id="user-row-${esc(u.id)}">
       <div class="user-item-avatar" style="${isActive ? "" : "opacity:0.5;"}">${esc(av)}</div>
       <div class="user-item-info">
-        <div class="user-item-name">${esc(u.name)} ${isAdmin ? '<span class="badge badge-indigo" style="font-size:10px;">admin</span>' : ""} ${!isActive ? '<span class="badge badge-amber" style="font-size:10px;">inactive</span>' : ""}</div>
-        <div class="user-item-meta">${esc(u.email || "")} · ${esc(dept?.name || "No dept")} · ${esc(u.aiAccessTier || "standard")} · ${esc(u.dailyTokenLimit || 0)} daily tokens</div>
+        <div class="user-item-name">${esc(u.name)}
+          ${isAdmin ? '<span class="badge badge-red" style="font-size:10px;">admin</span>' : ""}
+          ${!isActive ? '<span class="badge badge-amber" style="font-size:10px;">inactive</span>' : ""}
+        </div>
+        <div class="user-item-meta">${esc(u.email || "")} · ${esc(dept?.name || "No dept")} · ${esc(u.aiAccessTier || "standard")} · ${Number(u.dailyTokenLimit||0).toLocaleString()} daily tokens</div>
       </div>
       <div class="user-item-actions">
-        <button class="btn btn-secondary btn-xs" data-change-pw="${esc(u.id)}" data-name="${esc(u.name)}">Change Password</button>
-        ${deactivateBtn}
+        <button class="btn ${isEditing ? "btn-secondary" : "btn-dark"} btn-xs" data-edit-user="${esc(u.id)}">${isEditing ? "✕ Close" : "✏ Edit"}</button>
       </div>
-    </div>`;
+    </div>
+    ${editPanel}`;
   }).join("");
+}
+
+function buildEditPanel(u) {
+  const allPerms = Object.keys(PERM_META);
+  const userRights = new Set(u.rights || []);
+  const isAdmin = u.role === "admin";
+
+  const permCheckboxes = allPerms.map(key => {
+    const checked = userRights.has(key) ? "checked" : "";
+    const meta = PERM_META[key];
+    const isHighRisk = ["admin:manage","users:manage","models:manage","workspace:build"].includes(key);
+    return `<label class="perm-check${isHighRisk ? " perm-high-risk" : ""}" title="${esc(meta.desc)}">
+      <input type="checkbox" name="right_${esc(key)}" value="${esc(key)}" ${checked} ${isAdmin && key === "admin:manage" ? "checked disabled" : ""}>
+      <span class="perm-check-label">${esc(meta.label)}</span>
+      <span class="perm-check-desc">${esc(meta.desc)}</span>
+    </label>`;
+  }).join("");
+
+  const deptOptions = state.departments.map(d =>
+    `<option value="${esc(d.id)}" ${d.id === u.departmentId ? "selected" : ""}>${esc(d.name)}</option>`
+  ).join("");
+
+  const tierOptions = ["basic","standard","power","unlimited"].map(t =>
+    `<option value="${t}" ${(u.aiAccessTier||"standard") === t ? "selected" : ""}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`
+  ).join("");
+
+  return `<div class="edit-user-panel" id="edit-panel-${esc(u.id)}">
+    <div class="edit-user-panel-inner">
+      <div class="edit-section-title">Basic Information</div>
+      <div class="form-grid">
+        <div>
+          <label class="form-label">Full Name</label>
+          <input class="input input-sm" id="eu-name-${esc(u.id)}" value="${esc(u.name)}" autocomplete="off" />
+        </div>
+        <div>
+          <label class="form-label">Email</label>
+          <input class="input input-sm" id="eu-email-${esc(u.id)}" type="email" value="${esc(u.email||"")}" autocomplete="off" />
+        </div>
+        <div>
+          <label class="form-label">Role</label>
+          <select class="input input-sm" id="eu-role-${esc(u.id)}" ${isAdmin ? "disabled" : ""}>
+            <option value="user" ${u.role==="user"?"selected":""}>User</option>
+            <option value="admin" ${u.role==="admin"?"selected":""}>Admin</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Department</label>
+          <select class="input input-sm" id="eu-dept-${esc(u.id)}">${deptOptions}</select>
+        </div>
+        <div>
+          <label class="form-label">Designation</label>
+          <input class="input input-sm" id="eu-desig-${esc(u.id)}" value="${esc(u.designation||"")}" placeholder="e.g. Software Engineer" />
+        </div>
+        <div>
+          <label class="form-label">AI Access Tier</label>
+          <select class="input input-sm" id="eu-tier-${esc(u.id)}">${tierOptions}</select>
+        </div>
+        <div>
+          <label class="form-label">Daily Token Limit</label>
+          <input class="input input-sm" id="eu-dtok-${esc(u.id)}" type="number" value="${esc(u.dailyTokenLimit||50000)}" />
+        </div>
+        <div>
+          <label class="form-label">Monthly Token Limit</label>
+          <input class="input input-sm" id="eu-mtok-${esc(u.id)}" type="number" value="${esc(u.monthlyTokenLimit||1000000)}" />
+        </div>
+      </div>
+
+      <div class="edit-section-title" style="margin-top:18px;">
+        Permissions
+        <span style="font-size:11px;font-weight:400;color:var(--mute);margin-left:8px;">Hover any permission to see what it does</span>
+      </div>
+      <div class="perm-grid">${permCheckboxes}</div>
+
+      <div class="edit-panel-actions">
+        <button class="btn btn-dark btn-sm" data-save-user="${esc(u.id)}">Save Changes</button>
+        <button class="btn btn-secondary btn-sm" data-change-pw="${esc(u.id)}" data-name="${esc(u.name)}">Change Password</button>
+        ${!isAdmin ? `<button class="btn btn-danger btn-sm" data-toggle="${esc(u.id)}" data-next="${u.active ? "0" : "1"}">${u.active ? "Deactivate" : "Activate"} Account</button>` : ""}
+        <div id="eu-msg-${esc(u.id)}" class="form-msg" style="margin-left:auto;"></div>
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderAccessControl() {
   if (!$("accessUserSelect")) return;
   $("accessUserSelect").innerHTML = state.users.map(u => `<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.email)}</option>`).join("");
-  $("overridePermission").innerHTML = (state.permissions || []).map(p => `<option value="${esc(p.key)}">${esc(p.key)} · ${esc(p.riskLevel)}</option>`).join("");
+  $("overridePermission").innerHTML = (state.permissions || []).map(p =>
+    `<option value="${esc(p.key)}">${esc(permLabel(p.key))} (${esc(p.riskLevel)} risk)</option>`
+  ).join("");
   $("roleMatrixBody").innerHTML = (state.roles || []).map(role => `
     <tr>
       <td><div class="table-name">${esc(role.name)}</div><div class="table-sub">${esc(role.id)}</div></td>
       <td>${esc(role.description || "")}</td>
-      <td>${(role.permissions || []).map(p => {
-        const cat = p.split(":")[0];
-        const cls = {models:"badge-blue",chat:"badge-green",files:"badge-amber",workspace:"badge-indigo",admin:"badge-red",users:"badge-indigo",audit:"badge-gray",api:"badge-blue",agents:"badge-blue",ollama:"badge-blue"}[cat] || "badge-gray";
-        return `<span class="badge ${cls}" style="font-size:11px;margin:2px;">${esc(p)}</span>`;
-      }).join("")}</td>
+      <td>${(role.permissions || []).map(p => permBadge(p, "font-size:11px;margin:2px;")).join("")}</td>
     </tr>
   `).join("");
   renderEffectiveAccess();
@@ -194,13 +310,13 @@ async function renderEffectiveAccess() {
       <div><span class="access-label">Risk</span><strong>${esc(user.securityRiskScore || 0)}/100</strong></div>
     </div>
     <div class="access-section-title">AI Usage Permissions</div>
-    <div class="badge-wrap">${Array.from(permissions).sort().map(p => `<span class="badge badge-green">${esc(p)}</span>`).join("")}</div>
+    <div class="badge-wrap">${Array.from(permissions).sort().map(p => permBadge(p)).join("")}</div>
     <div class="access-section-title">Approved Models</div>
     <div class="badge-wrap">${allowedModels.slice(0, 12).map(m => `<span class="badge badge-blue">${esc(m.name)}</span>`).join("") || `<span class="badge badge-amber">No approved models</span>`}</div>
     <div class="access-section-title">Resource Limits</div>
     <div class="quota-grid">
-      <div>Daily tokens <strong>${esc(user.dailyTokenLimit || 0)}</strong></div>
-      <div>Monthly tokens <strong>${esc(user.monthlyTokenLimit || 0)}</strong></div>
+      <div>Daily tokens <strong>${Number(user.dailyTokenLimit || 0).toLocaleString()}</strong></div>
+      <div>Monthly tokens <strong>${Number(user.monthlyTokenLimit || 0).toLocaleString()}</strong></div>
       <div>VRAM limit <strong>${esc(user.vramLimitMb || 0)} MB</strong></div>
       <div>Context <strong>${esc(user.maxContextSize || 0)}</strong></div>
     </div>
@@ -499,24 +615,74 @@ if ($("saveOverrideBtn")) {
 
 // User list actions (change password / toggle active)
 $("userList").addEventListener("click", async (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
   const msg = $("userMsg2");
-  const changePwId = e.target.dataset.changePw;
-  const toggleId = e.target.dataset.toggle;
 
-  if (changePwId) {
-    openChangePwModal(changePwId, e.target.dataset.name || "User");
+  // Edit / close edit
+  const editUserId = btn.dataset.editUser;
+  if (editUserId) {
+    editingUserId = editingUserId === editUserId ? null : editUserId;
+    renderUsers();
+    if (editingUserId) {
+      const panel = document.getElementById(`edit-panel-${editUserId}`);
+      if (panel) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    return;
   }
 
+  // Save edits
+  const saveUserId = btn.dataset.saveUser;
+  if (saveUserId) {
+    const msgEl = $(`eu-msg-${saveUserId}`);
+    msgEl.textContent = "Saving…";
+    msgEl.className = "form-msg";
+    const rights = Array.from(document.querySelectorAll(`#edit-panel-${saveUserId} input[type=checkbox][name^=right_]:checked`))
+      .map(cb => cb.value);
+    try {
+      await api(`/api/admin/users/${saveUserId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: $(`eu-name-${saveUserId}`).value.trim(),
+          email: $(`eu-email-${saveUserId}`).value.trim(),
+          role: $(`eu-role-${saveUserId}`).value,
+          departmentId: $(`eu-dept-${saveUserId}`).value,
+          designation: $(`eu-desig-${saveUserId}`).value.trim(),
+          aiAccessTier: $(`eu-tier-${saveUserId}`).value,
+          dailyTokenLimit: Number($(`eu-dtok-${saveUserId}`).value) || 50000,
+          monthlyTokenLimit: Number($(`eu-mtok-${saveUserId}`).value) || 1000000,
+          rights,
+        }),
+      });
+      msgEl.textContent = "✓ Saved!";
+      msgEl.className = "form-msg success";
+      await loadState();
+    } catch (err) {
+      msgEl.textContent = err.message;
+      msgEl.className = "form-msg error";
+    }
+    return;
+  }
+
+  // Change password
+  const changePwId = btn.dataset.changePw;
+  if (changePwId) {
+    openChangePwModal(changePwId, btn.dataset.name || "User");
+    return;
+  }
+
+  // Toggle active/deactivate
+  const toggleId = btn.dataset.toggle;
   if (toggleId) {
     try {
       await api(`/api/admin/users/${toggleId}`, {
         method: "PATCH",
-        body: JSON.stringify({ active: e.target.dataset.next === "1" }),
+        body: JSON.stringify({ active: btn.dataset.next === "1" }),
       });
+      editingUserId = null;
       await loadState();
     } catch (err) {
-      msg.className = "form-message error";
-      msg.textContent = err.message;
+      if (msg) { msg.className = "form-message error"; msg.textContent = err.message; }
     }
   }
 });

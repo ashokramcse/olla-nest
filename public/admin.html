@@ -512,6 +512,31 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 .user-item-info{flex:1;min-width:0}
 .user-item-meta{font-size:12px;color:var(--mute);margin-top:2px}
 .user-item-actions{display:flex;gap:6px;flex-shrink:0}
+.user-item.editing{border-color:var(--yellow);border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0;}
+
+/* ── Inline Edit Panel ── */
+.edit-user-panel{background:#fffdf0;border:1px solid var(--yellow);border-top:none;border-radius:0 0 14px 14px;margin-bottom:12px;}
+.edit-user-panel-inner{padding:20px;}
+.edit-section-title{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin-bottom:10px;}
+.edit-panel-actions{display:flex;align-items:center;gap:8px;margin-top:18px;flex-wrap:wrap;}
+.btn-danger{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;}
+.btn-danger:hover{background:#fecaca;}
+
+/* ── Permission Checkboxes ── */
+.perm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;}
+.perm-check{display:flex;flex-direction:column;gap:1px;padding:8px 10px;border-radius:10px;border:1px solid #e5e5e5;background:#fff;cursor:pointer;transition:border-color .15s,background .15s;position:relative;}
+.perm-check:hover{border-color:var(--yellow);background:#fffde8;}
+.perm-check.perm-high-risk{border-color:#fecaca;}
+.perm-check.perm-high-risk:hover{border-color:#f87171;background:#fff5f5;}
+.perm-check input[type=checkbox]{position:absolute;top:10px;right:10px;width:16px;height:16px;accent-color:var(--yellow-deep);cursor:pointer;}
+.perm-check input:checked ~ .perm-check-label{color:var(--ink);}
+.perm-check-label{font-size:13px;font-weight:600;color:var(--ink-2);padding-right:22px;}
+.perm-check-desc{font-size:11px;color:var(--mute);line-height:1.4;padding-right:22px;}
+.perm-check input:checked + .perm-check-label{color:var(--ink);}
+.perm-check:has(input:checked){background:#fffde8;border-color:#e8c520;}
+
+/* ── Permission badge tooltip (title= attribute used for simplicity) ── */
+.badge[title]{cursor:help;}
 </style>
 </head>
 <body>
