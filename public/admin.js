@@ -1028,9 +1028,6 @@ if (document.getElementById("provOllamaSaveBtn")) {
     const btn = $("provOllamaSaveBtn");
     btn.disabled = true; btn.textContent = "Saving…";
     const urlVal = $("provOllamaUrl").value.trim();
-    if (/^http:\/\/192\.|^http:\/\/10\.|^http:\/\/172\./.test(urlVal)) {
-      showToast("Warning: LAN IP addresses (192.168.x.x) may not be reachable from inside Docker. Use http://host.docker.internal:11434 instead.", "warning", 8000);
-    }
     try {
       await api("/api/admin/settings", {
         method: "POST",
@@ -1038,7 +1035,19 @@ if (document.getElementById("provOllamaSaveBtn")) {
       });
       await loadState();
       renderOllamaProvider();
-      showToast("Ollama URL saved", "success");
+      // Test the new URL and update the header status
+      const ping = await api("/api/admin/ollama/ping");
+      if (ping?.ok) {
+        showToast(`Ollama URL saved — connected · ${ping.modelCount} model${ping.modelCount !== 1 ? "s" : ""} available`, "success", 5000);
+        const label = $("ollamaStatus"); const dot = $("ollamaStatusDot");
+        if (label) label.textContent = `Ollama connected · ${ping.modelCount} model${ping.modelCount !== 1 ? "s" : ""}`;
+        if (dot) dot.className = "status-dot ok";
+      } else {
+        showToast(`URL saved but Ollama not reachable at ${urlVal}. Try http://host.docker.internal:11434 if running on the same Mac.`, "warning", 8000);
+        const label = $("ollamaStatus"); const dot = $("ollamaStatusDot");
+        if (label) label.textContent = "Ollama not reachable";
+        if (dot) dot.className = "status-dot off";
+      }
     } catch (err) {
       showToast(err.message, "error");
     } finally {
