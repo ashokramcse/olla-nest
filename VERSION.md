@@ -8,15 +8,40 @@ Tracks every release, version tag, and key commit in the project history.
 
 | Field | Value |
 |---|---|
-| **Version** | `v2026.0.10` |
+| **Version** | `v2026.0.17` |
 | **Released** | 2026-05-17 |
-| **Commit** | `5894b4a` |
+| **Commit** | `df462e2` |
 | **Status** | ✅ Stable |
 | **Branch** | `main` |
 
 ---
 
 ## Version History
+
+### v2026.0.17 — 2026-05-17
+> **Security audit fixes + full modular refactor**
+
+| Commit | Date | Description |
+|---|---|---|
+| `df462e2` | 2026-05-17 | fix: apply 10 security and reliability improvements from audit |
+| `8f93c87` | 2026-05-17 | refactor: split monolithic server.js into modular src/ structure |
+| `2930a38` | 2026-05-17 | refactor: move Ollama sync out of HTTP handlers into background timer |
+
+**Key changes:**
+- 10 security fixes: host FS read-only, no password leak in bootstrap, PTY secrets scrubbed, token quotas enforced, sensitive content on manual model, role allowlist, non-root user
+- Performance: DDL out of openSql(), 2 new indexes, chat insert transactions
+- Full modular split: 31 files under src/, server.js is 41 lines
+
+---
+
+### v2026.0.11–16 — 2026-05-17
+> **UI/UX fixes, chat history, Ollama offline handling**
+
+| Commit | Date | Description |
+|---|---|---|
+| `various` | 2026-05-17 | Dark composer redesign, sidebar chat history, Ollama ping endpoint, offline model handling, dropdown positioning, duplicate Auto Router fix |
+
+---
 
 ### v2026.0.10 — 2026-05-17
 > **Full external provider support — no hardcoded model names**

@@ -5,6 +5,56 @@ Versioning scheme: `v{YEAR}.{MINOR}.{PATCH}` — see [VERSION.md](VERSION.md).
 
 ---
 
+## [v2026.0.17] — 2026-05-17
+
+### 🏗 Architecture
+
+- **Modular refactor**: Split the monolithic 3785-line `server.js` into 31 focused modules under `src/` — `config`, `db/`, `middleware/`, `services/`, `models/`, `routes/`, `routes/admin/`. Each file has one clear responsibility. Entry point `server.js` is now 41 lines.
+- **Ollama sync moved to background timer**: `syncOllamaModels()` no longer runs inside any HTTP request handler. It fires once at boot and every 30 seconds via `setInterval`, each tick with its own isolated DB connection. Eliminates the DB race condition that was preventing chats from loading.
+
+### 🔒 Security
+
+- **Host home volume made read-only**: `${HOME}:/mac-home` changed to `:ro` in `docker-compose.yml` — prevents write access to host filesystem from inside the container.
+- **Bootstrap endpoint no longer leaks admin password**: `GET /api/bootstrap` now returns only `{ ready, adminEmail }` — never the plaintext password over HTTP.
+- **PTY secrets scrubbed**: `SECRET_KEY`, `SESSION_SECRET`, `DEFAULT_ADMIN_PASSWORD`, `DEFAULT_USER_PASSWORD` are removed from the PTY environment before spawning the terminal shell.
+- **Daily token quotas enforced**: Both `/api/chat` and `/api/chat/stream` now check the user's `dailyTokenLimit` before calling the model and return HTTP 429 if exceeded.
+- **Sensitive content filter on manual model selection**: Running `detectSensitiveContent` is now mandatory even when the user manually picks a model — PII cannot be routed to an external provider by bypassing the Auto Router.
+- **Role validated against allowlist**: `PATCH /api/admin/users/:id` now rejects any `role` value outside `["admin", "user"]`.
+- **Non-root container user**: Dockerfile now creates `appuser:appgroup` and runs the process as non-root.
+
+### ⚡ Performance
+
+- **DDL out of `openSql()`**: All `CREATE TABLE IF NOT EXISTS` and migration checks moved to a one-time `initDatabase()` called at server boot — eliminates ~30 redundant SQLite metadata queries per request.
+- **Two new indexes**: `idx_access_grants_subject(subject_type, subject_id)` and `idx_user_overrides_user(user_id)` — these columns are queried on every chat request for RBAC resolution.
+- **Chat inserts wrapped in transactions**: User and assistant message inserts are atomic — no orphaned unanswered messages if the process crashes mid-stream.
+
+### 🐛 Bug Fixes
+
+- **Chats never loading**: Fixed DB race condition — `syncOllamaModels` shared the request DB handle which was closed before the async sync completed.
+- **"Checking…" forever**: Ollama status chip now uses a dedicated `/api/ollama/ping` endpoint (2-second timeout, no DB sync). Resolves in ≤2s. Polls every 30 seconds. Auto-refreshes state when Ollama comes back online.
+- **Full chat history in sidebar**: `/api/state` for regular users was returning only the active session. Now returns all sessions (pinned first, newest first, limit 50).
+- **Dropdown wrong position**: Model picker dropdown now renders hidden first to measure its real height, then positions correctly above or below the trigger.
+- **Offline models shown as available**: Sidebar "Approved Models" now shows only reachable models. When Ollama is offline: clear message instead of a ghost list. Model picker only lists available models.
+- **Ollama timeout reduced**: Fetch timeout cut from 15s → 3s and `/api/show` from 8s → 3s — page loads fast even when Ollama is unreachable.
+
+---
+
+## [v2026.0.11–16] — 2026-05-17
+
+### ✨ Features
+
+- **Dark Claude-style composer**: Composer redesigned with `#1c1c1e` dark background, yellow accent caret, icon-only send button (↑ arrow), dark model picker dropdown.
+- **Chat sidebar actions wired up**: Rename (inline input), Pin/Unpin, Delete, and session switching all fully functional via context menu (⋮ button on hover).
+- **Sidebar chat history loads on page load**: All past conversations appear immediately in the sidebar.
+
+### 🐛 Bug Fixes
+
+- **Duplicate Auto Router element**: Removed hidden `<select id="manualModel">` that was rendering visible on some browsers. Replaced with `selectedModelId` JS variable.
+- **Model picker showing only Auto Router**: `openAppModelDropdown()` was filtering by `state.approvedModels` (undefined). Now uses `allowedModels()` — all approved models appear.
+- **Dashboard static nav link removed**: Decorative "Dashboard" nav link removed from topbar.
+
+---
+
 ## [v2026.0.10] — 2026-05-17
 
 ### ✨ Features
