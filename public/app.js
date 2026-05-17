@@ -147,10 +147,7 @@ function renderSidebar() {
     ? models.map(m => `<div class="model-item"><div class="model-dot"></div><div class="model-name" title="${esc(m.name)}">${esc(m.name)}</div></div>`).join("")
     : `<div class="model-item"><div class="model-dot" style="background:var(--muted)"></div><div class="model-name" style="color:var(--muted)">No approved models</div></div>`;
 
-  // Model select (hidden, kept for submit compat)
-  $("manualModel").innerHTML = `<option value="">Auto Router</option>` +
-    models.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("");
-  // Repopulate the Claude-style picker dropdown
+  // Repopulate the Claude-style picker dropdown (selectedModelId tracks choice)
   populateAppModelPicker(models);
 
   // Model connected status pill
@@ -757,7 +754,7 @@ $("chatForm").addEventListener("submit", async (e) => {
       body: JSON.stringify({
         message: fullMessage,
         mode: activeMode,
-        manualModelId: $("manualModel").value || null,
+        manualModelId: selectedModelId || null,
         writeToWorkspace: $("writeToWorkspace")?.checked || false,
         images: imageFiles.length ? imageFiles : undefined,
       }),
@@ -939,27 +936,26 @@ function estimateCtxApp(name) {
 }
 function fmtCtx(n) { return n >= 1000 ? (n / 1000).toFixed(0) + "k" : String(n); }
 
+/** Tracks the manually selected model ID — empty string means Auto Router */
+let selectedModelId = "";
+
 /**
  * Populates the model picker dropdown with "Auto Router" + one item per allowed model.
- * Shows a green/grey dot for availability, the model name, and the context window size.
- * The active selection (matching manualModel hidden select value) gets a checkmark.
- * Clicking an item updates the hidden manualModel select and closes the dropdown.
+ * Clicking an item sets selectedModelId and updates the trigger label.
  *
  * @param {object[]} models - Array of allowed model objects from state.
  */
 function populateAppModelPicker(models) {
   const list = document.getElementById("appModelList");
   if (!list) return;
-  const sel = $("manualModel");
-  const curId = sel ? sel.value : "";
-  const isAuto = !curId;
+  const isAuto = !selectedModelId;
   let html = `<div class="app-auto-item${isAuto ? " active" : ""}" data-id="" data-name="Auto Router">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
     <span>Auto Router</span>${isAuto ? `<span class="app-model-check">✓</span>` : ""}
   </div>`;
   (models || []).forEach(m => {
     const ctx = estimateCtxApp(m.name);
-    const active = m.id === curId;
+    const active = m.id === selectedModelId;
     html += `<div class="app-model-item${active ? " active" : ""}" data-id="${esc(m.id)}" data-name="${esc(m.name)}">
       <div class="app-model-dot${m.status !== "available" ? " off" : ""}"></div>
       <span>${esc(m.name)}</span>
@@ -970,11 +966,9 @@ function populateAppModelPicker(models) {
   list.innerHTML = html;
   list.querySelectorAll("[data-id]").forEach(el => {
     el.addEventListener("click", () => {
-      const id = el.dataset.id;
-      const name = el.dataset.name;
-      if (sel) sel.value = id;
+      selectedModelId = el.dataset.id;
       const nameEl = document.getElementById("appModelName");
-      if (nameEl) nameEl.textContent = name || "Auto Router";
+      if (nameEl) nameEl.textContent = el.dataset.name || "Auto Router";
       closeAppModelDropdown();
     });
   });
