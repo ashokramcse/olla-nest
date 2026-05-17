@@ -746,9 +746,12 @@ async function syncOllamaModels(db) {
     return { ok: false, models: [], error: err.message };
   }
   const seenIds = [];
+  const baseUrl = ollamaUrl(db);
   for (const item of installed) {
     const modelRef = item.name;
     const { speedScore, qualityScore } = inferScores(modelRef, item.size);
+    // Fetch real context window from Ollama for this specific model
+    const contextSize = await fetchOllamaModelInfo(baseUrl, modelRef);
     const model = {
       id: `ollama:${modelRef}`,
       name: modelRef,
@@ -759,6 +762,7 @@ async function syncOllamaModels(db) {
       speedScore,
       qualityScore,
       privacy: "local",
+      contextSize: contextSize || null,
       lastSeenAt: new Date().toISOString(),
     };
     upsertModel(db, model);
@@ -807,6 +811,7 @@ function parseModel(row) {
     gpuRequired: Boolean(row.gpu_required),
     maxConcurrency: Number(row.max_concurrency || 0),
     maxContextSize: Number(row.max_context_size || row.context_size || 0),
+    contextSize: Number(row.context_size || row.max_context_size || 0) || null,
     externalCostTier: row.external_cost_tier || "local-free",
     sensitiveAllowed: row.sensitive_allowed !== 0,
   };
@@ -1097,25 +1102,39 @@ function estimateTokens(text) {
   return Math.ceil((text || "").length / 4);
 }
 
-function contextWindowForModel(modelName) {
-  const n = (modelName || "").toLowerCase();
-  if (/gemma[34]/.test(n)) return 131072;
-  if (/qwen/.test(n)) return 32768;
-  if (/llama3\.(1|2|3)/.test(n)) return 131072;
-  if (/llama3/.test(n)) return 8192;
-  if (/mistral/.test(n)) return 32768;
-  if (/phi[34]|phi-[34]/.test(n)) return 131072;
-  if (/deepseek/.test(n)) return 131072;
-  if (/codellama/.test(n)) return 16384;
-  if (/lfm/.test(n)) return 32768;
-  if (/granite/.test(n)) return 32768;
-  if (/glm/.test(n)) return 32768;
-  if (/medgemma/.test(n)) return 131072;
-  return 8192;
+// Fetch real context window from Ollama /api/show — works for any model
+async function fetchOllamaModelInfo(baseUrl, modelName) {
+  try {
+    const res = await fetch(`${cleanBaseUrl(baseUrl)}/api/show`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: modelName }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // modelinfo keys vary by architecture: llama.context_length, gemma3.context_length, etc.
+    const info = data.modelinfo || {};
+    const ctxKey = Object.keys(info).find(k => k.endsWith(".context_length"));
+    if (ctxKey && info[ctxKey] > 0) return Number(info[ctxKey]);
+    // Fallback: check parameters string for num_ctx
+    const params = String(data.parameters || "");
+    const m = params.match(/num_ctx\s+(\d+)/);
+    if (m) return Number(m[1]);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getModelContextWindow(db, modelName) {
+  // Look up the real context_size stored from Ollama /api/show during sync
+  const row = db.prepare("SELECT context_size FROM models WHERE model_ref = ? OR name = ? LIMIT 1").get(modelName, modelName);
+  return (row?.context_size && row.context_size > 0) ? row.context_size : 8192;
 }
 
 function buildContextMessages(db, sessionId, systemPrompt, userMessage, modelName, images) {
-  const tokenLimit = contextWindowForModel(modelName);
+  const tokenLimit = getModelContextWindow(db, modelName);
   const reservedTokens = estimateTokens(systemPrompt) + estimateTokens(userMessage) + 512;
   let budget = Math.max(0, tokenLimit - reservedTokens);
 

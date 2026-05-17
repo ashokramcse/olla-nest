@@ -633,15 +633,9 @@ $("messageInput").addEventListener("keydown", (e) => {
 
 // ── Claude-style app model picker ───────────────────────────────────────────
 function estimateCtxApp(name) {
-  const n = (name || "").toLowerCase();
-  if (/llama.*70b|llama.*3\.[123]/.test(n)) return 128000;
-  if (/llama/.test(n)) return 32768;
-  if (/mistral|mixtral/.test(n)) return 32768;
-  if (/gemma/.test(n)) return 8192;
-  if (/qwen.*72b/.test(n)) return 128000;
-  if (/qwen/.test(n)) return 32768;
-  if (/phi/.test(n)) return 131072;
-  return 8192;
+  // Use the real context_size stored from Ollama /api/show — no hardcoded guessing
+  const m = (state?.models || []).find(m => m.name === name || m.model === name);
+  return m?.contextSize || 8192;
 }
 function fmtCtx(n) { return n >= 1000 ? (n / 1000).toFixed(0) + "k" : String(n); }
 
