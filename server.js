@@ -1061,6 +1061,17 @@ async function ollamaGenerate(db, model, prompt) {
   return result.content;
 }
 
+// Resolve the right provider object for any model route — Ollama or any external provider
+function resolveProvider(db, route) {
+  if (route.selected.provider === "ollama") {
+    return { type: "ollama", base_url: ollamaUrl(db), api_key_enc: encryptKey(""), name: "Ollama" };
+  }
+  const p = db.prepare("SELECT * FROM api_providers WHERE id = ?").get(route.selected.provider);
+  if (!p) throw new Error(`Provider '${route.selected.provider}' is not configured. Add it in Admin → Providers.`);
+  if (!p.enabled) throw new Error(`Provider '${p.name}' is disabled. Enable it in Admin → Providers.`);
+  return p;
+}
+
 function cleanModelOutput(content) {
   let output = String(content || "")
     .replace(/<think>[\s\S]*?<\/think>/gi, "")
@@ -1128,9 +1139,13 @@ async function fetchOllamaModelInfo(baseUrl, modelName) {
 }
 
 function getModelContextWindow(db, modelName) {
-  // Look up the real context_size stored from Ollama /api/show during sync
+  // Check main models table first (Ollama models have context_size from /api/show)
   const row = db.prepare("SELECT context_size FROM models WHERE model_ref = ? OR name = ? LIMIT 1").get(modelName, modelName);
-  return (row?.context_size && row.context_size > 0) ? row.context_size : 8192;
+  if (row?.context_size && row.context_size > 0) return row.context_size;
+  // Fall back to api_models table (external provider models)
+  const apiRow = db.prepare("SELECT context_window FROM api_models WHERE model_id = ? LIMIT 1").get(modelName);
+  if (apiRow?.context_window && apiRow.context_window > 0) return apiRow.context_window;
+  return 8192;
 }
 
 function buildContextMessages(db, sessionId, systemPrompt, userMessage, modelName, images) {
@@ -1886,11 +1901,10 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     let content;
     let live = true;
     try {
-      if (route.selected.provider !== "ollama") throw new Error("API connector is not configured in this MVP.");
+      const provider = resolveProvider(db, route);
       const systemPrompt = buildSystemPrompt(mode, route, workspace);
       const images = Array.isArray(req.body.images) ? req.body.images : [];
       const contextMsgs = buildContextMessages(db, chat.id, systemPrompt, message, route.selected.model, images);
-      const provider = { type: "ollama", base_url: ollamaUrl(db), api_key_enc: encryptKey(""), name: "Ollama" };
       const result = await callProvider(provider, route.selected.model, contextMsgs, { timeout: 300000 });
       content = result.content;
     } catch (error) {
@@ -2370,13 +2384,7 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
     const startMs = Date.now();
 
     try {
-      let provider;
-      if (route.selected.provider === "ollama") {
-        provider = { type: "ollama", base_url: ollamaUrl(db), api_key_enc: encryptKey(""), name: "Ollama" };
-      } else {
-        provider = db.prepare("SELECT * FROM api_providers WHERE id = ?").get(route.selected.provider);
-        if (!provider) throw new Error("Provider not found");
-      }
+      const provider = resolveProvider(db, route);
       await callProviderStream(provider, route.selected.model, messages, {}, (token) => {
         fullContent += token;
         res.write(`data: ${JSON.stringify({ type: "token", content: token })}\n\n`);
@@ -2678,18 +2686,42 @@ app.post("/api/admin/providers/:id/test", requireAdmin, async (req, res) => {
   try {
     const provider = db.prepare("SELECT * FROM api_providers WHERE id = ?").get(req.params.id);
     if (!provider) return res.status(404).json({ error: "Provider not found" });
+    // Pick the first synced model for this provider — never hardcode model names
+    const firstModel = db.prepare(
+      "SELECT model_id FROM api_models WHERE provider_id = ? ORDER BY is_approved DESC, display_name ASC LIMIT 1"
+    ).get(provider.id);
+    if (!firstModel) {
+      return res.json({ ok: false, latency_ms: 0, error: "No models synced for this provider yet. Run Sync Models first." });
+    }
     const start = Date.now();
     try {
-      await callProvider(provider, provider.type === "anthropic" ? "claude-3-5-haiku-20241022" : "gpt-3.5-turbo",
-        [{ role: "user", content: "Hi" }], { timeout: 15000 });
-      res.json({ ok: true, latency_ms: Date.now() - start });
+      await callProvider(provider, firstModel.model_id, [{ role: "user", content: "Reply with one word: hello" }], { timeout: 15000 });
+      res.json({ ok: true, latency_ms: Date.now() - start, modelTested: firstModel.model_id });
     } catch (err) {
-      res.json({ ok: false, latency_ms: Date.now() - start, error: err.message });
+      res.json({ ok: false, latency_ms: Date.now() - start, error: err.message, modelTested: firstModel.model_id });
     }
   } finally {
     db.close();
   }
 });
+
+// Mirror an approved api_models row into the main models table so the router can see it.
+// Removes from models table when is_approved = false.
+function mirrorApiModelToModels(db, provider, apiModel) {
+  const modelId = `${provider.id}:${apiModel.model_id}`;
+  if (apiModel.is_approved) {
+    db.prepare(`INSERT INTO models (id, name, provider, model_ref, status, capabilities, speed_score, quality_score, privacy, context_size, last_seen_at)
+      VALUES (?, ?, ?, ?, 'available', '["general","ask"]', 70, 80, 'external', ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name, status = 'available',
+        context_size = COALESCE(excluded.context_size, context_size),
+        last_seen_at = excluded.last_seen_at`
+    ).run(modelId, apiModel.display_name || apiModel.model_id, provider.id, apiModel.model_id, apiModel.context_window || null, new Date().toISOString());
+  } else {
+    // Remove from main models table — model is no longer approved
+    db.prepare("DELETE FROM models WHERE id = ?").run(modelId);
+  }
+}
 
 app.post("/api/admin/providers/:id/sync", requireAdmin, async (req, res) => {
   const db = openSql();
@@ -2697,28 +2729,48 @@ app.post("/api/admin/providers/:id/sync", requireAdmin, async (req, res) => {
     const provider = db.prepare("SELECT * FROM api_providers WHERE id = ?").get(req.params.id);
     if (!provider) return res.status(404).json({ error: "Provider not found" });
     let models = [];
+    const apiKey = decryptKey(provider.api_key_enc);
     if (provider.type === "anthropic") {
-      models = [
-        { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", context: 200000 },
-        { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku", context: 200000 },
-        { id: "claude-3-opus-20240229", name: "Claude 3 Opus", context: 200000 },
-      ];
+      // Call the real Anthropic models API — no hardcoded lists
+      const base = cleanBaseUrl(provider.base_url || "https://api.anthropic.com");
+      const response = await fetch(`${base}/v1/models`, {
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        models = (data.data || []).map(m => ({
+          id: m.id,
+          name: m.display_name || m.id,
+          context: null, // Anthropic API does not return context_window in list endpoint
+        }));
+      } else {
+        throw new Error(`Anthropic API returned ${response.status}: ${await response.text().catch(() => "")}`);
+      }
     } else {
       const base = cleanBaseUrl(provider.base_url || "https://api.openai.com/v1");
-      const apiKey = decryptKey(provider.api_key_enc);
       const url = provider.type === "groq" ? `${base}/v1/models` : `${base}/models`;
-      const response = await fetch(url, { headers: { "Authorization": `Bearer ${apiKey}` } });
+      const response = await fetch(url, {
+        headers: { "Authorization": `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(15000),
+      });
       if (response.ok) {
         const data = await response.json();
         models = (data.data || data.models || []).map(m => ({ id: m.id || m.name, name: m.id || m.name, context: m.context_window || null }));
+      } else {
+        throw new Error(`Provider API returned ${response.status}`);
       }
     }
     const now = new Date().toISOString();
     for (const m of models) {
       const rowId = `${provider.id}:${m.id}`;
-      const existing = db.prepare("SELECT id FROM api_models WHERE id = ?").get(rowId);
+      const existing = db.prepare("SELECT id, is_approved FROM api_models WHERE id = ?").get(rowId);
       if (!existing) {
         db.prepare("INSERT INTO api_models (id, provider_id, model_id, display_name, context_window, is_approved, governance_tag, created_at) VALUES (?, ?, ?, ?, ?, 0, 'approved', ?)").run(rowId, provider.id, m.id, m.name, m.context || null, now);
+      }
+      // Mirror already-approved models into the main models table so the router can see them
+      if (existing?.is_approved) {
+        mirrorApiModelToModels(db, provider, { ...m, id: rowId, model_id: m.id, display_name: m.name, context_window: m.context, is_approved: 1 });
       }
     }
     appendAudit(req.user.name, "admin.provider.sync", `Synced models for provider ${provider.name}`);
@@ -2744,12 +2796,20 @@ app.put("/api/admin/providers/:id/models/:modelId", requireAdmin, (req, res) => 
   const db = openSql();
   try {
     const rowId = `${req.params.id}:${req.params.modelId}`;
-    const existing = db.prepare("SELECT id FROM api_models WHERE id = ?").get(rowId);
+    const existing = db.prepare("SELECT * FROM api_models WHERE id = ?").get(rowId);
     if (!existing) return res.status(404).json({ error: "Model not found" });
     const { governance_tag, is_approved, display_name } = req.body;
     if (typeof governance_tag !== "undefined") db.prepare("UPDATE api_models SET governance_tag = ? WHERE id = ?").run(governance_tag, rowId);
     if (typeof is_approved !== "undefined") db.prepare("UPDATE api_models SET is_approved = ? WHERE id = ?").run(is_approved ? 1 : 0, rowId);
     if (typeof display_name !== "undefined") db.prepare("UPDATE api_models SET display_name = ? WHERE id = ?").run(display_name, rowId);
+    // When approval status changes, mirror into/out of the main models table so the router sees it
+    if (typeof is_approved !== "undefined") {
+      const provider = db.prepare("SELECT * FROM api_providers WHERE id = ?").get(req.params.id);
+      if (provider) {
+        const updated = db.prepare("SELECT * FROM api_models WHERE id = ?").get(rowId);
+        mirrorApiModelToModels(db, provider, updated);
+      }
+    }
     res.json({ ok: true });
   } finally {
     db.close();
