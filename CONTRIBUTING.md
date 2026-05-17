@@ -1,74 +1,68 @@
-# Contributing to Olla Nest
+# Olla Nest — Feature Requests
 
-Thanks for considering a contribution.
+Olla Nest is **not an open-contribution project**.  
+There are no pull requests, no forks-and-submit, no community patches.
 
-Olla Nest is a local-first AI workspace for companies using Ollama. The project runs exclusively via Docker. Keep it simple, understandable, and easy to run.
+The codebase is maintained by a single team. Every feature is designed, built, and tested by us — so the product stays coherent, secure, and simple to run.
 
-## Principles
+---
 
-- Local-first by default — no cloud dependency in the core path
-- Admin controls must be clear and practical
-- Employee workflows must stay simple
-- Model routing decisions must be transparent
-- Prefer readable code over clever abstractions
-- No heavy infrastructure unless it clearly improves the product
+## How to Request a Feature
 
-## Areas to Contribute
+Open a **GitHub Issue** using the Feature Request template and tell us:
 
-- Router scoring and model capability inference
-- Admin policy and access grant editor
-- Authentication and session management
-- Workspace and file output controls
-- UI improvements
-- Tests
-- Documentation
+1. **What you want** — describe the feature in plain language
+2. **Why you need it** — what problem does it solve for your team?
+3. **Who it affects** — employees, admins, or both?
+4. **Priority** — is this blocking your adoption, or a nice-to-have?
 
-## Development Setup
+That is all. No code required. No design mockups required. We read every request.
 
-Docker is the only supported runtime.
+**[→ Open a Feature Request](https://github.com/ashokramcse/olla-nest/issues/new?template=feature_request.md)**
 
-```bash
-git clone https://github.com/ashokramcse/olla-nest.git
-cd olla-nest
-cp .env.example .env
-docker compose up --build
-```
+---
 
-Open **http://localhost:3000**.
+## How We Decide What to Build
 
-Make code changes, then rebuild:
+We prioritise based on:
 
-```bash
-docker compose up --build
-```
+- **Impact** — how many teams does this unblock?
+- **Fit** — does it belong in a local-first, admin-controlled workspace?
+- **Complexity** — can we build it without compromising the simplicity that makes Olla Nest easy to run?
 
-Do not run `npm start`, `node server.js`, or a host-machine frontend dev server. The app blocks non-Docker starts by design so every contribution is tested against the same runtime users receive.
+If we decide to build your request, it ships in the next release. You will be credited in the changelog.
 
-## Project Structure
+---
 
-```
-server.js          Backend — Express API, auth, router, Ollama integration, file writes
-public/
-  login.html       Sign-in page
-  login.js
-  app.html         Employee workspace
-  app.js
-  admin.html       Admin dashboard
-  admin.js
-  styles.css       Design system
-docker-compose.yml App service, volume, Ollama host routing
-Dockerfile         node:24-alpine image
-package.json       Docker helper scripts and container-only start command
-.env.example       Environment variable reference
-docs/              Architecture and deployment reference
-infra/             Future production database schemas
-```
+## What We Will Not Build
 
-## Before Opening a Pull Request
+- Features that require mandatory cloud infrastructure
+- Features that make the admin control layer optional or bypassable
+- Features that add heavy dependencies for marginal benefit
+- Anything that makes the project harder to self-host on a single Docker Compose file
 
-- Test the full flow: login → workspace → admin
-- Test at least one Build/Fix mode request
-- Run `docker compose config --quiet`
-- Run `docker compose build app`
-- Keep commits focused with clear messages
-- Update docs when behaviour changes
+---
+
+## Bug Reports
+
+Found a bug? Open an issue with:
+
+- What you did
+- What you expected
+- What actually happened
+- Your Docker version and host OS
+
+**[→ Open a Bug Report](https://github.com/ashokramcse/olla-nest/issues/new?template=bug_report.md)**
+
+---
+
+## Security Issues
+
+Do **not** open a public issue for security vulnerabilities.  
+Email directly: **ashokram@ollanest.local** *(replace with real contact)*  
+We will respond within 48 hours and credit you in the release notes.
+
+---
+
+*Olla Nest is built in the open. The code is yours to read, run, and learn from.*  
+*Building it together means we build it right.*

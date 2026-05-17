@@ -327,13 +327,23 @@ olla-nest/
 
 ---
 
-## Contributing
+## Request a Feature
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Keep contributions:
-- **Local-first** — self-hostable, no mandatory cloud dependency
-- **Docker-only** — single runtime path for dev and prod
-- **Safe** — no employee data leaving without explicit admin config
-- **Transparent** — routing decisions always visible and auditable
+Olla Nest is **not an open-contribution project** — there are no pull requests.  
+Every feature is designed and built by the maintainer team to keep the product coherent and secure.
+
+**Have a feature idea?** Tell us what you need and we build it.
+
+> 💡 [**Open a Feature Request →**](https://github.com/ashokramcse/olla-nest/issues/new?template=feature_request.md)
+>
+> Describe what you want, why you need it, and who it affects.  
+> No code required. No mockups required. We read every request.
+
+**Found a bug?**
+
+> 🐛 [**Open a Bug Report →**](https://github.com/ashokramcse/olla-nest/issues/new?template=bug_report.md)
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process and what we will and won't build.
 
 ---
 
