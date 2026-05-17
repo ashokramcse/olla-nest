@@ -82,11 +82,29 @@ function initials(name) {
 
 /**
  * Filters the global state.models list to the models the current user is
- * allowed to use.  Also hides API models when allowApiModels is false globally.
+ * allowed to use AND that are currently reachable (status === "available").
+ * "missing" models are excluded — Ollama is unreachable so they cannot be used.
+ * Also hides API models when allowApiModels is false globally.
  *
- * @returns {object[]} Array of allowed model objects from state.
+ * @returns {object[]} Array of usable model objects from state.
  */
 function allowedModels() {
+  if (!state) return [];
+  return state.models.filter(m =>
+    state.allowedModelIds.includes(m.id) &&
+    m.status === "available" &&
+    !(m.provider === "api" && !state.settings.allowApiModels)
+  );
+}
+
+/**
+ * Returns ALL models the user has been granted access to, regardless of
+ * current reachability. Used for the sidebar "Approved Models" list so
+ * the user can see what is configured even when Ollama is offline.
+ *
+ * @returns {object[]} Array of configured model objects (may include missing).
+ */
+function configuredModels() {
   if (!state) return [];
   return state.models.filter(m =>
     state.allowedModelIds.includes(m.id) &&
@@ -141,14 +159,22 @@ function renderSidebar() {
   const roleMini = document.querySelector(".role-chip");
   if (roleMini) roleMini.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
 
-  // Models
-  const models = allowedModels();
-  $("sidebarModels").innerHTML = models.length
-    ? models.map(m => `<div class="model-item"><div class="model-dot"></div><div class="model-name" title="${esc(m.name)}">${esc(m.name)}</div></div>`).join("")
-    : `<div class="model-item"><div class="model-dot" style="background:var(--muted)"></div><div class="model-name" style="color:var(--muted)">No approved models</div></div>`;
+  // Sidebar model list — uses configuredModels() so ALL approved models show,
+  // with a grey dot when Ollama is offline (status="missing") vs green when live.
+  const allConfigured = configuredModels();
+  const availableModels = allowedModels();
+  $("sidebarModels").innerHTML = allConfigured.length
+    ? allConfigured.map(m => {
+        const isAvailable = m.status === "available";
+        const dotStyle = isAvailable ? "" : `style="background:#555"`;
+        const nameStyle = isAvailable ? "" : `style="color:#999"`;
+        const badge = isAvailable ? "" : `<span style="font-size:10px;color:#777;margin-left:auto;background:#2a2a2a;border-radius:4px;padding:1px 5px;">${m.status}</span>`;
+        return `<div class="model-item">${badge}<div class="model-dot" ${dotStyle}></div><div class="model-name" title="${esc(m.name)}" ${nameStyle}>${esc(m.name)}</div></div>`;
+      }).join("")
+    : `<div class="model-item"><div class="model-dot" style="background:#555"></div><div class="model-name" style="color:#999">No approved models</div></div>`;
 
-  // Repopulate the Claude-style picker dropdown (selectedModelId tracks choice)
-  populateAppModelPicker(models);
+  // Repopulate the Claude-style picker dropdown — only AVAILABLE models shown
+  populateAppModelPicker(availableModels);
 
   // Model connected status pill
   const statModelPill = document.getElementById("statModelPill");
@@ -163,6 +189,15 @@ function renderSidebar() {
     }
   }
 
+  // No-model warning banner in composer — shown when Ollama is down and no cloud models available
+  const noModelBanner = document.getElementById("noModelBanner");
+  if (noModelBanner) {
+    noModelBanner.style.display = availableModels.length === 0 ? "flex" : "none";
+  }
+  // Disable send when no models available
+  const sendBtn = document.getElementById("sendBtn");
+  if (sendBtn) sendBtn.disabled = availableModels.length === 0;
+
   // Token usage pill
   loadTokenUsage();
 
@@ -173,10 +208,10 @@ function renderSidebar() {
     termFab.style.display = canTerminal ? "flex" : "none";
   }
 
-  // Update model ring infographic
-  if (typeof updateModelRing === "function") updateModelRing(models.length, 10);
+  // Update model ring infographic — show available (reachable) count
+  if (typeof updateModelRing === "function") updateModelRing(availableModels.length, 10);
   const capCard = document.getElementById("capabilityCard");
-  if (capCard) capCard.style.display = models.length > 0 ? "block" : "none";
+  if (capCard) capCard.style.display = availableModels.length > 0 ? "block" : "none";
 
   // Workspace
   const ws = state.workspace;
