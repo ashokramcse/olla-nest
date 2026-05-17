@@ -260,12 +260,121 @@ function renderSidebarChats() {
     const title = esc(c.title || "New Chat");
     const ago = timeAgo(c.updatedAt || c.createdAt);
     const isActive = c.id === (state.chats?.[0]?.id);
-    return `<div class="sidebar-chat-item${isActive ? " active" : ""}" title="${title}" data-chat-id="${esc(c.id)}">
-      <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;">${title}</div>
-      <div class="sidebar-chat-time">${ago}</div>
+    const pinned = c.pinned ? " pinned" : "";
+    return `<div class="sidebar-chat-item${isActive ? " active" : ""}${pinned}" data-chat-id="${esc(c.id)}" title="${title}">
+      <div class="chat-pin-dot"></div>
+      <div class="chat-item-body">
+        <div class="chat-item-title">${title}</div>
+        <div class="sidebar-chat-time">${ago}</div>
+      </div>
+      <button class="chat-item-menu-btn" data-chat-id="${esc(c.id)}" title="Options">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+      </button>
     </div>`;
   }).join("");
 }
+
+// ─── Chat context menu ────────────────────────────────────────────────────────
+
+let _chatCtxMenu = null;
+
+/** Close and remove the floating context menu if open */
+function closeChatCtxMenu() {
+  if (_chatCtxMenu) { _chatCtxMenu.remove(); _chatCtxMenu = null; }
+}
+
+/**
+ * Open the three-dot context menu for a chat item.
+ * Positions itself relative to the trigger button, flips upward near the bottom of the viewport.
+ * @param {string} chatId - The chat_sessions.id
+ * @param {HTMLElement} trigger - The ⋮ button element
+ */
+function openChatCtxMenu(chatId, trigger) {
+  closeChatCtxMenu();
+  const chat = (state.chats || []).find(c => c.id === chatId);
+  if (!chat) return;
+  const isPinned = chat.pinned;
+
+  const menu = document.createElement("div");
+  menu.className = "chat-ctx-menu";
+  menu.innerHTML = `
+    <button class="chat-ctx-item" data-action="rename">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Rename
+    </button>
+    <button class="chat-ctx-item" data-action="pin">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      ${isPinned ? "Unpin" : "Pin"}
+    </button>
+    <div class="chat-ctx-sep"></div>
+    <button class="chat-ctx-item danger" data-action="delete">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      Delete
+    </button>
+  `;
+
+  // Position: below trigger, flip up if too close to bottom
+  document.body.appendChild(menu);
+  _chatCtxMenu = menu;
+  const rect = trigger.getBoundingClientRect();
+  const menuH = 130;
+  const top = (window.innerHeight - rect.bottom < menuH) ? rect.top - menuH : rect.bottom + 4;
+  menu.style.top = top + "px";
+  menu.style.left = Math.max(4, rect.left - 120) + "px";
+
+  menu.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    closeChatCtxMenu();
+    const action = btn.dataset.action;
+
+    if (action === "rename") {
+      // Inline rename: replace the title text with an input field directly in the sidebar
+      const itemEl = document.querySelector(`.sidebar-chat-item[data-chat-id="${chatId}"]`);
+      const titleEl = itemEl?.querySelector(".chat-item-title");
+      if (!titleEl) return;
+      const current = chat.title || "New Chat";
+      const inp = document.createElement("input");
+      inp.value = current;
+      inp.style.cssText = "width:100%;font-size:13px;font-family:inherit;border:1px solid var(--yellow-deep);border-radius:6px;padding:2px 6px;outline:none;background:#fff;";
+      titleEl.replaceWith(inp);
+      inp.focus(); inp.select();
+      const commit = async () => {
+        const val = inp.value.trim();
+        const span = document.createElement("div");
+        span.className = "chat-item-title";
+        span.textContent = val || current;
+        inp.replaceWith(span);
+        if (val && val !== current) {
+          await api(`/api/threads/${chatId}`, { method: "PATCH", body: JSON.stringify({ title: val }) });
+          await loadState();
+        }
+      };
+      inp.addEventListener("blur", commit);
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape") { inp.value = current; inp.blur(); } });
+    }
+
+    if (action === "pin") {
+      await api(`/api/threads/${chatId}`, { method: "PATCH", body: JSON.stringify({ pinned: !isPinned }) });
+      await loadState();
+    }
+
+    if (action === "delete") {
+      showConfirm("Delete this chat? This cannot be undone.", async () => {
+        await api(`/api/threads/${chatId}`, { method: "DELETE" });
+        await loadState();
+      });
+    }
+  });
+}
+
+// Close menu when clicking outside
+document.addEventListener("click", (e) => {
+  if (_chatCtxMenu && !_chatCtxMenu.contains(e.target)) closeChatCtxMenu();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeChatCtxMenu();
+});
 
 /**
  * Converts a Markdown string to safe HTML for display in the chat UI.
@@ -522,11 +631,24 @@ $("newChatBtn").addEventListener("click", startNewChat);
 const sideNewChatBtn = document.getElementById("newChatSideBtn");
 if (sideNewChatBtn) sideNewChatBtn.addEventListener("click", startNewChat);
 
-// Sidebar chat item click — delegate
-document.getElementById("sidebarChats")?.addEventListener("click", (e) => {
+// Sidebar chat item click — delegate (handles both ⋮ menu button and chat item switch)
+document.getElementById("sidebarChats")?.addEventListener("click", async (e) => {
+  // Three-dot menu button
+  const menuBtn = e.target.closest(".chat-item-menu-btn");
+  if (menuBtn) {
+    e.stopPropagation();
+    openChatCtxMenu(menuBtn.dataset.chatId, menuBtn);
+    return;
+  }
+  // Chat item row — switch to that session
   const item = e.target.closest(".sidebar-chat-item");
   if (!item) return;
-  // For now users have one session — just scroll chat to top
+  const chatId = item.dataset.chatId;
+  if (!chatId) return;
+  closeChatCtxMenu();
+  // Switch active session on server then reload state
+  await api(`/api/threads/${chatId}/activate`, { method: "POST" }).catch(() => {});
+  await loadState();
   document.getElementById("messages")?.scrollTo({ top: 0, behavior: "smooth" });
 });
 

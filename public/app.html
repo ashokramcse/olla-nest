@@ -189,10 +189,24 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
 /* Workspace */
 .ws-path{font-size:12px;color:var(--mute);font-family:'Fira Code',monospace;word-break:break-all;margin-bottom:8px;background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;line-height:1.5;display:block;overflow-wrap:break-word;}
 /* Sidebar chat history */
-.sidebar-chat-item{padding:8px 10px;border-radius:12px;cursor:pointer;transition:background .15s;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid transparent;}
+.sidebar-chat-item{padding:8px 10px;border-radius:12px;cursor:pointer;transition:background .15s;font-size:13px;color:var(--ink);border:1px solid transparent;display:flex;align-items:center;gap:6px;position:relative;}
 .sidebar-chat-item:hover{background:rgba(0,0,0,0.05);}
 .sidebar-chat-item.active{background:rgba(0,0,0,0.07);border-color:#00000012;}
+.sidebar-chat-item:hover .chat-item-menu-btn{opacity:1;}
+.sidebar-chat-item.pinned .chat-pin-dot{display:block;}
+.chat-item-body{flex:1;min-width:0;}
+.chat-item-title{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .sidebar-chat-time{font-size:11px;color:var(--mute);margin-top:1px;}
+.chat-pin-dot{display:none;width:6px;height:6px;border-radius:50%;background:var(--yellow-deep);flex-shrink:0;}
+.chat-item-menu-btn{opacity:0;flex-shrink:0;width:22px;height:22px;border-radius:6px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--mute);transition:opacity .15s,background .15s;}
+.chat-item-menu-btn:hover{background:rgba(0,0,0,0.08);color:var(--ink);}
+/* Chat context menu */
+.chat-ctx-menu{position:fixed;background:#fff;border:1px solid var(--line-soft);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.13);z-index:9999;overflow:hidden;min-width:160px;padding:4px 0;}
+.chat-ctx-item{display:flex;align-items:center;gap:9px;padding:9px 14px;font-size:13px;color:var(--ink);cursor:pointer;transition:background .1s;border:none;background:none;width:100%;text-align:left;}
+.chat-ctx-item:hover{background:#f7f6f0;}
+.chat-ctx-item.danger{color:#e53e3e;}
+.chat-ctx-item.danger:hover{background:#fff5f5;}
+.chat-ctx-sep{height:1px;background:var(--line-soft);margin:4px 0;}
 /* Access rights badges */
 .right-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:500;background:rgba(0,0,0,0.06);color:var(--ink-2);border:1px solid #00000010;}
 .ws-mode-tag{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:var(--yellow);color:var(--ink);font-size:11px;font-weight:500}
@@ -700,7 +714,7 @@ function updateModelRing(count, max) {
 }
 </script>
 <script src="/dropdown.js"></script>
-<script src="/app.js?v=2026.0.9"></script>
+<script src="/app.js?v=2026.0.11"></script>
 
 <!-- ════ Profile Drawer (app users) ════ -->
 <style>
