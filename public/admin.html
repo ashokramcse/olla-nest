@@ -945,9 +945,8 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
           </div>
         </div>
 
-        <!-- Row 2: Department Defaults + Security Policies -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-          <!-- Department Default Permissions -->
+        <!-- Row 2: Department Defaults (full width) -->
+        <div style="margin-bottom:16px;">
           <div class="card">
             <div class="card-head">
               <div class="card-title">Department Defaults</div>
@@ -960,40 +959,6 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
             <div id="deptPermGrid" class="perm-grid" style="margin-bottom:12px;"></div>
             <button class="btn dark sm" id="saveDeptPermsBtn">Save Department Defaults</button>
             <div id="deptPermMsg" class="form-msg" style="margin-top:8px;"></div>
-          </div>
-          <!-- Security Policies -->
-          <div class="card">
-            <div class="card-head"><div class="card-title">Security Policies</div></div>
-            <div style="display:flex;flex-direction:column;gap:16px;">
-              <div>
-                <div class="edit-section-title" style="margin-bottom:8px;">Login Protection</div>
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
-                  <div>
-                    <div style="font-size:13px;font-weight:600;">Max login attempts</div>
-                    <div style="font-size:11px;color:var(--mute);">Lockout period: 15 minutes</div>
-                  </div>
-                  <strong id="maxLoginAttempts">10</strong>
-                </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
-                  <div>
-                    <div style="font-size:13px;font-weight:600;">Session lifetime</div>
-                    <div style="font-size:11px;color:var(--mute);">Auto logout after inactivity</div>
-                  </div>
-                  <strong>12 hours</strong>
-                </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
-                  <div>
-                    <div style="font-size:13px;font-weight:600;">CSRF protection</div>
-                    <div style="font-size:11px;color:var(--mute);">X-Requested-With header required</div>
-                  </div>
-                  <span class="badge badge-green" style="font-size:11px;">Active</span>
-                </div>
-              </div>
-              <div>
-                <div class="edit-section-title" style="margin-bottom:8px;">Chat Rate Limits</div>
-                <div style="font-size:12px;color:var(--mute);line-height:1.6;">Per-user rate limits are set in each employee's profile (API Rate Limit field). The default is unlimited. Limits apply per minute using a sliding window.</div>
-              </div>
-            </div>
           </div>
         </div>
 
