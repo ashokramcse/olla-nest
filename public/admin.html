@@ -839,11 +839,11 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
               <div class="form-grid">
                 <div>
                   <label class="form-label">Full Name</label>
-                  <input class="input input-sm" id="newUserName" placeholder="Jane Smith" required />
+                  <input class="input input-sm" id="newUserName" type="text" name="employeeName" autocomplete="off" placeholder="Jane Smith" required />
                 </div>
                 <div>
                   <label class="form-label">Email</label>
-                  <input class="input input-sm" id="newUserEmail" type="email" placeholder="jane@company.com" required />
+                  <input class="input input-sm" id="newUserEmail" type="email" name="employeeEmail" autocomplete="off" placeholder="jane@company.com" required />
                 </div>
                 <div>
                   <label class="form-label">Role</label>
@@ -880,8 +880,11 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
                   <input class="input input-sm" id="newUserDailyTokens" type="number" value="50000" />
                 </div>
                 <div>
-                  <label class="form-label">Password</label>
-                  <input class="input input-sm" id="newUserPassword" type="password" placeholder="Leave blank for default" />
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <label class="form-label" style="margin-bottom:0;">Password</label>
+                    <button type="button" class="btn ghost sm" id="toggleNewUserPassword" style="font-size:11px;padding:2px 8px;">Show</button>
+                  </div>
+                  <input class="input input-sm" id="newUserPassword" type="password" name="employeePassword" autocomplete="new-password" placeholder="Leave blank for auto-generate" style="margin-top:6px;" />
                 </div>
               </div>
               <div style="display:flex;gap:8px;margin-top:14px;">
@@ -1080,7 +1083,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
               </div>
               <div>
                 <label class="form-label">API Key</label>
-                <input class="input input-sm" id="newProviderApiKey" type="password" placeholder="sk-..." />
+                <div style="position:relative;">
+                  <input class="input input-sm" id="newProviderApiKey" type="password" placeholder="sk-..." style="padding-right:56px;" />
+                  <button type="button" id="toggleProviderApiKey" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--mute);background:none;border:none;cursor:pointer;font-family:inherit;">Show</button>
+                </div>
               </div>
             </div>
             <div style="display:flex;gap:8px;margin-top:14px;">

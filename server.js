@@ -1473,8 +1473,18 @@ app.get("/api/auth/me", (req, res) => {
 });
 
 app.get("/api/bootstrap", (req, res) => {
-  // Do not expose admin credentials to unauthenticated users
-  res.json({ ready: true });
+  // Only expose admin email+password hint on first-boot (when default password is still in use)
+  const db = openSql();
+  try {
+    const admin = one(db, "SELECT password_hash FROM users WHERE id = 'u-admin'");
+    const isDefaultPassword = admin && bcrypt.compareSync(DEFAULT_ADMIN_PASSWORD, admin.password_hash);
+    if (isDefaultPassword) {
+      return res.json({ ready: true, adminEmail: DEFAULT_ADMIN_EMAIL, adminPassword: DEFAULT_ADMIN_PASSWORD });
+    }
+    res.json({ ready: true });
+  } finally {
+    db.close();
+  }
 });
 
 app.post("/api/account/password", requireAuth, (req, res) => {

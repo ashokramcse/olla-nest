@@ -400,8 +400,19 @@ $("toggleAddUserBtn").addEventListener("click", () => {
   const panel = $("addUserPanel");
   const open = panel.style.display !== "none";
   panel.style.display = open ? "none" : "block";
-  $("toggleAddUserBtn").textContent = open ? "+ Add Employee" : "− Cancel";
+  $("toggleAddUserBtn").textContent = open ? "+ Add Employee" : "✕ Close";
 });
+
+// Show/hide password in create employee form
+const _toggleNewPw = $("toggleNewUserPassword");
+if (_toggleNewPw) {
+  _toggleNewPw.addEventListener("click", () => {
+    const pw = $("newUserPassword");
+    const isHidden = pw.type === "password";
+    pw.type = isHidden ? "text" : "password";
+    _toggleNewPw.textContent = isHidden ? "Hide" : "Show";
+  });
+}
 
 $("cancelAddUserBtn").addEventListener("click", () => {
   $("addUserPanel").style.display = "none";
@@ -794,12 +805,23 @@ async function deleteProvider(id, name, btn) {
 }
 
 // Add provider form
+// Show/hide API key
+const _toggleApiKey = $("toggleProviderApiKey");
+if (_toggleApiKey) {
+  _toggleApiKey.addEventListener("click", () => {
+    const inp = $("newProviderApiKey");
+    const isHidden = inp.type === "password";
+    inp.type = isHidden ? "text" : "password";
+    _toggleApiKey.textContent = isHidden ? "Hide" : "Show";
+  });
+}
+
 if ($("addProviderBtn")) {
   $("addProviderBtn").addEventListener("click", () => {
     const panel = $("addProviderPanel");
     const open = panel.style.display !== "none";
     panel.style.display = open ? "none" : "block";
-    $("addProviderBtn").textContent = open ? "+ Add Provider" : "− Cancel";
+    $("addProviderBtn").textContent = open ? "+ Add Provider" : "✕ Close";
   });
 }
 if ($("cancelProviderBtn")) {

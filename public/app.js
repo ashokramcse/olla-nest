@@ -91,6 +91,13 @@ function renderSidebar() {
   // Token usage pill
   loadTokenUsage();
 
+  // Terminal FAB — only show for users with workspace:build or admin
+  const termFab = document.getElementById("termToggle");
+  if (termFab) {
+    const canTerminal = u.role === "admin" || (u.rights || []).includes("workspace:build");
+    termFab.style.display = canTerminal ? "flex" : "none";
+  }
+
   // Update model ring infographic
   if (typeof updateModelRing === "function") updateModelRing(models.length, 10);
   const capCard = document.getElementById("capabilityCard");
@@ -99,9 +106,16 @@ function renderSidebar() {
   // Workspace
   const ws = state.workspace;
   if (ws) {
-    $("workspacePath").textContent = ws.outputFolder || ws.workspaceRoot || "Not set";
+    const wsFullPath = ws.outputFolder || ws.workspaceRoot || "";
+    const wsEl = $("workspacePath");
+    if (wsFullPath) {
+      wsEl.textContent = wsFullPath;
+      wsEl.title = wsFullPath;
+    } else {
+      wsEl.textContent = "Not configured";
+    }
     const modeLabels = { default: "Approve writes", review: "Auto-review", full: "Full access" };
-    $("workspaceModeTag").innerHTML = `<span class="workspace-mode-tag">${modeLabels[ws.permissionMode] || ws.permissionMode}</span>`;
+    $("workspaceModeTag").innerHTML = `<span class="ws-mode-tag">${modeLabels[ws.permissionMode] || ws.permissionMode}</span>`;
     $("workspaceFolderInput").value = ws.workspaceRoot || "";
     $("permissionModeSelect").value = ws.permissionMode || "default";
   }
