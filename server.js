@@ -2330,9 +2330,10 @@ app.get("/api/state", requireAuth, async (req, res) => {
   const db = openSql();
   try {
     setSetting(db, "activeUserId", req.user.id);
-    // Fire Ollama sync but do NOT await — respond from cached DB state immediately.
-    // The sync has a 3s internal timeout; models update in DB on the next request.
-    syncOllamaModels(db).catch(() => {});
+    // Fire Ollama sync in background with its OWN db connection so db.close()
+    // in this request's finally block doesn't close the connection mid-write.
+    const syncDb = openSql();
+    syncOllamaModels(syncDb).catch(() => {}).finally(() => syncDb.close());
     const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
     const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
     let chats;
