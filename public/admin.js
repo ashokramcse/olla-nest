@@ -456,17 +456,18 @@ async function checkOllama() {
   const label = $("ollamaStatus");
   const dot = $("ollamaStatusDot");
   try {
-    const data = await api("/api/ollama/models");
+    const data = await api("/api/admin/ollama/ping");
     if (!data) return;
     if (data.ok) {
-      if (label) label.textContent = "Ollama connected";
+      if (label) label.textContent = `Ollama connected · ${data.modelCount} model${data.modelCount !== 1 ? "s" : ""}`;
       if (dot) dot.className = "status-dot ok";
     } else {
-      if (label) label.textContent = "Ollama not connected";
+      if (label) label.textContent = "Ollama not reachable";
       if (dot) dot.className = "status-dot off";
+      console.warn("[ollama] ping failed:", data.error, "→ URL:", data.url);
     }
   } catch {
-    if (label) label.textContent = "Ollama not connected";
+    if (label) label.textContent = "Ollama not reachable";
     if (dot) dot.className = "status-dot off";
   }
 }
@@ -513,11 +514,32 @@ $("refreshBtn").addEventListener("click", async () => {
 
 $("syncModelsBtn").addEventListener("click", async () => {
   const btn = $("syncModelsBtn");
+  const syncIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`;
   btn.disabled = true;
   btn.textContent = "Syncing…";
   try {
-    await api("/api/ollama/models");
+    // First ping to check connectivity and get real error if down
+    const ping = await api("/api/admin/ollama/ping");
+    if (!ping?.ok) {
+      btn.innerHTML = `${syncIcon} Sync from Ollama`;
+      btn.disabled = false;
+      const errMsg = ping?.error || "Cannot reach Ollama";
+      const url = ping?.url || "";
+      alert(`Ollama sync failed.\n\nURL tried: ${url}\nError: ${errMsg}\n\nCheck that Ollama is running and the URL in Settings is correct.`);
+      return;
+    }
+    // Ollama is reachable — do the full sync
+    const result = await api("/api/ollama/models");
     await loadState();
+    await checkOllama();
+    if (result?.ok) {
+      btn.innerHTML = `${syncIcon} Sync from Ollama`;
+      // Flash brief success
+      const count = (state?.models || []).filter(m => m.provider === "ollama" && m.status === "available").length;
+      btn.title = `Last sync: ${count} model${count !== 1 ? "s" : ""} available`;
+    }
+  } catch (err) {
+    alert(`Sync error: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync from Ollama`;

@@ -73,7 +73,7 @@ app.use((req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader("Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none';"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none';"
   );
   // HSTS — only send over HTTPS connections
   if (req.headers["x-forwarded-proto"] === "https" || req.secure) {
@@ -739,10 +739,11 @@ async function syncOllamaModels(db) {
   let installed;
   try {
     installed = await fetchOllamaModels(ollamaUrl(db));
-  } catch {
+  } catch (err) {
     // Ollama unreachable — mark ALL local models as missing so UI reflects reality
     db.prepare("UPDATE models SET status = 'missing' WHERE provider = 'ollama'").run();
-    return [];
+    console.error(`[ollama-sync] Unreachable at ${ollamaUrl(db)}: ${err.message}`);
+    return { ok: false, models: [], error: err.message };
   }
   const seenIds = [];
   for (const item of installed) {
@@ -768,7 +769,7 @@ async function syncOllamaModels(db) {
     db.prepare(`UPDATE models SET status = 'missing' WHERE provider = 'ollama' AND id NOT IN (${placeholders})`).run(...seenIds);
   }
   ensureDefaultAccess(db);
-  return installed;
+  return { ok: true, models: installed };
 }
 
 function ensureDefaultAccess(db) {
@@ -1616,7 +1617,7 @@ app.get("/api/state", requireAuth, async (req, res) => {
   const db = openSql();
   try {
     setSetting(db, "activeUserId", req.user.id);
-    await syncOllamaModels(db).catch(() => []);
+    await syncOllamaModels(db).catch(() => ({ ok: false, models: [] }));
     const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
     const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
     let chats;
@@ -1657,12 +1658,30 @@ app.get("/api/state", requireAuth, async (req, res) => {
 app.get("/api/ollama/models", requireAuth, async (req, res) => {
   const db = openSql();
   try {
-    const installed = await syncOllamaModels(db);
-    res.json({ ok: true, models: installed });
+    const result = await syncOllamaModels(db);
+    res.json(result);
   } catch (error) {
     res.json({ ok: false, error: error.message, models: [] });
   } finally {
     db.close();
+  }
+});
+
+// Diagnostic: raw Ollama connectivity test — returns exact URL tried and error if any
+app.get("/api/admin/ollama/ping", requireAdmin, async (req, res) => {
+  const db = openSql();
+  const url = ollamaUrl(db);
+  db.close();
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 10000);
+  try {
+    const r = await fetch(`${url}/api/tags`, { signal: controller.signal });
+    clearTimeout(t);
+    const data = await r.json();
+    res.json({ ok: r.ok, url, status: r.status, modelCount: (data.models || []).length, models: (data.models || []).map(m => m.name) });
+  } catch (err) {
+    clearTimeout(t);
+    res.json({ ok: false, url, error: err.message });
   }
 });
 
@@ -1778,7 +1797,7 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ error: "Message is required" });
     if (String(message).length > 16000) return res.status(400).json({ error: "Message exceeds maximum length of 16,000 characters" });
-    await syncOllamaModels(db).catch(() => []);
+    await syncOllamaModels(db).catch(() => ({ ok: false, models: [] }));
 
     const manualModel = manualModelId ? allowedModels(db, user).find((model) => model.id === manualModelId) : null;
     const route = manualModel
@@ -2247,7 +2266,7 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message is required" })}\n\n`); return res.end(); }
     if (String(message).length > 16000) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message exceeds maximum length of 16,000 characters" })}\n\n`); return res.end(); }
-    await syncOllamaModels(db).catch(() => []);
+    await syncOllamaModels(db).catch(() => ({ ok: false, models: [] }));
 
     const manualModel = manualModelId ? allowedModels(db, user).find(m => m.id === manualModelId) : null;
     const route = manualModel
@@ -2878,7 +2897,7 @@ server.listen(PORT, async () => {
   const db = openSql();
   try {
     migrateDocumentsJson(db);
-    await syncOllamaModels(db).catch(() => []);
+    await syncOllamaModels(db).catch(() => ({ ok: false, models: [] }));
   } finally {
     db.close();
   }
