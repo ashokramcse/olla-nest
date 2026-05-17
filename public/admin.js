@@ -2037,8 +2037,9 @@ document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
   }
 });
 
-// Bootstrap: load all state, then verify Ollama connectivity.
-// Subsequent Ollama checks run every 30 s so the header status dot stays current.
-loadState().then(checkOllama);
+// Bootstrap: fire Ollama check immediately (independent of loadState so the
+// status dot never stays stuck on "Checking…" if state is slow to load).
+checkOllama();
+loadState();
 /* Re-check Ollama every 30 seconds so status stays current without a page reload */
 setInterval(checkOllama, 30000);
