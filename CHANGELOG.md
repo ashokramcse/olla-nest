@@ -5,6 +5,20 @@ Format: [Semantic-ish versioning](https://semver.org) with release dates.
 
 ---
 
+## [v2026.0.4] — 2026-05-17
+
+### ✨ Features
+
+- **Inline employee editor**: Each user row in the Admin → Users tab now has an Edit button. Clicking it expands an inline panel below the row containing all editable fields (name, email, role, department, token limits, API rate limit), a full permission checkbox grid, a Change Password button, and a Deactivate/Reactivate button — no page navigation required.
+- **Human-readable permissions**: All permission keys (e.g. `models:local:use`) are now replaced with clear labels (e.g. **Local AI Models**) throughout the admin UI. Every badge and checkbox includes a native tooltip (hover) with a plain-English description of what the permission actually grants.
+- **Permission risk indicators**: High-risk permissions (Terminal & Workspace, Admin Panel) are visually highlighted with a red border on their checkbox cards so admins can spot them at a glance.
+
+### 🐛 Bug Fixes
+
+- **Edit panel save**: Saving an employee now PATCHes all fields (name, email, department, role, token limits, rights array) in a single request and re-renders the user list
+
+---
+
 ## [v2026.0.3] — 2026-05-17
 
 ### 🔒 Security

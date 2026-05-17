@@ -8,15 +8,22 @@ Tracks every release, version tag, and key commit in the project history.
 
 | Field | Value |
 |---|---|
-| **Version** | `v2026.0.3` |
+| **Version** | `v2026.0.4` |
 | **Released** | 2026-05-17 |
-| **Commit** | `ca6044e` |
+| **Commit** | `0a866fc` |
 | **Status** | ✅ Stable |
 | **Branch** | `main` |
 
 ---
 
 ## Version History
+
+### v2026.0.4 — 2026-05-17
+> **Inline employee editor + human-readable permissions**
+
+| Commit | Date | Description |
+|---|---|---|
+| `0a866fc` | 2026-05-17 | feat: inline edit panel for employees with permission checkboxes and human-readable labels |
 
 ### v2026.0.3 — 2026-05-17
 > **Security hardening + performance + bug fixes** (post-audit release)
