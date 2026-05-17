@@ -2370,6 +2370,19 @@ app.get("/api/state", requireAuth, async (req, res) => {
   }
 });
 
+// [GET] /api/ollama/ping — Auth: requireAuth — Purpose: fast 2-second connectivity check, no DB sync (used by status chip)
+app.get("/api/ollama/ping", requireAuth, async (req, res) => {
+  const db = openSql();
+  const url = cleanBaseUrl(ollamaUrl(db));
+  db.close();
+  try {
+    const r = await fetch(`${url}/api/tags`, { signal: AbortSignal.timeout(2000) });
+    res.json({ ok: r.ok });
+  } catch {
+    res.json({ ok: false });
+  }
+});
+
 // [GET] /api/ollama/models — Auth: requireAuth — Purpose: trigger an Ollama sync and return result (used by sync button)
 app.get("/api/ollama/models", requireAuth, async (req, res) => {
   const db = openSql();

@@ -159,20 +159,22 @@ function renderSidebar() {
   const roleMini = document.querySelector(".role-chip");
   if (roleMini) roleMini.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
 
-  // Sidebar model list — uses configuredModels() so ALL approved models show,
-  // with a grey dot when Ollama is offline (status="missing") vs green when live.
-  const allConfigured = configuredModels();
+  // Sidebar model list — only show models that are currently available (reachable).
+  // If Ollama is offline, show a clear "offline" message instead of a ghost list.
   const availableModels = allowedModels();
-  $("sidebarModels").innerHTML = allConfigured.length
-    ? allConfigured.map(m => {
-        const ok = m.status === "available";
-        return `<div class="model-item">
-          <div class="model-dot" style="background:${ok ? "#4caf50" : "#555"};flex-shrink:0;"></div>
-          <div class="model-name" title="${esc(m.name)}" style="color:${ok ? "" : "#888"}">${esc(m.name)}</div>
-          ${ok ? "" : `<span style="margin-left:auto;font-size:10px;color:#555;font-style:italic;">offline</span>`}
-        </div>`;
-      }).join("")
-    : `<div class="model-item"><div class="model-dot" style="background:#555;flex-shrink:0;"></div><div class="model-name" style="color:#999">No approved models</div></div>`;
+  if (availableModels.length) {
+    $("sidebarModels").innerHTML = availableModels.map(m =>
+      `<div class="model-item">
+        <div class="model-dot" style="flex-shrink:0;"></div>
+        <div class="model-name" title="${esc(m.name)}">${esc(m.name)}</div>
+      </div>`
+    ).join("");
+  } else {
+    $("sidebarModels").innerHTML = `<div style="font-size:12px;color:var(--mute);padding:4px 0;line-height:1.5;">
+      Ollama offline — no models available.<br>
+      <span style="font-size:11px;">Start Ollama or add a cloud provider.</span>
+    </div>`;
+  }
 
   // Repopulate the Claude-style picker dropdown — only AVAILABLE models shown
   populateAppModelPicker(availableModels);
@@ -599,25 +601,29 @@ async function loadTokenUsage() {
 }
 
 /**
- * Polls GET /api/ollama/models to check whether Ollama is reachable and updates
- * the status dot + label in the sidebar header.
+ * Checks Ollama connectivity via the fast /api/ollama/ping endpoint (2s timeout,
+ * no DB sync) and updates the status dot + label in the topbar.
+ * Called once on boot and every 30 seconds via setInterval.
  */
 async function checkOllama() {
   const label = $("ollamaStatus");
   const dot = $("ollamaStatusDot");
+  if (label) label.textContent = "Checking…";
+  if (dot) dot.className = "status-dot";
   try {
-    const data = await api("/api/ollama/models");
-    if (!data) return;
-    if (data.ok) {
+    const data = await api("/api/ollama/ping");
+    if (data?.ok) {
       if (label) label.textContent = "Ollama connected";
-      if (dot) { dot.className = "status-dot ok"; }
+      if (dot) dot.className = "status-dot ok";
+      // Refresh state so newly-online models populate immediately
+      loadState();
     } else {
-      if (label) label.textContent = "Ollama not connected";
-      if (dot) { dot.className = "status-dot off"; }
+      if (label) label.textContent = "Ollama offline";
+      if (dot) dot.className = "status-dot off";
     }
   } catch {
-    if (label) label.textContent = "Ollama not connected";
-    if (dot) { dot.className = "status-dot off"; }
+    if (label) label.textContent = "Ollama offline";
+    if (dot) dot.className = "status-dot off";
   }
 }
 
@@ -1116,4 +1122,7 @@ if (fileInput) {
 loadState().then(() => {
   updateWriteToggle();
   checkOllama();
+  // Re-check Ollama every 30 seconds so the status chip stays accurate
+  // and models appear as soon as Ollama comes back online.
+  setInterval(checkOllama, 30000);
 });
