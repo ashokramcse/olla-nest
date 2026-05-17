@@ -54,6 +54,48 @@ async function api(path, opts = {}) {
   return data;
 }
 
+function showToast(msg, type = "info", duration = 4000) {
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.style.cssText = "position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:360px;";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  const colors = {
+    success: { bg: "#f0fdf4", border: "#86efac", text: "#15803d", icon: "✓" },
+    error:   { bg: "#fef2f2", border: "#fca5a5", text: "#b91c1c", icon: "✕" },
+    warning: { bg: "#fffbeb", border: "#fcd34d", text: "#92400e", icon: "⚠" },
+    info:    { bg: "#fffdf0", border: "#e8c520", text: "#78350f", icon: "ℹ" },
+  };
+  const c = colors[type] || colors.info;
+  toast.style.cssText = `background:${c.bg};border:1px solid ${c.border};color:${c.text};padding:12px 16px;border-radius:12px;font-size:13px;font-weight:500;display:flex;align-items:flex-start;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.10);animation:slideInToast .2s ease;cursor:pointer;`;
+  toast.innerHTML = `<span style="font-size:16px;line-height:1;">${c.icon}</span><span style="flex:1;line-height:1.4;">${esc(msg)}</span>`;
+  toast.onclick = () => toast.remove();
+  container.appendChild(toast);
+  if (duration > 0) setTimeout(() => toast?.remove(), duration);
+  return toast;
+}
+
+function showConfirm(msg, onConfirm) {
+  let overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+      <div style="font-size:15px;font-weight:600;color:#1a1a0f;margin-bottom:20px;line-height:1.5;">${esc(msg)}</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button id="confirmCancel" class="btn btn-secondary" style="min-width:80px;">Cancel</button>
+        <button id="confirmOk" class="btn btn-danger" style="min-width:80px;">Confirm</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#confirmCancel").onclick = () => overlay.remove();
+  overlay.querySelector("#confirmOk").onclick = () => { overlay.remove(); onConfirm(); };
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
 function initials(name) {
   return (name || "A").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 }
@@ -328,9 +370,10 @@ async function loadActiveSessions() {
 }
 
 async function forceLogoutUser(userId) {
-  if (!confirm("Force logout this user?")) return;
-  await api(`/api/admin/sessions/user/${encodeURIComponent(userId)}`, { method: "DELETE" });
-  await loadActiveSessions();
+  showConfirm("Force logout this user?", async () => {
+    await api(`/api/admin/sessions/user/${encodeURIComponent(userId)}`, { method: "DELETE" });
+    await loadActiveSessions();
+  });
 }
 
 async function renderDeptPermGrid() {
@@ -508,8 +551,18 @@ $("logoutBtn").addEventListener("click", async () => {
 });
 
 $("refreshBtn").addEventListener("click", async () => {
-  await checkOllama();
-  await loadState();
+  const btn = $("refreshBtn");
+  btn.disabled = true;
+  const origText = btn.textContent;
+  btn.textContent = "Refreshing…";
+  try {
+    await checkOllama();
+    await loadState();
+    showToast("Dashboard refreshed", "success", 2000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
 });
 
 $("syncModelsBtn").addEventListener("click", async () => {
@@ -525,7 +578,7 @@ $("syncModelsBtn").addEventListener("click", async () => {
       btn.disabled = false;
       const errMsg = ping?.error || "Cannot reach Ollama";
       const url = ping?.url || "";
-      alert(`Ollama sync failed.\n\nURL tried: ${url}\nError: ${errMsg}\n\nCheck that Ollama is running and the URL in Settings is correct.`);
+      showToast(`Ollama not reachable at ${url}. Go to Settings and fix the URL to host.docker.internal:11434 — ${errMsg}`, "error", 8000);
       return;
     }
     // Ollama is reachable — do the full sync
@@ -537,9 +590,10 @@ $("syncModelsBtn").addEventListener("click", async () => {
       // Flash brief success
       const count = (state?.models || []).filter(m => m.provider === "ollama" && m.status === "available").length;
       btn.title = `Last sync: ${count} model${count !== 1 ? "s" : ""} available`;
+      showToast(`Sync complete — ${count} model${count !== 1 ? "s" : ""} available`, "success");
     }
   } catch (err) {
-    alert(`Sync error: ${err.message}`);
+    showToast(`Sync error: ${err.message}`, "error");
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync from Ollama`;
@@ -697,16 +751,16 @@ if ($("refreshSessionsBtn")) {
   $("refreshSessionsBtn").addEventListener("click", loadActiveSessions);
 }
 if ($("clearAllSessionsBtn")) {
-  $("clearAllSessionsBtn").addEventListener("click", async () => {
-    if (!confirm("This will force-logout all currently logged-in employees. You will stay logged in. Continue?")) return;
-    // logout everyone except current admin
-    const data = await api("/api/admin/sessions/active");
-    for (const s of (data?.sessions || [])) {
-      if (s.userId !== state.activeUser?.id) {
-        await api(`/api/admin/sessions/user/${encodeURIComponent(s.userId)}`, { method: "DELETE" });
+  $("clearAllSessionsBtn").addEventListener("click", () => {
+    showConfirm("This will force-logout all currently logged-in employees. You will stay logged in. Continue?", async () => {
+      const data = await api("/api/admin/sessions/active");
+      for (const s of (data?.sessions || [])) {
+        if (s.userId !== state.activeUser?.id) {
+          await api(`/api/admin/sessions/user/${encodeURIComponent(s.userId)}`, { method: "DELETE" });
+        }
       }
-    }
-    await loadActiveSessions();
+      await loadActiveSessions();
+    });
   });
 }
 
@@ -929,12 +983,18 @@ function renderOllamaProvider() {
 if (document.getElementById("provOllamaTestBtn")) {
   document.getElementById("provOllamaTestBtn").addEventListener("click", async () => {
     const btn = $("provOllamaTestBtn");
-    const txt = $("ollamaProvStatusText");
     btn.disabled = true; btn.textContent = "Testing…";
     try {
-      await checkOllama();
+      const ping = await api("/api/admin/ollama/ping");
+      if (ping?.ok) {
+        showToast(`Ollama connected — ${ping.modelCount} model${ping.modelCount !== 1 ? "s" : ""} available at ${ping.url}`, "success", 5000);
+      } else {
+        showToast(`Connection failed at ${ping?.url}: ${ping?.error || "unknown error"}. Change URL to http://host.docker.internal:11434 in the field above.`, "error", 8000);
+      }
       await loadState();
       renderOllamaProvider();
+    } catch (err) {
+      showToast(err.message, "error");
     } finally {
       btn.disabled = false; btn.textContent = "Test";
     }
@@ -946,9 +1006,17 @@ if (document.getElementById("provOllamaSyncBtn")) {
     const btn = $("provOllamaSyncBtn");
     btn.disabled = true; btn.textContent = "Syncing…";
     try {
+      const ping = await api("/api/admin/ollama/ping");
+      if (!ping?.ok) {
+        showToast(`Ollama not reachable at ${ping?.url || "unknown URL"}. Update the URL in Settings to http://host.docker.internal:11434`, "error", 8000);
+        return;
+      }
       await api("/api/ollama/models");
       await loadState();
       renderOllamaProvider();
+      showToast("Ollama models synced", "success");
+    } catch (err) {
+      showToast(err.message, "error");
     } finally {
       btn.disabled = false; btn.textContent = "Sync Models";
     }
@@ -959,15 +1027,20 @@ if (document.getElementById("provOllamaSaveBtn")) {
   document.getElementById("provOllamaSaveBtn").addEventListener("click", async () => {
     const btn = $("provOllamaSaveBtn");
     btn.disabled = true; btn.textContent = "Saving…";
+    const urlVal = $("provOllamaUrl").value.trim();
+    if (/^http:\/\/192\.|^http:\/\/10\.|^http:\/\/172\./.test(urlVal)) {
+      showToast("Warning: LAN IP addresses (192.168.x.x) may not be reachable from inside Docker. Use http://host.docker.internal:11434 instead.", "warning", 8000);
+    }
     try {
       await api("/api/admin/settings", {
         method: "POST",
-        body: JSON.stringify({ ollamaUrl: $("provOllamaUrl").value.trim() }),
+        body: JSON.stringify({ ollamaUrl: urlVal }),
       });
       await loadState();
       renderOllamaProvider();
+      showToast("Ollama URL saved", "success");
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       btn.disabled = false; btn.textContent = "Save";
     }
@@ -1084,15 +1157,16 @@ async function toggleProvider(id, newEnabled, btn) {
 }
 
 async function deleteProvider(id, name, btn) {
-  if (!confirm(`Delete provider "${name}"? This will also delete all its synced models.`)) return;
-  btn.disabled = true;
-  try {
-    await api(`/api/admin/providers/${encodeURIComponent(id)}`, { method: "DELETE" });
-    await loadProviders();
-  } catch (err) {
-    alert(err.message);
-    btn.disabled = false;
-  }
+  showConfirm(`Delete provider "${name}"? This will also delete all its synced models.`, async () => {
+    btn.disabled = true;
+    try {
+      await api(`/api/admin/providers/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await loadProviders();
+    } catch (err) {
+      showToast(err.message, "error");
+      btn.disabled = false;
+    }
+  });
 }
 
 // Add provider form
