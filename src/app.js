@@ -208,13 +208,18 @@ wss.on("connection", (ws, req, user) => {
   try { fs.mkdirSync(cwd, { recursive: true }); } catch {}
 
   const shell = process.env.SHELL || "/bin/bash";
+  const ptyEnv = { ...process.env };
+  delete ptyEnv.SECRET_KEY;
+  delete ptyEnv.SESSION_SECRET;
+  delete ptyEnv.DEFAULT_ADMIN_PASSWORD;
+  delete ptyEnv.DEFAULT_USER_PASSWORD;
   const term = pty.spawn(shell, [], {
     name: "xterm-256color",
     cols: 120,
     rows: 30,
     cwd,
     env: {
-      ...process.env,
+      ...ptyEnv,
       TERM: "xterm-256color",
       HOME: process.env.HOME || "/root",
       USER: user.name || "user",

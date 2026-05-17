@@ -116,7 +116,10 @@ module.exports = function(deps) {
       }
       if (typeof name !== "undefined") db.prepare("UPDATE users SET name = ? WHERE id = ?").run(name, req.params.id);
       if (typeof email !== "undefined") db.prepare("UPDATE users SET email = ? WHERE id = ?").run(email, req.params.id);
-      if (typeof role !== "undefined") db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, req.params.id);
+      if (typeof role !== "undefined") {
+        if (!["admin", "user"].includes(role)) return res.status(400).json({ error: "Invalid role. Must be 'admin' or 'user'." });
+        db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, req.params.id);
+      }
       if (typeof departmentId !== "undefined") db.prepare("UPDATE users SET department_id = ? WHERE id = ?").run(departmentId, req.params.id);
       if (typeof active !== "undefined") db.prepare("UPDATE users SET active = ? WHERE id = ?").run(active ? 1 : 0, req.params.id);
       if (Array.isArray(rights)) db.prepare("UPDATE users SET rights = ? WHERE id = ?").run(JSON.stringify(rights), req.params.id);

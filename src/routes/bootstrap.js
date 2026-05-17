@@ -18,7 +18,7 @@ module.exports = function(deps) {
       const admin = one(db, "SELECT password_hash FROM users WHERE id = 'u-admin'");
       const isDefaultPassword = admin && bcrypt.compareSync(DEFAULT_ADMIN_PASSWORD, admin.password_hash);
       if (isDefaultPassword) {
-        return res.json({ ready: true, adminEmail: DEFAULT_ADMIN_EMAIL, adminPassword: DEFAULT_ADMIN_PASSWORD });
+        return res.json({ ready: true, adminEmail: DEFAULT_ADMIN_EMAIL });
       }
       res.json({ ready: true });
     } finally {

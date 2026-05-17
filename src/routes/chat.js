@@ -15,6 +15,7 @@ module.exports = function(deps) {
   const { resolveProvider, callProvider, callProviderStream } = deps;
   const { buildSystemPrompt, buildContextMessages, getActiveChat, getActiveChatSession, archiveCurrentChat, buildChatObject, appendAudit, appendTrace } = deps;
   const { workspaceForUser, writeLocalArtifacts, extractArtifacts, cleanModelOutput } = deps;
+  const { detectSensitiveContent } = require("../services/router");
 
   // [POST] /api/chat — Auth: requireAuth — Purpose: non-streaming chat request (legacy/fallback); returns full response JSON
   router.post("/", requireAuth, async (req, res) => {
@@ -29,7 +30,27 @@ module.exports = function(deps) {
       if (!message || !message.trim()) return res.status(400).json({ error: "Message is required" });
       if (String(message).length > 16000) return res.status(400).json({ error: "Message exceeds maximum length of 16,000 characters" });
 
+      // Enforce daily token quota
+      const todayUsage = db.prepare(`
+        SELECT COALESCE(SUM(tokens_used),0) as total
+        FROM chat_messages
+        WHERE user_id = ? AND role = 'assistant'
+        AND date(created_at) = date('now')
+      `).get(user.id).total;
+      if (user.dailyTokenLimit && todayUsage >= user.dailyTokenLimit) {
+        return res.status(429).json({ error: "Daily token limit reached." });
+      }
+
       const manualModel = manualModelId ? allowedModels(db, user).find((model) => model.id === manualModelId) : null;
+
+      // If a manual model is selected, still run sensitive content detection
+      if (manualModel) {
+        const sensitivityResult = detectSensitiveContent(message, db);
+        if (sensitivityResult.isSensitive && manualModel.privacy !== "local") {
+          return res.status(403).json({ error: "Message contains sensitive content and cannot be sent to an external model. Please select a local model." });
+        }
+      }
+
       const route = manualModel
         ? { selected: manualModel, tags: ["manual"], candidates: [], reason: "User manually selected an approved model." }
         : routeModel(db, user, message, mode);
@@ -73,10 +94,17 @@ module.exports = function(deps) {
       const now = new Date().toISOString();
       const userMsgId = uid("msg");
       const asstMsgId = uid("msg");
-      db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, "user", message, mode, now);
-      db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-        asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), now
-      );
+      db.exec("BEGIN");
+      try {
+        db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, "user", message, mode, now);
+        db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+          asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), now
+        );
+        db.exec("COMMIT");
+      } catch (txErr) {
+        db.exec("ROLLBACK");
+        throw txErr;
+      }
       /* Auto-set title from first user message if still default */
       const currentSession = db.prepare("SELECT * FROM chat_sessions WHERE id = ?").get(chat.id);
       let title = currentSession?.title || "New Chat";
@@ -121,7 +149,29 @@ module.exports = function(deps) {
       if (!message || !message.trim()) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message is required" })}\n\n`); return res.end(); }
       if (String(message).length > 16000) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message exceeds maximum length of 16,000 characters" })}\n\n`); return res.end(); }
 
+      // Enforce daily token quota
+      const todayUsage = db.prepare(`
+        SELECT COALESCE(SUM(tokens_used),0) as total
+        FROM chat_messages
+        WHERE user_id = ? AND role = 'assistant'
+        AND date(created_at) = date('now')
+      `).get(user.id).total;
+      if (user.dailyTokenLimit && todayUsage >= user.dailyTokenLimit) {
+        res.write(`data: ${JSON.stringify({ type: "error", message: "Daily token limit reached." })}\n\n`);
+        return res.end();
+      }
+
       const manualModel = manualModelId ? allowedModels(db, user).find(m => m.id === manualModelId) : null;
+
+      // If a manual model is selected, still run sensitive content detection
+      if (manualModel) {
+        const sensitivityResult = detectSensitiveContent(message, db);
+        if (sensitivityResult.isSensitive && manualModel.privacy !== "local") {
+          res.write(`data: ${JSON.stringify({ type: "error", message: "Message contains sensitive content and cannot be sent to an external model. Please select a local model." })}\n\n`);
+          return res.end();
+        }
+      }
+
       const route = manualModel
         ? { selected: manualModel, tags: ["manual"], candidates: [], reason: "User manually selected an approved model.", privacyBlocked: false, sensitiveReasons: [] }
         : routeModel(db, user, message, mode);
@@ -171,10 +221,17 @@ module.exports = function(deps) {
         const userMsgId = uid("msg");
         const asstMsgId = uid("msg");
         const latencyMs = Date.now() - startMs;
-        db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, "user", message, mode, now);
-        db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, tokens_used, latency_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-          asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), tokensUsed, latencyMs, now
-        );
+        db.exec("BEGIN");
+        try {
+          db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, "user", message, mode, now);
+          db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, tokens_used, latency_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+            asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), tokensUsed, latencyMs, now
+          );
+          db.exec("COMMIT");
+        } catch (txErr) {
+          db.exec("ROLLBACK");
+          throw txErr;
+        }
         const currentSession = db.prepare("SELECT * FROM chat_sessions WHERE id = ?").get(chat.id);
         let title = currentSession?.title || "New Chat";
         if (!title || title === "New Chat") title = message.slice(0, 45).trim() + (message.length > 45 ? "…" : "");

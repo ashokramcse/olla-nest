@@ -30,9 +30,28 @@ function ensureDataDir() {
  * @returns {DatabaseSync} An open SQLite database handle.  Caller MUST call
  *   db.close() in a finally block to release the file lock.
  */
+/**
+ * Opens (or creates) the SQLite database and returns a handle.
+ * Schema initialisation is done once at startup via initDatabase() — not here.
+ *
+ * @returns {DatabaseSync} An open SQLite database handle.  Caller MUST call
+ *   db.close() in a finally block to release the file lock.
+ */
 function openSql() {
   ensureDataDir();
   const db = new DatabaseSync(SQL_PATH);
+  db.exec("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=NORMAL;");
+  return db;
+}
+
+/**
+ * One-time startup function: creates all tables, adds indexes, and seeds default
+ * data.  Must be called once before server.listen() — NOT on every request open.
+ */
+function initDatabase() {
+  ensureDataDir();
+  const db = new DatabaseSync(SQL_PATH);
+  try {
   db.exec(`
     -- settings: key/value store for all platform configuration (router flags, API keys, workspace root, etc.)
     CREATE TABLE IF NOT EXISTS settings (
@@ -217,7 +236,7 @@ function openSql() {
     );
   `);
   db.exec("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=NORMAL;");
-  // Performance indexes — safe to add idempotently on every open
+  // Performance indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at);
@@ -225,9 +244,13 @@ function openSql() {
     CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON audit_events(created_at);
     CREATE INDEX IF NOT EXISTS idx_router_traces_created_at ON router_traces(created_at);
     CREATE INDEX IF NOT EXISTS idx_feedback_message_id ON feedback(message_id);
+    CREATE INDEX IF NOT EXISTS idx_access_grants_subject ON access_grants(subject_type, subject_id);
+    CREATE INDEX IF NOT EXISTS idx_user_overrides_user ON user_overrides(user_id);
   `);
   seedSql(db);
-  return db;
+  } finally {
+    db.close();
+  }
 }
 
 /**
@@ -252,4 +275,4 @@ function one(db, query, ...params) {
   return db.prepare(query).get(...params);
 }
 
-module.exports = { openSql, ensureDataDir, rows, one };
+module.exports = { openSql, initDatabase, ensureDataDir, rows, one };

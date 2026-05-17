@@ -10,7 +10,11 @@
  */
 
 const { server, migrateDocumentsJson, syncOllamaModels, openSql } = require("./src/app");
+const { initDatabase } = require("./src/db/index");
 const { PORT } = require("./src/config");
+
+// Initialise database schema and seed defaults once before accepting requests
+initDatabase();
 
 server.listen(PORT, async () => {
   // Initial startup tasks
