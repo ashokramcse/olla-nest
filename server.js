@@ -2330,9 +2330,9 @@ app.get("/api/state", requireAuth, async (req, res) => {
   const db = openSql();
   try {
     setSetting(db, "activeUserId", req.user.id);
-    // Sync Ollama with a hard 3-second timeout (enforced inside fetchOllamaModels).
-    // If Ollama is unreachable the sync fails fast and marks models "missing" in DB.
-    await syncOllamaModels(db).catch(() => ({ ok: false, models: [] }));
+    // Fire Ollama sync but do NOT await — respond from cached DB state immediately.
+    // The sync has a 3s internal timeout; models update in DB on the next request.
+    syncOllamaModels(db).catch(() => {});
     const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
     const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
     let chats;

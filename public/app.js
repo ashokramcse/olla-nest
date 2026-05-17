@@ -605,25 +605,27 @@ async function loadTokenUsage() {
  * no DB sync) and updates the status dot + label in the topbar.
  * Called once on boot and every 30 seconds via setInterval.
  */
+let _ollamaWasOnline = null; // tracks previous state to detect transitions
 async function checkOllama() {
   const label = $("ollamaStatus");
   const dot = $("ollamaStatusDot");
-  if (label) label.textContent = "Checking…";
-  if (dot) dot.className = "status-dot";
   try {
     const data = await api("/api/ollama/ping");
     if (data?.ok) {
       if (label) label.textContent = "Ollama connected";
       if (dot) dot.className = "status-dot ok";
-      // Refresh state so newly-online models populate immediately
-      loadState();
+      // Only reload state when Ollama transitions from offline → online
+      if (_ollamaWasOnline === false) loadState();
+      _ollamaWasOnline = true;
     } else {
       if (label) label.textContent = "Ollama offline";
       if (dot) dot.className = "status-dot off";
+      _ollamaWasOnline = false;
     }
   } catch {
     if (label) label.textContent = "Ollama offline";
     if (dot) dot.className = "status-dot off";
+    _ollamaWasOnline = false;
   }
 }
 
@@ -1027,16 +1029,23 @@ function openAppModelDropdown() {
   if (!appDropdown) return;
   const models = allowedModels();
   populateAppModelPicker(models);
-  // Position fixed relative to trigger rect (escapes overflow:hidden parents)
+
+  // Render off-screen first to measure real height, then position correctly
+  appDropdown.style.visibility = "hidden";
+  appDropdown.style.display = "block";
   const rect = appPicker.getBoundingClientRect();
-  const dropH = 320; // estimated max height
+  const dropH = appDropdown.offsetHeight;
   const spaceBelow = window.innerHeight - rect.bottom;
-  if (spaceBelow < dropH && rect.top > dropH) {
-    appDropdown.style.top = (rect.top - dropH - 4) + "px";
+
+  if (spaceBelow < dropH + 8 && rect.top > dropH + 8) {
+    // Open upward
+    appDropdown.style.top = (rect.top - dropH - 6) + "px";
   } else {
-    appDropdown.style.top = (rect.bottom + 4) + "px";
+    // Open downward
+    appDropdown.style.top = (rect.bottom + 6) + "px";
   }
   appDropdown.style.left = rect.left + "px";
+  appDropdown.style.visibility = "";
   appPicker?.classList.add("open");
   appDropdown.classList.add("open");
 }
@@ -1119,10 +1128,11 @@ if (fileInput) {
   });
 }
 
+// Fire Ollama status check immediately — don't wait for loadState() so
+// the status chip resolves in ≤2s regardless of how long state takes.
+checkOllama();
+setInterval(checkOllama, 30000);
+
 loadState().then(() => {
   updateWriteToggle();
-  checkOllama();
-  // Re-check Ollama every 30 seconds so the status chip stays accurate
-  // and models appear as soon as Ollama comes back online.
-  setInterval(checkOllama, 30000);
 });
