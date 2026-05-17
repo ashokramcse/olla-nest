@@ -108,7 +108,13 @@ function renderMarkdown(content) {
   renderer.code = ({ text, lang }) => {
     const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const label = lang ? `<span class="code-lang-label">${esc(lang)}</span>` : "";
-    return `<div class="md-code-block">${label}<button class="md-copy-btn" onclick="copyCode(this)">Copy</button><pre><code>${escaped}</code></pre></div>`;
+    // Show "Run in terminal" for shell-like single-line commands
+    const isRunnable = ["bash","sh","shell","zsh","fish","console","terminal","cmd","powershell"].includes((lang||"").toLowerCase())
+      || (!lang && /^[a-z][\w\/\-]/.test(text.trim()) && !text.includes("\n") && text.trim().length < 200);
+    const runBtn = isRunnable
+      ? `<button class="run-in-term-btn" onclick="runInTerminal(this)" title="Run in terminal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
+      : "";
+    return `<div class="md-code-block">${label}<button class="md-copy-btn" onclick="copyCode(this)">Copy</button><pre><code>${escaped}</code></pre>${runBtn}</div>`;
   };
   return marked.parse(content, { renderer });
 }
@@ -119,6 +125,24 @@ function copyCode(btn) {
     btn.textContent = "Copied!";
     setTimeout(() => { btn.textContent = "Copy"; }, 2000);
   });
+}
+
+function runInTerminal(btn) {
+  const code = btn.closest(".md-code-block").querySelector("code").innerText.trim();
+  if (!code) return;
+  if (typeof window.termSendCommand === "function") {
+    btn.textContent = "▶ Sent!";
+    btn.style.background = "#2a3a1a";
+    btn.style.borderColor = "#86efac55";
+    btn.style.color = "#86efac";
+    setTimeout(() => {
+      btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run`;
+      btn.style.cssText = "";
+    }, 2000);
+    window.termSendCommand(code);
+  } else {
+    alert("Terminal not available. Make sure you have workspace:build permission.");
+  }
 }
 
 function renderMessages() {
@@ -184,8 +208,11 @@ function renderRouter(route) {
 async function loadState() {
   state = await api("/api/state");
   if (!state) return;
+  window.state = state;
   renderSidebar();
   renderMessages();
+  // Notify terminal panel about workspace path
+  window.dispatchEvent(new CustomEvent("olla-state-updated", { detail: state }));
 }
 
 async function checkOllama() {

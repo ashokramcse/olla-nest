@@ -1,5 +1,8 @@
 FROM node:24-alpine
 
+# node-pty needs python3 + make + g++ for native compilation
+RUN apk add --no-cache python3 make g++ bash
+
 WORKDIR /app
 
 ENV NODE_ENV=production

@@ -3,8 +3,12 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
+const http = require("http");
 const bcrypt = require("bcryptjs");
 const { DatabaseSync } = require("node:sqlite");
+const { WebSocketServer } = require("ws");
+let pty;
+try { pty = require("node-pty"); } catch { pty = null; }
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -2589,7 +2593,100 @@ app.use((req, res) => {
   res.redirect("/login");
 });
 
-app.listen(PORT, async () => {
+// ─── WebSocket Terminal (PTY) ─────────────────────────────────────────────────
+const server = http.createServer(app);
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", (req, socket, head) => {
+  if (req.url !== "/ws/terminal") { socket.destroy(); return; }
+
+  // Auth: parse session cookie
+  const cookies = Object.fromEntries(
+    String(req.headers.cookie || "").split(";")
+      .map(s => s.trim()).filter(Boolean)
+      .map(s => { const i = s.indexOf("="); return [s.slice(0, i), decodeURIComponent(s.slice(i + 1))]; })
+  );
+  const session = sessions.get(cookies.olla_nest_session);
+  if (!session || session.expiresAt < Date.now()) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
+
+  const user = session.user;
+  const hasTerminalAccess = user.role === "admin" || (user.rights || []).includes("workspace:build");
+  if (!hasTerminalAccess) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
+
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit("connection", ws, req, user);
+  });
+});
+
+wss.on("connection", (ws, req, user) => {
+  if (!pty) {
+    ws.send(JSON.stringify({ type: "error", message: "node-pty not available in this environment." }));
+    ws.close();
+    return;
+  }
+
+  // Determine workspace root for this user
+  let cwd;
+  try {
+    const db = openSql();
+    try {
+      const prefs = db.prepare("SELECT workspace_root FROM workspace_prefs WHERE user_id = ?").get(user.id);
+      cwd = prefs?.workspace_root || path.join(DATA_DIR, "workspace");
+    } finally { db.close(); }
+  } catch { cwd = path.join(DATA_DIR, "workspace"); }
+
+  // Ensure workspace dir exists
+  try { fs.mkdirSync(cwd, { recursive: true }); } catch {}
+
+  const shell = process.env.SHELL || "/bin/bash";
+  const term = pty.spawn(shell, [], {
+    name: "xterm-256color",
+    cols: 120,
+    rows: 30,
+    cwd,
+    env: {
+      ...process.env,
+      TERM: "xterm-256color",
+      HOME: process.env.HOME || "/root",
+      USER: user.name || "user",
+      OLLA_USER: user.name,
+      OLLA_ROLE: user.role,
+    },
+  });
+
+  appendAudit(user.name, "terminal.session.open", `Terminal session started in ${cwd}`);
+
+  // PTY → WebSocket
+  term.onData((data) => {
+    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: "output", data }));
+  });
+
+  term.onExit(({ exitCode }) => {
+    if (ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify({ type: "exit", code: exitCode }));
+      ws.close();
+    }
+  });
+
+  // WebSocket → PTY
+  ws.on("message", (raw) => {
+    try {
+      const msg = JSON.parse(raw);
+      if (msg.type === "input") { term.write(msg.data); }
+      else if (msg.type === "resize") { term.resize(Math.max(1, msg.cols), Math.max(1, msg.rows)); }
+    } catch {}
+  });
+
+  ws.on("close", () => {
+    try { term.kill(); } catch {}
+    appendAudit(user.name, "terminal.session.close", "Terminal session ended");
+  });
+
+  ws.on("error", () => { try { term.kill(); } catch {} });
+});
+
+server.listen(PORT, async () => {
   const db = openSql();
   try {
     migrateDocumentsJson(db);
