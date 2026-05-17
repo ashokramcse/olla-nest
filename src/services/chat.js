@@ -68,7 +68,7 @@ function getModelContextWindow(db, modelName) {
  * @param {string[]|null} images - Base64 image strings for multimodal requests.
  * @returns {{ role: string, content: string }[]} Messages array ready for the provider.
  */
-function buildContextMessages(db, sessionId, systemPrompt, userMessage, modelName, images) {
+async function buildContextMessages(db, sessionId, systemPrompt, userMessage, modelName, images) {
   const tokenLimit = getModelContextWindow(db, modelName);
   const reservedTokens = estimateTokens(systemPrompt) + estimateTokens(userMessage) + 512;
   let budget = Math.max(0, tokenLimit - reservedTokens);
@@ -120,7 +120,7 @@ function buildContextMessages(db, sessionId, systemPrompt, userMessage, modelNam
  * @param {{ workspaceRoot?: string, permissionMode?: string }|null} workspace
  * @returns {string} Full system prompt.
  */
-function buildSystemPrompt(mode, route, workspace) {
+async function buildSystemPrompt(mode, route, workspace) {
   const base = [
     "You are Olla Nest, a company AI workspace assistant.",
     "Answer the user's request directly and completely.",
@@ -134,7 +134,7 @@ function buildSystemPrompt(mode, route, workspace) {
     base.push(`Write permission mode: ${workspace.permissionMode || "default"}`);
     base.push("When building, fixing, or generating files, treat the active project folder as the working directory.");
     base.push("IMPORTANT: When generating code files, always specify the filename in the code fence header using the format: ```language:filename.ext — for example: ```html:index.html or ```jsx:src/App.jsx or ```css:styles.css. Use relative paths from the project root. This allows files to be saved directly to the workspace.");
-    const files = listWorkspaceFiles(workspace.workspaceRoot);
+    const files = await listWorkspaceFiles(workspace.workspaceRoot);
     if (files.length > 0) {
       base.push(`Current project files:\n${files.map(f => `  ${f}`).join("\n")}`);
     } else {
@@ -155,8 +155,8 @@ function buildSystemPrompt(mode, route, workspace) {
   return `${base.join("\n")}\nMode: ${mode}\nInstruction: ${modeInstructions[mode] || modeInstructions.ask}`;
 }
 
-function modelPrompt(message, mode, route, workspace) {
-  return `${buildSystemPrompt(mode, route, workspace)}\n\nUser request:\n${message.trim()}`;
+async function modelPrompt(message, mode, route, workspace) {
+  return `${await buildSystemPrompt(mode, route, workspace)}\n\nUser request:\n${message.trim()}`;
 }
 
 // ─── SQL Chat helpers ─────────────────────────────────────────────────────────

@@ -211,6 +211,13 @@ function initDatabase() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    -- sessions: persistent login sessions replacing the in-memory Map
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     -- api_models: models fetched from an external provider's /models endpoint; is_approved=1 mirrors
     --   the row into the main models table so the Auto Router can see and score it
     CREATE TABLE IF NOT EXISTS api_models (
@@ -238,6 +245,8 @@ function initDatabase() {
   db.exec("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=NORMAL;");
   // Performance indexes
   db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at);
     CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_active ON chat_sessions(user_id, is_active);

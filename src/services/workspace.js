@@ -7,6 +7,9 @@
 
 const fs = require("fs");
 const path = require("path");
+
+const fileListCache = new Map(); // path → { files, ts }
+const FILE_CACHE_TTL = 30000; // 30 seconds
 const { DEFAULT_WORKSPACE_ROOT } = require("../config");
 const { setting } = require("../db/settings");
 
@@ -33,27 +36,32 @@ function cleanModelOutput(content) {
   return output;
 }
 
-function listWorkspaceFiles(workspaceRoot, maxFiles = 50) {
-  try {
-    const results = [];
-    function walk(dir, rel) {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
+async function listWorkspaceFiles(workspaceRoot, maxFiles = 50) {
+  if (!workspaceRoot) return [];
+  const now = Date.now();
+  const cached = fileListCache.get(workspaceRoot);
+  if (cached && now - cached.ts < FILE_CACHE_TTL) return cached.files;
+
+  const files = [];
+  async function walk(dir, depth = 0) {
+    if (depth > 4 || files.length >= maxFiles) return;
+    try {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.name.startsWith(".")) continue;
-        const relPath = rel ? `${rel}/${entry.name}` : entry.name;
+        if (files.length >= maxFiles) break;
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-          walk(path.join(dir, entry.name), relPath);
+          await walk(full, depth + 1);
         } else {
-          results.push(relPath);
-          if (results.length >= maxFiles) return;
+          files.push(path.relative(workspaceRoot, full));
         }
       }
-    }
-    walk(workspaceRoot, "");
-    return results;
-  } catch {
-    return [];
+    } catch {}
   }
+  await walk(workspaceRoot);
+  fileListCache.set(workspaceRoot, { files, ts: now });
+  return files;
 }
 
 function workspaceRoot(db) {

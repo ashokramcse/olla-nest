@@ -17,30 +17,51 @@ module.exports = function(deps) {
   const { sessions } = deps;
   const { DEFAULT_USER_PASSWORD } = deps;
 
-  // [GET] /api/admin/sessions/active — Auth: requireAdmin — Purpose: list all active in-memory sessions (for security panel)
+  // [GET] /api/admin/sessions/active — Auth: requireAdmin — Purpose: list all active DB sessions (for security panel)
   router.get("/sessions/active", requireAdmin, (req, res) => {
-    const list = [];
-    for (const [token, s] of sessions) {
-      list.push({
-        userId: s.user?.id,
-        name: s.user?.name,
-        email: s.user?.email,
-        role: s.user?.role,
-        expiresAt: s.expiresAt,
-        token: token.slice(0, 8) + "…", // redact
-      });
-    }
-    res.json({ sessions: list });
+    const db = openSql();
+    try {
+      const rows = db.prepare(
+        `SELECT s.token, s.user_id, s.expires_at, u.name, u.email, u.role
+         FROM sessions s JOIN users u ON u.id = s.user_id
+         WHERE s.expires_at > datetime('now') ORDER BY s.expires_at DESC`
+      ).all();
+      const list = rows.map(r => ({
+        userId: r.user_id,
+        name: r.name,
+        email: r.email,
+        role: r.role,
+        expiresAt: r.expires_at,
+        token: r.token.slice(0, 8) + "…",
+      }));
+      res.json({ sessions: list });
+    } finally { db.close(); }
   });
 
   // [DELETE] /api/admin/sessions/user/:userId — Auth: requireAdmin — Purpose: force-logout a specific user
   router.delete("/sessions/user/:userId", requireAdmin, (req, res) => {
     const { userId } = req.params;
-    let count = 0;
-    for (const [token, s] of sessions) {
-      if (s.user?.id === userId) { sessions.delete(token); count++; }
-    }
-    res.json({ ok: true, cleared: count });
+    const db = openSql();
+    try {
+      const result = db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+      res.json({ ok: true, cleared: result.changes });
+    } finally { db.close(); }
+  });
+
+  // [GET] /api/admin/users — Auth: requireAdmin — Purpose: paginated user list with optional search
+  router.get("/", requireAdmin, (req, res) => {
+    const db = openSql();
+    try {
+      const page = Math.max(1, parseInt(req.query.page) || 1);
+      const limit = Math.min(100, parseInt(req.query.limit) || 25);
+      const search = req.query.search ? `%${req.query.search}%` : null;
+      const offset = (page - 1) * limit;
+      const where = search ? "WHERE name LIKE ? OR email LIKE ?" : "";
+      const params = search ? [search, search] : [];
+      const total = db.prepare(`SELECT COUNT(*) as n FROM users ${where}`).get(...params).n;
+      const users = db.prepare(`SELECT ${USER_SELECT} FROM users ${where} ORDER BY role, name LIMIT ? OFFSET ?`).all(...params, limit, offset);
+      res.json({ users: users.map(publicUser), total, page, limit, pages: Math.ceil(total / limit) });
+    } finally { db.close(); }
   });
 
   // [POST] /api/admin/users — Auth: requireAdmin — Purpose: create a new user account; returns credentials for invite modal

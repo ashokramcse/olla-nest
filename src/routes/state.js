@@ -7,7 +7,7 @@ module.exports = function(deps) {
   const router = require("express").Router();
   const { openSql, one, rows } = deps;
   const { requireAuth } = deps;
-  const { publicUser, getUsers, USER_SELECT, allowedModelIds, roleCatalog, permissionCatalog, effectiveAccess } = deps;
+  const { publicUser, USER_SELECT, allowedModelIds, roleCatalog, permissionCatalog, effectiveAccess } = deps;
   const { parseModel } = deps;
   const { settingsState, setSetting } = deps;
   const { safeJson } = deps;
@@ -27,22 +27,33 @@ module.exports = function(deps) {
       const models = rows(db, "SELECT * FROM models ORDER BY provider, name").map(parseModel);
       let chats;
       if (user.role === "admin") {
-        const sessions = db.prepare("SELECT * FROM chat_sessions WHERE is_active = 1 ORDER BY updated_at DESC").all();
-        chats = sessions.map(s => buildChatObject(db, s));
+        const chatSessions = db.prepare("SELECT * FROM chat_sessions WHERE is_active = 1 ORDER BY updated_at DESC").all();
+        // Lightweight metadata only — no messages loaded for admin state
+        chats = chatSessions.map(s => ({
+          id: s.id,
+          userId: s.user_id,
+          title: s.title,
+          pinned: Boolean(s.pinned),
+          archived: Boolean(s.archived),
+          unread: Boolean(s.unread),
+          isActive: Boolean(s.is_active),
+          messageCount: db.prepare("SELECT COUNT(*) as n FROM chat_messages WHERE session_id = ?").get(s.id).n,
+          updatedAt: s.updated_at,
+        }));
       } else {
         // Ensure an active session exists (creates one if the user has none)
         getActiveChat(db, user.id);
-        // Return ALL sessions for this user so the sidebar shows full chat history
+        // Return session metadata for this user (no full messages in state)
         const allSessions = db.prepare(
           "SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY pinned DESC, updated_at DESC LIMIT 50"
         ).all(user.id);
         chats = allSessions.map(s => buildChatObject(db, s));
       }
-      const auditRows = db.prepare("SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 30").all();
+      const auditRows = db.prepare("SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 20").all();
       const audit = auditRows.map(r => ({ id: r.id, actor: r.actor, action: r.action, detail: r.detail, extra: safeJson(r.extra_json, {}), createdAt: r.created_at }));
       res.json({
         activeUser: user,
-        users: getUsers(db),
+        // users omitted — fetch via GET /api/admin/users for paginated access
         departments: (() => {
           const depts = rows(db, "SELECT id, name FROM departments ORDER BY name");
           let deptRights = {};

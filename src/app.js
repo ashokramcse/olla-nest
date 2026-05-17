@@ -26,6 +26,7 @@ const { enforceDockerRuntime, securityHeaders, checkChatRateLimit, loginAttempts
 const { sessions, parseCookies, sessionUser, setSession, requireAuth, requireAdmin, hasRight } = require("./middleware/auth");
 
 // Services
+const monitor = require("./services/monitor");
 const { encryptKey, decryptKey } = require("./services/crypto");
 const { ollamaUrl, cleanBaseUrl, syncOllamaModels } = require("./services/ollama");
 const { callProvider, callProviderStream, resolveProvider, mirrorApiModelToModels } = require("./services/providers");
@@ -46,6 +47,13 @@ enforceDockerRuntime();
 const app = express();
 
 app.use(express.json({ limit: "512kb" }));
+
+// Request counting metrics
+app.use((req, res, next) => {
+  monitor.inc("requests.total");
+  res.on("finish", () => { if (res.statusCode >= 500) monitor.inc("requests.errors"); });
+  next();
+});
 
 // Security headers
 app.use(securityHeaders);
@@ -147,6 +155,7 @@ app.use("/api/admin", require("./routes/admin/settings")(deps));
 app.use("/api/admin", require("./routes/admin/reports")(deps));
 app.use("/api/admin/teams", require("./routes/admin/teams")(deps));
 app.use("/api/admin/overrides", require("./routes/admin/overrides")(deps));
+app.use("/api/admin/health", require("./routes/admin/health")(deps));
 
 // Page routes (including 404 catch-all) must be last
 app.use(require("./routes/pages")(deps));
@@ -175,10 +184,19 @@ server.on("upgrade", (req, socket, head) => {
       .map(s => s.trim()).filter(Boolean)
       .map(s => { const i = s.indexOf("="); return [s.slice(0, i), decodeURIComponent(s.slice(i + 1))]; })
   );
-  const session = sessions.get(cookies.olla_nest_session);
-  if (!session || session.expiresAt < Date.now()) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
+  const token = cookies.olla_nest_session;
+  let user = null;
+  if (token) {
+    const wsDb = openSql();
+    try {
+      const row = wsDb.prepare(
+        `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')`
+      ).get(token);
+      if (row) user = publicUser(row);
+    } finally { wsDb.close(); }
+  }
+  if (!user) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
 
-  const user = session.user;
   const hasTerminalAccess = user.role === "admin" || (user.rights || []).includes("workspace:build");
   if (!hasTerminalAccess) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
 

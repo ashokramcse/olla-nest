@@ -1,17 +1,12 @@
 /**
  * @file src/middleware/auth.js
- * @description Session management and auth middleware: sessions Map, parseCookies,
- * sessionUser, setSession, requireAuth, requireAdmin, hasRight.
+ * @description Session management and auth middleware: SQLite-persisted sessions,
+ * parseCookies, sessionUser, setSession, requireAuth, requireAdmin, hasRight.
  */
 
 const crypto = require("crypto");
-
-/**
- * In-memory session store.  Maps random 32-byte hex token → { user, expiresAt }.
- * Sessions survive server restarts only if the container is not restarted
- * (i.e. they are ephemeral).  12-hour TTL set in setSession().
- */
-const sessions = new Map();
+const { openSql } = require("../db/index");
+const { USER_SELECT, publicUser } = require("../models/user");
 
 function parseCookies(req) {
   return Object.fromEntries(
@@ -29,12 +24,17 @@ function parseCookies(req) {
 function sessionUser(req) {
   const token = parseCookies(req).olla_nest_session;
   if (!token) return null;
-  const session = sessions.get(token);
-  if (!session || session.expiresAt < Date.now()) {
-    sessions.delete(token);
-    return null;
+  const db = openSql();
+  try {
+    const row = db.prepare(
+      "SELECT s.user_id, u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')"
+    ).get(token);
+    if (!row) return null;
+    // Build a user-like row from the join result
+    return publicUser(row);
+  } finally {
+    db.close();
   }
-  return session.user;
 }
 
 /**
@@ -92,13 +92,89 @@ function setSession(res, user, req) {
       .map(s => s.trim()).filter(Boolean)
       .map(s => { const i = s.indexOf("="); return [s.slice(0, i), decodeURIComponent(s.slice(i + 1))]; })
   );
-  if (existingCookies.olla_nest_session) sessions.delete(existingCookies.olla_nest_session);
+  if (existingCookies.olla_nest_session) {
+    const db = openSql();
+    try {
+      db.prepare("DELETE FROM sessions WHERE token = ?").run(existingCookies.olla_nest_session);
+    } finally {
+      db.close();
+    }
+  }
 
   const token = crypto.randomBytes(32).toString("hex");
-  sessions.set(token, { user, expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 12).toISOString().replace("T", " ").replace("Z", "");
+  const db = openSql();
+  try {
+    db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(token, user.id, expiresAt);
+  } finally {
+    db.close();
+  }
+
   const isSecure = (req?.headers["x-forwarded-proto"] === "https") || req?.secure;
   const secureFlag = isSecure ? "; Secure" : "";
   res.setHeader("Set-Cookie", `olla_nest_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200${secureFlag}`);
 }
 
-module.exports = { sessions, parseCookies, sessionUser, setSession, requireAuth, requireAdmin, hasRight };
+function logout(req) {
+  const token = parseCookies(req).olla_nest_session;
+  if (!token) return;
+  const db = openSql();
+  try {
+    db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
+  } finally {
+    db.close();
+  }
+}
+
+function forceLogoutUser(userId) {
+  const db = openSql();
+  try {
+    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+  } finally {
+    db.close();
+  }
+}
+
+// Startup cleanup: remove expired sessions
+function cleanExpiredSessions() {
+  const db = openSql();
+  try {
+    db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
+  } catch (_) {
+    // non-fatal
+  } finally {
+    db.close();
+  }
+}
+
+// Run cleanup now and every hour
+cleanExpiredSessions();
+setInterval(cleanExpiredSessions, 60 * 60 * 1000);
+
+// Provide a sessions-like iterable for legacy admin endpoints (active sessions listing)
+// This is a compatibility shim — backed by DB at query time
+const sessions = {
+  [Symbol.iterator]() {
+    const db = openSql();
+    let rows;
+    try {
+      rows = db.prepare("SELECT token, user_id, expires_at FROM sessions WHERE expires_at > datetime('now')").all();
+    } finally {
+      db.close();
+    }
+    let i = 0;
+    return {
+      next() {
+        if (i >= rows.length) return { done: true };
+        const r = rows[i++];
+        return { done: false, value: [r.token, { user: { id: r.user_id }, expiresAt: new Date(r.expires_at).getTime() }] };
+      }
+    };
+  },
+  delete(token) {
+    const db = openSql();
+    try { db.prepare("DELETE FROM sessions WHERE token = ?").run(token); } finally { db.close(); }
+  },
+};
+
+module.exports = { sessions, parseCookies, sessionUser, setSession, logout, forceLogoutUser, requireAuth, requireAdmin, hasRight };

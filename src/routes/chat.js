@@ -63,9 +63,9 @@ module.exports = function(deps) {
       let live = true;
       try {
         const provider = resolveProvider(db, route);
-        const systemPrompt = buildSystemPrompt(mode, route, workspace);
+        const systemPrompt = await buildSystemPrompt(mode, route, workspace);
         const images = Array.isArray(req.body.images) ? req.body.images : [];
-        const contextMsgs = buildContextMessages(db, chat.id, systemPrompt, message, route.selected.model, images);
+        const contextMsgs = await buildContextMessages(db, chat.id, systemPrompt, message, route.selected.model, images);
         const result = await callProvider(provider, route.selected.model, contextMsgs, { timeout: 300000 });
         content = result.content;
       } catch (error) {
@@ -185,8 +185,8 @@ module.exports = function(deps) {
 
       // Load session history for context window
       const chatSession = getActiveChat(db, user.id);
-      const systemPrompt = buildSystemPrompt(mode, route, workspace);
-      const messages = buildContextMessages(db, chatSession.id, systemPrompt, message, route.selected.model, images);
+      const systemPrompt = await buildSystemPrompt(mode, route, workspace);
+      const messages = await buildContextMessages(db, chatSession.id, systemPrompt, message, route.selected.model, images);
 
       let fullContent = "";
       let tokensUsed = 0;

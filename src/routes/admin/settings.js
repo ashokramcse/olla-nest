@@ -6,6 +6,7 @@
 const fs = require("fs");
 const path = require("path");
 const { DEFAULT_WORKSPACE_ROOT } = require("../../config");
+const { runBackup } = require("../../services/backup");
 
 module.exports = function(deps) {
   const router = require("express").Router();
@@ -75,6 +76,12 @@ module.exports = function(deps) {
       setSetting(db, "deptDefaultRights", JSON.stringify(deptRights));
       res.json({ ok: true });
     } finally { db.close(); }
+  });
+
+  // [POST] /api/admin/backup — Auth: requireAdmin — Purpose: trigger a manual SQLite backup
+  router.post("/backup", requireAdmin, (req, res) => {
+    const result = runBackup();
+    res.json(result);
   });
 
   return router;
