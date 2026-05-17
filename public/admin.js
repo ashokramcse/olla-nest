@@ -180,7 +180,7 @@ function renderModels() {
       <td>${speedBar}</td>
       <td>${qualityBar}</td>
       <td>
-        <select class="select-input input-sm" data-model-tier="${esc(m.id)}" style="min-width:140px;">
+        <select class="select-input input-sm" data-model-tier="${esc(m.id)}" style="min-width:140px;" onchange="autoSaveModelTier(this, '${esc(m.id)}')">
           ${["approved-local", "restricted", "offline-only", "gpu-restricted", "experimental", "deprecated"].map(t => `<option value="${t}" ${m.governanceTier === t ? "selected" : ""}>${t}</option>`).join("")}
         </select>
         ${m.sensitiveAllowed ? "" : `<span class="badge badge-red" style="font-size:10px; margin-left:4px;">no sensitive prompts</span>`}
@@ -188,7 +188,7 @@ function renderModels() {
       <td>
         <div class="table-sub">${esc(m.resourceTier || "standard")} · ${m.gpuRequired ? "GPU" : "CPU/GPU"}</div>
         <div class="table-sub">Concurrency ${esc(m.maxConcurrency || 2)}</div>
-        <button class="btn btn-ghost btn-xs" data-save-model="${esc(m.id)}">Save policy</button>
+        <span class="table-sub" id="tier-status-${esc(m.id)}"></span>
       </td>
       <td>${capBadges(m.capabilities)}</td>
     </tr>`;
@@ -600,12 +600,12 @@ $("syncModelsBtn").addEventListener("click", async () => {
   }
 });
 
-$("modelTableBody").addEventListener("click", async (e) => {
-  const modelId = e.target.dataset.saveModel;
-  if (!modelId) return;
-  const tier = document.querySelector(`[data-model-tier="${CSS.escape(modelId)}"]`)?.value || "approved-local";
-  e.target.disabled = true;
-  e.target.textContent = "Saving…";
+// Auto-save governance tier on dropdown change (replaces "Save policy" button)
+async function autoSaveModelTier(selectEl, modelId) {
+  const tier = selectEl.value;
+  const statusEl = document.getElementById(`tier-status-${modelId}`);
+  selectEl.disabled = true;
+  if (statusEl) statusEl.textContent = "Saving…";
   try {
     await api(`/api/admin/models/${encodeURIComponent(modelId)}/governance`, {
       method: "PATCH",
@@ -616,12 +616,15 @@ $("modelTableBody").addEventListener("click", async (e) => {
         sensitiveAllowed: tier !== "experimental",
       }),
     });
-    await loadState();
+    if (statusEl) { statusEl.textContent = "✓ Saved"; setTimeout(() => { if (statusEl) statusEl.textContent = ""; }, 2000); }
+    showToast(`Governance tier updated to "${tier}"`, "success", 2500);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = "Failed";
+    showToast(`Failed to save: ${err.message}`, "error");
   } finally {
-    e.target.disabled = false;
-    e.target.textContent = "Save policy";
+    selectEl.disabled = false;
   }
-});
+}
 
 // Save router/model settings
 $("saveSettingsBtn").addEventListener("click", async () => {

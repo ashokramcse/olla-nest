@@ -74,9 +74,11 @@ function renderSidebar() {
     ? models.map(m => `<div class="model-item"><div class="model-dot"></div><div class="model-name" title="${esc(m.name)}">${esc(m.name)}</div></div>`).join("")
     : `<div class="model-item"><div class="model-dot" style="background:var(--muted)"></div><div class="model-name" style="color:var(--muted)">No approved models</div></div>`;
 
-  // Model select in composer
+  // Model select (hidden, kept for submit compat)
   $("manualModel").innerHTML = `<option value="">Auto Router</option>` +
     models.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("");
+  // Repopulate the Claude-style picker dropdown
+  populateAppModelPicker(models);
 
   // Model connected status pill
   const statModelPill = document.getElementById("statModelPill");
@@ -606,6 +608,80 @@ $("messageInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     $("chatForm").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  }
+});
+
+// ── Claude-style app model picker ───────────────────────────────────────────
+function estimateCtxApp(name) {
+  const n = (name || "").toLowerCase();
+  if (/llama.*70b|llama.*3\.[123]/.test(n)) return 128000;
+  if (/llama/.test(n)) return 32768;
+  if (/mistral|mixtral/.test(n)) return 32768;
+  if (/gemma/.test(n)) return 8192;
+  if (/qwen.*72b/.test(n)) return 128000;
+  if (/qwen/.test(n)) return 32768;
+  if (/phi/.test(n)) return 131072;
+  return 8192;
+}
+function fmtCtx(n) { return n >= 1000 ? (n / 1000).toFixed(0) + "k" : String(n); }
+
+function populateAppModelPicker(models) {
+  const list = document.getElementById("appModelList");
+  if (!list) return;
+  const sel = $("manualModel");
+  const curId = sel ? sel.value : "";
+  const isAuto = !curId;
+  let html = `<div class="app-auto-item${isAuto ? " active" : ""}" data-id="" data-name="Auto Router">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    <span>Auto Router</span>${isAuto ? `<span class="app-model-check">✓</span>` : ""}
+  </div>`;
+  (models || []).forEach(m => {
+    const ctx = estimateCtxApp(m.name);
+    const active = m.id === curId;
+    html += `<div class="app-model-item${active ? " active" : ""}" data-id="${esc(m.id)}" data-name="${esc(m.name)}">
+      <div class="app-model-dot${m.status !== "available" ? " off" : ""}"></div>
+      <span>${esc(m.name)}</span>
+      <span class="app-model-ctx">${fmtCtx(ctx)}</span>
+      ${active ? `<span class="app-model-check">✓</span>` : ""}
+    </div>`;
+  });
+  list.innerHTML = html;
+  list.querySelectorAll("[data-id]").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.id;
+      const name = el.dataset.name;
+      if (sel) sel.value = id;
+      const nameEl = document.getElementById("appModelName");
+      if (nameEl) nameEl.textContent = name || "Auto Router";
+      closeAppModelDropdown();
+    });
+  });
+}
+
+const appPicker = document.getElementById("appModelPicker");
+const appDropdown = document.getElementById("appModelDropdown");
+
+function openAppModelDropdown() {
+  if (!appDropdown) return;
+  const models = (state?.models || []).filter(m => (state?.approvedModels || []).some(a => a.id === m.id) || m.status === "available");
+  populateAppModelPicker(models.length ? models : (state?.models || []).filter(m => m.status === "available"));
+  appPicker?.classList.add("open");
+  appDropdown.classList.add("open");
+}
+function closeAppModelDropdown() {
+  appPicker?.classList.remove("open");
+  appDropdown?.classList.remove("open");
+}
+
+if (appPicker) {
+  appPicker.addEventListener("click", (e) => {
+    e.stopPropagation();
+    appDropdown?.classList.contains("open") ? closeAppModelDropdown() : openAppModelDropdown();
+  });
+}
+document.addEventListener("click", (e) => {
+  if (appDropdown && !appDropdown.contains(e.target) && e.target !== appPicker) {
+    closeAppModelDropdown();
   }
 });
 

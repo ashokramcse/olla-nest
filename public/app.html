@@ -226,6 +226,23 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
   background:transparent;display:block;
 }
 .composer-footer{display:flex;align-items:center;gap:8px;padding:8px 12px 10px;flex-wrap:wrap}
+/* App model picker (matches admin cmp-trigger style) */
+.app-model-bar{position:relative;padding:8px 12px 4px;}
+.app-cmp-trigger{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--line-soft);background:#fff;cursor:pointer;font-size:13px;font-weight:500;color:var(--ink);user-select:none;transition:border-color .15s,background .15s;}
+.app-cmp-trigger:hover{border-color:var(--yellow-deep);background:#fffdf0;}
+.app-cmp-trigger.open{border-color:var(--yellow-deep);background:#fffdf0;}
+.app-cmp-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:12px;min-width:260px;background:#fff;border:1px solid var(--line-soft);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:200;overflow:hidden;}
+.app-cmp-dropdown.open{display:block;}
+.app-model-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;color:var(--ink);transition:background .1s;}
+.app-model-item:hover{background:#fffdf0;}
+.app-model-item.active{background:#fffde8;font-weight:600;}
+.app-model-dot{width:7px;height:7px;border-radius:50%;background:#4caf50;flex-shrink:0;}
+.app-model-dot.off{background:#e5e5e5;}
+.app-model-ctx{margin-left:auto;font-size:11px;color:var(--mute);}
+.app-model-check{margin-left:6px;color:var(--yellow-deep);font-weight:700;}
+.app-auto-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:500;color:var(--ink);border-bottom:1px solid var(--line-soft);transition:background .1s;}
+.app-auto-item:hover{background:#fffdf0;}
+.app-auto-item.active{background:#fffde8;}
 .model-select{
   flex:1;min-width:0;padding:7px 12px;border:1px solid var(--line-soft);border-radius:999px;
   font-size:13px;font-family:inherit;color:var(--ink);background:#fff;cursor:pointer;
@@ -536,11 +553,24 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
         <div class="composer">
           <form id="chatForm">
             <div class="composer-inner">
-              <textarea class="composer-textarea" id="messageInput" placeholder="Ask anything — Auto Router picks the best model for your task…" rows="3"></textarea>
-              <div class="composer-footer">
-                <select class="model-select" id="manualModel">
+              <!-- Model picker bar (Claude-style, same as admin) -->
+              <div class="app-model-bar">
+                <div class="app-cmp-trigger" id="appModelPicker">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                  <span id="appModelName">Auto Router</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="app-cmp-dropdown" id="appModelDropdown">
+                  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);padding:10px 14px 6px;">Select model</div>
+                  <div id="appModelList"></div>
+                </div>
+                <!-- hidden select for form submit compat -->
+                <select id="manualModel" style="display:none;">
                   <option value="">Auto Router</option>
                 </select>
+              </div>
+              <textarea class="composer-textarea" id="messageInput" placeholder="Ask anything — Auto Router picks the best model for your task…" rows="3"></textarea>
+              <div class="composer-footer">
                 <label class="write-toggle" id="writeToggleLabel">
                   <input type="checkbox" id="writeToWorkspace" style="margin:0" />
                   <span class="write-label">Save to workspace</span>
@@ -657,7 +687,7 @@ function updateModelRing(count, max) {
 }
 </script>
 <script src="/dropdown.js"></script>
-<script src="/app.js?v=2026.0.4"></script>
+<script src="/app.js?v=2026.0.7"></script>
 
 <!-- ════ Profile Drawer (app users) ════ -->
 <style>
