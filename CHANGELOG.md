@@ -5,6 +5,37 @@ Format: [Semantic-ish versioning](https://semver.org) with release dates.
 
 ---
 
+## [v2026.0.3] — 2026-05-17
+
+### 🔒 Security
+
+- **HSTS**: `Strict-Transport-Security` header now sent on HTTPS connections (1-year max-age, includeSubDomains)
+- **XSS prevention**: AI-generated markdown output now sanitized with DOMPurify before rendering — prevents prompt-injection attacks from executing scripts in the browser
+- **Session fixation fix**: Old session token is now explicitly invalidated when a user logs in — prevents parallel session reuse
+- **Logout CSRF**: `POST /api/auth/logout` now requires `X-Requested-With: XMLHttpRequest` header — prevents cross-origin logout attacks
+- **CSP improvement**: `connect-src` now explicitly allows `ws:` and `wss:` for the WebSocket terminal (was implicitly blocked on some browsers)
+- **workspace:build risk level**: Updated to `critical` in the permission catalog — this permission grants interactive terminal shell access inside the container
+
+### ⚡ Performance
+
+- **6 database indexes added** — all were missing, causing full table scans on every chat and report load:
+  - `chat_messages(session_id)` — every message load
+  - `chat_messages(created_at)` — token usage queries and reports
+  - `chat_sessions(user_id, is_active)` — per-user chat session lookup
+  - `audit_events(created_at)` — all report and audit queries
+  - `router_traces(created_at)` — router report queries
+  - `feedback(message_id)` — feedback lookup
+- **Static asset caching**: JS, CSS, fonts now served with `Cache-Control: public, max-age=86400`; HTML pages served with `no-cache`
+
+### 🐛 Bug Fixes
+
+- **Chat rate limiting now enforced**: `api_rate_limit_per_minute` per user was stored in the database but never checked server-side — now enforced on both `/api/chat` and `/api/chat/stream` with a sliding-window in-memory limiter
+- **Model status pill**: Fixed wrong status check (`"approved"` → `"available"`) — Ollama models use `"available"` as their active status
+- **Streaming done event**: When the database is closed mid-stream (client disconnect), the done event now sends `messageId: null` instead of a non-existent ID — feedback buttons are correctly hidden when no message was persisted
+- **Feedback submission guard**: `submitFeedback()` now returns early if `messageId` is null — prevents silent 404 API calls
+
+---
+
 ## [v2026.0.2] — 2026-05-17
 
 ### ✨ Features

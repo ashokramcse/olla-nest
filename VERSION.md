@@ -8,15 +8,31 @@ Tracks every release, version tag, and key commit in the project history.
 
 | Field | Value |
 |---|---|
-| **Version** | `v2026.0.1.mvp` |
+| **Version** | `v2026.0.3` |
 | **Released** | 2026-05-17 |
-| **Commit** | `e9cf007` |
-| **Status** | ✅ Stable MVP |
+| **Commit** | `ca6044e` |
+| **Status** | ✅ Stable |
 | **Branch** | `main` |
 
 ---
 
 ## Version History
+
+### v2026.0.3 — 2026-05-17
+> **Security hardening + performance + bug fixes** (post-audit release)
+
+| Commit | Date | Description |
+|---|---|---|
+| `ca6044e` | 2026-05-17 | fix: security hardening, DB indexes, rate limit enforcement, XSS sanitization |
+| `c84e351` | 2026-05-17 | docs: v2026.0.2 changelog entry |
+| `7e6831f` | 2026-05-17 | feat: separate admin/employee login, model status + token usage UI |
+
+### v2026.0.2 — 2026-05-17
+> **Separate logins, model status, token usage**
+
+| Commit | Date | Description |
+|---|---|---|
+| `7e6831f` | 2026-05-17 | feat: separate admin/employee login pages, model status pill, daily token usage bar |
 
 ### v2026.0.1.mvp — 2026-05-17
 > **First public MVP release**
