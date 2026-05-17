@@ -26,6 +26,28 @@ const sessions = new Map();
 const loginAttempts = new Map(); // ip -> { count, resetAt }
 const LOGIN_MAX_ATTEMPTS = 10;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+// Per-user chat rate limiter (sliding window — timestamps per user)
+const chatRateLimiter = new Map(); // userId -> [timestamp, ...]
+function checkChatRateLimit(userId, limitPerMinute) {
+  if (!limitPerMinute || limitPerMinute <= 0) return true; // unlimited
+  const now = Date.now();
+  const windowStart = now - 60_000;
+  const times = (chatRateLimiter.get(userId) || []).filter(t => t > windowStart);
+  if (times.length >= limitPerMinute) return false;
+  times.push(now);
+  chatRateLimiter.set(userId, times);
+  return true;
+}
+// Clean up old rate limiter entries every 5 minutes
+setInterval(() => {
+  const cutoff = Date.now() - 60_000;
+  for (const [uid, times] of chatRateLimiter) {
+    const fresh = times.filter(t => t > cutoff);
+    if (fresh.length === 0) chatRateLimiter.delete(uid);
+    else chatRateLimiter.set(uid, fresh);
+  }
+}, 5 * 60 * 1000).unref();
 const STORAGE_MODE = process.env.STORAGE_MODE || "local";
 const SECRET_KEY = process.env.SECRET_KEY || crypto.randomBytes(32).toString("hex");
 const SESSION_SECRET = process.env.SESSION_SECRET || "change-this-in-production";
@@ -51,12 +73,27 @@ app.use((req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader("Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none';"
   );
+  // HSTS — only send over HTTPS connections
+  if (req.headers["x-forwarded-proto"] === "https" || req.secure) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
   next();
 });
 
-app.use(express.static(STATIC_DIR));
+app.use(express.static(STATIC_DIR, {
+  etag: true,
+  lastModified: true,
+  setHeaders(res, filePath) {
+    // Cache JS/CSS/fonts aggressively; never cache HTML pages (they boot the app)
+    if (/\.(js|css|woff2?|ttf|otf|png|jpg|svg|ico)$/.test(filePath)) {
+      res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=3600");
+    } else {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  },
+}));
 
 function uid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -229,6 +266,15 @@ function openSql() {
     );
   `);
   db.exec("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=NORMAL;");
+  // Performance indexes — safe to add idempotently on every open
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_active ON chat_sessions(user_id, is_active);
+    CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON audit_events(created_at);
+    CREATE INDEX IF NOT EXISTS idx_router_traces_created_at ON router_traces(created_at);
+    CREATE INDEX IF NOT EXISTS idx_feedback_message_id ON feedback(message_id);
+  `);
   seedSql(db);
   return db;
 }
@@ -364,7 +410,7 @@ function seedSql(db) {
       ["ollama:models:pull", "Ollama Governance", "Pull models into Ollama", "high"],
       ["ollama:models:import", "Ollama Governance", "Import custom/GGUF models", "high"],
       ["ollama:modelfile:create", "Ollama Governance", "Create models with Modelfiles", "high"],
-      ["workspace:build", "Local Work", "Create local workspace files", "medium"],
+      ["workspace:build", "Local Work", "Create local workspace files and access terminal shell", "critical"],
       ["files:upload", "AI Workflow", "Upload files to AI workflows", "medium"],
       ["tools:call", "AI Workflow", "Use tool calling", "high"],
       ["internet:use", "AI Workflow", "Use internet-enabled agents", "high"],
@@ -1363,6 +1409,14 @@ function hasRight(user, right) {
 }
 
 function setSession(res, user, req) {
+  // Invalidate any existing session to prevent session fixation
+  const existingCookies = Object.fromEntries(
+    String(req?.headers?.cookie || "").split(";")
+      .map(s => s.trim()).filter(Boolean)
+      .map(s => { const i = s.indexOf("="); return [s.slice(0, i), decodeURIComponent(s.slice(i + 1))]; })
+  );
+  if (existingCookies.olla_nest_session) sessions.delete(existingCookies.olla_nest_session);
+
   const token = crypto.randomBytes(32).toString("hex");
   sessions.set(token, { user, expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
   const isSecure = (req?.headers["x-forwarded-proto"] === "https") || req?.secure;
@@ -1404,6 +1458,9 @@ app.post("/api/auth/login", (req, res) => {
 });
 
 app.post("/api/auth/logout", (req, res) => {
+  if (req.headers["x-requested-with"] !== "XMLHttpRequest") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
   const token = parseCookies(req).olla_nest_session;
   if (token) sessions.delete(token);
   res.setHeader("Set-Cookie", "olla_nest_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
@@ -1628,6 +1685,9 @@ app.post("/api/chat", requireAuth, async (req, res) => {
   try {
     const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
     if (!hasRight(user, "chat:use")) return res.status(403).json({ error: "Chat access is not enabled for this account" });
+    if (!checkChatRateLimit(req.user.id, user.apiRateLimitPerMinute)) {
+      return res.status(429).json({ error: `Rate limit reached. You are limited to ${user.apiRateLimitPerMinute} messages per minute. Please wait before sending another message.` });
+    }
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ error: "Message is required" });
     if (String(message).length > 16000) return res.status(400).json({ error: "Message exceeds maximum length of 16,000 characters" });
@@ -2103,6 +2163,10 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
   try {
     const user = publicUser(one(db, `SELECT ${USER_SELECT} FROM users WHERE id = ?`, req.user.id));
     if (!hasRight(user, "chat:use")) { res.write(`data: ${JSON.stringify({ type: "error", message: "Chat access not enabled" })}\n\n`); return res.end(); }
+    if (!checkChatRateLimit(req.user.id, user.apiRateLimitPerMinute)) {
+      res.write(`data: ${JSON.stringify({ type: "error", message: `Rate limit reached. You are limited to ${user.apiRateLimitPerMinute} messages per minute.` })}\n\n`);
+      return res.end();
+    }
     const { message, mode = "ask", manualModelId } = req.body;
     if (!message || !message.trim()) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message is required" })}\n\n`); return res.end(); }
     if (String(message).length > 16000) { res.write(`data: ${JSON.stringify({ type: "error", message: "Message exceeds maximum length of 16,000 characters" })}\n\n`); return res.end(); }
@@ -2174,8 +2238,9 @@ app.post("/api/chat/stream", requireAuth, async (req, res) => {
       return;
     }
 
+    // DB was closed before we could persist — send done with no messageId so feedback is skipped
     const latencyMs = Date.now() - startMs;
-    res.write(`data: ${JSON.stringify({ type: "done", tokensUsed, latencyMs, messageId: uid("msg"), live, artifacts, extractedFiles })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: "done", tokensUsed, latencyMs, messageId: null, live: false, artifacts: [], extractedFiles: [] })}\n\n`);
   } catch (err) {
     res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
   } finally {

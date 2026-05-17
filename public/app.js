@@ -79,7 +79,7 @@ function renderSidebar() {
   const statModelPill = document.getElementById("statModelPill");
   const statModelName = document.getElementById("statModelName");
   if (statModelPill && statModelName) {
-    const activeM = models.find(m => m.status === "approved") || models[0];
+    const activeM = models.find(m => m.status === "available") || models[0];
     if (activeM) {
       statModelName.textContent = activeM.name;
       statModelPill.style.display = "flex";
@@ -132,7 +132,11 @@ function renderMarkdown(content) {
       : "";
     return `<div class="md-code-block">${label}<button class="md-copy-btn" onclick="copyCode(this)">Copy</button><pre><code>${escaped}</code></pre>${runBtn}</div>`;
   };
-  return marked.parse(content, { renderer });
+  const raw = marked.parse(content, { renderer });
+  // Sanitize with DOMPurify to prevent XSS from AI-generated HTML
+  return typeof DOMPurify !== "undefined"
+    ? DOMPurify.sanitize(raw, { ADD_ATTR: ["onclick"], FORCE_BODY: false })
+    : raw;
 }
 
 function copyCode(btn) {
@@ -301,6 +305,7 @@ let streamingSessionId = null;
 let streamingMessageId = null;
 
 function submitFeedback(btn, messageId, sessionId, rating) {
+  if (!messageId) return; // no persisted message (e.g. DB was closed during stream)
   fetch("/api/feedback", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
@@ -401,10 +406,13 @@ $("chatForm").addEventListener("submit", async (e) => {
             streamingSessionId = state?.chats?.[0]?.id || null;
             const asstWrap = $(`${asstBubbleId}`);
             if (asstWrap) {
+              const feedbackBtns = event.messageId
+                ? `<button class="thumb-btn" onclick="submitFeedback(this,'${event.messageId}','${streamingSessionId || ''}',1)">👍</button>
+                   <button class="thumb-btn" onclick="submitFeedback(this,'${event.messageId}','${streamingSessionId || ''}', -1)">👎</button>`
+                : "";
               asstWrap.insertAdjacentHTML("beforeend", `
                 <div class="feedback-row">
-                  <button class="thumb-btn" onclick="submitFeedback(this,'${event.messageId || ''}','${streamingSessionId || ''}',1)">👍</button>
-                  <button class="thumb-btn" onclick="submitFeedback(this,'${event.messageId || ''}','${streamingSessionId || ''}', -1)">👎</button>
+                  ${feedbackBtns}
                   <span style="font-size:11px;color:var(--muted);margin-left:4px;">${event.tokensUsed ? event.tokensUsed + ' tokens' : ''}</span>
                 </div>`);
             }
