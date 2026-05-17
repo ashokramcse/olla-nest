@@ -86,9 +86,13 @@ app.use(express.static(STATIC_DIR, {
   etag: true,
   lastModified: true,
   setHeaders(res, filePath) {
-    // Cache JS/CSS/fonts aggressively; never cache HTML pages (they boot the app)
-    if (/\.(js|css|woff2?|ttf|otf|png|jpg|svg|ico)$/.test(filePath)) {
+    // JS/CSS: short cache (5 min) so Docker rebuilds are picked up quickly
+    // Fonts/images: aggressive cache (1 day) — they never change between releases
+    // HTML: never cache — pages boot the app with fresh session checks
+    if (/\.(woff2?|ttf|otf|png|jpg|svg|ico)$/.test(filePath)) {
       res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=3600");
+    } else if (/\.(js|css)$/.test(filePath)) {
+      res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
     } else {
       res.setHeader("Cache-Control", "no-cache");
     }
