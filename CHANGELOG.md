@@ -5,6 +5,27 @@ Format: [Semantic-ish versioning](https://semver.org) with release dates.
 
 ---
 
+## [v2026.0.2] — 2026-05-17
+
+### ✨ Features
+
+- **Separate login UX**: Distinct pages for admins (`/admin-login` — dark, professional) and employees (`/login` — warm, friendly). Admin login rejects non-admin accounts with a clear message.
+- **Model connected status**: Hero bar now shows which Ollama model is currently approved and connected.
+- **Daily token usage pill**: Visual usage indicator (`10,000 / 50,000`) with colour-coded progress bar (yellow → amber → red) driven by the new `/api/account/usage` endpoint.
+- **Integrated terminal**: xterm.js PTY terminal panel for workspace:build users; "Run in terminal" button on shell code blocks; backtick keyboard shortcut to toggle.
+- **Admin-only terminal access**: WebSocket terminal gated by `workspace:build` permission or `admin` role.
+
+### 🔒 Security
+
+- `/admin` now redirects unauthenticated visitors to `/admin-login` instead of `/login`.
+- `adminOnly: true` flag sent from admin login page; non-admin users rejected at the browser before session creation.
+
+### 🛠 API
+
+- `GET /api/account/usage` — returns `tokensUsedToday`, `dailyTokenLimit`, `tokensUsedMonth`, `monthlyTokenLimit` for the logged-in user.
+
+---
+
 ## [v2026.0.1.mvp] — 2026-05-17
 
 ### 🚀 First public MVP release
