@@ -208,6 +208,9 @@ function renderSidebar() {
   // Token usage pill
   loadTokenUsage();
 
+  // Effective permissions — must be declared before any use below
+  const effectivePermissions = (state.effectiveAccess?.permissions) || u.rights || [];
+
   // Terminal FAB — only show for users with workspace:build or admin
   const termFab = document.getElementById("termToggle");
   if (termFab) {
@@ -237,15 +240,13 @@ function renderSidebar() {
     $("permissionModeSelect").value = ws.permissionMode || "default";
   }
 
-  // Effective permissions = merged set from role + department + overrides (from state.effectiveAccess)
-  // u.rights alone is just the raw stored column; effectiveAccess.permissions is the full resolved set.
-  const effectivePermissions = (state.effectiveAccess?.permissions) || u.rights || [];
-  const rights = effectivePermissions; // alias used below
+  // accessPolicy element (hidden panel, kept for compatibility)
+  const modelsApproved = availableModels.length;
   $("accessPolicy").innerHTML = `
     <strong>${u.email || ""}</strong><br>
     ${dept?.name || "No department"} · ${u.role}<br><br>
-    <span style="font-size:11px;">Rights: ${rights.map(r => `<span class="badge badge-indigo" style="margin:1px 2px;">${esc(r)}</span>`).join(" ")}</span><br><br>
-    <span style="font-size:12px;">${models.length} model${models.length !== 1 ? "s" : ""} approved — access comes from your user, group, and department grants.</span>
+    <span style="font-size:11px;">Rights: ${effectivePermissions.map(r => `<span class="badge badge-indigo" style="margin:1px 2px;">${esc(r)}</span>`).join(" ")}</span><br><br>
+    <span style="font-size:12px;">${modelsApproved} model${modelsApproved !== 1 ? "s" : ""} approved — access comes from your user, group, and department grants.</span>
   `;
 
   // Sidebar "My Access" card — show rights as pills
