@@ -160,6 +160,23 @@ app.use("/api/admin/health", require("./routes/admin/health")(deps));
 // Page routes (including 404 catch-all) must be last
 app.use(require("./routes/pages")(deps));
 
+// ── Global error handler ──────────────────────────────────────────────────────
+// Catches any unhandled synchronous error thrown from any route handler.
+// Without this, Express returns a raw HTML "Internal Server Error" page —
+// which causes JSON.parse crashes on the frontend and hides the real error.
+// This single handler covers all 30+ routes that have try/finally but no catch.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error(`[Express] ${req.method} ${req.path} — ${err.message}`, err.stack);
+  if (res.headersSent) return;
+  // API routes → JSON error; page routes → redirect to login
+  if (req.path.startsWith("/api/")) {
+    res.status(500).json({ error: err.message || "Internal server error" });
+  } else {
+    res.status(500).send("Internal Server Error");
+  }
+});
+
 // ── HTTP server + WebSocket terminal ──────────────────────────────────────────
 const server = http.createServer(app);
 

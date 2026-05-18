@@ -48,8 +48,11 @@ module.exports = function(deps) {
       setSession(res, user, req);
       appendAudit(user.name, "auth.login", "User signed in");
       res.json({ ok: true, user, redirectTo: user.role === "admin" ? "/admin" : "/app" });
+    } catch (err) {
+      console.error("[auth/login] Error:", err.message, err.stack);
+      if (!res.headersSent) res.status(500).json({ error: "Login failed due to a server error. Please try again." });
     } finally {
-      db.close();
+      try { db.close(); } catch (_) {}
     }
   });
 

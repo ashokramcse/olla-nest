@@ -98,21 +98,25 @@ function setSession(res, user, req) {
       .map(s => { const i = s.indexOf("="); return [s.slice(0, i), decodeURIComponent(s.slice(i + 1))]; })
   );
   if (existingCookies.olla_nest_session) {
-    const db = openSql();
+    let db;
     try {
+      db = openSql();
       db.prepare("DELETE FROM sessions WHERE token = ?").run(existingCookies.olla_nest_session);
+    } catch (err) {
+      console.error("[setSession] Failed to delete old session:", err.message);
     } finally {
-      db.close();
+      try { db && db.close(); } catch (_) {}
     }
   }
 
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 12).toISOString().replace("T", " ").replace("Z", "");
-  const db = openSql();
+  let db;
   try {
+    db = openSql();
     db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(token, user.id, expiresAt);
   } finally {
-    db.close();
+    try { db && db.close(); } catch (_) {}
   }
 
   const isSecure = (req?.headers["x-forwarded-proto"] === "https") || req?.secure;
