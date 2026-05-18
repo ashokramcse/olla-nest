@@ -36,28 +36,32 @@
 
 Olla Nest is a **self-hosted company AI workspace** — an admin-controlled layer that sits on top of Ollama and any cloud provider. Employees open one URL, type anything, and the **Auto Router** picks the best available model automatically. No API keys for employees. No model names to memorise. No data leaving the building unless you explicitly configure it.
 
+<div align="center">
+
 ```
-Employee types anything
-        │
-        ▼
-┌─────────────────────────────────────────────────────┐
-│                   AUTO ROUTER                        │
-│  Classify request → Score models → Pick best one    │
-│  (capability × speed × quality × privacy weight)    │
-└───────────┬────────────────────┬────────────────────┘
-            │                    │
-            ▼                    ▼
-    ┌──────────────┐    ┌─────────────────────┐
-    │  Ollama      │    │  Cloud Providers     │
-    │  (local)     │    │  Anthropic / OpenAI  │
-    │  your GPU    │    │  Groq / custom       │
-    └──────────────┘    └─────────────────────┘
-            │                    │
-            └────────┬───────────┘
-                     ▼
-           Response streamed back
-           (with full session memory)
+                    Employee types anything
+                            │
+                            ▼
+          ┌─────────────────────────────────────────┐
+          │              AUTO ROUTER                 │
+          │  Classify → Score models → Pick best     │
+          │  capability × speed × quality × privacy  │
+          └──────────────┬──────────────┬────────────┘
+                         │              │
+                         ▼              ▼
+              ┌──────────────┐  ┌──────────────────┐
+              │    Ollama    │  │  Cloud Providers  │
+              │   (local)    │  │ Anthropic/OpenAI  │
+              │   your GPU   │  │   Groq / custom   │
+              └──────────────┘  └──────────────────┘
+                         │              │
+                         └──────┬───────┘
+                                ▼
+                    Response streamed back
+                    (with full session memory)
 ```
+
+</div>
 
 ---
 
