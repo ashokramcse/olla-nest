@@ -558,7 +558,7 @@ async function renderEffectiveAccess() {
   const dept = state.departments.find(d => d.id === user.departmentId);
   let access = null;
   try {
-    const result = await api(`/api/admin/users/${encodeURIComponent(user.id)}/effective-access`);
+    const result = await api(`/api/admin/${encodeURIComponent(user.id)}/effective-access`);
     access = result?.effectiveAccess;
   } catch {
     access = null;
@@ -890,7 +890,7 @@ $("createUserForm").addEventListener("submit", async (e) => {
   try {
     const teamSel = $("newUserTeam");
     const teamVal = teamSel ? teamSel.value : "";
-    const result = await api("/api/admin/users", {
+    const result = await api("/api/admin/", {
       method: "POST",
       body: JSON.stringify({
         name: $("newUserName").value.trim(),
@@ -975,7 +975,7 @@ if ($("saveOverrideBtn")) {
     msg.className = "form-message";
     msg.textContent = "";
     try {
-      await api(`/api/admin/users/${userId}/overrides`, {
+      await api(`/api/admin/${userId}/overrides`, {
         method: "POST",
         body: JSON.stringify({
           permissionKey: $("overridePermission").value,
@@ -1023,7 +1023,7 @@ $("userList").addEventListener("click", async (e) => {
     const rights = Array.from(document.querySelectorAll(`#edit-panel-${saveUserId} input[type=checkbox][name^=right_]:checked`))
       .map(cb => cb.value);
     try {
-      await api(`/api/admin/users/${saveUserId}`, {
+      await api(`/api/admin/${saveUserId}`, {
         method: "PATCH",
         body: JSON.stringify({
           name: $(`eu-name-${saveUserId}`).value.trim(),
@@ -1058,7 +1058,7 @@ $("userList").addEventListener("click", async (e) => {
   const toggleId = btn.dataset.toggle;
   if (toggleId) {
     try {
-      await api(`/api/admin/users/${toggleId}`, {
+      await api(`/api/admin/${toggleId}`, {
         method: "PATCH",
         body: JSON.stringify({ active: btn.dataset.next === "1" }),
       });
@@ -1152,7 +1152,7 @@ $("changePwForm").addEventListener("submit", async (e) => {
   }
 
   try {
-    await api(`/api/admin/users/${changePwUserId}/reset-password`, {
+    await api(`/api/admin/${changePwUserId}/reset-password`, {
       method: "POST",
       body: JSON.stringify({ password: newPw }),
     });
