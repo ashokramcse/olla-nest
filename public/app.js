@@ -187,7 +187,7 @@ function renderSidebar() {
   const statModelPill = document.getElementById("statModelPill");
   const statModelName = document.getElementById("statModelName");
   if (statModelPill && statModelName) {
-    const activeM = models.find(m => m.status === "available") || models[0];
+    const activeM = availableModels[0];
     if (activeM) {
       statModelName.textContent = activeM.name;
       statModelPill.style.display = "flex";
@@ -547,7 +547,7 @@ function renderMessages() {
  */
 function renderRouter(route) {
   if (!route || !route.selected) {
-    $("routerContent").innerHTML = `<div class="router-empty">Send a request to see how Auto Router selects the best model for your task.</div>`;
+    $("routerContent").innerHTML = `<div style="font-size:12px;color:var(--mute);line-height:1.6;">Send a message to see which model handled your request.</div>`;
     return;
   }
   const top3 = (route.candidates || []).slice(0, 5);

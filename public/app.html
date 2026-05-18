@@ -608,38 +608,14 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
 
     <!-- ── RIGHT: router panel ── -->
     <div class="router-card">
-      <div class="card">
+      <!-- Last Routing Decision — updated after each message send -->
+      <div class="card" id="routerCard">
         <div class="card-head">
-          <div class="card-title">Auto Router</div>
-          <button class="card-action">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-          </button>
+          <div class="card-title">Last Model Used</div>
         </div>
         <div id="routerContent">
-          <div id="routerIdle">
-            <!-- Speed / Quality / Privacy -->
-            <div style="margin-bottom:16px;">
-              <div class="sq-row">
-                <div class="sq-top"><span>Speed</span><span>85%</span></div>
-                <div class="sq-track"><div class="sq-fill" style="width:85%"></div></div>
-              </div>
-              <div class="sq-row">
-                <div class="sq-top"><span>Quality</span><span>92%</span></div>
-                <div class="sq-track"><div class="sq-fill yellow" style="width:92%;background:var(--yellow-deep)"></div></div>
-              </div>
-              <div class="sq-row">
-                <div class="sq-top"><span>Privacy</span><span>100%</span></div>
-                <div class="sq-track"><div class="sq-fill" style="width:100%;background:var(--green-deep)"></div></div>
-              </div>
-            </div>
-            <!-- Tags -->
-            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
-              <span class="router-tag">routing factors</span>
-              <span class="router-tag">task type</span>
-              <span class="router-tag">context length</span>
-              <span class="router-tag">privacy</span>
-            </div>
-            <div class="router-empty" style="padding:0 0 8px;text-align:left;">Send a request to see which model Auto Router selects and why.</div>
+          <div style="font-size:12px;color:var(--mute);line-height:1.6;">
+            Send a message to see which model handled your request.
           </div>
         </div>
       </div>
