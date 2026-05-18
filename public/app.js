@@ -207,7 +207,7 @@ function renderSidebar() {
   // Terminal FAB — only show for users with workspace:build or admin
   const termFab = document.getElementById("termToggle");
   if (termFab) {
-    const canTerminal = u.role === "admin" || (u.rights || []).includes("workspace:build");
+    const canTerminal = u.role === "admin" || effectivePermissions.includes("workspace:build");
     termFab.style.display = canTerminal ? "flex" : "none";
   }
 
@@ -233,8 +233,10 @@ function renderSidebar() {
     $("permissionModeSelect").value = ws.permissionMode || "default";
   }
 
-  // Access policy (profile drawer)
-  const rights = u.rights || [];
+  // Effective permissions = merged set from role + department + overrides (from state.effectiveAccess)
+  // u.rights alone is just the raw stored column; effectiveAccess.permissions is the full resolved set.
+  const effectivePermissions = (state.effectiveAccess?.permissions) || u.rights || [];
+  const rights = effectivePermissions; // alias used below
   $("accessPolicy").innerHTML = `
     <strong>${u.email || ""}</strong><br>
     ${dept?.name || "No department"} · ${u.role}<br><br>
@@ -260,7 +262,7 @@ function renderSidebar() {
       "models:manage": "Model Mgmt",
       "audit:read": "Audit Logs",
     };
-    accessRightsEl.innerHTML = rights.map(r =>
+    accessRightsEl.innerHTML = effectivePermissions.map(r =>
       `<span class="right-badge">${esc(rightLabels[r] || r)}</span>`
     ).join("") || `<span style="font-size:12px;color:var(--mute);">No rights configured</span>`;
   }
@@ -1029,23 +1031,6 @@ function openAppModelDropdown() {
   if (!appDropdown) return;
   const models = allowedModels();
   populateAppModelPicker(models);
-
-  // Render off-screen first to measure real height, then position correctly
-  appDropdown.style.visibility = "hidden";
-  appDropdown.style.display = "block";
-  const rect = appPicker.getBoundingClientRect();
-  const dropH = appDropdown.offsetHeight;
-  const spaceBelow = window.innerHeight - rect.bottom;
-
-  if (spaceBelow < dropH + 8 && rect.top > dropH + 8) {
-    // Open upward
-    appDropdown.style.top = (rect.top - dropH - 6) + "px";
-  } else {
-    // Open downward
-    appDropdown.style.top = (rect.bottom + 6) + "px";
-  }
-  appDropdown.style.left = rect.left + "px";
-  appDropdown.style.visibility = "";
   appPicker?.classList.add("open");
   appDropdown.classList.add("open");
 }

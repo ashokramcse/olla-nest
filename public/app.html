@@ -254,7 +254,7 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
 .app-cmp-trigger{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:1px solid #333;background:transparent;cursor:pointer;font-size:12px;font-weight:500;color:#888;user-select:none;transition:border-color .15s,background .15s,color .15s;}
 .app-cmp-trigger:hover{border-color:#555;background:#2c2c2e;color:#ccc;}
 .app-cmp-trigger.open{border-color:#f5c842;background:#2c2c2e;color:#f5c842;}
-.app-cmp-dropdown{display:none;position:fixed;min-width:260px;background:#1c1c1e;border:1px solid #383838;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9999;overflow:hidden;}
+.app-cmp-dropdown{display:none;position:absolute;bottom:calc(100% + 6px);left:0;min-width:260px;background:#1c1c1e;border:1px solid #383838;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9999;overflow:hidden;}
 .app-cmp-dropdown.open{display:block;}
 .app-model-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;color:#ccc;transition:background .1s;}
 .app-model-item:hover{background:#2c2c2e;}
@@ -532,7 +532,7 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
           </button>
         </div>
         <div id="sidebarChats" style="display:flex;flex-direction:column;gap:4px;">
-          <div style="font-size:12px;color:var(--mute);padding:4px 0;">Loading…</div>
+          <div style="font-size:12px;color:var(--mute);padding:4px 0;">No conversations yet</div>
         </div>
       </div>
 
