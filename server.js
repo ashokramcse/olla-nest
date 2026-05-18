@@ -14,7 +14,10 @@ const cluster = require('cluster');
 const os = require('os');
 
 if (cluster.isPrimary) {
-  const numWorkers = Math.min(os.cpus().length, 4); // cap at 4
+  // SQLite is single-writer. Multiple workers on a Docker volume cause
+  // intermittent "disk I/O error" under concurrent writes.  One worker is
+  // the correct choice for a SQLite-backed server in a single container.
+  const numWorkers = 1;
   console.log(`[cluster] Starting ${numWorkers} workers`);
   for (let i = 0; i < numWorkers; i++) cluster.fork();
   cluster.on('exit', (worker, code) => {
