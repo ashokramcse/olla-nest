@@ -32,24 +32,30 @@ if (cluster.isPrimary) {
 
   server.listen(PORT, async () => {
     // Initial startup tasks
-    const db = openSql();
+    let db;
     try {
+      db = openSql();
       migrateDocumentsJson(db);
+    } catch (err) {
+      console.error("[startup] migrateDocumentsJson error (non-fatal):", err.message);
     } finally {
-      db.close();
+      try { db && db.close(); } catch (_) {}
     }
 
     // Initial Ollama sync then background refresh every 30 seconds.
     // Each tick opens and closes its own DB connection — completely independent
     // of any HTTP request lifecycle, no race conditions possible.
     async function runOllamaSync() {
-      const syncDb = openSql();
+      let syncDb;
       try {
+        syncDb = openSql();
         await syncOllamaModels(syncDb);
-      } catch (_) {
-        // unreachable — syncOllamaModels catches internally
+      } catch (err) {
+        // openSql() can throw disk I/O errors if the volume is temporarily unavailable.
+        // Log and swallow so the worker stays alive — next tick will retry.
+        console.error("[ollama-sync] DB open error (will retry):", err.message);
       } finally {
-        syncDb.close();
+        try { syncDb && syncDb.close(); } catch (_) {}
       }
     }
     runOllamaSync(); // run immediately on boot
