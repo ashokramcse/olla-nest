@@ -654,15 +654,9 @@ function renderAudit() {
  * Called after every loadState() so the entire dashboard stays in sync.
  */
 function renderAll() {
-  renderIdentity();
-  renderOverview();
-  renderModels();
-  renderUsers();
-  renderAccessControl();
-  renderSettings();
-  renderAudit();
-  renderRouterConfig();
-  renderOllamaProvider();
+  // Run each renderer independently so one crash doesn't blank the whole dashboard
+  [renderIdentity, renderOverview, renderModels, renderUsers, renderAccessControl, renderSettings, renderAudit, renderRouterConfig, renderOllamaProvider]
+    .forEach(fn => { try { fn(); } catch (e) { console.error(`[renderAll] ${fn.name} failed:`, e); } });
 }
 
 /**
@@ -1197,16 +1191,20 @@ function renderOllamaProvider() {
 
   const listEl = $("ollamaProvModelList");
   if (listEl) {
-    if (!ollamaModels.length) {
-      listEl.innerHTML = `<span style="font-size:12px;color:#aaa;">No models synced yet.</span>`;
+    // Only show models when Ollama is actually reachable — "missing" models are stale DB
+    // entries from a previous sync when Ollama was online; showing them when offline
+    // is misleading (they can't be used).
+    const availableModels = ollamaModels.filter(m => m.status === "available");
+    if (!availableModels.length) {
+      listEl.innerHTML = hasAvailable
+        ? `<span style="font-size:12px;color:#aaa;">No models synced yet.</span>`
+        : `<span style="font-size:12px;color:#aaa;">Ollama offline — start Ollama and click Sync Models to discover models.</span>`;
     } else {
-      listEl.innerHTML = ollamaModels.map(m => {
-        const color = m.status === "available" ? "#4caf50" : "#ffca28";
-        const bg = m.status === "available" ? "#e8f5e9" : "#fff8e1";
-        return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:${bg};border:1px solid ${color}40;font-size:12px;font-weight:500;color:#1a1a0e;">
-          <span style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0;"></span>${esc(m.name)}
-        </span>`;
-      }).join("");
+      listEl.innerHTML = availableModels.map(m =>
+        `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#e8f5e9;border:1px solid #4caf5040;font-size:12px;font-weight:500;color:#1a1a0e;">
+          <span style="width:6px;height:6px;border-radius:50%;background:#4caf50;flex-shrink:0;"></span>${esc(m.name)}
+        </span>`
+      ).join("");
     }
   }
 }
