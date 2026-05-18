@@ -893,17 +893,20 @@ $("accountBtn").addEventListener("click", () => {
 
 
 // Workspace config
+const ICON_PENCIL = `<svg id="configWorkspaceIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
+const ICON_CLOSE  = `<svg id="configWorkspaceIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+function setWorkspacePanel(open) {
+  workspaceConfigOpen = open;
+  $("workspaceConfigPanel").style.display = open ? "block" : "none";
+  $("configWorkspaceBtn").innerHTML = open ? ICON_CLOSE : ICON_PENCIL;
+}
+
 $("configWorkspaceBtn").addEventListener("click", () => {
-  workspaceConfigOpen = !workspaceConfigOpen;
-  $("workspaceConfigPanel").style.display = workspaceConfigOpen ? "block" : "none";
-  $("configWorkspaceBtn").textContent = workspaceConfigOpen ? "Cancel" : "Configure folder";
+  setWorkspacePanel(!workspaceConfigOpen);
 });
 
-$("cancelWorkspaceBtn").addEventListener("click", () => {
-  workspaceConfigOpen = false;
-  $("workspaceConfigPanel").style.display = "none";
-  $("configWorkspaceBtn").textContent = "Configure folder";
-});
+$("cancelWorkspaceBtn").addEventListener("click", () => { setWorkspacePanel(false); });
 
 $("saveWorkspaceBtn").addEventListener("click", async () => {
   const msg = $("workspaceSaveMsg");
@@ -921,9 +924,7 @@ $("saveWorkspaceBtn").addEventListener("click", async () => {
     msg.textContent = "Saved!";
     await loadState();
     setTimeout(() => {
-      workspaceConfigOpen = false;
-      $("workspaceConfigPanel").style.display = "none";
-      $("configWorkspaceBtn").textContent = "Configure folder";
+      setWorkspacePanel(false);
       msg.textContent = "";
     }, 1200);
   } catch (err) {
