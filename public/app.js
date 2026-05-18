@@ -279,7 +279,7 @@ function renderSidebar() {
 
   // Terminal note in access card
   const termNote = document.getElementById("sidebarTerminalNote");
-  const canTerminal = u.role === "admin" || rights.includes("workspace:build");
+  const canTerminal = u.role === "admin" || effectivePermissions.includes("workspace:build");
   if (termNote) termNote.style.display = canTerminal ? "block" : "none";
 
   // Role chip in sidebar profile card
