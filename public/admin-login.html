@@ -459,5 +459,41 @@
   init();
 })();
 </script>
+
+<!-- Dev quick-login panel — visible on localhost only -->
+<div id="devPanel" style="display:none;position:fixed;bottom:20px;right:20px;background:#1c1c1e;border:1px solid #333;border-radius:14px;padding:14px 16px;min-width:200px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.4);">
+  <div style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#888;text-transform:uppercase;margin-bottom:10px;">⚡ Dev Quick Login</div>
+  <button id="devAdminBtn" style="width:100%;background:#f5c84222;border:1px solid #f5c84255;color:#f5c842;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;">Admin</button>
+</div>
+
+<script>
+(function() {
+  const isLocal = ["localhost","127.0.0.1","::1"].includes(location.hostname);
+  if (!isLocal) return;
+  const panel = document.getElementById("devPanel");
+  panel.style.display = "block";
+  const btn = document.getElementById("devAdminBtn");
+  btn.onmouseenter = () => btn.style.background = "#f5c84244";
+  btn.onmouseleave = () => btn.style.background = "#f5c84222";
+  btn.onclick = async () => {
+    const email = "admin@ollanest.local";
+    const password = "CHANGE_ME_ON_FIRST_BOOT";
+    document.getElementById("email").value = email;
+    document.getElementById("password").value = password;
+    btn.textContent = "Signing in…";
+    btn.disabled = true;
+    try {
+      const r = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ email, password }),
+      });
+      const d = await r.json();
+      if (d.ok) location.href = d.redirectTo || "/admin";
+      else { btn.textContent = "Admin"; btn.disabled = false; }
+    } catch { btn.textContent = "Admin"; btn.disabled = false; }
+  };
+})();
+</script>
 </body>
 </html>

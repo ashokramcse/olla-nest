@@ -396,6 +396,55 @@
 
 </div>
 
+<!-- Dev quick-login panel — visible on localhost only, injected by JS below -->
+<div id="devPanel" style="display:none;position:fixed;bottom:20px;right:20px;background:#1c1c1e;border:1px solid #333;border-radius:14px;padding:14px 16px;min-width:220px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.4);">
+  <div style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#888;text-transform:uppercase;margin-bottom:10px;">⚡ Dev Quick Login</div>
+  <div id="devAccounts" style="display:flex;flex-direction:column;gap:6px;"></div>
+</div>
+
 <script src="/login.js"></script>
+<script>
+(function() {
+  const isLocal = ["localhost","127.0.0.1","::1"].includes(location.hostname);
+  if (!isLocal) return;
+
+  // Fetch all accounts from bootstrap + state — use the seed accounts
+  const accounts = [
+    { label: "Admin",     email: "admin@ollanest.local",    password: "CHANGE_ME_ON_FIRST_BOOT", color: "#f5c842" },
+    { label: "Employee",  email: "employee@ollanest.local", password: "CHANGE_ME_ON_FIRST_BOOT", color: "#4ade80" },
+    { label: "Builder",   email: "builder@ollanest.local",  password: "CHANGE_ME_ON_FIRST_BOOT", color: "#60a5fa" },
+    { label: "Support",   email: "support@ollanest.local",  password: "CHANGE_ME_ON_FIRST_BOOT", color: "#c084fc" },
+  ];
+
+  const panel = document.getElementById("devPanel");
+  const container = document.getElementById("devAccounts");
+  panel.style.display = "block";
+
+  accounts.forEach(({ label, email, password, color }) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.style.cssText = `background:${color}22;border:1px solid ${color}55;color:${color};border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s;`;
+    btn.onmouseenter = () => btn.style.background = `${color}44`;
+    btn.onmouseleave = () => btn.style.background = `${color}22`;
+    btn.onclick = async () => {
+      document.getElementById("email").value = email;
+      document.getElementById("password").value = password;
+      btn.textContent = "Signing in…";
+      btn.disabled = true;
+      try {
+        const r = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          body: JSON.stringify({ email, password }),
+        });
+        const d = await r.json();
+        if (d.ok) location.href = d.redirectTo || "/app";
+        else { btn.textContent = label; btn.disabled = false; }
+      } catch { btn.textContent = label; btn.disabled = false; }
+    };
+    container.appendChild(btn);
+  });
+})();
+</script>
 </body>
 </html>
