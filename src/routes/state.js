@@ -72,6 +72,9 @@ module.exports = function(deps) {
         effectiveAccess: effectiveAccess(db, user),
         workspace: workspaceForUser(db, user.id),
       });
+    } catch (err) {
+      console.error("[/api/state] Error:", err.message, err.stack);
+      res.status(500).json({ error: err.message || "Internal server error" });
     } finally {
       db.close();
     }

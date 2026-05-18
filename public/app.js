@@ -579,12 +579,32 @@ function renderRouter(route) {
  * Also dispatches a "olla-state-updated" CustomEvent with the new state for
  * any listeners that need to react (e.g. terminal workspace path sync).
  */
-async function loadState() {
-  state = await api("/api/state");
-  if (!state) return;
-  window.state = state;
-  renderSidebar();
-  renderMessages();
+async function loadState(retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const data = await api("/api/state");
+      if (data) {
+        state = data;
+        window.state = state;
+        renderSidebar();
+        renderMessages();
+        break;
+      }
+    } catch (err) {
+      console.warn(`[loadState] attempt ${attempt}/${retries} failed:`, err.message);
+      if (attempt === retries) {
+        // Show error state in user card so it never stays "Loading..."
+        const nameEl = document.getElementById("userName");
+        if (nameEl && nameEl.textContent === "Loading…") {
+          nameEl.textContent = "Could not load";
+          const metaEl = document.getElementById("userMeta");
+          if (metaEl) metaEl.textContent = "Refresh to retry";
+        }
+      } else {
+        await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+    }
+  }
   // Notify terminal panel about workspace path
   window.dispatchEvent(new CustomEvent("olla-state-updated", { detail: state }));
 }
