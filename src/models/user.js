@@ -159,7 +159,8 @@ function effectiveAccess(db, user) {
  */
 function allowedModelIds(db, user) {
   if (user.role === "admin") {
-    return rows(db, "SELECT id FROM models WHERE status != 'disabled'").map((row) => row.id);
+    // Admin sees only reachable models — offline/missing are secondary data source issues
+    return rows(db, "SELECT id FROM models WHERE status IN ('available','configured')").map((row) => row.id);
   }
   const groupIds = userGroupIds(db, user.id);
   const subjects = [

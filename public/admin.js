@@ -253,20 +253,30 @@ function capBadges(caps) {
  * a governance tier dropdown (auto-saves on change), resource info, and capability badges.
  */
 function renderModels() {
-  const models = state.models.filter(m => m.provider === "ollama");
-  if (!models.length) {
-    $("modelTableBody").innerHTML = `<tr><td colspan="8" style="text-align:center;vertical-align:middle;color:var(--muted);padding:48px 24px;">
-      <div style="font-size:15px;margin-bottom:6px;">No models available</div>
-      <div style="font-size:12px;opacity:.7;">Start Ollama and click Sync, or add a cloud provider.</div>
+  const allOllama = state.models.filter(m => m.provider === "ollama");
+  const available = allOllama.filter(m => m.status === "available");
+  const ollamaOnline = available.length > 0;
+
+  // Ollama is a secondary data source — if it's offline, show a clean state.
+  // Never display stale "offline"/"missing" DB entries as if they are active models.
+  if (!ollamaOnline) {
+    const staleCount = allOllama.length;
+    $("modelTableBody").innerHTML = `<tr><td colspan="8" style="text-align:center;vertical-align:middle;padding:56px 24px;">
+      <div style="font-size:28px;margin-bottom:12px;">📡</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px;color:var(--ink);">Ollama is offline</div>
+      <div style="font-size:13px;color:var(--muted);max-width:420px;margin:0 auto;line-height:1.6;">
+        ${staleCount
+          ? `${staleCount} model${staleCount !== 1 ? "s were" : " was"} previously synced. Start Ollama and click <strong>Sync Ollama</strong> to restore them.`
+          : "No models synced yet. Start Ollama and click <strong>Sync Ollama</strong> to discover models."}
+      </div>
     </td></tr>`;
     return;
   }
+
+  // Only render models that Ollama has confirmed are available right now
+  const models = available;
   $("modelTableBody").innerHTML = models.map(m => {
-    const statusBadge = m.status === "available"
-      ? `<span class="badge badge-green">${esc(m.status)}</span>`
-      : m.status === "missing"
-        ? `<span class="badge badge-amber">${esc(m.status)}</span>`
-        : `<span class="badge badge-default">${esc(m.status)}</span>`;
+    const statusBadge = `<span class="badge badge-green">available</span>`;
 
     const speedBar = `<div style="display:flex;align-items:center;gap:6px;">
       <div style="width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">

@@ -182,8 +182,10 @@ async function syncOllamaModels(db) {
   try {
     installed = await fetchOllamaModels(ollamaUrl(db));
   } catch (err) {
-    // Ollama unreachable — mark ALL local models as missing so UI reflects reality
-    db.prepare("UPDATE models SET status = 'missing' WHERE provider = 'ollama'").run();
+    // Ollama host is unreachable — mark all local models "offline" (distinct from
+    // "missing" which means Ollama responded but the model file is not present).
+    // This keeps the DB accurate: offline = host down, missing = file not pulled.
+    db.prepare("UPDATE models SET status = 'offline' WHERE provider = 'ollama' AND status != 'disabled'").run();
     console.error(`[ollama-sync] Unreachable at ${ollamaUrl(db)}: ${err.message}`);
     return { ok: false, models: [], error: err.message };
   }
