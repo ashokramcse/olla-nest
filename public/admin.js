@@ -28,6 +28,7 @@
  */
 
 let state = null;
+let allUsers = []; // loaded separately via GET /api/admin/ — not part of /api/state
 let activeTab = "overview";
 
 /**
@@ -218,7 +219,7 @@ function renderIdentity() {
 function renderOverview() {
   const localModels = state.models.filter(m => m.provider === "ollama" && m.status === "available");
   $("metricModels").textContent = localModels.length;
-  $("metricUsers").textContent = state.users.length;
+  $("metricUsers").textContent = allUsers.length;
   $("metricGroups").textContent = state.groups.length;
   $("metricDepts").textContent = state.departments.length;
   if ($("metricRoles")) $("metricRoles").textContent = state.roles?.length || 0;
@@ -254,7 +255,10 @@ function capBadges(caps) {
 function renderModels() {
   const models = state.models.filter(m => m.provider === "ollama");
   if (!models.length) {
-    $("modelTableBody").innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--muted); padding:24px;">No local models discovered. Check Ollama connection in Settings.</td></tr>`;
+    $("modelTableBody").innerHTML = `<tr><td colspan="8" style="text-align:center;vertical-align:middle;color:var(--muted);padding:48px 24px;">
+      <div style="font-size:15px;margin-bottom:6px;">No models available</div>
+      <div style="font-size:12px;opacity:.7;">Start Ollama and click Sync, or add a cloud provider.</div>
+    </td></tr>`;
     return;
   }
   $("modelTableBody").innerHTML = models.map(m => {
@@ -316,7 +320,7 @@ function renderUsers() {
   ).join("");
   if (typeof populateTeamDropdown === "function") populateTeamDropdown();
 
-  $("userList").innerHTML = state.users.map(u => {
+  $("userList").innerHTML = allUsers.map(u => {
     const dept = state.departments.find(d => d.id === u.departmentId);
     const av = initials(u.name);
     const isActive = u.active;
@@ -457,7 +461,7 @@ function buildEditPanel(u) {
  */
 function renderAccessControl() {
   if (!$("accessUserSelect")) return;
-  $("accessUserSelect").innerHTML = state.users.map(u => `<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.email)}</option>`).join("");
+  $("accessUserSelect").innerHTML = allUsers.map(u => `<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.email)}</option>`).join("");
   if ($("overridePermission")) {
     $("overridePermission").innerHTML = (state.permissions || []).map(p =>
       `<option value="${esc(p.key)}">${esc(permLabel(p.key))} (${esc(p.riskLevel)} risk)</option>`
@@ -546,7 +550,7 @@ async function renderDeptPermGrid() {
  */
 async function renderEffectiveAccess() {
   if (!$("effectiveAccessPanel")) return;
-  const user = state.users.find(u => u.id === $("accessUserSelect").value) || state.users[0];
+  const user = allUsers.find(u => u.id === $("accessUserSelect").value) || allUsers[0];
   if (!user) {
     $("effectiveAccessPanel").innerHTML = `<div class="empty-state">No users found.</div>`;
     return;
@@ -610,8 +614,10 @@ function renderSettings() {
  */
 function renderSourcePills() {
   const s = state.settings;
+  // Ollama pill: green only if at least one local model is available, grey if unreachable
+  const ollamaOnline = state.models.some(m => m.provider === "ollama" && m.status === "available");
   const active = [
-    { name: "Ollama", cls: "badge-green" },
+    { name: ollamaOnline ? "Ollama" : "Ollama (offline)", cls: ollamaOnline ? "badge-green" : "badge-default" },
     s.anthropicEnabled && { name: "Anthropic", cls: "badge-blue" },
     s.openaiEnabled && { name: "OpenAI", cls: "badge-blue" },
     s.groqEnabled && { name: "Groq", cls: "badge-blue" },
@@ -660,11 +666,19 @@ function renderAll() {
 }
 
 /**
- * Fetches full application state from GET /api/state and re-renders all tabs.
+ * Fetches full application state from GET /api/state plus all users from the
+ * paginated endpoint, then re-renders all tabs.
+ * Users are fetched separately because /api/state no longer includes them
+ * (they are served via paginated GET /api/admin/).
  */
 async function loadState() {
-  state = await api("/api/state");
-  if (!state) return;
+  const [stateData, usersData] = await Promise.all([
+    api("/api/state"),
+    api("/api/admin/?page=1&limit=200"),
+  ]);
+  if (!stateData) return;
+  state = stateData;
+  allUsers = usersData?.users || [];
   renderAll();
 }
 

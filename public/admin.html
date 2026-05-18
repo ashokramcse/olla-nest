@@ -2210,8 +2210,10 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
 
   function populateModels() {
     if (typeof state === "undefined" || !state) return;
+    // Only show models with status "available" — "missing" means Ollama knows the
+    // model name but the file is gone; anything else (disabled, offline) is hidden.
     var models = (state.models || []).filter(function (m) {
-      return (state.allowedModelIds || []).includes(m.id) && m.status !== "disabled";
+      return (state.allowedModelIds || []).includes(m.id) && m.status === "available";
     });
 
     /* sync hidden select */
@@ -2235,7 +2237,7 @@ td:last-child .badge{margin:2px 2px!important;font-size:11px!important}
       var ctx = estimateCtx(m.name);
       var isSel = m.id === selectedModelId;
       html += '<div class="cmp-model-item' + (isSel ? " active" : "") + '" data-id="' + esc(m.id) + '" data-name="' + esc(m.name) + '" data-ctx="' + ctx + '">'
-        + '<div class="cmp-model-dot' + (m.status === "disabled" ? " off" : "") + '"></div>'
+        + '<div class="cmp-model-dot' + (m.status !== "available" ? " off" : "") + '"></div>'
         + '<span class="cmp-model-name">' + esc(m.name) + '</span>'
         + '<span class="cmp-model-ctx">' + fmtTokens(ctx) + '</span>'
         + (isSel ? '<span class="cmp-check">✓</span>' : '')
