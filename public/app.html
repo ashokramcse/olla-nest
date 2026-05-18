@@ -437,7 +437,7 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
       </div>
       <button class="pill-btn" id="accountBtn">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>
-        Account
+        <span id="accountBtnName">Profile</span>
       </button>
       <button class="icon-btn" id="logoutBtn" aria-label="Sign out" title="Sign out">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -445,27 +445,9 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
     </div>
   </div>
 
-  <!-- Account panel (hidden by default) -->
+  <!-- Access policy (hidden, kept for renderSidebar compatibility) -->
   <div id="accountPanel" style="display:none;">
-    <div class="account-panel">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <!-- Change password -->
-        <div>
-          <div class="ap-label">Change Password</div>
-          <form id="passwordForm">
-            <input class="ap-input" id="currentPassword" type="password" placeholder="Current password" autocomplete="current-password" />
-            <input class="ap-input" id="newPassword" type="password" placeholder="New password (min 12 chars)" autocomplete="new-password" />
-            <button class="ap-btn dark" type="submit">Update password</button>
-            <div id="passwordMsg" class="form-msg"></div>
-          </form>
-        </div>
-        <!-- Access policy -->
-        <div>
-          <div class="ap-label">Access Policy</div>
-          <div id="accessPolicy" style="font-size:13px;color:var(--mute);line-height:1.7;"></div>
-        </div>
-      </div>
-    </div>
+    <div id="accessPolicy"></div>
   </div>
 
   <!-- Hero -->
@@ -477,21 +459,20 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
           <span class="lab">Router</span>
           <span class="pill yellow">Auto</span>
         </div>
-        <div class="stat-pill">
-          <span class="lab">Workspace</span>
-          <span class="pill outline sm" id="statWorkspace">not set</span>
+        <!-- Token usage pill — always visible, populated by loadTokenUsage() -->
+        <div class="stat-pill" id="statTokenPill">
+          <span class="lab">Tokens Today</span>
+          <span class="pill token-pill" id="statTokenPillInner">
+            <span id="statTokenUsed">—</span>/<span id="statTokenLimit">—</span>
+            <span class="token-bar-wrap"><span class="token-bar-fill" id="statTokenBar"></span></span>
+          </span>
         </div>
+        <!-- Hidden elements kept for JS compatibility -->
+        <span id="statWorkspace" style="display:none;">not set</span>
         <div class="stat-pill" id="topbarSub" style="display:none;"></div>
         <div class="stat-pill" id="statModelPill" style="display:none;">
           <span class="lab">Model</span>
           <span class="pill model-status" id="statModelName">—</span>
-        </div>
-        <div class="stat-pill" id="statTokenPill" style="display:none;">
-          <span class="lab">Daily Tokens</span>
-          <span class="pill token-pill" id="statTokenPillInner">
-            <span id="statTokenUsed">0</span>/<span id="statTokenLimit">50,000</span>
-            <span class="token-bar-wrap"><span class="token-bar-fill" id="statTokenBar"></span></span>
-          </span>
         </div>
       </div>
     </div>
@@ -517,9 +498,8 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
         <div class="user-av" id="userAvatar">?</div>
         <div class="user-name-lg" id="userName">Loading…</div>
         <div class="user-sub" id="userMeta">workspace</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;">
+        <div style="margin-top:10px;">
           <div class="role-chip" id="sidebarRoleChip">Member</div>
-          <span style="font-size:11px;color:#ffffff80;background:rgba(255,255,255,0.1);padding:3px 8px;border-radius:6px;">Edit profile →</span>
         </div>
       </div>
 

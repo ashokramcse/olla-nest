@@ -150,6 +150,10 @@ function renderSidebar() {
   const rawName = u.name || u.email || "";
   const displayName = rawName.includes("@") ? rawName.split("@")[0] : rawName;
   const firstName = displayName.split(" ")[0];
+
+  // Show user's first name on the topbar Account button
+  const accountBtnName = document.getElementById("accountBtnName");
+  if (accountBtnName) accountBtnName.textContent = firstName || u.name || "Profile";
   $("topbarTitle").textContent = `Welcome, ${firstName}`;
   $("topbarSub").textContent = `${dept?.name || "General"} · Auto Router active`;
   const statWs = document.getElementById("statWorkspace");
@@ -593,12 +597,11 @@ async function loadTokenUsage() {
   try {
     const data = await api("/api/account/usage");
     if (!data) return;
-    const pct = Math.min(100, Math.round((data.tokensUsedToday / data.dailyTokenLimit) * 100));
+    const pct = data.dailyTokenLimit > 0 ? Math.min(100, Math.round((data.tokensUsedToday / data.dailyTokenLimit) * 100)) : 0;
     used.textContent = data.tokensUsedToday.toLocaleString();
-    limit.textContent = data.dailyTokenLimit.toLocaleString();
+    limit.textContent = data.dailyTokenLimit > 0 ? data.dailyTokenLimit.toLocaleString() : "∞";
     bar.style.width = pct + "%";
     bar.className = "token-bar-fill" + (pct >= 90 ? " over" : pct >= 70 ? " warn" : "");
-    pill.style.display = "flex";
   } catch {}
 }
 
@@ -882,35 +885,12 @@ $("stopBtn").addEventListener("click", () => {
   if (activeStreamReader) { activeStreamReader.cancel(); }
 });
 
-// Account panel toggle
+// Account button — opens the profile drawer (same as clicking the sidebar user card)
 $("accountBtn").addEventListener("click", () => {
-  accountOpen = !accountOpen;
-  $("accountPanel").style.display = accountOpen ? "block" : "none";
-  $("accountBtn").textContent = accountOpen ? "Close" : "Account";
+  const trigger = document.getElementById("appProfileBtn");
+  if (trigger) trigger.click();
 });
 
-$("passwordForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const msg = $("passwordMsg");
-  msg.className = "form-message";
-  msg.textContent = "";
-  try {
-    await api("/api/account/password", {
-      method: "POST",
-      body: JSON.stringify({
-        currentPassword: $("currentPassword").value,
-        newPassword: $("newPassword").value,
-      }),
-    });
-    $("currentPassword").value = "";
-    $("newPassword").value = "";
-    msg.className = "form-message success";
-    msg.textContent = "Password updated successfully.";
-  } catch (err) {
-    msg.className = "form-message error";
-    msg.textContent = err.message;
-  }
-});
 
 // Workspace config
 $("configWorkspaceBtn").addEventListener("click", () => {
