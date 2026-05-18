@@ -64,6 +64,11 @@ async function api(path, opts = {}) {
   const headers = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...(opts.headers || {}) };
   const res = await fetch(path, { ...opts, headers });
   if (res.status === 401) { window.location.href = "/login"; return null; }
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    return null;
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
