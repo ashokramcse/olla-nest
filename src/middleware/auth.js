@@ -24,16 +24,21 @@ function parseCookies(req) {
 function sessionUser(req) {
   const token = parseCookies(req).olla_nest_session;
   if (!token) return null;
-  const db = openSql();
+  let db;
   try {
+    db = openSql();
     const row = db.prepare(
       "SELECT s.user_id, u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')"
     ).get(token);
     if (!row) return null;
-    // Build a user-like row from the join result
     return publicUser(row);
+  } catch (err) {
+    // DB temporarily unavailable (e.g. volume not ready) — treat as unauthenticated
+    // so the request gets a clean redirect to login rather than a 500 crash
+    console.error("[sessionUser] DB error:", err.message);
+    return null;
   } finally {
-    db.close();
+    try { db && db.close(); } catch (_) {}
   }
 }
 

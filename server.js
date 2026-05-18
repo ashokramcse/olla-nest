@@ -27,8 +27,30 @@ if (cluster.isPrimary) {
   const { PORT } = require("./src/config");
   const { runBackup } = require("./src/services/backup");
 
-  // Initialise database schema and seed defaults once before accepting requests
-  initDatabase();
+  // Wrap the entire worker startup in an async IIFE so we can await initDatabaseWithRetry
+  (async () => {
+
+  // Initialise database schema — retry up to 10 times with 1-second backoff.
+  // The Docker volume mount can take a moment to become writable after container
+  // start, causing "unable to open database file" on the very first open attempt.
+  async function initDatabaseWithRetry(maxAttempts = 10, delayMs = 1000) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        initDatabase();
+        console.log(`[startup] Database initialised (attempt ${attempt})`);
+        return;
+      } catch (err) {
+        if (attempt === maxAttempts) {
+          console.error(`[startup] Database init failed after ${maxAttempts} attempts:`, err.message);
+          process.exit(1); // unrecoverable — exit so cluster restarts cleanly
+        }
+        console.error(`[startup] Database init attempt ${attempt}/${maxAttempts} failed (retrying in ${delayMs}ms):`, err.message);
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    }
+  }
+
+  await initDatabaseWithRetry();
 
   server.listen(PORT, async () => {
     // Initial startup tasks
@@ -68,5 +90,10 @@ if (cluster.isPrimary) {
     }
 
     console.log(`Olla Nest running at http://localhost:${PORT} (worker ${process.pid})`);
+  });
+
+  })().catch(err => {
+    console.error("[worker] Fatal startup error:", err.message);
+    process.exit(1);
   });
 }
