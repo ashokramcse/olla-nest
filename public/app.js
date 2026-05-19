@@ -1115,7 +1115,16 @@ function setWorkspacePanel(open) {
 }
 
 $("configWorkspaceBtn").addEventListener("click", () => {
-  setWorkspacePanel(!workspaceConfigOpen);
+  const opening = !workspaceConfigOpen;
+  setWorkspacePanel(opening);
+  if (opening) {
+    // Pre-fill with current workspace path if set, otherwise suggest a safe container default
+    const current = state?.workspace?.workspaceRoot || "";
+    const inp = $("workspaceFolderInput");
+    if (!inp.value) {
+      inp.value = current || "/app/data/workspace/my-project";
+    }
+  }
 });
 
 $("cancelWorkspaceBtn").addEventListener("click", () => { setWorkspacePanel(false); });

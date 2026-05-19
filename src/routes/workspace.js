@@ -55,7 +55,24 @@ module.exports = function(deps) {
         return res.json({ ok: true, workspace: workspaceForUser(db, req.user.id) });
       }
       const nextRoot = path.resolve(workspaceRootInput);
-      fs.mkdirSync(nextRoot, { recursive: true });
+
+      // Guard: the container runs as non-root appuser and can only write inside /app/data/.
+      // Host paths like /Users/... are not writable from inside the container.
+      const DATA_DIR_ABS = path.resolve(DATA_DIR);
+      if (!nextRoot.startsWith(DATA_DIR_ABS) && !nextRoot.startsWith("/mac-home")) {
+        return res.status(400).json({
+          error: `Path not writable inside the container. Use /app/data/workspace/your-project — e.g. /app/data/workspace/my-app`,
+        });
+      }
+
+      try {
+        fs.mkdirSync(nextRoot, { recursive: true });
+      } catch (mkdirErr) {
+        return res.status(400).json({
+          error: `Cannot create folder: ${mkdirErr.message}. Use /app/data/workspace/your-project`,
+        });
+      }
+
       db.prepare("INSERT OR REPLACE INTO workspace_prefs (user_id, workspace_root, permission_mode, updated_at) VALUES (?, ?, ?, ?)").run(
         req.user.id, nextRoot, permissionMode, new Date().toISOString()
       );
