@@ -438,24 +438,126 @@ document.addEventListener("keydown", (e) => {
  * @param {string} content - Raw Markdown/text from the model.
  * @returns {string} Safe HTML string.
  */
+// Language badge colors — matches common languages visually
+const LANG_COLORS = {
+  js: "#f7df1e", javascript: "#f7df1e",
+  ts: "#3178c6", typescript: "#3178c6",
+  py: "#3572a5", python: "#3572a5",
+  rb: "#cc342d", ruby: "#cc342d",
+  go: "#00add8",
+  rs: "#dea584", rust: "#dea584",
+  java: "#b07219",
+  cs: "#178600", csharp: "#178600",
+  cpp: "#f34b7d", c: "#555555",
+  php: "#4f5d95",
+  swift: "#ffac45",
+  kt: "#a97bff", kotlin: "#a97bff",
+  sql: "#e38c00",
+  html: "#e34c26", css: "#563d7c", scss: "#c6538c",
+  sh: "#89e051", bash: "#89e051", shell: "#89e051", zsh: "#89e051", fish: "#89e051",
+  json: "#cbcb41", yaml: "#cb171e", yml: "#cb171e", toml: "#9c4221",
+  md: "#083fa1", markdown: "#083fa1",
+  dockerfile: "#384d54",
+  xml: "#0060ac",
+  r: "#198ce7",
+  dart: "#00b4ab",
+  lua: "#000080",
+  vim: "#019733",
+  graphql: "#e10098",
+};
+
+/**
+ * Renders a diff-style code block with per-line coloring.
+ * Lines starting with '+' → green, '-' → red, '@@' → blue hunk header.
+ */
+function renderDiffBlock(text, lang) {
+  const lines = text.split("\n");
+  const rows = lines.map((line, i) => {
+    let cls = "";
+    if (/^@@/.test(line)) cls = "diff-hunk";
+    else if (/^\+/.test(line)) cls = "diff-add";
+    else if (/^-/.test(line)) cls = "diff-del";
+    const safe = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `<div class="code-line ${cls}"><span class="code-ln">${i + 1}</span><span class="code-lc">${safe}</span></div>`;
+  });
+  return `<div class="code-lines">${rows.join("")}</div>`;
+}
+
+/**
+ * Renders a code block with syntax highlighting (hljs), line numbers,
+ * language badge, optional filename header, and Copy / Run buttons.
+ */
+function renderCodeBlock(text, lang) {
+  const langKey = (lang || "").toLowerCase().replace(/^diff-/, "");
+  const isDiff = lang && (lang.toLowerCase().startsWith("diff") || /^\+\+\+|^---/.test(text.trim()) || /^@@/.test(text.trim()));
+
+  // Detect filename from first-line comment patterns: // filename: ..., # filename: ..., <!-- filename: -->
+  let filename = "";
+  const filenameMatch = text.match(/^(?:\/\/|#|<!--)\s*(?:filename|file):\s*([^\s\n>]+)/i);
+  if (filenameMatch) filename = filenameMatch[1];
+
+  // Badge
+  const color = LANG_COLORS[langKey] || "#888";
+  const badgeText = langKey || "text";
+  const textColor = ["#f7df1e","#f34b7d","#ffac45","#cbcb41"].includes(color) ? "#111" : "#fff";
+  const badge = `<span class="code-lang-badge" style="background:${color};color:${textColor}">${esc(badgeText)}</span>`;
+  const fileEl = filename ? `<span class="code-filename">📄 ${esc(filename)}</span>` : "";
+
+  // Runnable?
+  const SHELL_LANGS = ["bash","sh","shell","zsh","fish","console","terminal","cmd","powershell"];
+  const isRunnable = SHELL_LANGS.includes(langKey);
+  const runBtn = isRunnable
+    ? `<button class="run-in-term-btn" onclick="runInTerminal(this)" title="Run in terminal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
+    : "";
+
+  // Diff rendering
+  if (isDiff) {
+    const codeEl = renderDiffBlock(text, langKey);
+    return `<div class="md-code-block">
+      <div class="code-header">${badge}${fileEl}<div class="code-header-actions"><button class="md-copy-btn" onclick="copyCode(this)">Copy</button>${runBtn}</div></div>
+      <pre><code>${codeEl}</code></pre>
+    </div>`;
+  }
+
+  // Syntax highlighted with line numbers
+  let highlighted;
+  if (typeof hljs !== "undefined" && langKey) {
+    try {
+      const validLang = hljs.getLanguage(langKey) ? langKey : null;
+      highlighted = validLang
+        ? hljs.highlight(text, { language: validLang }).value
+        : hljs.highlightAuto(text).value;
+    } catch (e) {
+      highlighted = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+  } else {
+    highlighted = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // Build line-numbered table from highlighted HTML
+  // Split on newlines preserving hljs spans across lines isn't trivial, so we highlight then split plain + overlay
+  const plainLines = text.split("\n");
+  // Re-highlight line by line would lose multi-line context; instead use full block highlight and split on \n
+  const hlLines = highlighted.split("\n");
+  // If trailing empty line, remove it
+  if (hlLines[hlLines.length - 1] === "") hlLines.pop();
+
+  const rows = hlLines.map((hlLine, i) => {
+    return `<div class="code-line"><span class="code-ln">${i + 1}</span><span class="code-lc">${hlLine}</span></div>`;
+  });
+
+  return `<div class="md-code-block">
+    <div class="code-header">${badge}${fileEl}<div class="code-header-actions"><button class="md-copy-btn" onclick="copyCode(this)">Copy</button>${runBtn}</div></div>
+    <pre><code class="hljs"><div class="code-lines">${rows.join("")}</div></code></pre>
+  </div>`;
+}
+
 function renderMarkdown(content) {
   if (typeof marked === "undefined") return `<pre style="white-space:pre-wrap;">${esc(content)}</pre>`;
   marked.setOptions({ breaks: true, gfm: true });
-  // Use marked with a custom renderer for code blocks to add copy button
   const renderer = new marked.Renderer();
-  renderer.code = ({ text, lang }) => {
-    const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const label = lang ? `<span class="code-lang-label">${esc(lang)}</span>` : "";
-    // Show "Run in terminal" for shell-like single-line commands
-    const isRunnable = ["bash","sh","shell","zsh","fish","console","terminal","cmd","powershell"].includes((lang||"").toLowerCase())
-      || (!lang && /^[a-z][\w\/\-]/.test(text.trim()) && !text.includes("\n") && text.trim().length < 200);
-    const runBtn = isRunnable
-      ? `<button class="run-in-term-btn" onclick="runInTerminal(this)" title="Run in terminal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
-      : "";
-    return `<div class="md-code-block">${label}<button class="md-copy-btn" onclick="copyCode(this)">Copy</button><pre><code>${escaped}</code></pre>${runBtn}</div>`;
-  };
+  renderer.code = ({ text, lang }) => renderCodeBlock(text, lang);
   const raw = marked.parse(content, { renderer });
-  // Sanitize with DOMPurify to prevent XSS from AI-generated HTML
   return typeof DOMPurify !== "undefined"
     ? DOMPurify.sanitize(raw, { ADD_ATTR: ["onclick"], FORCE_BODY: false })
     : raw;
@@ -468,8 +570,16 @@ function renderMarkdown(content) {
  * @param {HTMLButtonElement} btn - The "Copy" button element inside the code block.
  */
 function copyCode(btn) {
-  const code = btn.parentElement.querySelector("code").innerText;
-  navigator.clipboard.writeText(code).then(() => {
+  const block = btn.closest(".md-code-block");
+  // Gather plain text from line cells (ignoring line number cells) or fall back to full code innerText
+  const lineCells = block.querySelectorAll(".code-lc");
+  let text;
+  if (lineCells.length) {
+    text = Array.from(lineCells).map(el => el.innerText).join("\n");
+  } else {
+    text = block.querySelector("code")?.innerText || "";
+  }
+  navigator.clipboard.writeText(text).then(() => {
     btn.textContent = "Copied!";
     setTimeout(() => { btn.textContent = "Copy"; }, 2000);
   });
@@ -483,7 +593,11 @@ function copyCode(btn) {
  * @param {HTMLButtonElement} btn - The "Run" button inside the code block.
  */
 function runInTerminal(btn) {
-  const code = btn.closest(".md-code-block").querySelector("code").innerText.trim();
+  const block = btn.closest(".md-code-block");
+  const lineCells = block.querySelectorAll(".code-lc");
+  const code = (lineCells.length
+    ? Array.from(lineCells).map(el => el.innerText).join("\n")
+    : block.querySelector("code")?.innerText || "").trim();
   if (!code) return;
   if (typeof window.termSendCommand === "function") {
     btn.textContent = "▶ Sent!";
