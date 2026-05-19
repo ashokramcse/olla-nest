@@ -20,7 +20,7 @@ services:
       - "3000:3000"
     volumes:
       - ./data:/app/data
-      - ${HOME}:/mac-home
+      - ${HOME}:/host-home
     extra_hosts:
       - "host.docker.internal:host-gateway"
     deploy:

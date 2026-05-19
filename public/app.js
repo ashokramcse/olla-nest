@@ -234,9 +234,9 @@ function renderSidebar() {
     const wsFullPath = ws.outputFolder || ws.workspaceRoot || "";
     const wsEl = $("workspacePath");
     if (wsFullPath) {
-      // Show friendly label: /mac-home/... → ~/...
-      const displayPath = wsFullPath.startsWith("/mac-home/")
-        ? "~/" + wsFullPath.slice("/mac-home/".length)
+      // Show friendly label: /host-home/... → ~/...
+      const displayPath = wsFullPath.startsWith("/host-home/")
+        ? "~/" + wsFullPath.slice("/host-home/".length)
         : wsFullPath;
       wsEl.textContent = displayPath;
       wsEl.title = wsFullPath;
@@ -1126,12 +1126,84 @@ $("configWorkspaceBtn").addEventListener("click", () => {
     const current = state?.workspace?.workspaceRoot || "";
     const inp = $("workspaceFolderInput");
     if (!inp.value) {
-      inp.value = current || "/mac-home/Documents/my-project";
+      // Detect OS and suggest the right default path
+      const ua = navigator.userAgent || "";
+      const isWin = ua.includes("Windows");
+      const isLinux = ua.includes("Linux") && !ua.includes("Android");
+      const defaultSuggest = isWin
+        ? "/host-home/Documents/my-project"
+        : isLinux
+          ? "/host-home/projects/my-project"
+          : "/host-home/Documents/my-project"; // macOS default
+      inp.value = current || defaultSuggest;
+
+      // Update the OS hint text
+      const hint = $("wsOsHint");
+      if (hint) {
+        if (isWin) {
+          hint.innerHTML = `Windows: <code style="font-size:11px;">C:\\Users\\you\\Documents\\project</code> → <code style="font-size:11px;">/host-home/Documents/project</code>`;
+        } else if (isLinux) {
+          hint.innerHTML = `Linux: <code style="font-size:11px;">~/projects/myapp</code> → <code style="font-size:11px;">/host-home/projects/myapp</code>`;
+        } else {
+          hint.innerHTML = `macOS: <code style="font-size:11px;">~/Documents/myproject</code> → <code style="font-size:11px;">/host-home/Documents/myproject</code>`;
+        }
+      }
     }
   }
 });
 
 $("cancelWorkspaceBtn").addEventListener("click", () => { setWorkspacePanel(false); });
+
+// ── Folder Browser ────────────────────────────────────────────────────────────
+let wsBrowserOpen = false;
+
+async function wsBrowseTo(browsePath) {
+  try {
+    const url = "/api/workspace/browse" + (browsePath ? "?path=" + encodeURIComponent(browsePath) : "");
+    const data = await api(url);
+    const list = $("wsBrowserList");
+    const pathEl = $("wsBrowserPath");
+    // Show friendly path
+    pathEl.textContent = data.current.startsWith("/host-home")
+      ? "~" + data.current.slice("/host-home".length)
+      : data.current;
+
+    let html = "";
+    if (data.parent) {
+      html += `<div class="ws-browser-item" onclick="wsBrowseTo(${JSON.stringify(data.parent)})" style="color:var(--mute);">⬆ ..</div>`;
+    }
+    // Show "Select this folder" option
+    html += `<div class="ws-browser-item ws-browser-select" onclick="wsSelectFolder(${JSON.stringify(data.current)})">✅ Select <em>${data.current.split("/").pop() || "/"}</em></div>`;
+    data.dirs.forEach(d => {
+      html += `<div class="ws-browser-item" onclick="wsBrowseTo(${JSON.stringify(d.path)})">📁 ${esc(d.name)}</div>`;
+    });
+    if (!data.dirs.length && !data.parent) html += `<div style="padding:8px 12px;font-size:12px;color:var(--mute);">No sub-folders found.</div>`;
+    list.innerHTML = html;
+  } catch (e) {
+    $("wsBrowserList").innerHTML = `<div style="padding:8px 12px;font-size:12px;color:red;">${esc(e.message)}</div>`;
+  }
+}
+
+function wsSelectFolder(folderPath) {
+  $("workspaceFolderInput").value = folderPath;
+  // Close browser
+  $("wsFolderBrowser").style.display = "none";
+  $("wsBrowseBtn").textContent = "📂 Browse folders";
+  wsBrowserOpen = false;
+}
+
+$("wsBrowseBtn").addEventListener("click", async () => {
+  wsBrowserOpen = !wsBrowserOpen;
+  const browser = $("wsFolderBrowser");
+  browser.style.display = wsBrowserOpen ? "block" : "none";
+  $("wsBrowseBtn").textContent = wsBrowserOpen ? "✕ Close browser" : "📂 Browse folders";
+  if (wsBrowserOpen) {
+    // Start at current value or host-home root
+    const current = $("workspaceFolderInput").value.trim() || "/host-home";
+    const startPath = current.startsWith("/host-home") || current.startsWith("/app/data") ? current : "/host-home";
+    await wsBrowseTo(startPath);
+  }
+});
 
 $("saveWorkspaceBtn").addEventListener("click", async () => {
   const msg = $("workspaceSaveMsg");

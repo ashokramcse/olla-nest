@@ -313,6 +313,13 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
 .md-body th,.md-body td{border:1px solid var(--line);padding:8px 12px}
 .md-body th{background:#0000000a;font-weight:500}
 
+/* Folder browser */
+.ws-browser-item{padding:6px 12px;font-size:12px;cursor:pointer;font-family:'Fira Code',monospace;border-bottom:1px solid var(--line-soft)}
+.ws-browser-item:hover{background:#f0f0e8}
+.ws-browser-item:last-child{border-bottom:none}
+.ws-browser-select{color:#166534;font-style:italic;background:#f0fdf4}
+.ws-browser-select:hover{background:#dcfce7}
+
 /* Thinking indicator */
 .thinking-indicator{display:flex;align-items:center;gap:5px;padding:4px 0;color:var(--mute);font-size:13px}
 .thinking-dot{width:7px;height:7px;border-radius:50%;background:var(--mute);opacity:0.4;animation:tdot 1.2s ease-in-out infinite}
@@ -688,12 +695,21 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
 
         <div id="workspaceConfigPanel" style="display:none;" class="ws-config-panel">
           <div style="font-size:12px;color:var(--mute);margin-bottom:4px;">Folder path</div>
-          <div style="font-size:11px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:7px 10px;margin-bottom:6px;line-height:1.6;">
-            <strong>Your home folder</strong> is mounted at <code style="font-size:11px;">/mac-home/</code><br>
-            e.g. <code style="font-size:11px;">~/Documents/myproject</code> → <code style="font-size:11px;">/mac-home/Documents/myproject</code><br>
-            <span style="color:#6b7280;">Or use <code style="font-size:11px;">/app/data/workspace/myproject</code> for container storage.</span>
+
+          <!-- Cross-platform path info -->
+          <div style="font-size:11px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:7px 10px;margin-bottom:6px;line-height:1.7;">
+            <strong>Your machine's home folder is mounted at <code style="font-size:11px;">/host-home/</code></strong><br>
+            <span id="wsOsHint" style="color:#374151;">Loading…</span>
           </div>
-          <input class="ap-input" id="workspaceFolderInput" placeholder="/mac-home/Documents/my-project" />
+
+          <!-- Folder browser -->
+          <div id="wsFolderBrowser" style="display:none;background:#f8f8f4;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden;max-height:180px;overflow-y:auto;">
+            <div id="wsBrowserPath" style="font-size:11px;font-family:'Fira Code',monospace;color:var(--mute);padding:6px 10px;border-bottom:1px solid var(--line);background:#fff;"></div>
+            <div id="wsBrowserList" style="padding:4px 0;"></div>
+          </div>
+          <button id="wsBrowseBtn" style="width:100%;padding:7px;background:#fff;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;margin-bottom:6px;font-family:inherit;color:var(--ink);">📂 Browse folders</button>
+
+          <input class="ap-input" id="workspaceFolderInput" placeholder="/host-home/Documents/my-project" />
           <div style="font-size:12px;color:var(--mute);">Permission mode</div>
           <select class="ap-input" id="permissionModeSelect">
             <option value="default">Approve writes</option>
@@ -721,7 +737,7 @@ function updateModelRing(count, max) {
 }
 </script>
 <script src="/dropdown.js"></script>
-<script src="/app.js?v=2026.0.24"></script>
+<script src="/app.js?v=2026.0.25"></script>
 
 <!-- ════ Profile Drawer (app users) ════ -->
 <style>
