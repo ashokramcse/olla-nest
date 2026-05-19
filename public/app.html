@@ -688,10 +688,12 @@ h1.welcome{font-size:64px;line-height:0.95;font-weight:400;letter-spacing:-0.035
 
         <div id="workspaceConfigPanel" style="display:none;" class="ws-config-panel">
           <div style="font-size:12px;color:var(--mute);margin-bottom:4px;">Folder path</div>
-          <div style="font-size:11px;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:6px 10px;margin-bottom:6px;line-height:1.5;">
-            ⚠️ Use a container path: <code style="font-size:11px;">/app/data/workspace/your-project</code>
+          <div style="font-size:11px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:7px 10px;margin-bottom:6px;line-height:1.6;">
+            <strong>Your home folder</strong> is mounted at <code style="font-size:11px;">/mac-home/</code><br>
+            e.g. <code style="font-size:11px;">~/Documents/myproject</code> → <code style="font-size:11px;">/mac-home/Documents/myproject</code><br>
+            <span style="color:#6b7280;">Or use <code style="font-size:11px;">/app/data/workspace/myproject</code> for container storage.</span>
           </div>
-          <input class="ap-input" id="workspaceFolderInput" placeholder="/app/data/workspace/my-project" />
+          <input class="ap-input" id="workspaceFolderInput" placeholder="/mac-home/Documents/my-project" />
           <div style="font-size:12px;color:var(--mute);">Permission mode</div>
           <select class="ap-input" id="permissionModeSelect">
             <option value="default">Approve writes</option>
@@ -719,7 +721,7 @@ function updateModelRing(count, max) {
 }
 </script>
 <script src="/dropdown.js"></script>
-<script src="/app.js?v=2026.0.23"></script>
+<script src="/app.js?v=2026.0.24"></script>
 
 <!-- ════ Profile Drawer (app users) ════ -->
 <style>

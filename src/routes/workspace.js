@@ -56,12 +56,14 @@ module.exports = function(deps) {
       }
       const nextRoot = path.resolve(workspaceRootInput);
 
-      // Guard: the container runs as non-root appuser and can only write inside /app/data/.
-      // Host paths like /Users/... are not writable from inside the container.
+      // Guard: the container can write to:
+      //   1. /app/data/  — Docker volume (always available)
+      //   2. /mac-home/  — bind-mount of ${HOME} from the Docker host (macOS/Linux local installs)
+      // Any other path (e.g. a bare /Users/... host path) is not accessible from inside the container.
       const DATA_DIR_ABS = path.resolve(DATA_DIR);
       if (!nextRoot.startsWith(DATA_DIR_ABS) && !nextRoot.startsWith("/mac-home")) {
         return res.status(400).json({
-          error: `Path not writable inside the container. Use /app/data/workspace/your-project — e.g. /app/data/workspace/my-app`,
+          error: `Use a path inside /app/data/workspace/ or your home folder via /mac-home/ (e.g. /mac-home/Documents/my-project). Host paths like /Users/... are not directly writable.`,
         });
       }
 

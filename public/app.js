@@ -234,7 +234,11 @@ function renderSidebar() {
     const wsFullPath = ws.outputFolder || ws.workspaceRoot || "";
     const wsEl = $("workspacePath");
     if (wsFullPath) {
-      wsEl.textContent = wsFullPath;
+      // Show friendly label: /mac-home/... → ~/...
+      const displayPath = wsFullPath.startsWith("/mac-home/")
+        ? "~/" + wsFullPath.slice("/mac-home/".length)
+        : wsFullPath;
+      wsEl.textContent = displayPath;
       wsEl.title = wsFullPath;
     } else {
       wsEl.textContent = "Not configured";
@@ -1122,7 +1126,7 @@ $("configWorkspaceBtn").addEventListener("click", () => {
     const current = state?.workspace?.workspaceRoot || "";
     const inp = $("workspaceFolderInput");
     if (!inp.value) {
-      inp.value = current || "/app/data/workspace/my-project";
+      inp.value = current || "/mac-home/Documents/my-project";
     }
   }
 });
