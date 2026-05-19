@@ -5,6 +5,38 @@ Versioning scheme: `v{YEAR}.{MINOR}.{PATCH}` — see [VERSION.md](VERSION.md).
 
 ---
 
+## [v2026.0.22] — 2026-05-19
+
+### ✨ Features
+
+- **Thinking indicator**: Before the first token arrives, the assistant bubble shows animated pulsing dots with phase labels — "Routing…" while the Auto Router picks a model, then "Thinking…" while the model generates. Instantly replaced by streamed content on the first token.
+- **Code review modal**: Every code block has a ⛶ View button. Clicking it opens a full-screen dark overlay with complete syntax highlighting, language badge, filename, and line count. Plain-text copy from within the modal. Backdrop click or ✕ to close.
+- **Project Knowledge context injection**: Admin can enter project-level context (tech stack, conventions, coding standards) in **Admin → Settings → Project Knowledge**. This text is injected into every chat system prompt across all users and all modes — no per-session setup required.
+- **Input history (↑/↓)**: The chat input now behaves like a terminal. ↑ navigates to older sent messages; ↓ navigates forward. Current draft is saved and restored when returning to the bottom of history. Consecutive identical messages are deduplicated.
+- **SVG architecture diagram**: README now shows a polished dark-theme SVG diagram instead of ASCII art — gradients, drop shadows, coloured accent bars, proper arrowheads.
+
+### 🐛 Bug Fixes
+
+- **Settings route was silently broken**: `POST /api/admin/settings` was mounted at `/api/admin` with `router.post("/")`, meaning it only matched the bare `/api/admin` path. The frontend calls `/api/admin/settings`, which was falling through to the 404 catch-all and redirecting to `/login`. Fixed by changing handler to `router.post("/settings")`.
+- **SQLite WAL mode broken on Docker/macOS**: WAL journal mode produces 0-byte WAL files on Docker-for-Mac virtualized filesystem — writes committed in one connection were invisible to all others. Switched to `PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL`. This fixed the core login bug where `curl` worked but browser login always failed.
+- **Cluster worker contention**: Multiple cluster workers on a Docker volume caused intermittent `SQLITE_IOERR: disk I/O error` on concurrent writes. Reduced to 1 worker.
+
+---
+
+## [v2026.0.21] — 2026-05-19
+
+### ✨ Features
+
+- **Syntax highlighting**: `highlight.js` loaded for 30+ languages — JavaScript, TypeScript, Python, Rust, Go, SQL, HTML, CSS, YAML, Dockerfile, GraphQL, and more.
+- **Language badges**: Colour-coded pill on every code block header — JS=yellow, TS=blue, Python=green, SQL=orange, Rust=salmon, Go=cyan, Shell=green. Colours match GitHub's language palette.
+- **Line numbers**: Every code block now has a fixed-width line number gutter using a table-cell layout. Non-selectable — copying text does not include line numbers.
+- **Diff view**: Lines starting with `+` render green, `-` render red, `@@` lines render as blue hunk headers. Automatically detected — no explicit `diff` language tag required if the content looks like a diff.
+- **Filename header detection**: A first-line comment in the form `// filename: src/routes/auth.js` (or `# filename:`, `<!-- filename:`) is extracted and shown as a file chip in the code header bar.
+- **Redesigned code header bar**: Dark bar across the top of every code block: language badge + filename on the left, ⛶ View + Copy + Run buttons on the right. No more absolute-positioned buttons overlapping code.
+- **Improved inline code styling**: Inline `code` now has a distinct reddish tint to visually separate it from prose.
+
+---
+
 ## [v2026.0.17] — 2026-05-17
 
 ### 🏗 Architecture

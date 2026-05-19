@@ -148,6 +148,37 @@ The container command is `npm run container:start`, which starts `server.js` ins
 
 ---
 
+## First-Time Setup Checklist
+
+After first boot, complete these steps in the Admin dashboard before inviting employees:
+
+1. **Change admin password** — Admin → Users → Edit admin → Change Password
+2. **Add Ollama models** — Admin → Models → Sync Ollama (or pull models via `ollama pull` on the host first)
+3. **Configure cloud providers** (optional) — Admin → Providers → Add Provider → Sync Models → Approve models
+4. **Set Project Knowledge** — Admin → Settings → Project Knowledge → enter your tech stack, conventions, and team context → Save Settings
+5. **Create employee accounts** — Admin → Users → Add Employee → copy the one-time password for the invite
+
+---
+
+## Project Knowledge
+
+Admin → Settings → Project Knowledge accepts free text. This is injected into **every chat system prompt** for every user. Use it to describe:
+
+- Tech stack: frameworks, languages, database, hosting
+- Coding conventions: naming, patterns, what to avoid
+- Project structure: key folders, entry points
+- Team rules: PR style, test requirements, security policies
+
+Example:
+```
+This is a Next.js 14 + Postgres e-commerce platform.
+Always use TypeScript strict mode. Prefer Tailwind CSS for styling.
+Never use class components. API routes live in /app/api/.
+Run `pnpm test` before every commit. Use Zod for all input validation.
+```
+
+---
+
 ## Production Hardening Checklist
 
 Before sharing with your team:
@@ -191,6 +222,14 @@ docker compose logs app
 ```
 
 Check for port conflicts or missing `.env`.
+
+**Settings not saving (redirects to /login)**
+
+This was a known bug fixed in v2026.0.22. If you see `POST /api/admin/settings` returning a redirect instead of `200 OK`, rebuild the container:
+
+```bash
+docker compose up --build
+```
 
 **Ollama not connected / no models**
 

@@ -16,7 +16,7 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-v2026.0.17-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
+[![Version](https://img.shields.io/badge/version-v2026.0.22-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com)
 [![Node](https://img.shields.io/badge/Node-24--alpine-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
@@ -53,6 +53,7 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - Chat memory — sliding-window session history, model remembers the conversation
 - Sensitive content detection — SSN, PHI, API keys → local-only routing
 - Manual model override in composer
+- Project Knowledge — admin injects company context into every prompt
 
 </td>
 <td width="50%">
@@ -82,6 +83,7 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - Generated code saved to a configured project folder
 - Integrated xterm.js terminal for `workspace:build` users
 - Chat history — pin, archive, fork, rename threads
+- Input history — ↑/↓ arrow keys navigate past messages
 
 </td>
 </tr>
@@ -102,6 +104,28 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - DOMPurify XSS sanitisation on all AI output
 - Login rate limiting, CSRF protection, HSTS
 - Workspace path traversal protection
+
+</td>
+</tr>
+<tr>
+<td>
+
+**✨ Code Experience**
+- Syntax highlighting — 30+ languages via highlight.js
+- Language badges with per-language colour coding
+- Line numbers on every code block
+- Diff view — `+` green, `-` red, `@@` hunk headers
+- Filename header — reads `// filename:` comment in code
+- Full-screen code review modal (⛶ View button)
+
+</td>
+<td>
+
+**🧠 Live Feedback**
+- Thinking indicator — animated dots while model routes and generates
+- Phase labels: Routing → Thinking → response streams in
+- ↑/↓ input history like a terminal — draft preserved on ↓
+- Copy button extracts clean plain text, not decorated HTML
 
 </td>
 </tr>
@@ -182,6 +206,41 @@ SESSION_SECRET=replace-with-random-string
 # Apply changes
 docker compose down && docker compose up --build
 ```
+
+---
+
+## Code Experience
+
+Every AI response that contains code is rendered with a professional code block:
+
+| Feature | Detail |
+|---|---|
+| **Syntax highlighting** | 30+ languages — JS, TS, Python, Rust, Go, SQL, HTML, CSS, YAML, and more |
+| **Language badge** | Colour-coded pill per language (JS=yellow, TS=blue, Python=green, SQL=orange…) |
+| **Line numbers** | Every line numbered in a fixed-width gutter |
+| **Diff view** | Lines starting with `+` → green, `-` → red, `@@` → blue hunk header. Auto-detected |
+| **Filename header** | First-line comment `// filename: src/app.js` shows a file chip in the header bar |
+| **⛶ View** | Opens the code block in a full-screen modal with clean highlighting and line count |
+| **Copy** | Copies plain text — no markup, no line numbers in clipboard |
+| **Run** | Shell code blocks get a ▶ Run button that sends the command to the embedded terminal |
+
+---
+
+## Project Knowledge
+
+Admins can inject company-wide context into every chat prompt via **Admin → Settings → Project Knowledge**.
+
+```
+Example:
+This is a Next.js 14 + Postgres platform. Always use TypeScript strict mode.
+Prefer Tailwind CSS. Never use class components. All API routes live in /app/api/.
+```
+
+Every employee message — regardless of mode — will have this context prepended in the system prompt. Useful for:
+- Tech stack conventions
+- Coding standards and patterns
+- Team-specific terminology
+- Project structure notes
 
 ---
 

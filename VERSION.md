@@ -8,15 +8,49 @@ Tracks every release, version tag, and key commit in the project history.
 
 | Field | Value |
 |---|---|
-| **Version** | `v2026.0.17` |
-| **Released** | 2026-05-17 |
-| **Commit** | `df462e2` |
+| **Version** | `v2026.0.22` |
+| **Released** | 2026-05-19 |
+| **Commit** | `7c5eb83` |
 | **Status** | ✅ Stable |
 | **Branch** | `main` |
 
 ---
 
 ## Version History
+
+### v2026.0.22 — 2026-05-19
+> **Thinking indicator, code review modal, project knowledge, input history, settings bug fix**
+
+| Commit | Date | Description |
+|---|---|---|
+| `7c5eb83` | 2026-05-19 | fix: correct settings route path — POST /api/admin/settings was routing to 404 |
+| `2c723d6` | 2026-05-19 | feat: thinking indicator, code review modal, project knowledge context, input history |
+
+**Key changes:**
+- Thinking indicator: animated dots with Routing → Thinking phase labels before first token
+- Code review modal: full-screen overlay with hljs highlighting, line count, plain-text copy
+- Project Knowledge: admin-set context injected into every chat system prompt
+- Input history: ↑/↓ terminal-style navigation of sent messages; draft preserved
+- Bug fix: `POST /api/admin/settings` was never reachable — router mounted at wrong path
+
+---
+
+### v2026.0.21 — 2026-05-19
+> **Code block overhaul — syntax highlighting, line numbers, diff view, language badges**
+
+| Commit | Date | Description |
+|---|---|---|
+| `5c96044` | 2026-05-19 | feat: add enhanced code block rendering with syntax highlighting and diff view |
+
+**Key changes:**
+- highlight.js loaded for 30+ languages
+- Per-language colour-coded badge (JS=yellow, TS=blue, Python=green, Rust=salmon…)
+- Line numbers via table-cell layout — not included in clipboard copy
+- Diff rendering: `+` green, `-` red, `@@` blue hunk header
+- Filename header extracted from `// filename:` comment
+- New dark header bar: badge + filename + ⛶ View + Copy + Run
+
+---
 
 ### v2026.0.17 — 2026-05-17
 > **Security audit fixes + full modular refactor**

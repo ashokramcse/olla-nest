@@ -22,10 +22,15 @@ Host machine
 |---|---|---|
 | Runtime | Node.js 24 Alpine | Express API server |
 | Frontend | HTML / CSS / JS | Served as static files from `public/` |
-| SQL | SQLite (`node:sqlite`) | Users, groups, models, permissions, settings |
+| SQL | SQLite (DELETE journal mode) | Users, groups, models, permissions, settings |
 | Document | JSON file | Chat history, audit log, router traces, workspace preferences |
 | AI inference | Ollama (host) | Local model execution |
+| Syntax highlighting | highlight.js (vendor) | Client-side code block rendering, 30+ languages |
+| Markdown | marked.js (vendor) | AI response markdown rendering with custom code renderer |
+| XSS sanitisation | DOMPurify (vendor) | Sanitises all AI-generated HTML before DOM insertion |
 | Container | Docker + Docker Compose | Only supported runtime |
+
+> **SQLite journal mode**: WAL mode is intentionally disabled. On Docker-for-Mac and similar virtualised filesystems, WAL produces 0-byte WAL files — writes in one connection are invisible to all others. `PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL` is used instead for reliable cross-connection visibility.
 
 ### Docker-Only Runtime Contract
 
@@ -60,13 +65,55 @@ Ollama (host:11434)
 
 ## Auto Router
 
-The router runs on every `/api/chat` request:
+The router runs on every `/api/chat` and `/api/chat/stream` request:
 
 1. **Classify** — detect request type from message text and mode (coding, writing, OCR, medical, review, general)
 2. **Filter** — collect models the user is approved to access via user, group, and department grants
 3. **Score** — rank each candidate by: capability match × 35pts, specialist bonus × 45pts, speed weight, quality weight, privacy score
 4. **Select** — pick the highest-scoring approved model
-5. **Generate** — call Ollama `/api/generate` with a mode-specific system prompt
+5. **Privacy gate** — SSN / credit card / PHI patterns detected → forced local-only, regardless of user selection
+6. **Generate** — call provider (Ollama or cloud) with mode-specific system prompt + project knowledge + sliding-window history
+
+---
+
+## System Prompt Pipeline
+
+Every chat request builds the system prompt in this order:
+
+```
+[Base instructions]
+  + Routing context (selected model + reason)
+  + Project Knowledge (admin-configured, if set)
+  + Workspace context (active folder + file list, if workspace active)
+  + Mode instruction (ask / build / fix / review / debug / test / plan / docs / learn)
+  ──────────────────────────────────────────────────────────────────
+  → Sent as the "system" role message to the model
+  → Followed by sliding-window chat history
+  → Followed by the current user message
+```
+
+**Project Knowledge** is a free-text block admins set in Admin → Settings. It is injected into every prompt for every user, making it ideal for tech stack context, coding conventions, or team-specific terminology.
+
+---
+
+## Code Rendering Pipeline
+
+AI responses flow through a custom `renderMarkdown()` pipeline before reaching the DOM:
+
+```
+Raw model output (string)
+  → marked.js parser with custom renderer.code()
+      → highlight.js syntax highlighting (30+ languages)
+      → Line number table-cell layout
+      → Diff detection (+ / - / @@ line prefixes)
+      → Filename header extraction (// filename: comment)
+      → Language badge with colour map
+      → ⛶ View + Copy + Run button injection
+  → DOMPurify sanitisation (XSS prevention)
+  → innerHTML insertion
+```
+
+The `renderCodeBlock()` function stores the raw source text in a `data-raw` attribute (URL-encoded) on each `.md-code-block` div. The code review modal and copy button both read from this attribute to ensure plain text — not hljs-decorated HTML — is used.
 
 ---
 
@@ -87,7 +134,18 @@ All relational data lives in a single SQLite database at `/app/data/olla-nest.sq
 | `role_catalog` | Enterprise RBAC role templates and permission sets |
 | `permission_catalog` | AI usage, admin, model, workflow, and infrastructure permissions |
 | `user_overrides` | Individual user access overrides that outrank department and role defaults |
-| `settings` | Key-value configuration (router toggle, Ollama URL, workspace root, etc.) |
+| `settings` | Key-value configuration (router toggle, Ollama URL, workspace root, project knowledge, etc.) |
+
+### Notable Settings Keys
+
+| Key | Type | Purpose |
+|---|---|---|
+| `routerEnabled` | boolean | Enable/disable Auto Router |
+| `ollama_url` | string | URL to reach Ollama from container |
+| `workspaceRoot` | string | Default workspace folder path |
+| `projectKnowledge` | string | Admin-set context injected into every chat prompt |
+| `localOnlyDefault` | boolean | Route to local models by default |
+| `allowApiModels` | boolean | Allow cloud provider models |
 
 ### JSON Document Store (cognitive archive)
 
