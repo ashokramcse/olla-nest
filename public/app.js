@@ -1122,33 +1122,33 @@ $("configWorkspaceBtn").addEventListener("click", () => {
   const opening = !workspaceConfigOpen;
   setWorkspacePanel(opening);
   if (opening) {
-    // Pre-fill with current workspace path if set, otherwise suggest a safe container default
-    const current = state?.workspace?.workspaceRoot || "";
-    const inp = $("workspaceFolderInput");
-    if (!inp.value) {
-      // Detect OS and suggest the right default path
-      const ua = navigator.userAgent || "";
-      const isWin = ua.includes("Windows");
-      const isLinux = ua.includes("Linux") && !ua.includes("Android");
-      const defaultSuggest = isWin
-        ? "/host-home/Documents/my-project"
-        : isLinux
-          ? "/host-home/projects/my-project"
-          : "/host-home/Documents/my-project"; // macOS default
-      inp.value = current || defaultSuggest;
+    // OS detection — always runs when panel opens
+    const ua = navigator.userAgent || "";
+    const isWin = ua.includes("Windows");
+    const isLinux = ua.includes("Linux") && !ua.includes("Android");
+    const defaultSuggest = isWin
+      ? "/host-home/Documents/my-project"
+      : isLinux
+        ? "/host-home/projects/my-project"
+        : "/host-home/Documents/my-project";
 
-      // Update the OS hint text
-      const hint = $("wsOsHint");
-      if (hint) {
-        if (isWin) {
-          hint.innerHTML = `Windows: <code style="font-size:11px;">C:\\Users\\you\\Documents\\project</code> → <code style="font-size:11px;">/host-home/Documents/project</code>`;
-        } else if (isLinux) {
-          hint.innerHTML = `Linux: <code style="font-size:11px;">~/projects/myapp</code> → <code style="font-size:11px;">/host-home/projects/myapp</code>`;
-        } else {
-          hint.innerHTML = `macOS: <code style="font-size:11px;">~/Documents/myproject</code> → <code style="font-size:11px;">/host-home/Documents/myproject</code>`;
-        }
+    // OS hint — always update
+    const hint = $("wsOsHint");
+    if (hint) {
+      if (isWin) {
+        hint.innerHTML = `Windows: <code style="font-size:11px;">C:\\Users\\you\\Documents\\project</code> → <code style="font-size:11px;">/host-home/Documents/project</code>`;
+      } else if (isLinux) {
+        hint.innerHTML = `Linux: <code style="font-size:11px;">~/projects/myapp</code> → <code style="font-size:11px;">/host-home/projects/myapp</code>`;
+      } else {
+        hint.innerHTML = `macOS: <code style="font-size:11px;">~/Documents/myproject</code> → <code style="font-size:11px;">/host-home/Documents/myproject</code>`;
       }
     }
+
+    // Pre-fill input: use saved path only if it's a valid container path.
+    // If the saved path is an old host path (e.g. /Users/...), discard it and use the OS default.
+    const saved = state?.workspace?.workspaceRoot || "";
+    const isValidContainerPath = saved.startsWith("/host-home") || saved.startsWith("/app/data");
+    $("workspaceFolderInput").value = isValidContainerPath ? saved : defaultSuggest;
   }
 });
 
