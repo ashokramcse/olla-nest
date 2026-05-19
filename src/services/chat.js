@@ -120,7 +120,7 @@ async function buildContextMessages(db, sessionId, systemPrompt, userMessage, mo
  * @param {{ workspaceRoot?: string, permissionMode?: string }|null} workspace
  * @returns {string} Full system prompt.
  */
-async function buildSystemPrompt(mode, route, workspace) {
+async function buildSystemPrompt(mode, route, workspace, projectKnowledge) {
   const base = [
     "You are Olla Nest, a company AI workspace assistant.",
     "Answer the user's request directly and completely.",
@@ -141,6 +141,9 @@ async function buildSystemPrompt(mode, route, workspace) {
       base.push("Current project files: (empty — this is a new project)");
     }
   }
+  if (projectKnowledge && String(projectKnowledge).trim()) {
+    base.push(`\nProject Knowledge (injected by admin):\n${String(projectKnowledge).trim()}`);
+  }
   const modeInstructions = {
     ask: "Give a clear, useful answer with enough detail to be acted on.",
     build: "Build the requested output. Return the implementation as one complete, runnable file in a fenced code block. For UI pages, prefer a complete React JSX component when React is implied, otherwise a complete HTML file with embedded CSS and JavaScript. Do not return only a plan.",
@@ -155,8 +158,8 @@ async function buildSystemPrompt(mode, route, workspace) {
   return `${base.join("\n")}\nMode: ${mode}\nInstruction: ${modeInstructions[mode] || modeInstructions.ask}`;
 }
 
-async function modelPrompt(message, mode, route, workspace) {
-  return `${await buildSystemPrompt(mode, route, workspace)}\n\nUser request:\n${message.trim()}`;
+async function modelPrompt(message, mode, route, workspace, projectKnowledge) {
+  return `${await buildSystemPrompt(mode, route, workspace, projectKnowledge)}\n\nUser request:\n${message.trim()}`;
 }
 
 // ─── SQL Chat helpers ─────────────────────────────────────────────────────────

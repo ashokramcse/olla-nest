@@ -509,12 +509,13 @@ function renderCodeBlock(text, lang) {
   const runBtn = isRunnable
     ? `<button class="run-in-term-btn" onclick="runInTerminal(this)" title="Run in terminal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
     : "";
+  const viewBtn = `<button class="md-copy-btn" onclick="openCodeReview(this)" title="Full screen view">⛶ View</button>`;
 
   // Diff rendering
   if (isDiff) {
     const codeEl = renderDiffBlock(text, langKey);
-    return `<div class="md-code-block">
-      <div class="code-header">${badge}${fileEl}<div class="code-header-actions"><button class="md-copy-btn" onclick="copyCode(this)">Copy</button>${runBtn}</div></div>
+    return `<div class="md-code-block" data-lang="${esc(langKey)}" data-filename="${esc(filename)}" data-raw="${encodeURIComponent(text)}">
+      <div class="code-header">${badge}${fileEl}<div class="code-header-actions">${viewBtn}<button class="md-copy-btn" onclick="copyCode(this)">Copy</button>${runBtn}</div></div>
       <pre><code>${codeEl}</code></pre>
     </div>`;
   }
@@ -546,8 +547,8 @@ function renderCodeBlock(text, lang) {
     return `<div class="code-line"><span class="code-ln">${i + 1}</span><span class="code-lc">${hlLine}</span></div>`;
   });
 
-  return `<div class="md-code-block">
-    <div class="code-header">${badge}${fileEl}<div class="code-header-actions"><button class="md-copy-btn" onclick="copyCode(this)">Copy</button>${runBtn}</div></div>
+  return `<div class="md-code-block" data-lang="${esc(langKey)}" data-filename="${esc(filename)}" data-raw="${encodeURIComponent(text)}">
+    <div class="code-header">${badge}${fileEl}<div class="code-header-actions">${viewBtn}<button class="md-copy-btn" onclick="copyCode(this)">Copy</button>${runBtn}</div></div>
     <pre><code class="hljs"><div class="code-lines">${rows.join("")}</div></code></pre>
   </div>`;
 }
@@ -613,6 +614,62 @@ function runInTerminal(btn) {
     alert("Terminal not available. Make sure you have workspace:build permission.");
   }
 }
+
+// ── Code Review Modal ──────────────────────────────────────────────────────────
+let _reviewRawText = "";
+
+function openCodeReview(btn) {
+  const block = btn.closest(".md-code-block");
+  const lang = block.dataset.lang || "text";
+  const filename = block.dataset.filename || "";
+  const raw = decodeURIComponent(block.dataset.raw || "");
+  _reviewRawText = raw;
+
+  const modal = document.getElementById("codeReviewModal");
+  const langEl = document.getElementById("codeReviewLang");
+  const fileEl = document.getElementById("codeReviewFilename");
+  const codeEl = document.getElementById("codeReviewContent");
+  const linesEl = document.getElementById("codeReviewLines");
+
+  // Badge color
+  const color = LANG_COLORS[lang] || "#888";
+  const textColor = ["#f7df1e","#f34b7d","#ffac45","#cbcb41"].includes(color) ? "#111" : "#fff";
+  langEl.textContent = lang;
+  langEl.style.background = color;
+  langEl.style.color = textColor;
+  fileEl.textContent = filename || "";
+
+  // Highlight
+  let highlighted = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (typeof hljs !== "undefined" && lang) {
+    try {
+      const validLang = hljs.getLanguage(lang) ? lang : null;
+      if (validLang) highlighted = hljs.highlight(raw, { language: validLang }).value;
+    } catch (_) {}
+  }
+  codeEl.innerHTML = highlighted;
+  linesEl.textContent = raw.split("\n").length + " lines";
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
+}
+
+function closeCodeReview() {
+  document.getElementById("codeReviewModal").style.display = "none";
+  document.body.style.overflow = "";
+}
+
+function copyReviewCode() {
+  navigator.clipboard.writeText(_reviewRawText).then(() => {
+    const btn = document.getElementById("codeReviewCopyBtn");
+    btn.textContent = "Copied!";
+    setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+  });
+}
+
+// Close modal on backdrop click
+document.getElementById("codeReviewModal")?.addEventListener("click", (e) => {
+  if (e.target === document.getElementById("codeReviewModal")) closeCodeReview();
+});
 
 /**
  * Re-renders the entire messages list from state.chats.
@@ -890,6 +947,10 @@ $("chatForm").addEventListener("submit", async (e) => {
   sendBtn.disabled = true;
   sendBtn.textContent = "Sending…";
   stopBtn.style.display = "inline-flex";
+  // Save to input history (deduplicate consecutive identical messages)
+  if (inputHistory[inputHistory.length - 1] !== message) inputHistory.push(message);
+  historyIdx = -1;
+  historyDraft = "";
   input.value = "";
 
   $("routerContent").innerHTML = `<div class="router-body" style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;">
@@ -915,13 +976,14 @@ $("chatForm").addEventListener("submit", async (e) => {
     </div>
     <div class="message-wrap assistant" id="${asstBubbleId}">
       <div class="message-meta">Olla Nest</div>
-      <div class="message-bubble assistant-bubble md-body" id="${asstBubbleId}-content"><span class="streaming-cursor"></span></div>
+      <div class="message-bubble assistant-bubble md-body" id="${asstBubbleId}-content"><div class="thinking-indicator"><span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-phase" id="${asstBubbleId}-phase">Routing…</span></div></div>
     </div>
   `);
   msgs.scrollTop = msgs.scrollHeight;
 
   let fullContent = "";
   let currentRoute = null;
+  let firstToken = true;
 
   try {
     // Collect images (base64) from uploaded files
@@ -976,10 +1038,20 @@ $("chatForm").addEventListener("submit", async (e) => {
             </div>`;
             const meta = $(`${asstBubbleId}`);
             if (meta) meta.querySelector(".message-meta").textContent = esc(event.model);
+            // Update thinking phase label
+            const phase = $(`${asstBubbleId}-phase`);
+            if (phase) phase.textContent = "Thinking…";
           } else if (event.type === "token") {
             fullContent += event.content;
             const bubble = $(`${asstBubbleId}-content`);
-            if (bubble) bubble.innerHTML = renderMarkdown(fullContent) + '<span class="streaming-cursor"></span>';
+            if (bubble) {
+              if (firstToken) {
+                firstToken = false;
+                bubble.innerHTML = renderMarkdown(fullContent) + '<span class="streaming-cursor"></span>';
+              } else {
+                bubble.innerHTML = renderMarkdown(fullContent) + '<span class="streaming-cursor"></span>';
+              }
+            }
             msgs.scrollTop = msgs.scrollHeight;
           } else if (event.type === "done") {
             const bubble = $(`${asstBubbleId}-content`);
@@ -1078,11 +1150,42 @@ $("logoutBtn").addEventListener("click", async () => {
   window.location.href = "/login";
 });
 
-// Textarea auto-resize + Enter to send
+// Input history — ↑/↓ to navigate sent messages (like a terminal)
+const inputHistory = [];
+let historyIdx = -1;
+let historyDraft = ""; // saves current draft when navigating up
+
+// Textarea auto-resize + Enter to send + ↑↓ history
 $("messageInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     $("chatForm").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    return;
+  }
+  const inp = $("messageInput");
+  // ArrowUp: navigate to older history (only when cursor is on first line or field is empty)
+  if (e.key === "ArrowUp") {
+    const atTop = inp.selectionStart === 0 || !inp.value.includes("\n");
+    if (!atTop) return;
+    if (inputHistory.length === 0) return;
+    e.preventDefault();
+    if (historyIdx === -1) historyDraft = inp.value; // save current draft
+    historyIdx = Math.min(historyIdx + 1, inputHistory.length - 1);
+    inp.value = inputHistory[inputHistory.length - 1 - historyIdx];
+    inp.selectionStart = inp.selectionEnd = inp.value.length;
+    return;
+  }
+  // ArrowDown: navigate to newer history
+  if (e.key === "ArrowDown") {
+    if (historyIdx === -1) return;
+    e.preventDefault();
+    historyIdx--;
+    if (historyIdx === -1) {
+      inp.value = historyDraft; // restore draft
+    } else {
+      inp.value = inputHistory[inputHistory.length - 1 - historyIdx];
+    }
+    inp.selectionStart = inp.selectionEnd = inp.value.length;
   }
 });
 

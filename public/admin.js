@@ -615,6 +615,7 @@ function renderSettings() {
   $("localWritesEnabled").checked = !!s.localWritesEnabled;
   $("localPermissionMode").value = s.localPermissionMode || "default";
   $("workspaceRoot").value = s.workspaceRoot || "";
+  $("projectKnowledge").value = s.projectKnowledge || "";
   renderSourcePills();
 }
 
@@ -852,6 +853,7 @@ $("saveSettingsBtn").addEventListener("click", async () => {
         localWritesEnabled: $("localWritesEnabled").checked,
         localPermissionMode: $("localPermissionMode").value,
         workspaceRoot: $("workspaceRoot").value.trim() || undefined,
+        projectKnowledge: $("projectKnowledge").value,
       }),
     });
     msg.className = "form-message success";

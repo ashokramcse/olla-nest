@@ -14,6 +14,7 @@ module.exports = function(deps) {
   const { routeModel } = deps;
   const { resolveProvider, callProvider, callProviderStream } = deps;
   const { buildSystemPrompt, buildContextMessages, getActiveChat, getActiveChatSession, archiveCurrentChat, buildChatObject, appendAudit, appendTrace } = deps;
+  const { setting } = deps;
   const { workspaceForUser, writeLocalArtifacts, extractArtifacts, cleanModelOutput } = deps;
   const { detectSensitiveContent } = require("../services/router");
 
@@ -63,7 +64,7 @@ module.exports = function(deps) {
       let live = true;
       try {
         const provider = resolveProvider(db, route);
-        const systemPrompt = await buildSystemPrompt(mode, route, workspace);
+        const systemPrompt = await buildSystemPrompt(mode, route, workspace, setting(db, "projectKnowledge", ""));
         const images = Array.isArray(req.body.images) ? req.body.images : [];
         const contextMsgs = await buildContextMessages(db, chat.id, systemPrompt, message, route.selected.model, images);
         const result = await callProvider(provider, route.selected.model, contextMsgs, { timeout: 300000 });
@@ -185,7 +186,7 @@ module.exports = function(deps) {
 
       // Load session history for context window
       const chatSession = getActiveChat(db, user.id);
-      const systemPrompt = await buildSystemPrompt(mode, route, workspace);
+      const systemPrompt = await buildSystemPrompt(mode, route, workspace, setting(db, "projectKnowledge", ""));
       const messages = await buildContextMessages(db, chatSession.id, systemPrompt, message, route.selected.model, images);
 
       let fullContent = "";

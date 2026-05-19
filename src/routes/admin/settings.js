@@ -21,7 +21,7 @@ module.exports = function(deps) {
     const db = openSql();
     try {
       const user = req.user;
-      ["routerEnabled", "allowApiModels", "localOnlyDefault", "localWritesEnabled", "localPermissionMode", "apiModelProvider",
+      ["routerEnabled", "allowApiModels", "localOnlyDefault", "localWritesEnabled", "localPermissionMode", "apiModelProvider", "projectKnowledge",
         "anthropicEnabled", "anthropicApiKey", "anthropicBaseUrl",
         "openaiEnabled", "openaiApiKey", "openaiBaseUrl",
         "groqEnabled", "groqApiKey",

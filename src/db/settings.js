@@ -72,6 +72,7 @@ function settingsState(db) {
     routerWeights: safeJson(setting(db, "routerWeights", null), { speed: 0.3, quality: 0.5, privacy: 0.2 }),
     sensitivePatterns: safeJson(setting(db, "sensitivePatterns", null), []),
     localOnlyModes: safeJson(setting(db, "localOnlyModes", null), ["build", "fix"]),
+    projectKnowledge: setting(db, "projectKnowledge", ""),
   };
 }
 
