@@ -149,7 +149,7 @@ app.use("/api/admin", require("./routes/admin/users")(deps));
 // models.js handles /api/admin/models/:id/governance AND /api/admin/ollama/ping
 app.use("/api/admin", require("./routes/admin/models")(deps));
 app.use("/api/admin/providers", require("./routes/admin/providers")(deps));
-// settings.js handles /api/admin/settings, /api/admin/departments, /api/admin/departments/:id/rights
+// settings.js handles /api/admin/settings, /api/admin/departments, /api/admin/backup
 app.use("/api/admin", require("./routes/admin/settings")(deps));
 // reports.js handles /api/admin/reports AND /api/admin/feedback
 app.use("/api/admin", require("./routes/admin/reports")(deps));

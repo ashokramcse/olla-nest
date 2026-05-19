@@ -17,7 +17,7 @@ module.exports = function(deps) {
   const { appendAudit } = deps;
 
   // [POST] /api/admin/settings — Auth: requireAdmin — Purpose: update platform settings (router, Ollama URL, API keys, workspace)
-  router.post("/", requireAdmin, (req, res) => {
+  router.post("/settings", requireAdmin, (req, res) => {
     const db = openSql();
     try {
       const user = req.user;
@@ -79,7 +79,7 @@ module.exports = function(deps) {
   });
 
   // [POST] /api/admin/backup — Auth: requireAdmin — Purpose: trigger a manual SQLite backup
-  router.post("/backup", requireAdmin, (req, res) => {
+  router.post("/settings/backup", requireAdmin, (req, res) => {
     const result = runBackup();
     res.json(result);
   });
