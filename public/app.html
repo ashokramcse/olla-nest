@@ -192,7 +192,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
                 <div class="app-cmp-dropdown" id="appModelDropdown">
-                  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;padding:10px 14px 6px;">Select model</div>
+                  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted1);padding:10px 14px 6px;">Select model</div>
                   <div id="appModelList"></div>
                 </div>
               </div>
@@ -277,9 +277,9 @@
           <div style="font-size:12px;color:var(--muted1);margin-bottom:4px;">Folder path</div>
 
           <!-- Cross-platform path info -->
-          <div style="font-size:11px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:7px 10px;margin-bottom:6px;line-height:1.7;">
+          <div style="font-size:11px;color:var(--ac-dark);background:var(--ac-pale);border:1px solid var(--ac-mid);border-radius:8px;padding:7px 10px;margin-bottom:6px;line-height:1.7;">
             <strong>Your machine's home folder is mounted at <code style="font-size:11px;">/host-home/</code></strong><br>
-            <span id="wsOsHint" style="color:#374151;">Loading…</span>
+            <span id="wsOsHint" style="color:var(--muted1);">Loading…</span>
           </div>
 
           <!-- Folder browser -->
@@ -297,7 +297,7 @@
             <option value="full">Full access</option>
           </select>
           <button class="ap-btn dark" id="saveWorkspaceBtn" style="width:100%;padding:9px;">Save</button>
-          <div id="workspaceSaveMsg" style="font-size:12px;color:#16a34a;margin-top:8px;min-height:14px;"></div>
+          <div id="workspaceSaveMsg" style="font-size:12px;color:var(--log-ok);margin-top:8px;min-height:14px;"></div>
         </div>
       </div>
       <!-- hidden stub so existing JS cancelWorkspaceBtn reference doesn't throw -->
@@ -380,13 +380,13 @@ function updateModelRing(count, max) {
     </div>
     <div class="profile-body">
       <div class="enterprise-notice" id="enterpriseNotice" style="display:none;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1565c0" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;color:var(--ac-dark);"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <p>Your account is managed by your organization. Some fields are locked and can only be changed by your IT administrator.</p>
       </div>
       <div class="profile-section-title">Identity</div>
       <div class="profile-field"><label>Display name</label><input type="text" id="profInputName" placeholder="Your full name"></div>
       <div class="profile-field"><label>Phone</label><input type="tel" id="profInputPhone" placeholder="+1 555 000 0000"></div>
-      <div class="profile-field"><label>Email <span style="font-size:10px;color:#b89c1a;">(managed)</span></label><input type="email" id="profInputEmail" readonly></div>
+      <div class="profile-field"><label>Email <span style="font-size:10px;color:var(--muted1);">(managed)</span></label><input type="email" id="profInputEmail" readonly></div>
       <div class="profile-section-title">Work Details</div>
       <div class="profile-field">
         <label>Designation / Job title</label><input type="text" id="profInputDesignation" placeholder="e.g. Senior Engineer">
@@ -416,10 +416,10 @@ function updateModelRing(count, max) {
       <button class="profile-pw-toggle" id="profPwToggle" type="button">🔑 Change password</button>
       <div class="profile-pw-section" id="profPwSection">
         <div style="height:12px;"></div>
-        <div class="profile-field"><label>Current password</label><div style="position:relative;"><input type="password" id="profPwCurrent" autocomplete="current-password" style="width:100%;"><button type="button" onclick="(function(b){var i=document.getElementById('profPwCurrent');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#888;background:none;border:none;cursor:pointer;">Show</button></div></div>
-        <div class="profile-field"><label>New password <span style="font-size:10px;color:#aaa;">(min 12 chars)</span></label><div style="position:relative;"><input type="password" id="profPwNew" autocomplete="new-password" style="width:100%;"><button type="button" onclick="(function(b){var i=document.getElementById('profPwNew');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#888;background:none;border:none;cursor:pointer;">Show</button></div></div>
-        <div class="profile-field"><label>Confirm new password</label><div style="position:relative;"><input type="password" id="profPwConfirm" autocomplete="new-password" style="width:100%;"><button type="button" onclick="(function(b){var i=document.getElementById('profPwConfirm');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#888;background:none;border:none;cursor:pointer;">Show</button></div></div>
-        <button class="profile-save-btn" id="profPwSaveBtn" type="button" style="background:#333;">Update password</button>
+        <div class="profile-field"><label>Current password</label><div style="position:relative;"><input type="password" id="profPwCurrent" autocomplete="current-password" style="width:100%;"><button type="button" onclick="(function(b){var i=document.getElementById('profPwCurrent');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted1);background:none;border:none;cursor:pointer;">Show</button></div></div>
+        <div class="profile-field"><label>New password <span style="font-size:10px;color:var(--muted2);">(min 12 chars)</span></label><div style="position:relative;"><input type="password" id="profPwNew" autocomplete="new-password" style="width:100%;"><button type="button" onclick="(function(b){var i=document.getElementById('profPwNew');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted1);background:none;border:none;cursor:pointer;">Show</button></div></div>
+        <div class="profile-field"><label>Confirm new password</label><div style="position:relative;"><input type="password" id="profPwConfirm" autocomplete="new-password" style="width:100%;"><button type="button" onclick="(function(b){var i=document.getElementById('profPwConfirm');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted1);background:none;border:none;cursor:pointer;">Show</button></div></div>
+        <button class="profile-save-btn" id="profPwSaveBtn" type="button">Update password</button>
         <div class="profile-msg" id="profPwMsg"></div>
         <div style="height:8px;"></div>
       </div>

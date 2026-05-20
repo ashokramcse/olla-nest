@@ -136,14 +136,20 @@ function showToast(msg, type = "info", duration = 4000) {
     document.body.appendChild(container);
   }
   const toast = document.createElement("div");
-  const colors = {
-    success: { bg: "#f0fdf4", border: "#86efac", text: "#15803d", icon: "✓" },
-    error:   { bg: "#fef2f2", border: "#fca5a5", text: "#b91c1c", icon: "✕" },
-    warning: { bg: "#fffbeb", border: "#fcd34d", text: "#92400e", icon: "⚠" },
-    info:    { bg: "#fffdf0", border: "#e8c520", text: "#78350f", icon: "ℹ" },
+  // Use semantic semantic icon + accent border; base bg/text from CSS vars so it adapts to day/night
+  const icons = { success: "✓", error: "✕", warning: "⚠", info: "ℹ" };
+  const accentColors = {
+    success: "#22c55e",
+    error:   "#ef4444",
+    warning: "#f59e0b",
+    info:    cssVar("--ac") || "#f5c800",
   };
-  const c = colors[type] || colors.info;
-  toast.style.cssText = `background:${c.bg};border:1px solid ${c.border};color:${c.text};padding:12px 16px;border-radius:12px;font-size:13px;font-weight:500;display:flex;align-items:flex-start;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.10);animation:slideInToast .2s ease;cursor:pointer;`;
+  const icon   = icons[type]        || icons.info;
+  const accent = accentColors[type] || accentColors.info;
+  const bg     = cssVar("--bubble") || "#fff";
+  const border = accent + "55";      // 33% alpha accent border
+  const text   = cssVar("--body-text") || "#1a1a1a";
+  toast.style.cssText = `background:${bg};border:1px solid ${border};color:${text};border-left:3px solid ${accent};padding:12px 16px;border-radius:12px;font-size:13px;font-weight:500;display:flex;align-items:flex-start;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);animation:slideInToast .2s ease;cursor:pointer;`;
   toast.innerHTML = `<span style="font-size:16px;line-height:1;">${c.icon}</span><span style="flex:1;line-height:1.4;">${esc(msg)}</span>`;
   toast.onclick = () => toast.remove();
   container.appendChild(toast);
@@ -163,7 +169,7 @@ function showConfirm(msg, onConfirm) {
   overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000;display:flex;align-items:center;justify-content:center;";
   overlay.innerHTML = `
     <div style="background:var(--bubble);border-radius:16px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
-      <div style="font-size:15px;font-weight:600;color:#1a1a0f;margin-bottom:20px;line-height:1.5;">${esc(msg)}</div>
+      <div style="font-size:15px;font-weight:600;color:var(--body-text);margin-bottom:20px;line-height:1.5;">${esc(msg)}</div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button id="confirmCancel" class="btn btn-secondary" style="min-width:80px;">Cancel</button>
         <button id="confirmOk" class="btn btn-danger" style="min-width:80px;">Confirm</button>
@@ -1213,8 +1219,8 @@ function renderOllamaProvider() {
         : `<span style="font-size:12px;color:var(--muted2);">Ollama offline — start Ollama and click Sync Models to discover models.</span>`;
     } else {
       listEl.innerHTML = availableModels.map(m =>
-        `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#e8f5e9;border:1px solid #4caf5040;font-size:12px;font-weight:500;color:#1a1a0e;">
-          <span style="width:6px;height:6px;border-radius:50%;background:#4caf50;flex-shrink:0;"></span>${esc(m.name)}
+        `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--ac-pale);border:1px solid var(--ac-mid);font-size:12px;font-weight:500;color:var(--body-text);">
+          <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0;"></span>${esc(m.name)}
         </span>`
       ).join("");
     }
@@ -1686,7 +1692,7 @@ function mkChart(id, type, data, opts = {}) {
       ds.tension = ds.tension ?? 0.4;
       ds.pointRadius = ds.pointRadius ?? 4;
       ds.pointHoverRadius = ds.pointHoverRadius ?? 6;
-      ds.pointBackgroundColor = ds.pointBackgroundColor ?? '#fff';
+      ds.pointBackgroundColor = ds.pointBackgroundColor ?? (cssVar("--bubble") || "#fff");
       ds.pointBorderWidth = ds.pointBorderWidth ?? 2;
       if (ds.fill === undefined) ds.fill = true;
     });
@@ -1698,7 +1704,7 @@ function mkChart(id, type, data, opts = {}) {
         ds.tension = ds.tension ?? 0.4;
         ds.pointRadius = ds.pointRadius ?? 4;
         ds.pointHoverRadius = ds.pointHoverRadius ?? 6;
-        ds.pointBackgroundColor = ds.pointBackgroundColor ?? '#fff';
+        ds.pointBackgroundColor = ds.pointBackgroundColor ?? (cssVar("--bubble") || "#fff");
         ds.pointBorderWidth = ds.pointBorderWidth ?? 2;
       }
     });

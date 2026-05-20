@@ -183,6 +183,8 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 .btn-ghost     { background: transparent; border: 1px solid var(--border); color: var(--body-text); }
 .btn-danger    { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 .btn-danger:hover { background: #fecaca; }
+[data-theme="night"] .btn-danger       { background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.3); }
+[data-theme="night"] .btn-danger:hover { background: rgba(239,68,68,.25); }
 .btn-xs        { padding: 5px 12px; font-size: 12px; border-radius: 999px; cursor: pointer; font-family: inherit; }
 .ap-btn        { border-radius: 12px; padding: 11px 20px; font-size: 14px; font-family: inherit; cursor: pointer; border: none; font-weight: 500; }
 .ap-btn.dark   { background: var(--body-text); color: #fff; }
@@ -198,6 +200,12 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 .badge-blue    { background: #dbeafe; color: #1d4ed8; }
 .badge-default { background: var(--div); color: var(--muted1); }
 .badge-indigo  { background: #ede9fe; color: #5b21b6; }
+/* Night-mode badge overrides */
+[data-theme="night"] .badge-green  { background: rgba(34,197,94,.15);  color: #4ade80; }
+[data-theme="night"] .badge-amber  { background: rgba(245,158,11,.15); color: #fbbf24; }
+[data-theme="night"] .badge-red    { background: rgba(239,68,68,.15);  color: #fca5a5; }
+[data-theme="night"] .badge-blue   { background: rgba(59,130,246,.15); color: #93c5fd; }
+[data-theme="night"] .badge-indigo { background: rgba(99,102,241,.15); color: #c4b5fd; }
 
 /* Inline edit panel */
 .user-item.editing { border-color: var(--ac); border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
@@ -212,6 +220,8 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 .perm-check:hover { border-color: var(--ac); background: var(--ac-pale); }
 .perm-check.perm-high-risk { border-color: #fecaca; }
 .perm-check.perm-high-risk:hover { border-color: #f87171; background: #fff5f5; }
+[data-theme="night"] .perm-check.perm-high-risk       { border-color: rgba(239,68,68,.35); }
+[data-theme="night"] .perm-check.perm-high-risk:hover { border-color: rgba(239,68,68,.6); background: rgba(239,68,68,.08); }
 .perm-check input[type=checkbox] { position: absolute; top: 10px; right: 10px; width: 16px; height: 16px; accent-color: var(--ac); cursor: pointer; }
 .perm-check-label { font-size: 13px; font-weight: 600; color: var(--body-text); padding-right: 22px; }
 .perm-check-desc  { font-size: 11px; color: var(--muted1); line-height: 1.4; padding-right: 22px; }
@@ -236,6 +246,8 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 .profile-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: .03em; }
 .profile-badge.local      { background: #e8f5e9; color: #2e7d32; }
 .profile-badge.enterprise { background: #e3f2fd; color: #1565c0; }
+[data-theme="night"] .profile-badge.local      { background: rgba(34,197,94,.15);  color: #4ade80; }
+[data-theme="night"] .profile-badge.enterprise { background: rgba(59,130,246,.15); color: #93c5fd; }
 .profile-badge.role       { background: var(--ac-pale); color: var(--ac-dark); }
 .profile-close { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--div); display: flex; align-items: center; justify-content: center; cursor: pointer; margin-left: auto; flex-shrink: 0; }
 .profile-close:hover { background: var(--border); }
@@ -262,6 +274,8 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 .profile-pw-section.open { display: block; }
 .enterprise-notice { display: flex; gap: 10px; padding: 12px 14px; border-radius: 12px; background: #e3f2fd; border: 1px solid #90caf9; margin-bottom: 16px; }
 .enterprise-notice p { margin: 0; font-size: 12px; color: #1565c0; line-height: 1.5; }
+[data-theme="night"] .enterprise-notice { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.3); }
+[data-theme="night"] .enterprise-notice p { color: #93c5fd; }
 
 /* Admin layout block */
 .admin-layout { display: block; padding: 0 28px 28px; }
@@ -500,9 +514,9 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
                 </div>
                 <!-- Firefox/Safari: no FSA, just explain download chips -->
                 <div id="wfdNoFsaSection" style="display:none;">
-                  <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
-                    <div style="font-size:13px;font-weight:600;color:#1d4ed8;margin-bottom:4px;">No folder needed in this browser</div>
-                    <div style="font-size:12px;color:#374151;line-height:1.55;">Generated files appear as <strong>download chips ↓</strong> in the message footer. Click any chip to save that file to your computer. Works on Mac, Windows, and Linux.</div>
+                  <div style="background:var(--ac-pale);border:1.5px solid var(--ac-mid);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+                    <div style="font-size:13px;font-weight:600;color:var(--ac-dark);margin-bottom:4px;">No folder needed in this browser</div>
+                    <div style="font-size:12px;color:var(--muted1);line-height:1.55;">Generated files appear as <strong>download chips ↓</strong> in the message footer. Click any chip to save that file to your computer. Works on Mac, Windows, and Linux.</div>
                   </div>
                   <div style="font-size:12px;color:var(--muted1);margin-bottom:16px;">For auto-save to a folder, use Chrome or Edge.</div>
                   <div style="display:flex;justify-content:flex-end;">
@@ -1113,7 +1127,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
   padding:0;
 }
 .thread-item:hover .thread-menu-btn{opacity:1;}
-.thread-menu-btn:hover{background:#e8e4d8;color:var(--body-text);}
+.thread-menu-btn:hover{background:var(--div);color:var(--body-text);}
 /* Context menu */
 #threadContextMenu{
   position:fixed;z-index:3000;
@@ -1132,7 +1146,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 }
 .tcm-item:hover{background:var(--ac-pale);}
 .tcm-item.danger{color:#dc2626;}
-.tcm-item.danger:hover{background:#fef2f2;}
+.tcm-item.danger:hover{background:rgba(220,38,38,.08);}
 .tcm-sep{height:1px;background:var(--border);margin:4px 0;}
 .tcm-key{font-size:11px;color:var(--muted1);}
 
@@ -1159,10 +1173,10 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
   border:1px solid transparent;
   background:transparent;cursor:pointer;
   font-family:var(--font-body);
-  color:#666;
+  color:var(--muted1);
   transition:all .12s;white-space:nowrap;
 }
-.cmode:hover{background:#f5f5f5;color:var(--body-text);}
+.cmode:hover{background:var(--div);color:var(--body-text);}
 .cmode.active{
   background:var(--body-text);color:#fff;
   border-color:var(--body-text);font-weight:500;
@@ -1182,7 +1196,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 
 /* Typing indicator */
 .typing-row{display:flex;align-items:center;gap:10px;}
-.typing-timer{font-size:11px;color:#aaa;font-variant-numeric:tabular-nums;min-width:28px;letter-spacing:.02em;}
+.typing-timer{font-size:11px;color:var(--muted1);font-variant-numeric:tabular-nums;min-width:28px;letter-spacing:.02em;}
 .typing-dots{display:flex;align-items:center;gap:5px;padding:6px 2px;}
 .typing-dots span{
   width:8px;height:8px;border-radius:50%;
@@ -1426,11 +1440,11 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 }
 .cmp-model-item:last-child{border-bottom:none;}
 .cmp-model-item:hover{background:var(--ac-pale);}
-.cmp-model-item.active{background:#eef3ff;color:#1e40af;}
+.cmp-model-item.active{background:var(--ac-pale);color:var(--ac-dark);}
 .cmp-model-item.active .cmp-check{display:flex;}
-.cmp-check{display:none;color:#2563eb;font-weight:700;margin-left:auto;font-size:13px;align-items:center;}
+.cmp-check{display:none;color:var(--ac-dark);font-weight:700;margin-left:auto;font-size:13px;align-items:center;}
 .cmp-model-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0;}
-.cmp-model-dot.off{background:#d1d5db;}
+.cmp-model-dot.off{background:var(--muted2);}
 .cmp-model-name{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .cmp-model-ctx{font-size:11px;color:var(--muted1);white-space:nowrap;flex-shrink:0;}
 .cmp-auto-item{
@@ -1439,7 +1453,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
   border-bottom:1px solid var(--border);
 }
 .cmp-auto-item:hover{background:var(--ac-pale);}
-.cmp-auto-item.active{background:#eef3ff;color:#1e40af;}
+.cmp-auto-item.active{background:var(--ac-pale);color:var(--ac-dark);}
 .cmp-auto-item.active .cmp-check{display:flex;}
 /* Context window — pushed to right with margin-left:auto */
 #chatContextBar{
@@ -1496,19 +1510,19 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 #chatProjectChip{
   display:inline-flex;align-items:center;gap:6px;
   padding:4px 10px;border-radius:8px;
-  background:#eef6ff;border:1px solid #c7dff7;
-  font-size:12px;color:#1e40af;
+  background:var(--ac-pale);border:1px solid var(--ac-mid);
+  font-size:12px;color:var(--body-text);
   font-family:var(--font-body);
   max-width:100%;
 }
-#chatProjectChip svg{flex-shrink:0;stroke:#3b82f6;}
+#chatProjectChip svg{flex-shrink:0;stroke:var(--ac-dark);}
 #chatProjectPath{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px;}
 #chatProjectEdit,#chatProjectClear{
   border:none;background:none;cursor:pointer;
-  color:#93c5fd;padding:0 2px;font-size:13px;line-height:1;
+  color:var(--muted1);padding:0 2px;font-size:13px;line-height:1;
   flex-shrink:0;
 }
-#chatProjectEdit:hover,#chatProjectClear:hover{color:#1e40af;}
+#chatProjectEdit:hover,#chatProjectClear:hover{color:var(--ac-dark);}
 
 /* Workspace folder modal */
 /* ── Finder-style folder picker ── */
@@ -1623,6 +1637,35 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
   background:#ececec;border-top:1px solid #c8c8c8;
   padding:10px 14px 12px;display:flex;flex-direction:column;gap:8px;
 }
+/* ── Folder dialog: night mode overrides ── */
+[data-theme="night"] #workspaceFolderDialog     { background:#1c1c22; }
+[data-theme="night"] .wfd-titlebar              { background:linear-gradient(to bottom,#2a2a30,#222228); border-bottom-color:#3a3a42; }
+[data-theme="night"] .wfd-title-center          { color:var(--hdr-text); }
+[data-theme="night"] .wfd-nav-btn               { background:linear-gradient(to bottom,#2e2e36,#26262e); border-color:#3a3a42; color:var(--body-text); }
+[data-theme="night"] .wfd-nav-btn:hover         { background:linear-gradient(to bottom,#34343c,#2c2c34); }
+[data-theme="night"] .wfd-sidebar               { background:#15151a; border-right-color:#2a2a30; }
+[data-theme="night"] .wfd-sidebar-section       { color:var(--muted2); }
+[data-theme="night"] .wfd-sidebar-item          { color:var(--muted1); }
+[data-theme="night"] .wfd-sidebar-item:hover    { background:rgba(255,255,255,.05); }
+[data-theme="night"] .wfd-sidebar-item.active   { background:var(--ac); color:var(--ac-text); }
+[data-theme="night"] .wfd-main                  { background:var(--bubble); }
+[data-theme="night"] .wfd-toolbar               { background:var(--nav-bg); border-bottom-color:var(--border); }
+[data-theme="night"] .wfd-back-btn              { background:linear-gradient(to bottom,#2a2a30,#22222a); border-color:#3a3a42; }
+[data-theme="night"] .wfd-crumb                 { color:var(--ac); }
+[data-theme="night"] .wfd-crumb:hover           { background:var(--ac-pale); }
+[data-theme="night"] .wfd-crumb-sep             { color:var(--muted2); }
+[data-theme="night"] .wfd-crumb-cur             { color:var(--body-text); }
+[data-theme="night"] .wfd-grid-item:hover       { background:var(--ac-pale); }
+[data-theme="night"] .wfd-grid-item.selected    { background:var(--ac); }
+[data-theme="night"] .wfd-grid-name             { color:var(--body-text); }
+[data-theme="night"] .wfd-grid-item.selected .wfd-grid-name { color:var(--ac-text); }
+[data-theme="night"] .wfd-loading,
+[data-theme="night"] .wfd-empty                { color:var(--muted2); }
+[data-theme="night"] .wfd-bottombar            { background:#15151a; border-top-color:#2a2a30; }
+[data-theme="night"] .wfd-path-row             { background:var(--bubble); border-color:var(--border); }
+[data-theme="night"] .wfd-path-input           { color:var(--body-text); }
+[data-theme="night"] .wfd-perm-label           { color:var(--muted1); }
+[data-theme="night"] .wfd-perm-select          { background:var(--bubble); border-color:var(--border); color:var(--body-text); }
 .wfd-path-row{
   display:flex;align-items:center;gap:7px;
   background:#fff;border:1px solid #c8c8c8;border-radius:5px;
@@ -1902,7 +1945,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
             footer += '<span class="cmsg-artifact-chip" title="Saved to your folder">'
               + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
               + esc(f.name)
-              + ' <span style="color:#16a34a;font-size:10px;">✓ saved</span>'
+              + ' <span style="color:var(--log-ok);font-size:10px;">✓ saved</span>'
               + '</span>';
           } else if (fileData) {
             /* Downloadable chip — works in all browsers on all OS */
@@ -1912,7 +1955,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
               + 'onclick="(function(btn){var a=document.createElement(\'a\');a.href=\'data:text/plain;charset=utf-8,\'+decodeURIComponent(\'' + encodedContent.replace(/'/g, "\\'") + '\');a.download=\'' + shortName.replace(/'/g, "\\'") + '\';document.body.appendChild(a);a.click();document.body.removeChild(a);})(this)">'
               + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
               + esc(shortName)
-              + ' <span style="color:#2563eb;font-size:10px;">↓</span>'
+              + ' <span style="color:var(--ac-dark);font-size:10px;">↓</span>'
               + '</button>';
           } else {
             /* Server artifact with no content */
@@ -1933,7 +1976,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
         + '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>'
         + esc(modelLabel)
         + '</span>'
-        + (msg.live === false ? '<span style="font-size:10px;color:#f59e0b;background:#fef3c7;border:1px solid #fde68a;border-radius:5px;padding:1px 6px;">setup needed</span>' : '')
+        + (msg.live === false ? '<span style="font-size:10px;color:var(--log-warn);background:var(--ac-pale);border:1px solid var(--ac-mid);border-radius:5px;padding:1px 6px;">setup needed</span>' : '')
         + '</div>'
         + '<div class="cmsg-bubble-ai">' + renderMd(msg.content) + '</div>'
         + footer
@@ -3126,7 +3169,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
       <div class="profile-header-text">
         <div class="profile-name" id="profName">—</div>
         <div class="profile-meta">
-          <span id="profEmail" style="color:#aaa;font-size:12px;"></span>
+          <span id="profEmail" style="color:var(--muted1);font-size:12px;"></span>
         </div>
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
           <span class="profile-badge role" id="profRoleBadge">user</span>
@@ -3157,7 +3200,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
         <input type="tel" id="profInputPhone" placeholder="+1 555 000 0000" autocomplete="tel">
       </div>
       <div class="profile-field">
-        <label>Email <span style="font-size:10px;color:#b89c1a;">(managed)</span></label>
+        <label>Email <span style="font-size:10px;color:var(--muted1);">(managed)</span></label>
         <input type="email" id="profInputEmail" readonly>
       </div>
 
@@ -3234,14 +3277,14 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
           <input type="password" id="profPwCurrent" autocomplete="current-password">
         </div>
         <div class="profile-field">
-          <label>New password <span style="font-size:10px;color:#aaa;">(min 12 chars)</span></label>
+          <label>New password <span style="font-size:10px;color:var(--muted2);">(min 12 chars)</span></label>
           <input type="password" id="profPwNew" autocomplete="new-password">
         </div>
         <div class="profile-field">
           <label>Confirm new password</label>
           <input type="password" id="profPwConfirm" autocomplete="new-password">
         </div>
-        <button class="profile-save-btn" id="profPwSaveBtn" type="button" style="background:#333;">Update password</button>
+        <button class="profile-save-btn" id="profPwSaveBtn" type="button">Update password</button>
         <div class="profile-msg" id="profPwMsg"></div>
         <div style="height:8px;"></div>
       </div>
@@ -3491,7 +3534,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
       <input class="input input-sm" id="teamModalName" placeholder="e.g. Platform Engineering" />
     </div>
     <div style="margin-bottom:18px;">
-      <label class="form-label">Description <span style="color:#aaa;font-size:11px;">(optional)</span></label>
+      <label class="form-label">Description <span style="color:var(--muted2);font-size:11px;">(optional)</span></label>
       <input class="input input-sm" id="teamModalDesc" placeholder="What does this team do?" />
     </div>
     <div style="display:flex;gap:8px;">

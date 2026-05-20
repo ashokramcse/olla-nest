@@ -340,10 +340,10 @@ function showConfirm(message, onConfirm) {
   overlay.id = "confirmOverlay";
   overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;";
   overlay.innerHTML = `
-    <div style="background:#1e1e2e;border:1px solid #333;border-radius:12px;padding:24px 28px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5);">
-      <p style="margin:0 0 20px;color:#e2e8f0;font-size:14px;line-height:1.5;">${esc(message)}</p>
+    <div style="background:var(--bubble);border:1px solid var(--border);border-radius:16px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+      <p style="margin:0 0 20px;color:var(--body-text);font-size:14px;font-weight:500;line-height:1.5;">${esc(message)}</p>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button id="confirmCancel" style="padding:7px 16px;border-radius:8px;border:1px solid #444;background:transparent;color:#aaa;cursor:pointer;font-size:13px;">Cancel</button>
+        <button id="confirmCancel" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--div);color:var(--muted1);cursor:pointer;font-size:13px;">Cancel</button>
         <button id="confirmOk" style="padding:7px 16px;border-radius:8px;border:none;background:#ef4444;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">Delete</button>
       </div>
     </div>`;
@@ -639,9 +639,9 @@ function runInTerminal(btn) {
   if (!code) return;
   if (typeof window.termSendCommand === "function") {
     btn.textContent = "▶ Sent!";
-    btn.style.background = "#2a3a1a";
-    btn.style.borderColor = "#86efac55";
-    btn.style.color = "#86efac";
+    btn.style.background = "rgba(34,197,94,.15)";
+    btn.style.borderColor = "rgba(34,197,94,.35)";
+    btn.style.color = "#4ade80";
     setTimeout(() => {
       btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run`;
       btn.style.cssText = "";
