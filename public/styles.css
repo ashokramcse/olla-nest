@@ -830,7 +830,7 @@ tbody tr:hover { background: var(--ac-pale); }
   background: transparent; display: block;
   min-height: 44px; max-height: 200px; caret-color: var(--ac);
 }
-.composer-textarea::placeholder { color: #555; }
+.composer-textarea::placeholder { color: var(--muted2); }
 .composer-footer { display: flex; align-items: center; gap: 8px; padding: 8px 10px 10px; flex-wrap: wrap; }
 .upload-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -895,8 +895,8 @@ tbody tr:hover { background: var(--ac-pale); }
   font-size: 13px; font-family: var(--font-body);
   color: var(--body-text); background: var(--bubble); cursor: pointer;
 }
-.write-toggle { display: none; align-items: center; gap: 6px; font-size: 12px; color: #555; cursor: pointer; }
-.write-toggle.enabled { color: #aaa; }
+.write-toggle { display: none; align-items: center; gap: 6px; font-size: 12px; color: var(--muted1); cursor: pointer; }
+.write-toggle.enabled { color: var(--muted2); }
 .write-toggle input[type="checkbox"] { accent-color: var(--ac); }
 .send-btn {
   margin-left: auto; background: var(--ac); color: var(--ac-text);
@@ -1325,7 +1325,6 @@ tbody tr:hover { background: var(--ac-pale); }
 .items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
 .section-gap { margin-bottom: 18px; }
-.glass, .glass-dark { /* stripped — replaced by var-based surfaces */ }
 
 /* ── SCROLLBAR ────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }

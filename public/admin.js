@@ -162,7 +162,7 @@ function showConfirm(msg, onConfirm) {
   let overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000;display:flex;align-items:center;justify-content:center;";
   overlay.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+    <div style="background:var(--bubble);border-radius:16px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
       <div style="font-size:15px;font-weight:600;color:#1a1a0f;margin-bottom:20px;line-height:1.5;">${esc(msg)}</div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button id="confirmCancel" class="btn btn-secondary" style="min-width:80px;">Cancel</button>
@@ -263,8 +263,8 @@ function renderModels() {
     const staleCount = allOllama.length;
     $("modelTableBody").innerHTML = `<tr><td colspan="8" style="text-align:center;vertical-align:middle;padding:56px 24px;">
       <div style="font-size:28px;margin-bottom:12px;">📡</div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:8px;color:var(--ink);">Ollama is offline</div>
-      <div style="font-size:13px;color:var(--muted);max-width:420px;margin:0 auto;line-height:1.6;">
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px;color:var(--body-text);">Ollama is offline</div>
+      <div style="font-size:13px;color:var(--muted1);max-width:420px;margin:0 auto;line-height:1.6;">
         ${staleCount
           ? `${staleCount} model${staleCount !== 1 ? "s were" : " was"} previously synced. Start Ollama and click <strong>Sync Ollama</strong> to restore them.`
           : "No models synced yet. Start Ollama and click <strong>Sync Ollama</strong> to discover models."}
@@ -280,16 +280,16 @@ function renderModels() {
 
     const speedBar = `<div style="display:flex;align-items:center;gap:6px;">
       <div style="width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
-        <div style="width:${m.speedScore}%;height:100%;background:var(--primary);border-radius:2px;"></div>
+        <div style="width:${m.speedScore}%;height:100%;background:var(--ac);border-radius:2px;"></div>
       </div>
-      <span style="font-size:11px;color:var(--muted);">${m.speedScore}</span>
+      <span style="font-size:11px;color:var(--muted1);">${m.speedScore}</span>
     </div>`;
 
     const qualityBar = `<div style="display:flex;align-items:center;gap:6px;">
       <div style="width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
         <div style="width:${m.qualityScore}%;height:100%;background:var(--success);border-radius:2px;"></div>
       </div>
-      <span style="font-size:11px;color:var(--muted);">${m.qualityScore}</span>
+      <span style="font-size:11px;color:var(--muted1);">${m.qualityScore}</span>
     </div>`;
 
     return `<tr>
@@ -646,7 +646,7 @@ function renderSourcePills() {
 function renderAudit() {
   const items = state.audit || [];
   if (!items.length) {
-    $("auditList").innerHTML = `<div style="text-align:center; padding:32px; color:var(--muted); font-size:13px;">No audit events yet.</div>`;
+    $("auditList").innerHTML = `<div style="text-align:center; padding:32px; color:var(--muted1); font-size:13px;">No audit events yet.</div>`;
     return;
   }
   $("auditList").innerHTML = items.map(item => `
@@ -1209,8 +1209,8 @@ function renderOllamaProvider() {
     const availableModels = ollamaModels.filter(m => m.status === "available");
     if (!availableModels.length) {
       listEl.innerHTML = hasAvailable
-        ? `<span style="font-size:12px;color:#aaa;">No models synced yet.</span>`
-        : `<span style="font-size:12px;color:#aaa;">Ollama offline — start Ollama and click Sync Models to discover models.</span>`;
+        ? `<span style="font-size:12px;color:var(--muted2);">No models synced yet.</span>`
+        : `<span style="font-size:12px;color:var(--muted2);">Ollama offline — start Ollama and click Sync Models to discover models.</span>`;
     } else {
       listEl.innerHTML = availableModels.map(m =>
         `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#e8f5e9;border:1px solid #4caf5040;font-size:12px;font-weight:500;color:#1a1a0e;">
@@ -1749,10 +1749,10 @@ function renderKpis(s) {
     { label: "Avg Latency", value: ms(s.avg_latency), icon: "⚡" },
   ];
   $("reportKpis").innerHTML = kpis.map(k => `
-    <div style="background:#fff;border:1px solid var(--line-soft);border-radius:20px;padding:18px 20px;text-align:center;">
+    <div style="background:var(--bubble);border:1px solid var(--border);border-radius:20px;padding:18px 20px;text-align:center;">
       <div style="font-size:24px;margin-bottom:6px;">${k.icon}</div>
-      <div style="font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-.02em;">${k.value}</div>
-      <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.07em;margin-top:3px;">${k.label}</div>
+      <div style="font-size:22px;font-weight:700;color:var(--body-text);letter-spacing:-.02em;">${k.value}</div>
+      <div style="font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;margin-top:3px;">${k.label}</div>
     </div>
   `).join("");
 }
@@ -1792,14 +1792,14 @@ function renderLeaderboardPage() {
   const medals = ["🥇","🥈","🥉"];
 
   if (!total) {
-    $("reportLeaderboard").innerHTML = `<p style="color:#aaa;text-align:center;padding:24px;">No data yet — start chatting!</p>`;
+    $("reportLeaderboard").innerHTML = `<p style="color:var(--muted2);text-align:center;padding:24px;">No data yet — start chatting!</p>`;
     return;
   }
 
   const tableHtml = `
     <table style="width:100%;border-collapse:collapse;">
       <thead>
-        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#aaa;border-bottom:1px solid var(--line-soft);">
+        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2);border-bottom:1px solid var(--border);">
           <th style="padding:8px 12px;text-align:left;">#</th>
           <th style="padding:8px 12px;text-align:left;">Employee</th>
           <th style="padding:8px 12px;text-align:left;">Tier</th>
@@ -1816,7 +1816,7 @@ function renderLeaderboardPage() {
           const absIdx = start + i;
           const pct = u.daily_token_limit > 0 ? Math.min(100, Math.round(u.total_tokens / u.daily_token_limit * 100)) : 0;
           const barColor = pct > 90 ? BRAND.red : pct > 60 ? BRAND.orange : BRAND.green;
-          const rank = medals[absIdx] || `<span style="color:#aaa;">${absIdx+1}</span>`;
+          const rank = medals[absIdx] || `<span style="color:var(--muted2);">${absIdx+1}</span>`;
           const av = (u.name || "?").split(" ").map(p => p[0]).slice(0,2).join("").toUpperCase();
           const lastActive = u.last_active ? u.last_active.slice(0,10) : "—";
           return `<tr style="border-bottom:1px solid #f5f0e0;transition:background .1s;" onmouseenter="this.style.background='#fef9e0'" onmouseleave="this.style.background=''">
@@ -1826,7 +1826,7 @@ function renderLeaderboardPage() {
                 <div style="width:34px;height:34px;border-radius:50%;background:${BRAND.yellow};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${BRAND.ink};flex-shrink:0;">${esc(av)}</div>
                 <div>
                   <div style="font-size:13px;font-weight:500;">${esc(u.name)}</div>
-                  <div style="font-size:11px;color:#aaa;">${esc(u.email)}</div>
+                  <div style="font-size:11px;color:var(--muted2);">${esc(u.email)}</div>
                 </div>
               </div>
             </td>
@@ -1840,10 +1840,10 @@ function renderLeaderboardPage() {
                 <div style="width:60px;height:5px;background:#e5e0c8;border-radius:3px;overflow:hidden;">
                   <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px;"></div>
                 </div>
-                <span style="font-size:11px;color:#888;min-width:30px;">${pct}%</span>
+                <span style="font-size:11px;color:var(--muted2);min-width:30px;">${pct}%</span>
               </div>
             </td>
-            <td style="padding:12px 12px;text-align:right;font-size:11px;color:#aaa;">${lastActive}</td>
+            <td style="padding:12px 12px;text-align:right;font-size:11px;color:var(--muted2);">${lastActive}</td>
           </tr>`;
         }).join("")}
       </tbody>
@@ -1852,7 +1852,7 @@ function renderLeaderboardPage() {
 
   const paginationHtml = totalPages > 1 ? `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 12px;border-top:1px solid #f0ead8;margin-top:4px;">
-      <span style="font-size:12px;color:#888;">Showing ${start+1}–${Math.min(start+PAGE,total)} of ${total} employees</span>
+      <span style="font-size:12px;color:var(--muted2);">Showing ${start+1}–${Math.min(start+PAGE,total)} of ${total} employees</span>
       <div style="display:flex;gap:6px;">
         <button onclick="lbPrev()" ${_lbPage===0?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1.5px solid #e5e0c8;background:${_lbPage===0?'#f5f0e0':'#fff'};cursor:${_lbPage===0?'not-allowed':'pointer'};font-size:13px;color:${_lbPage===0?'#ccc':'#1a1a0e'};">← Prev</button>
         ${Array.from({length:totalPages},(_,i)=>`<button onclick="lbGoTo(${i})" style="padding:6px 12px;border-radius:8px;border:1.5px solid ${i===_lbPage?'#1a1a0e':'#e5e0c8'};background:${i===_lbPage?'#1a1a0e':'#fff'};color:${i===_lbPage?'#fff':'#1a1a0e'};font-size:13px;cursor:pointer;">${i+1}</button>`).join("")}
@@ -1879,11 +1879,11 @@ window.lbGoTo = function(p) { _lbPage=p; renderLeaderboardPage(); };
  *   Each row: { model_name, uses, total_tokens, avg_latency }.
  */
 function renderModelTable(rows) {
-  if (!rows.length) { $("reportModelTable").innerHTML = `<p style="color:#aaa;text-align:center;padding:20px;">No model data yet.</p>`; return; }
+  if (!rows.length) { $("reportModelTable").innerHTML = `<p style="color:var(--muted2);text-align:center;padding:20px;">No model data yet.</p>`; return; }
   $("reportModelTable").innerHTML = `
     <table style="width:100%;border-collapse:collapse;">
       <thead>
-        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#aaa;border-bottom:1px solid var(--line-soft);">
+        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2);border-bottom:1px solid var(--border);">
           <th style="padding:8px 12px;text-align:left;">Model</th>
           <th style="padding:8px 12px;text-align:right;">Uses</th>
           <th style="padding:8px 12px;text-align:right;">Total Tokens</th>
@@ -1905,7 +1905,7 @@ function renderModelTable(rows) {
                 <div style="flex:1;height:6px;background:#e5e0c8;border-radius:3px;overflow:hidden;">
                   <div style="width:${pct}%;height:100%;background:${PALETTE[i%PALETTE.length]};border-radius:3px;"></div>
                 </div>
-                <span style="font-size:11px;color:#888;min-width:32px;">${pct}%</span>
+                <span style="font-size:11px;color:var(--muted2);min-width:32px;">${pct}%</span>
               </div>
             </td>
           </tr>`;

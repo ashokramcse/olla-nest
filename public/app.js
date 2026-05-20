@@ -420,7 +420,7 @@ function openChatCtxMenu(chatId, trigger) {
       const current = chat.title || "New Chat";
       const inp = document.createElement("input");
       inp.value = current;
-      inp.style.cssText = "width:100%;font-size:13px;font-family:inherit;border:1px solid var(--yellow-deep);border-radius:6px;padding:2px 6px;outline:none;background:#fff;";
+      inp.style.cssText = "width:100%;font-size:13px;font-family:inherit;border:1px solid var(--ac);border-radius:6px;padding:2px 6px;outline:none;background:var(--bubble);";
       titleEl.replaceWith(inp);
       inp.focus(); inp.select();
       const commit = async () => {
@@ -718,9 +718,9 @@ function renderMessages() {
   const chat = state.chats?.find(c => c.userId === state.activeUser.id) || state.chats?.[0];
   const msgs = chat?.messages || [];
   if (!msgs.length) {
-    $("messages").innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--muted);">
+    $("messages").innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--muted1);">
       <div style="font-size:32px; margin-bottom:12px;">✦</div>
-      <div style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom:6px;">Ready when you are</div>
+      <div style="font-size:15px; font-weight:600; color:var(--body-text); margin-bottom:6px;">Ready when you are</div>
       <div style="font-size:13px;">Ask anything · Build · Review · Fix · Learn</div>
     </div>`;
     return;
