@@ -1,13 +1,6 @@
 <div align="center">
 
-<pre>
- ██████╗ ██╗     ██╗      █████╗     ███╗   ██╗███████╗███████╗████████╗
-██╔═══██╗██║     ██║     ██╔══██╗    ████╗  ██║██╔════╝██╔════╝╚══██╔══╝
-██║   ██║██║     ██║     ███████║    ██╔██╗ ██║█████╗  ███████╗   ██║   
-██║   ██║██║     ██║     ██╔══██║    ██║╚██╗██║██╔══╝  ╚════██║   ██║   
-╚██████╔╝███████╗███████╗██║  ██║    ██║ ╚████║███████╗███████║   ██║   
- ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝   ╚═╝  ╚═══╝╚══════╝╚══════╝   ╚═╝   
-</pre>
+<img src="docs/logo-readme.svg" alt="Olla Nest" width="280" />
 
 ### Your AI. Your rules. Your hardware.
 
@@ -340,14 +333,21 @@ olla-nest/
 │   ├── app.html + app.js          # Employee workspace SPA
 │   ├── admin.html + admin.js      # Admin dashboard SPA
 │   ├── login.html + login.js      # Employee sign-in
-│   └── styles.css                 # Design system
+│   ├── admin-login.html           # Admin sign-in
+│   ├── theme.js                   # Design-system colour engine (CSS var tokens)
+│   ├── styles.css                 # Design system (all components)
+│   ├── logo.svg                   # Brand logo mark (inline, CSS var colours)
+│   └── favicon.svg                # Favicon (hardcoded brand colours)
 │
 ├── data/                          # Runtime only — gitignored
 │   ├── olla-nest.sqlite
 │   └── workspace/
 │
 └── docs/
-    ├── ARCHITECTURE.md
+    ├── ARCHITECTURE.md            # Architecture deep-dive
+    ├── BRAND.md                   # Branding guidelines
+    ├── architecture.svg           # Architecture diagram (branded)
+    ├── logo-readme.svg            # Logo for README / external use
     ├── ENTERPRISE_ACCESS_CONTROL.md
     └── DEPLOYMENT.md
 ```
