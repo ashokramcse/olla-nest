@@ -21,7 +21,9 @@ body { font-family: var(--font-body), system-ui, sans-serif; color: var(--body-t
   display: flex; align-items: center; gap: 4px;
   background: var(--bubble); border: 1px solid var(--border);
   padding: 5px; border-radius: 999px;
-  margin: 0 auto 24px; width: fit-content; flex-wrap: wrap;
+  margin: 16px auto 0; width: fit-content; flex-wrap: wrap;
+  position: sticky; top: 64px; z-index: 100;
+  box-shadow: 0 4px 16px -8px rgba(0,0,0,0.12);
 }
 .tab-bar .nav-item {
   padding: 9px 20px; border-radius: 999px; font-size: 14px;

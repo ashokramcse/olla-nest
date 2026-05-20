@@ -114,8 +114,15 @@
   box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
 }
 [data-theme="night"] .profile-mini {
-  background: linear-gradient(180deg, #1c1c22 0%, #28282e 100%);
-  /* night mode uses dark zinc regardless of accent */
+  background: linear-gradient(180deg, #1e1e26 0%, #28282e 100%);
+  border-color: #3f3f46;
+  /* night mode: dark zinc surface */
+}
+[data-theme="night"] .profile-mini .user-sub { color: rgba(255,255,255,0.50); }
+[data-theme="night"] .profile-mini .role-chip {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.16);
+  color: rgba(255,255,255,0.82);
 }
 [data-theme="night"] .account-panel {
   background: var(--nav-bg);
@@ -157,7 +164,7 @@ input, select, textarea { font: inherit; }
   border-radius: 32px;
   padding: 0 0 32px;
   box-shadow: 0 40px 80px -40px rgba(0,0,0,0.18), 0 4px 16px -8px rgba(0,0,0,0.08);
-  position: relative; overflow: hidden;
+  position: relative; overflow: clip;
   border: 1px solid var(--border);
 }
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
@@ -372,7 +379,7 @@ h1.welcome {
   display: grid;
   grid-template-columns: 280px 1fr 300px;
   gap: 20px; align-items: start;
-  padding: 0 28px;
+  padding: 20px 28px 0;
 }
 
 /* ── CARDS ─────────────────────────────────────────────────── */
@@ -486,7 +493,7 @@ h1.welcome {
 }
 .admin-page-actions { display: flex; align-items: center; gap: 8px; }
 .tab-view { display: none; }
-.tab-view.active { display: block; }
+.tab-view.active { display: block; padding-top: 20px; }
 
 /* ── METRIC CARDS ─────────────────────────────────────────── */
 .metrics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 18px; }
@@ -665,9 +672,10 @@ tbody tr:hover { background: var(--ac-pale); }
 
 /* ── USER PROFILE CARD (sidebar) ─────────────────────────── */
 .profile-mini {
-  background: linear-gradient(180deg, var(--ac-dark) 0%, color-mix(in srgb, var(--ac-dark) 60%, #000) 100%);
+  background: linear-gradient(160deg, var(--ac-pale) 0%, var(--bubble) 100%);
+  border: 1.5px solid var(--ac-mid);
   border-radius: 24px; padding: 20px;
-  color: #fff; margin-bottom: 4px;
+  color: var(--body-text); margin-bottom: 4px;
 }
 .user-av {
   width: 48px; height: 48px; border-radius: 50%;
@@ -680,14 +688,14 @@ tbody tr:hover { background: var(--ac-pale); }
 .user-name-lg {
   font-family: var(--font-brand);
   font-size: 20px; font-weight: 400; letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--body-text);
 }
-.user-sub { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 3px; font-family: var(--font-mono); }
+.user-sub { font-size: 13px; color: var(--muted1); margin-top: 3px; font-family: var(--font-mono); }
 .role-chip {
   display: inline-flex; align-items: center;
   padding: 4px 12px; border-radius: var(--r-pill);
-  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18);
-  font-size: 11px; color: rgba(255,255,255,0.85);
+  background: var(--ac-pale); border: 1px solid var(--ac-mid);
+  font-size: 11px; color: var(--body-text);
   font-family: var(--font-mono); margin-top: 10px;
 }
 .user-avatar-wrap { margin-top: -24px; margin-bottom: 8px; }
@@ -804,7 +812,7 @@ tbody tr:hover { background: var(--ac-pale); }
 }
 
 /* ── CHAT AREA ────────────────────────────────────────────── */
-.chat-wrap { display: flex; flex-direction: column; height: 680px; }
+.chat-wrap { display: flex; flex-direction: column; height: calc(100vh - 200px); min-height: 420px; }
 .messages-area { flex: 1; overflow-y: auto; padding: 12px 4px; min-height: 0; }
 .messages-area::-webkit-scrollbar { width: 4px; }
 .messages-area::-webkit-scrollbar-thumb { background: var(--div); border-radius: 4px; }
@@ -1016,7 +1024,7 @@ tbody tr:hover { background: var(--ac-pale); }
 .diff-add .code-ln,.diff-del .code-ln,.diff-hunk .code-ln { background: transparent; }
 
 /* ── ROUTER PANEL ─────────────────────────────────────────── */
-.router-card { position: sticky; top: 28px; }
+.router-card { position: sticky; top: calc(56px + 20px); }
 .router-empty { font-family: var(--font-mono); font-size: 13px; color: var(--muted2); text-align: center; padding: 20px 0; line-height: 1.6; }
 .router-body { padding: 4px 0; }
 .router-model { font-family: var(--font-brand); font-size: 18px; font-weight: 400; margin-bottom: 6px; color: var(--body-text); }
@@ -1421,7 +1429,7 @@ tbody tr:hover { background: var(--ac-pale); }
   .main-grid > *:nth-child(3) { display: none; }
 
   /* Chat area full width */
-  .chat-wrap { height: calc(100vh - 160px); }
+  .chat-wrap { height: calc(100vh - 140px); min-height: 360px; }
 
   /* Admin: stack sidebar above main */
   .admin-body { flex-direction: column; }
