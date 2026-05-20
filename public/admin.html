@@ -472,33 +472,7 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
     </div>
   </div>
 
-  <!-- Theme controls -->
-  <div class="theme-controls" id="themeControls">
-    <div class="theme-swatches" id="themeSwatches">
-      <button class="theme-swatch" style="background:#ff6b00" data-hex="#ff6b00" title="Orange"></button>
-      <button class="theme-swatch" style="background:#2563eb" data-hex="#2563eb" title="Blue"></button>
-      <button class="theme-swatch" style="background:#7c3aed" data-hex="#7c3aed" title="Violet"></button>
-      <button class="theme-swatch" style="background:#059669" data-hex="#059669" title="Emerald"></button>
-      <button class="theme-swatch" style="background:#dc2626" data-hex="#dc2626" title="Red"></button>
-      <button class="theme-swatch" style="background:#db2777" data-hex="#db2777" title="Pink"></button>
-      <button class="theme-swatch" style="background:#0891b2" data-hex="#0891b2" title="Cyan"></button>
-      <button class="theme-swatch" style="background:#ca8a04" data-hex="#ca8a04" title="Amber"></button>
-      <button class="theme-swatch" style="background:#16a34a" data-hex="#16a34a" title="Green"></button>
-      <button class="theme-swatch" style="background:#F5C800" data-hex="#F5C800" title="Yellow (default)"></button>
-    </div>
-    <div class="theme-sep"></div>
-    <div class="theme-custom">
-      <div class="theme-color-btn" id="themeColorBtn" title="Custom colour" style="position:relative;">
-        <input type="color" id="themeColorPicker" value="#F5C800" />
-      </div>
-      <input type="text" class="theme-hex-input" id="themeHexInput" value="#F5C800" maxlength="7" spellcheck="false" />
-      <button class="theme-apply-btn" id="themeApplyBtn">APPLY</button>
-    </div>
-    <div class="theme-mode-toggle">
-      <button class="theme-mode-btn active" id="themeDayBtn">DAY</button>
-      <button class="theme-mode-btn" id="themeNightBtn">NIGHT</button>
-    </div>
-  </div>
+  <!-- Theme controls moved to Settings → Appearance -->
 
   <!-- Layout -->
   <div class="admin-layout">
@@ -903,6 +877,50 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 
       <!-- ── SETTINGS ── -->
       <div class="tab-view" id="tab-settings">
+
+        <!-- Appearance (per-user, not system-wide) -->
+        <div class="card section-gap">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Appearance</div>
+              <div style="font-size:12px;color:var(--muted1);margin-top:2px;">Personal — only affects your account</div>
+            </div>
+            <button class="btn dark sm" id="apprSaveBtn">Save</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Accent colour</div>
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:10px;">
+                <button class="appr-swatch" style="background:#ff6b00" data-hex="#ff6b00" title="Orange"></button>
+                <button class="appr-swatch" style="background:#2563eb" data-hex="#2563eb" title="Blue"></button>
+                <button class="appr-swatch" style="background:#7c3aed" data-hex="#7c3aed" title="Violet"></button>
+                <button class="appr-swatch" style="background:#059669" data-hex="#059669" title="Emerald"></button>
+                <button class="appr-swatch" style="background:#dc2626" data-hex="#dc2626" title="Red"></button>
+                <button class="appr-swatch" style="background:#db2777" data-hex="#db2777" title="Pink"></button>
+                <button class="appr-swatch" style="background:#0891b2" data-hex="#0891b2" title="Cyan"></button>
+                <button class="appr-swatch" style="background:#ca8a04" data-hex="#ca8a04" title="Amber"></button>
+                <button class="appr-swatch" style="background:#16a34a" data-hex="#16a34a" title="Green"></button>
+                <button class="appr-swatch" style="background:#F5C800" data-hex="#F5C800" title="Yellow"></button>
+                <div class="appr-color-wrap" title="Custom colour">
+                  <input type="color" id="apprColorPicker" value="#F5C800" style="opacity:0;position:absolute;width:26px;height:26px;cursor:pointer;border:none;padding:0;" />
+                  <span id="apprColorPreview" style="display:block;width:26px;height:26px;border-radius:6px;border:2px solid var(--border);background:#F5C800;pointer-events:none;"></span>
+                </div>
+              </div>
+              <input type="text" id="apprHexInput" value="#F5C800" maxlength="7" spellcheck="false"
+                style="width:90px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--body-text);font-family:var(--font-mono);font-size:12px;outline:none;" />
+            </div>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Theme mode</div>
+              <div style="display:flex;gap:8px;">
+                <button class="appr-mode-btn" data-mode="day"    id="apprDayBtn">☀️ Day</button>
+                <button class="appr-mode-btn" data-mode="night"  id="apprNightBtn">🌙 Night</button>
+                <button class="appr-mode-btn" data-mode="system" id="apprSystemBtn">🖥️ System</button>
+              </div>
+              <div id="apprMsg" style="font-size:12px;color:var(--log-ok);margin-top:10px;min-height:16px;"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="card section-gap">
           <div class="card-head">
             <div class="card-title">System Settings</div>
@@ -3840,56 +3858,82 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 </script>
 
 <script>
-/* ── Theme controls ── */
+/* ── Appearance settings ── */
 (function() {
   var hex  = window._themeHex  || "#F5C800";
   var mode = window._themeMode || "day";
 
-  function syncUI() {
-    document.querySelectorAll(".theme-swatch").forEach(function(sw) {
-      sw.classList.toggle("active", sw.dataset.hex && sw.dataset.hex.toLowerCase() === hex.toLowerCase());
+  function syncApprUI(h, m) {
+    document.querySelectorAll(".appr-swatch").forEach(function(s) {
+      var active = s.dataset.hex && s.dataset.hex.toLowerCase() === h.toLowerCase();
+      s.style.outline = active ? "2px solid var(--body-text)" : "none";
+      s.style.outlineOffset = "2px";
     });
-    var hi = document.getElementById("themeHexInput");
-    var pi = document.getElementById("themeColorPicker");
-    if (hi) hi.value = hex;
-    if (pi) pi.value = hex;
-    var db = document.getElementById("themeDayBtn");
-    var nb = document.getElementById("themeNightBtn");
-    if (db) db.classList.toggle("active", mode === "day");
-    if (nb) nb.classList.toggle("active", mode === "night");
+    var picker  = document.getElementById("apprColorPicker");
+    var preview = document.getElementById("apprColorPreview");
+    var hexIn   = document.getElementById("apprHexInput");
+    if (picker)  picker.value = h;
+    if (preview) preview.style.background = h;
+    if (hexIn)   hexIn.value = h;
+    ["day","night","system"].forEach(function(m2) {
+      var btn = document.getElementById("appr" + m2.charAt(0).toUpperCase() + m2.slice(1) + "Btn");
+      if (!btn) return;
+      btn.style.background  = (m === m2) ? "var(--ac)" : "var(--bubble)";
+      btn.style.color       = (m === m2) ? "var(--ac-text)" : "var(--body-text)";
+      btn.style.borderColor = (m === m2) ? "var(--ac)" : "var(--border)";
+      btn.style.fontWeight  = (m === m2) ? "700" : "500";
+    });
   }
 
-  document.querySelectorAll(".theme-swatch").forEach(function(sw) {
+  syncApprUI(hex, mode);
+
+  document.querySelectorAll(".appr-swatch").forEach(function(sw) {
     sw.addEventListener("click", function() {
       hex = sw.dataset.hex;
       window.applyTheme(hex, mode);
-      syncUI();
+      syncApprUI(hex, mode);
     });
   });
 
-  var colorPicker = document.getElementById("themeColorPicker");
+  var colorPicker = document.getElementById("apprColorPicker");
   if (colorPicker) colorPicker.addEventListener("input", function() {
     hex = colorPicker.value;
+    document.getElementById("apprHexInput").value = hex;
+    document.getElementById("apprColorPreview").style.background = hex;
     window.applyTheme(hex, mode);
-    syncUI();
+    syncApprUI(hex, mode);
   });
 
-  var applyBtn = document.getElementById("themeApplyBtn");
-  if (applyBtn) applyBtn.addEventListener("click", function() {
-    var v = (document.getElementById("themeHexInput") || {}).value || hex;
-    if (/^#[0-9a-f]{6}$/i.test(v)) { hex = v; window.applyTheme(hex, mode); syncUI(); }
+  var hexIn = document.getElementById("apprHexInput");
+  if (hexIn) {
+    hexIn.addEventListener("change", function() {
+      var v = this.value.trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(v)) { hex = v; window.applyTheme(hex, mode); syncApprUI(hex, mode); }
+    });
+    hexIn.addEventListener("keydown", function(e) {
+      if (e.key !== "Enter") return;
+      var v = this.value.trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(v)) { hex = v; window.applyTheme(hex, mode); syncApprUI(hex, mode); }
+    });
+  }
+
+  ["day","night","system"].forEach(function(m2) {
+    var btn = document.getElementById("appr" + m2.charAt(0).toUpperCase() + m2.slice(1) + "Btn");
+    if (btn) btn.addEventListener("click", function() {
+      mode = m2; window.applyTheme(hex, mode); syncApprUI(hex, mode);
+    });
   });
 
-  var dayBtn = document.getElementById("themeDayBtn");
-  var nightBtn = document.getElementById("themeNightBtn");
-  if (dayBtn)   dayBtn.addEventListener("click",   function() { mode = "day";   window.applyTheme(hex, mode); syncUI(); });
-  if (nightBtn) nightBtn.addEventListener("click", function() { mode = "night"; window.applyTheme(hex, mode); syncUI(); });
+  var saveBtn = document.getElementById("apprSaveBtn");
+  if (saveBtn) saveBtn.addEventListener("click", function() {
+    window.applyTheme(hex, mode);
+    var msg = document.getElementById("apprMsg");
+    if (msg) { msg.textContent = "✓ Saved"; setTimeout(function() { msg.textContent = ""; }, 2000); }
+  });
 
   window.addEventListener("themechange", function(e) {
-    hex = e.detail.hex; mode = e.detail.mode; syncUI();
+    hex = e.detail.hex; mode = e.detail.mode; syncApprUI(hex, mode);
   });
-
-  syncUI();
 })();
 </script>
 

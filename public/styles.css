@@ -1313,6 +1313,24 @@ tbody tr:hover { background: var(--ac-pale); }
 }
 .theme-mode-btn.active { background: var(--body-text); color: #fff; }
 
+/* ── Appearance settings (profile drawer & admin settings) ── */
+.appr-swatch {
+  width: 26px; height: 26px; border-radius: 6px;
+  border: 2px solid transparent; cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.appr-swatch:hover { transform: scale(1.15); }
+.appr-color-wrap { position: relative; width: 26px; height: 26px; cursor: pointer; }
+.appr-mode-btn {
+  flex: 1; padding: 8px 6px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: var(--bubble);
+  color: var(--body-text); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+.appr-mode-btn:hover { background: var(--div); }
+
 /* ── SQ ROWS (speed/quality) ──────────────────────────────── */
 .sq-row { margin-bottom: 8px; }
 .sq-row:last-child { margin-bottom: 0; }

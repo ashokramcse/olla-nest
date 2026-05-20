@@ -202,15 +202,127 @@ function applyTheme(hex, mode) {
     document.documentElement.style.setProperty("--body-bg", tokens.bg);
   }
 
+  // Save to per-user key if userId known, else global fallback
+  const uid = window._themeUserId;
+  const hexKey  = uid ? `themeHex_u_${uid}`  : "themeHex";
+  const modeKey = uid ? `themeMode_u_${uid}` : "themeMode";
   try {
-    localStorage.setItem("themeHex", hex);
-    localStorage.setItem("themeMode", mode);
+    localStorage.setItem(hexKey,  hex);
+    localStorage.setItem(modeKey, mode);
   } catch(_) {}
 
   // Dispatch event so components can react
   window._themeHex  = hex;
   window._themeMode = mode;
   window.dispatchEvent(new CustomEvent("themechange", { detail: { hex, mode, tokens } }));
+}
+
+// ── System mode helper ──────────────────────────────────────────────────────
+function resolveMode(mode) {
+  if (mode === "system") {
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "day";
+  }
+  return mode;
+}
+
+function applyThemeWithMode(hex, mode) {
+  // Apply visually using resolved mode but fire themechange with original mode
+  const resolved = resolveMode(mode);
+  const tokens = resolved === "night" ? computeNightTokens(hex) : computeDayTokens(hex);
+  const root = document.documentElement;
+  const set = (v, val) => root.style.setProperty(v, val);
+
+  set("--ac",               tokens.ac);
+  set("--ac-text",          tokens.acText);
+  set("--ac-pale",          tokens.acPale);
+  set("--ac-mid",           tokens.acMid);
+  set("--ac-dark",          tokens.acDark);
+  set("--bg",               tokens.bg);
+  set("--border",           tokens.border);
+  set("--hdr-bg",           tokens.hdrBg);
+  set("--hdr-div",          tokens.hdrDiv);
+  set("--hdr-text",         tokens.hdrText);
+  set("--hdr-muted",        tokens.hdrMuted);
+  set("--nav-bg",           tokens.navBg);
+  set("--nav-border",       tokens.navBorder);
+  set("--div",              tokens.div);
+  set("--track",            tokens.track);
+  set("--body-text",        tokens.bodyText);
+  set("--muted1",           tokens.muted1);
+  set("--muted2",           tokens.muted2);
+  set("--midx",             tokens.midx);
+  set("--bubble",           tokens.bubble);
+  set("--bubble-reply",     tokens.bubbleReply);
+  set("--bubble-reply-text",tokens.bubbleReplyText);
+  set("--action-bg",        tokens.actionBg);
+  set("--log-ok",           tokens.logOk);
+  set("--log-warn",         tokens.logWarn);
+  set("--active-text",      tokens.activeText);
+  set("--yellow",           tokens.ac);
+  set("--yellow-deep",      tokens.acDark);
+  set("--yellow-light",     tokens.acPale);
+  set("--yellow-border",    tokens.acMid);
+  set("--yellow-glow",      tokens.acMid);
+  set("--primary",          tokens.ac);
+  set("--text",             tokens.bodyText);
+  set("--text-soft",        tokens.muted1);
+  set("--muted",            tokens.muted2);
+  set("--ink",              tokens.bodyText);
+  set("--ink-2",            tokens.bodyText);
+  set("--mute",             tokens.muted1);
+  set("--mute-2",           tokens.muted2);
+
+  if (resolved === "night") {
+    set("--bg",           tokens.bg);
+    set("--dark",         "#14141c");
+    set("--card",         tokens.bubble);
+    set("--card-solid",   tokens.bubble);
+    set("--border-dark",  tokens.border);
+    set("--border-light", tokens.border);
+    set("--line",         tokens.border);
+    set("--line-soft",    tokens.div);
+    document.documentElement.setAttribute("data-theme", "night");
+    document.documentElement.style.setProperty("--body-bg", "#09090b");
+  } else {
+    set("--line",       "rgba(0,0,0,0.10)");
+    set("--line-soft",  "rgba(0,0,0,0.06)");
+    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.style.setProperty("--body-bg", tokens.bg);
+  }
+
+  const uid = window._themeUserId;
+  const hexKey  = uid ? `themeHex_u_${uid}`  : "themeHex";
+  const modeKey = uid ? `themeMode_u_${uid}` : "themeMode";
+  try {
+    localStorage.setItem(hexKey,  hex);
+    localStorage.setItem(modeKey, mode); // store original (system/day/night)
+  } catch(_) {}
+
+  window._themeHex  = hex;
+  window._themeMode = mode; // keep original mode in window state
+  window.dispatchEvent(new CustomEvent("themechange", { detail: { hex, mode, tokens } }));
+}
+
+// ── Init per-user theme (call once user ID is known) ────────────────────────
+function initUserTheme(userId) {
+  if (!userId) return;
+  window._themeUserId = userId;
+  const DEFAULT_HEX  = "#F5C800";
+  const DEFAULT_MODE = "day";
+  let hex  = DEFAULT_HEX;
+  let mode = DEFAULT_MODE;
+  try {
+    hex  = localStorage.getItem(`themeHex_u_${userId}`)  || DEFAULT_HEX;
+    mode = localStorage.getItem(`themeMode_u_${userId}`) || DEFAULT_MODE;
+  } catch(_) {}
+  applyTheme(hex, mode);
+
+  // If system mode, listen for OS preference changes
+  if (mode === "system" && window.matchMedia) {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function() {
+      if (window._themeMode === "system") applyTheme(window._themeHex, "system");
+    });
+  }
 }
 
 // ── Boot: apply saved or default theme before first paint ──────────────────
@@ -228,11 +340,13 @@ function applyTheme(hex, mode) {
 })();
 
 // Expose globally
-window.applyTheme      = applyTheme;
-window.hexToRgb        = hexToRgb;
-window.rgbToHsl        = rgbToHsl;
-window.hslToHex        = hslToHex;
-window.luminance       = luminance;
-window.textColour      = textColour;
+window.applyTheme         = applyTheme;
+window.initUserTheme      = initUserTheme;
+window.resolveMode        = resolveMode;
+window.hexToRgb           = hexToRgb;
+window.rgbToHsl           = rgbToHsl;
+window.hslToHex           = hslToHex;
+window.luminance          = luminance;
+window.textColour         = textColour;
 window.computeDayTokens   = computeDayTokens;
 window.computeNightTokens = computeNightTokens;

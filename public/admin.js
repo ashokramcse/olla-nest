@@ -690,6 +690,10 @@ async function loadState() {
   if (!stateData) return;
   state = stateData;
   allUsers = usersData?.users || [];
+  // Apply per-user theme as soon as we know the user ID
+  if (state.activeUser && state.activeUser.id && window.initUserTheme) {
+    window.initUserTheme(state.activeUser.id);
+  }
   renderAll();
 }
 

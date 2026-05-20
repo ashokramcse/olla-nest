@@ -77,33 +77,7 @@
     </div>
   </div>
 
-  <!-- Theme controls -->
-  <div class="theme-controls" id="themeControls">
-    <div class="theme-swatches" id="themeSwatches">
-      <button class="theme-swatch" style="background:#ff6b00" data-hex="#ff6b00" title="Orange"></button>
-      <button class="theme-swatch" style="background:#2563eb" data-hex="#2563eb" title="Blue"></button>
-      <button class="theme-swatch" style="background:#7c3aed" data-hex="#7c3aed" title="Violet"></button>
-      <button class="theme-swatch" style="background:#059669" data-hex="#059669" title="Emerald"></button>
-      <button class="theme-swatch" style="background:#dc2626" data-hex="#dc2626" title="Red"></button>
-      <button class="theme-swatch" style="background:#db2777" data-hex="#db2777" title="Pink"></button>
-      <button class="theme-swatch" style="background:#0891b2" data-hex="#0891b2" title="Cyan"></button>
-      <button class="theme-swatch" style="background:#ca8a04" data-hex="#ca8a04" title="Amber"></button>
-      <button class="theme-swatch" style="background:#16a34a" data-hex="#16a34a" title="Green"></button>
-      <button class="theme-swatch" style="background:#F5C800" data-hex="#F5C800" title="Yellow (default)"></button>
-    </div>
-    <div class="theme-sep"></div>
-    <div class="theme-custom">
-      <div class="theme-color-btn" id="themeColorBtn" title="Custom colour" style="position:relative;">
-        <input type="color" id="themeColorPicker" value="#F5C800" />
-      </div>
-      <input type="text" class="theme-hex-input" id="themeHexInput" value="#F5C800" maxlength="7" spellcheck="false" />
-      <button class="theme-apply-btn" id="themeApplyBtn">APPLY</button>
-    </div>
-    <div class="theme-mode-toggle">
-      <button class="theme-mode-btn active" id="themeDayBtn">DAY</button>
-      <button class="theme-mode-btn" id="themeNightBtn">NIGHT</button>
-    </div>
-  </div>
+  <!-- Theme controls moved to Profile → Appearance -->
 
   <!-- Hidden stubs kept for JS compatibility -->
   <div id="accountPanel" style="display:none;"><div id="accessPolicy"></div></div>
@@ -415,6 +389,38 @@ function updateModelRing(count, max) {
       </div>
       <div class="profile-field"><label>Manager</label><input type="text" id="profInputManager" readonly></div>
       <div class="profile-field"><label>Department</label><input type="text" id="profInputDept" readonly></div>
+      <div class="profile-section-title">Appearance</div>
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;color:var(--muted1);margin-bottom:10px;">Accent colour</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <button class="appr-swatch" style="background:#ff6b00" data-hex="#ff6b00" title="Orange"></button>
+          <button class="appr-swatch" style="background:#2563eb" data-hex="#2563eb" title="Blue"></button>
+          <button class="appr-swatch" style="background:#7c3aed" data-hex="#7c3aed" title="Violet"></button>
+          <button class="appr-swatch" style="background:#059669" data-hex="#059669" title="Emerald"></button>
+          <button class="appr-swatch" style="background:#dc2626" data-hex="#dc2626" title="Red"></button>
+          <button class="appr-swatch" style="background:#db2777" data-hex="#db2777" title="Pink"></button>
+          <button class="appr-swatch" style="background:#0891b2" data-hex="#0891b2" title="Cyan"></button>
+          <button class="appr-swatch" style="background:#ca8a04" data-hex="#ca8a04" title="Amber"></button>
+          <button class="appr-swatch" style="background:#16a34a" data-hex="#16a34a" title="Green"></button>
+          <button class="appr-swatch" style="background:#F5C800" data-hex="#F5C800" title="Yellow"></button>
+          <div class="appr-color-wrap" title="Custom colour">
+            <input type="color" id="apprColorPicker" value="#F5C800" style="opacity:0;position:absolute;width:26px;height:26px;cursor:pointer;border:none;padding:0;" />
+            <span id="apprColorPreview" style="display:block;width:26px;height:26px;border-radius:6px;border:2px solid var(--border);background:#F5C800;pointer-events:none;"></span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="text" id="apprHexInput" value="#F5C800" maxlength="7" spellcheck="false"
+            style="width:90px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--body-text);font-family:var(--font-mono);font-size:12px;outline:none;" />
+        </div>
+        <div style="font-size:12px;color:var(--muted1);margin-top:14px;margin-bottom:8px;">Theme mode</div>
+        <div style="display:flex;gap:8px;">
+          <button class="appr-mode-btn" data-mode="day"    id="apprDayBtn">☀️ Day</button>
+          <button class="appr-mode-btn" data-mode="night"  id="apprNightBtn">🌙 Night</button>
+          <button class="appr-mode-btn" data-mode="system" id="apprSystemBtn">🖥️ System</button>
+        </div>
+        <button id="apprSaveBtn" style="margin-top:14px;width:100%;padding:9px;background:var(--ac);color:var(--ac-text);border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Save Appearance</button>
+        <div id="apprMsg" style="font-size:12px;color:var(--log-ok);text-align:center;margin-top:6px;min-height:16px;"></div>
+      </div>
       <div class="profile-section-title">AI Access</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
         <div class="profile-field" style="margin:0;"><label>Access tier</label><input type="text" id="profInputTier" readonly></div>
@@ -843,76 +849,89 @@ function updateModelRing(count, max) {
 })();
 </script>
 
-<!-- Theme Controls JS -->
+<!-- Appearance Settings JS -->
 <script>
 (function() {
   var hex  = window._themeHex  || "#F5C800";
   var mode = window._themeMode || "day";
 
-  function markSwatch(h) {
-    document.querySelectorAll(".theme-swatch").forEach(function(s) {
-      s.classList.toggle("active", s.dataset.hex && s.dataset.hex.toLowerCase() === h.toLowerCase());
+  function syncApprUI(h, m) {
+    // Swatches
+    document.querySelectorAll(".appr-swatch").forEach(function(s) {
+      var active = s.dataset.hex && s.dataset.hex.toLowerCase() === h.toLowerCase();
+      s.style.outline = active ? "2px solid var(--body-text)" : "none";
+      s.style.outlineOffset = "2px";
     });
-    var cb = document.getElementById("themeColorBtn");
-    // custom swatch active when no preset matches
-    var isPreset = Array.from(document.querySelectorAll(".theme-swatch")).some(function(s){
-      return s.dataset.hex && s.dataset.hex.toLowerCase() === h.toLowerCase();
+    // Color picker + preview
+    var picker = document.getElementById("apprColorPicker");
+    var preview = document.getElementById("apprColorPreview");
+    var hexInput = document.getElementById("apprHexInput");
+    if (picker)   picker.value   = h;
+    if (preview)  preview.style.background = h;
+    if (hexInput) hexInput.value = h;
+    // Mode buttons
+    ["day","night","system"].forEach(function(m2) {
+      var btn = document.getElementById("appr" + m2.charAt(0).toUpperCase() + m2.slice(1) + "Btn");
+      if (btn) {
+        btn.style.background   = (m === m2) ? "var(--ac)" : "var(--bubble)";
+        btn.style.color        = (m === m2) ? "var(--ac-text)" : "var(--body-text)";
+        btn.style.borderColor  = (m === m2) ? "var(--ac)" : "var(--border)";
+        btn.style.fontWeight   = (m === m2) ? "700" : "500";
+      }
     });
-    if (cb) cb.classList.toggle("active", !isPreset);
   }
 
-  function syncUI(h, m) {
-    document.getElementById("themeHexInput").value = h;
-    document.getElementById("themeColorPicker").value = h;
-    document.getElementById("themeColorBtn").style.background = h;
-    document.getElementById("themeDayBtn").classList.toggle("active", m === "day");
-    document.getElementById("themeNightBtn").classList.toggle("active", m === "night");
-    markSwatch(h);
-  }
-
-  syncUI(hex, mode);
+  syncApprUI(hex, mode);
 
   // Preset swatches
-  document.getElementById("themeSwatches").addEventListener("click", function(e) {
-    var btn = e.target.closest(".theme-swatch");
-    if (!btn) return;
-    hex = btn.dataset.hex;
-    applyTheme(hex, mode);
-    syncUI(hex, mode);
+  document.querySelectorAll(".appr-swatch").forEach(function(s) {
+    s.addEventListener("click", function() {
+      hex = this.dataset.hex;
+      applyTheme(hex, mode);
+      syncApprUI(hex, mode);
+    });
   });
 
   // Native colour picker
-  document.getElementById("themeColorPicker").addEventListener("input", function() {
+  document.getElementById("apprColorPicker").addEventListener("input", function() {
     hex = this.value;
-    document.getElementById("themeHexInput").value = hex;
-    document.getElementById("themeColorBtn").style.background = hex;
+    document.getElementById("apprHexInput").value = hex;
+    document.getElementById("apprColorPreview").style.background = hex;
     applyTheme(hex, mode);
-    markSwatch(hex);
+    syncApprUI(hex, mode);
   });
 
   // Hex text input
-  document.getElementById("themeApplyBtn").addEventListener("click", function() {
-    var v = document.getElementById("themeHexInput").value.trim();
+  document.getElementById("apprHexInput").addEventListener("change", function() {
+    var v = this.value.trim();
     if (!/^#[0-9a-fA-F]{6}$/.test(v)) return;
-    hex = v;
-    applyTheme(hex, mode);
-    syncUI(hex, mode);
+    hex = v; applyTheme(hex, mode); syncApprUI(hex, mode);
   });
-  document.getElementById("themeHexInput").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") document.getElementById("themeApplyBtn").click();
-  });
-
-  // DAY / NIGHT toggle
-  document.getElementById("themeDayBtn").addEventListener("click", function() {
-    mode = "day"; applyTheme(hex, mode); syncUI(hex, mode);
-  });
-  document.getElementById("themeNightBtn").addEventListener("click", function() {
-    mode = "night"; applyTheme(hex, mode); syncUI(hex, mode);
+  document.getElementById("apprHexInput").addEventListener("keydown", function(e) {
+    if (e.key !== "Enter") return;
+    var v = this.value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) { hex = v; applyTheme(hex, mode); syncApprUI(hex, mode); }
   });
 
-  // Keep in sync when theme changes from elsewhere
+  // Mode buttons
+  ["day","night","system"].forEach(function(m2) {
+    var btn = document.getElementById("appr" + m2.charAt(0).toUpperCase() + m2.slice(1) + "Btn");
+    if (btn) btn.addEventListener("click", function() {
+      mode = m2; applyTheme(hex, mode); syncApprUI(hex, mode);
+    });
+  });
+
+  // Save
+  document.getElementById("apprSaveBtn").addEventListener("click", function() {
+    applyTheme(hex, mode); // saves to per-user localStorage via theme.js
+    var msg = document.getElementById("apprMsg");
+    msg.textContent = "✓ Saved";
+    setTimeout(function() { msg.textContent = ""; }, 2000);
+  });
+
+  // Keep in sync when theme changes from elsewhere (e.g. after initUserTheme)
   window.addEventListener("themechange", function(e) {
-    hex = e.detail.hex; mode = e.detail.mode; syncUI(hex, mode);
+    hex = e.detail.hex; mode = e.detail.mode; syncApprUI(hex, mode);
   });
 })();
 </script>

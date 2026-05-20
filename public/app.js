@@ -794,6 +794,10 @@ async function loadState(retries = 3) {
       if (data) {
         state = data;
         window.state = state;
+        // Apply per-user theme as soon as we know the user ID
+        if (state.activeUser && state.activeUser.id && window.initUserTheme) {
+          window.initUserTheme(state.activeUser.id);
+        }
         renderSidebar();
         renderMessages();
         break;
