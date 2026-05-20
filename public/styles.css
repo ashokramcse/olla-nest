@@ -175,15 +175,22 @@ input, select, textarea { font: inherit; }
 
 /* Brand block (left) */
 .logo {
-  display: inline-flex; flex-direction: column; justify-content: center;
+  display: inline-flex; flex-direction: row; align-items: center;
   min-width: 180px; padding: 0 20px;
   border-right: 1px solid var(--hdr-div);
-  flex-shrink: 0; gap: 2px;
-  cursor: default;
+  flex-shrink: 0; gap: 10px;
+  cursor: default; text-decoration: none;
+}
+.logo-icon {
+  width: 30px; height: 30px;
+  flex-shrink: 0;
+}
+.logo-text {
+  display: flex; flex-direction: column; gap: 2px;
 }
 .logo-name {
   font-family: var(--font-brand);
-  font-size: 16px; color: var(--hdr-text);
+  font-size: 15px; color: var(--hdr-text);
   letter-spacing: 0.03em; line-height: 1;
 }
 .logo-sub {
