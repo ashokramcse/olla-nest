@@ -101,7 +101,8 @@
 
 /* ── Night mode body background ──────────────────────────── */
 [data-theme="night"] body {
-  background-color: #09090b;
+  background-color: #0a0a0c;
+  background-image: none;   /* kill the light-mode gradient blobs */
 }
 [data-theme="night"] .shell {
   background: #09090b;

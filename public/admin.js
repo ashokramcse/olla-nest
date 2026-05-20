@@ -1598,44 +1598,64 @@ if ($("saveRouterConfigBtn")) {
 
 // === REPORTS / ANALYTICS ===
 
-// Configure Chart.js global defaults to match the Olla Nest design system.
-// Applied once on load; every mkChart() call inherits these defaults.
-if (typeof Chart !== 'undefined') {
-  Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  Chart.defaults.font.size = 12;
-  Chart.defaults.color = '#888';
-  Chart.defaults.animation.duration = 600;
-  Chart.defaults.animation.easing = 'easeInOutQuart';
-  Chart.defaults.plugins.tooltip.cornerRadius = 10;
-  Chart.defaults.plugins.tooltip.padding = 12;
+/**
+ * Read a CSS custom property from the root element at call time.
+ * This ensures charts always use the current theme tokens, whether in
+ * day or night mode.
+ */
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/** Olla Nest brand colour palette used across all Chart.js charts and inline styles. */
+/**
+ * Semantic colours that stay constant across themes (status indicators).
+ * Everything that should respond to light/dark comes from cssVar() instead.
+ */
 const BRAND = {
-  yellow:   "#f0d74b",
-  yellowDk: "#e8c520",
-  ink:      "#1a1a0e",
-  cream:    "#fefcec",
-  pale:     "#fbf3c8",
-  muted:    "#aaa",
-  green:    "#4caf50",
-  red:      "#ef5350",
-  blue:     "#42a5f5",
-  orange:   "#ffa726",
-  purple:   "#ab47bc",
-  teal:     "#26a69a",
-  pink:     "#ec407a",
-  indigo:   "#5c6bc0",
-  lime:     "#9ccc65",
-  amber:    "#ffca28",
+  green:  "#4caf50",
+  red:    "#ef5350",
+  blue:   "#42a5f5",
+  orange: "#ffa726",
+  purple: "#ab47bc",
+  teal:   "#26a69a",
+  pink:   "#ec407a",
+  indigo: "#5c6bc0",
+  lime:   "#9ccc65",
+  amber:  "#ffca28",
 };
 
-/** Ordered colour sequence used for multi-series charts (bar, donut slices, etc.). */
-const PALETTE = [
-  BRAND.yellow, BRAND.teal, BRAND.blue, BRAND.orange,
-  BRAND.purple, BRAND.green, BRAND.pink, BRAND.indigo,
-  BRAND.lime, BRAND.amber,
-];
+/**
+ * Returns a theme-aware palette array.
+ * The accent colour (--ac / --ac-dark) leads, followed by semantic colours.
+ * Called fresh at each render so it picks up the current theme.
+ */
+function getPalette() {
+  const ac     = cssVar("--ac")      || "#f5c800";
+  const acDark = cssVar("--ac-dark") || "#c9a200";
+  return [
+    ac, BRAND.teal, BRAND.blue, BRAND.orange,
+    BRAND.purple, BRAND.green, BRAND.pink, BRAND.indigo,
+    BRAND.lime, acDark,
+  ];
+}
+
+/**
+ * Apply Chart.js global defaults using the current CSS vars.
+ * Called on page load AND whenever the themechange event fires.
+ */
+function applyChartDefaults() {
+  if (typeof Chart === "undefined") return;
+  const bodyFont  = cssVar("--font-body") || "Archivo, system-ui, sans-serif";
+  const textColor = cssVar("--muted1")    || "#888";
+  Chart.defaults.font.family              = bodyFont;
+  Chart.defaults.font.size                = 12;
+  Chart.defaults.color                    = textColor;
+  Chart.defaults.animation.duration       = 600;
+  Chart.defaults.animation.easing         = "easeInOutQuart";
+  Chart.defaults.plugins.tooltip.cornerRadius = 10;
+  Chart.defaults.plugins.tooltip.padding      = 12;
+}
+applyChartDefaults();
 
 /**
  * Global Chart.js instance registry keyed by canvas element ID.
@@ -1686,31 +1706,44 @@ function mkChart(id, type, data, opts = {}) {
 
   const isDonut = type === "doughnut" || type === "pie";
 
+  // Read theme tokens fresh at chart creation time
+  const cv = {
+    bodyText:  cssVar("--body-text")  || "#1a1a1a",
+    muted1:    cssVar("--muted1")     || "#888",
+    muted2:    cssVar("--muted2")     || "#aaa",
+    bubble:    cssVar("--bubble")     || "#ffffff",
+    border:    cssVar("--border")     || "#e5e7eb",
+  };
+  // Grid line colour — 15% opacity of the border token
+  const gridColor = cv.border + "26"; // 26 hex ≈ 15% alpha
+
   _charts[id] = new Chart(ctx, {
     type,
     data,
     options: {
       responsive: true,
       maintainAspectRatio: true,
-      animation: { duration: 600, easing: 'easeInOutQuart',
+      animation: { duration: 600, easing: "easeInOutQuart",
         ...(isDonut ? { animateRotate: true, animateScale: true } : {}) },
       elements: isDonut ? { arc: { borderWidth: 2 } } : {},
       plugins: {
         legend: {
           display: true,
-          labels: { color: BRAND.ink, font: { family: "inherit", size: 11 }, boxWidth: 12, padding: 14 },
+          labels: { color: cv.bodyText, font: { family: "inherit", size: 11 }, boxWidth: 12, padding: 14 },
         },
         tooltip: {
-          backgroundColor: BRAND.ink,
-          titleColor: "#fff",
-          bodyColor: "#ffffffcc",
+          backgroundColor: cv.bubble,
+          titleColor: cv.bodyText,
+          bodyColor: cv.muted1,
+          borderColor: cv.border,
+          borderWidth: 1,
           cornerRadius: 10,
           padding: 12,
         },
       },
       scales: type === "bar" || type === "line" ? {
-        x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c820" }, border: { display: false } },
-        y: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" }, border: { display: false } },
+        x: { ticks: { color: cv.muted2, font: { size: 10 } }, grid: { color: gridColor }, border: { display: false } },
+        y: { ticks: { color: cv.muted2, font: { size: 10 } }, grid: { color: gridColor }, border: { display: false } },
       } : undefined,
       ...opts,
     },
@@ -1819,11 +1852,11 @@ function renderLeaderboardPage() {
           const rank = medals[absIdx] || `<span style="color:var(--muted2);">${absIdx+1}</span>`;
           const av = (u.name || "?").split(" ").map(p => p[0]).slice(0,2).join("").toUpperCase();
           const lastActive = u.last_active ? u.last_active.slice(0,10) : "—";
-          return `<tr style="border-bottom:1px solid #f5f0e0;transition:background .1s;" onmouseenter="this.style.background='#fef9e0'" onmouseleave="this.style.background=''">
+          return `<tr style="border-bottom:1px solid var(--div);transition:background .1s;" onmouseenter="this.style.background='var(--ac-pale)'" onmouseleave="this.style.background=''">
             <td style="padding:12px 12px;font-size:18px;">${rank}</td>
             <td style="padding:12px 12px;">
               <div style="display:flex;align-items:center;gap:10px;">
-                <div style="width:34px;height:34px;border-radius:50%;background:${BRAND.yellow};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${BRAND.ink};flex-shrink:0;">${esc(av)}</div>
+                <div style="width:34px;height:34px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--ac-text);flex-shrink:0;">${esc(av)}</div>
                 <div>
                   <div style="font-size:13px;font-weight:500;">${esc(u.name)}</div>
                   <div style="font-size:11px;color:var(--muted2);">${esc(u.email)}</div>
@@ -1834,10 +1867,10 @@ function renderLeaderboardPage() {
             <td style="padding:12px 12px;text-align:right;font-size:13px;">${fmt(u.sessions)}</td>
             <td style="padding:12px 12px;text-align:right;font-size:13px;">${fmt(u.messages)}</td>
             <td style="padding:12px 12px;text-align:right;font-size:14px;font-weight:600;">${fmt(u.total_tokens)}</td>
-            <td style="padding:12px 12px;text-align:right;font-size:12px;color:#666;">${fmt(Math.round(u.avg_tokens_per_msg))}</td>
+            <td style="padding:12px 12px;text-align:right;font-size:12px;color:var(--muted1);">${fmt(Math.round(u.avg_tokens_per_msg))}</td>
             <td style="padding:12px 12px;text-align:right;">
               <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
-                <div style="width:60px;height:5px;background:#e5e0c8;border-radius:3px;overflow:hidden;">
+                <div style="width:60px;height:5px;background:var(--track);border-radius:3px;overflow:hidden;">
                   <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px;"></div>
                 </div>
                 <span style="font-size:11px;color:var(--muted2);min-width:30px;">${pct}%</span>
@@ -1851,12 +1884,12 @@ function renderLeaderboardPage() {
   `;
 
   const paginationHtml = totalPages > 1 ? `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 12px;border-top:1px solid #f0ead8;margin-top:4px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 12px;border-top:1px solid var(--div);margin-top:4px;">
       <span style="font-size:12px;color:var(--muted2);">Showing ${start+1}–${Math.min(start+PAGE,total)} of ${total} employees</span>
       <div style="display:flex;gap:6px;">
-        <button onclick="lbPrev()" ${_lbPage===0?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1.5px solid #e5e0c8;background:${_lbPage===0?'#f5f0e0':'#fff'};cursor:${_lbPage===0?'not-allowed':'pointer'};font-size:13px;color:${_lbPage===0?'#ccc':'#1a1a0e'};">← Prev</button>
-        ${Array.from({length:totalPages},(_,i)=>`<button onclick="lbGoTo(${i})" style="padding:6px 12px;border-radius:8px;border:1.5px solid ${i===_lbPage?'#1a1a0e':'#e5e0c8'};background:${i===_lbPage?'#1a1a0e':'#fff'};color:${i===_lbPage?'#fff':'#1a1a0e'};font-size:13px;cursor:pointer;">${i+1}</button>`).join("")}
-        <button onclick="lbNext()" ${_lbPage>=totalPages-1?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1.5px solid #e5e0c8;background:${_lbPage>=totalPages-1?'#f5f0e0':'#fff'};cursor:${_lbPage>=totalPages-1?'not-allowed':'pointer'};font-size:13px;color:${_lbPage>=totalPages-1?'#ccc':'#1a1a0e'};">Next →</button>
+        <button onclick="lbPrev()" ${_lbPage===0?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--bubble);cursor:${_lbPage===0?'not-allowed':'pointer'};font-size:13px;color:${_lbPage===0?'var(--muted2)':'var(--body-text)'};">← Prev</button>
+        ${Array.from({length:totalPages},(_,i)=>`<button onclick="lbGoTo(${i})" style="padding:6px 12px;border-radius:8px;border:1.5px solid ${i===_lbPage?'var(--ac)':'var(--border)'};background:${i===_lbPage?'var(--ac)':'var(--bubble)'};color:${i===_lbPage?'var(--ac-text)':'var(--body-text)'};font-size:13px;cursor:pointer;">${i+1}</button>`).join("")}
+        <button onclick="lbNext()" ${_lbPage>=totalPages-1?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--bubble);cursor:${_lbPage>=totalPages-1?'not-allowed':'pointer'};font-size:13px;color:${_lbPage>=totalPages-1?'var(--muted2)':'var(--body-text)'};">Next →</button>
       </div>
     </div>
   ` : "";
@@ -1895,14 +1928,14 @@ function renderModelTable(rows) {
         ${rows.map((m, i) => {
           const maxUses = rows[0].uses || 1;
           const pct = Math.round(m.uses / maxUses * 100);
-          return `<tr style="border-bottom:1px solid #f5f0e0;" onmouseenter="this.style.background='#fef9e0'" onmouseleave="this.style.background=''">
+          return `<tr style="border-bottom:1px solid var(--div);transition:background .1s;" onmouseenter="this.style.background='var(--ac-pale)'" onmouseleave="this.style.background=''">
             <td style="padding:10px 12px;font-weight:500;">${esc(m.model_name||"—")}</td>
             <td style="padding:10px 12px;text-align:right;">${fmt(m.uses)}</td>
             <td style="padding:10px 12px;text-align:right;">${fmt(m.total_tokens)}</td>
             <td style="padding:10px 12px;text-align:right;">${ms(m.avg_latency)}</td>
             <td style="padding:10px 12px;">
               <div style="display:flex;align-items:center;gap:8px;">
-                <div style="flex:1;height:6px;background:#e5e0c8;border-radius:3px;overflow:hidden;">
+                <div style="flex:1;height:6px;background:var(--track);border-radius:3px;overflow:hidden;">
                   <div style="width:${pct}%;height:100%;background:${PALETTE[i%PALETTE.length]};border-radius:3px;"></div>
                 </div>
                 <span style="font-size:11px;color:var(--muted2);min-width:32px;">${pct}%</span>
@@ -1942,6 +1975,16 @@ async function loadReports() {
   // KPIs
   renderKpis(d.summary || {});
 
+  // Snapshot current theme tokens for this render pass
+  const ac      = cssVar("--ac")       || "#f5c800";
+  const acDark  = cssVar("--ac-dark")  || "#c9a200";
+  const muted2  = cssVar("--muted2")   || "#aaa";
+  const bodyTxt = cssVar("--body-text")|| "#1a1a1a";
+  const border  = cssVar("--border")   || "#e5e7eb";
+  const bubble  = cssVar("--bubble")   || "#ffffff";
+  const gridC   = border + "26";      // 15% alpha grid lines
+  const palette = getPalette();
+
   // 1. Daily Messages & Tokens — dual-axis bar+line
   const labels1 = d.dailyActivity.map(r => r.day.slice(5)); // MM-DD
   mkChart("chartDailyActivity", "bar", {
@@ -1950,8 +1993,8 @@ async function loadReports() {
       {
         label: "Messages",
         data: d.dailyActivity.map(r => r.messages),
-        backgroundColor: 'rgba(240,215,75,0.85)',
-        borderColor: '#e8c520',
+        backgroundColor: ac + "d9",   // 85% opacity
+        borderColor: acDark,
         borderWidth: 0,
         borderRadius: 6,
         yAxisID: "y",
@@ -1960,12 +2003,12 @@ async function loadReports() {
         label: "Tokens",
         type: "line",
         data: d.dailyActivity.map(r => r.tokens),
-        borderColor: '#26a69a',
-        backgroundColor: 'rgba(38,166,154,0.08)',
+        borderColor: BRAND.teal,
+        backgroundColor: BRAND.teal + "14",
         borderWidth: 2.5,
         pointRadius: 4,
-        pointBackgroundColor: '#fff',
-        pointBorderColor: '#26a69a',
+        pointBackgroundColor: bubble,
+        pointBorderColor: BRAND.teal,
         pointBorderWidth: 2,
         tension: 0.5,
         fill: true,
@@ -1974,8 +2017,8 @@ async function loadReports() {
     ],
   }, {
     scales: {
-      x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c820" } },
-      y: { position: "left", ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" }, title: { display: true, text: "Messages", color: BRAND.muted, font: { size: 10 } } },
+      x:  { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } },
+      y:  { position: "left",  ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC }, title: { display: true, text: "Messages", color: muted2, font: { size: 10 } } },
       y1: { position: "right", ticks: { color: BRAND.teal, font: { size: 10 } }, grid: { drawOnChartArea: false }, title: { display: true, text: "Tokens", color: BRAND.teal, font: { size: 10 } } },
     },
   });
@@ -1984,46 +2027,46 @@ async function loadReports() {
   const mu = d.modelUsage.slice(0,8);
   mkChart("chartModelUsage", "doughnut", {
     labels: mu.map(r => r.model_name || "?"),
-    datasets: [{ data: mu.map(r => r.uses), backgroundColor: PALETTE, borderColor: "#fff", borderWidth: 2, hoverOffset: 6 }],
-  }, { cutout: "62%", plugins: { legend: { position: "bottom", labels: { color: BRAND.ink, font: { size: 10 }, boxWidth: 10, padding: 8 } } } });
+    datasets: [{ data: mu.map(r => r.uses), backgroundColor: palette, borderColor: bubble, borderWidth: 2, hoverOffset: 6 }],
+  }, { cutout: "62%", plugins: { legend: { position: "bottom", labels: { color: bodyTxt, font: { size: 10 }, boxWidth: 10, padding: 8 } } } });
 
   // 3. Mode breakdown — donut
   const mb = d.modeBreakdown;
   mkChart("chartModeBreakdown", "doughnut", {
     labels: mb.map(r => r.mode || "ask"),
-    datasets: [{ data: mb.map(r => r.count), backgroundColor: PALETTE.slice(2), borderColor: "#fff", borderWidth: 2, hoverOffset: 6 }],
-  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: BRAND.ink, font: { size: 11 }, boxWidth: 10 } } } });
+    datasets: [{ data: mb.map(r => r.count), backgroundColor: palette.slice(2), borderColor: bubble, borderWidth: 2, hoverOffset: 6 }],
+  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: bodyTxt, font: { size: 11 }, boxWidth: 10 } } } });
 
   // 4. Live vs Failed — pie
   const lf = d.liveVsFailed;
   mkChart("chartLiveVsFailed", "doughnut", {
     labels: ["Successful", "Failed"],
-    datasets: [{ data: [lf.live_count||0, lf.failed_count||0], backgroundColor: [BRAND.green, BRAND.red], borderColor: "#fff", borderWidth: 3, hoverOffset: 6 }],
-  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: BRAND.ink, font: { size: 11 }, boxWidth: 10 } } } });
+    datasets: [{ data: [lf.live_count||0, lf.failed_count||0], backgroundColor: [BRAND.green, BRAND.red], borderColor: bubble, borderWidth: 3, hoverOffset: 6 }],
+  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: bodyTxt, font: { size: 11 }, boxWidth: 10 } } } });
 
   // 5. Tier distribution — pie
   const td = d.tierDist;
   mkChart("chartTierDist", "doughnut", {
     labels: td.map(r => r.tier || "standard"),
-    datasets: [{ data: td.map(r => r.count), backgroundColor: [BRAND.yellow, BRAND.blue, BRAND.purple, BRAND.teal], borderColor: "#fff", borderWidth: 2, hoverOffset: 6 }],
-  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: BRAND.ink, font: { size: 11 }, boxWidth: 10 } } } });
+    datasets: [{ data: td.map(r => r.count), backgroundColor: [ac, BRAND.blue, BRAND.purple, BRAND.teal], borderColor: bubble, borderWidth: 2, hoverOffset: 6 }],
+  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: bodyTxt, font: { size: 11 }, boxWidth: 10 } } } });
 
   // 6. Department token usage — horizontal bar
   const du = d.deptUsage.filter(r => r.dept);
   mkChart("chartDeptUsage", "bar", {
     labels: du.map(r => r.dept),
     datasets: [
-      { label: "Tokens", data: du.map(r => r.tokens), backgroundColor: BRAND.yellow + "cc", borderColor: BRAND.yellowDk, borderWidth: 1, borderRadius: 4 },
+      { label: "Tokens",   data: du.map(r => r.tokens),   backgroundColor: ac + "cc",        borderColor: acDark,     borderWidth: 1, borderRadius: 4 },
       { label: "Sessions", data: du.map(r => r.sessions), backgroundColor: BRAND.teal + "99", borderColor: BRAND.teal, borderWidth: 1, borderRadius: 4 },
     ],
-  }, { indexAxis: "y", scales: { x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" } }, y: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c820" } } } });
+  }, { indexAxis: "y", scales: { x: { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } }, y: { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } } } });
 
   // 7. Response latency — horizontal bar
   const lat = d.latencyByModel;
   mkChart("chartLatency", "bar", {
     labels: lat.map(r => (r.model_name||"?").slice(0,18)),
-    datasets: [{ label: "Avg Latency (ms)", data: lat.map(r => r.avg_ms), backgroundColor: PALETTE, borderWidth: 0, borderRadius: 4 }],
-  }, { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" } }, y: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { display: false } } } });
+    datasets: [{ label: "Avg Latency (ms)", data: lat.map(r => r.avg_ms), backgroundColor: palette, borderWidth: 0, borderRadius: 4 }],
+  }, { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } }, y: { ticks: { color: muted2, font: { size: 10 } }, grid: { display: false } } } });
 
   // 8. Audit timeline — line
   const at = d.auditTimeline;
@@ -2037,7 +2080,7 @@ async function loadReports() {
   mkChart("chartAuditBreakdown", "bar", {
     labels: ab.map(r => r.action.replace(/\./g, " ")),
     datasets: [{ label: "Count", data: ab.map(r => r.count), backgroundColor: BRAND.indigo + "cc", borderColor: BRAND.indigo, borderWidth: 1, borderRadius: 4 }],
-  }, { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: { color: BRAND.muted, font: { size: 10 } }, grid: { color: "#e5e0c840" } }, y: { ticks: { color: BRAND.muted, font: { size: 9 } }, grid: { display: false } } } });
+  }, { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } }, y: { ticks: { color: muted2, font: { size: 9 } }, grid: { display: false } } } });
 
   // Leaderboard & model table
   renderLeaderboard(d.tokenLeaderboard);
@@ -2058,6 +2101,15 @@ if ($("reportPeriod")) {
 document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
   if (btn.dataset.tab === "reports") {
     btn.addEventListener("click", function() { setTimeout(loadReports, 50); }, true);
+  }
+});
+
+// Re-apply Chart.js global defaults and redraw all charts when the theme changes
+window.addEventListener("themechange", () => {
+  applyChartDefaults();
+  // Re-render reports only if the reports tab has been loaded (i.e. charts exist)
+  if (Object.keys(_charts).length > 0) {
+    loadReports();
   }
 });
 

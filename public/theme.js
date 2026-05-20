@@ -101,27 +101,31 @@ function computeNightTokens(hex) {
   return {
     ac:              hex,
     acText:          textColour(hex),
-    acPale:          hslToHex(h, s * 0.55, Math.max(l * 0.13, 9)),
-    acMid:           hslToHex(h, s * 0.45, Math.max(l * 0.22, 15)),
+    // Tinted dark surface — slightly coloured but still very dark
+    acPale:          hslToHex(h, Math.min(s * 0.35, 22), 17),
+    acMid:           hslToHex(h, Math.min(s * 0.30, 18), 22),
     acDark:          hslToHex(h, s,         Math.min(l + (100 - l) * 0.42, 74)),
-    bg:              "#09090b",
-    navBg:           "#18181b",
-    hdrBg:           "#18181b",
-    hdrDiv:          "#27272a",
-    hdrText:         "#fafafa",
-    hdrMuted:        "#71717a",
-    border:          "#27272a",
-    navBorder:       "#27272a",
-    div:             "#27272a",
-    track:           "#27272a",
-    bodyText:        "#a1a1aa",
-    muted1:          "#52525b",
-    muted2:          "#3f3f46",
+    // Page & surface layers — distinct zinc steps (each 3-6 L% apart)
+    bg:              "#0a0a0c",   // page floor — near-black
+    navBg:           "#111115",   // sidebar / nav
+    hdrBg:           "#111115",   // header bar
+    hdrDiv:          "#2a2a30",   // header bottom border
+    hdrText:         "#f4f4f5",   // header labels — zinc-100
+    hdrMuted:        "#71717a",   // header secondary text — zinc-500
+    border:          "#3f3f46",   // card & input borders — zinc-700, visibly lighter than bg
+    navBorder:       "#2a2a30",   // sidebar separators
+    div:             "#2a2a30",   // horizontal rule / divider
+    track:           "#27272a",   // input / toggle track backgrounds
+    // Text hierarchy — all ≥ WCAG AA on #0a0a0c
+    bodyText:        "#e4e4e7",   // zinc-200 — primary text, clearly readable
+    muted1:          "#a1a1aa",   // zinc-400 — secondary text
+    muted2:          "#71717a",   // zinc-500 — tertiary / placeholders
     midx:            hslToHex(h, s, Math.min(l + (100 - l) * 0.42, 74)),
-    bubble:          "#27272a",
+    // Card surface — elevated above bg by ~4 L steps
+    bubble:          "#1c1c22",   // card background
     bubbleReply:     hex,
     bubbleReplyText: textColour(hex),
-    actionBg:        "#18181b",
+    actionBg:        "#111115",
     logOk:           "#4ade80",
     logWarn:         "#fb923c",
     activeText:      hex,
