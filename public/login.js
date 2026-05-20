@@ -15,10 +15,9 @@ async function init() {
     const boot = await api("/api/bootstrap");
     if (boot.adminEmail) {
       const hint = document.getElementById("bootstrapHint");
-      hint.innerHTML = `First-boot admin: <strong>${boot.adminEmail}</strong> — password: <strong>${boot.adminPassword || "see above"}</strong>`;
+      hint.innerHTML = `First-boot admin: <strong>${boot.adminEmail}</strong> — check server logs for the initial password.`;
       hint.style.display = "block";
       document.getElementById("email").value = boot.adminEmail;
-      if (boot.adminPassword) document.getElementById("password").value = boot.adminPassword;
     }
   } catch {}
 }
@@ -37,7 +36,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
   const btn = document.getElementById("submitBtn");
   err.classList.remove("show");
   btn.disabled = true;
-  btn.querySelector("span").textContent = "Signing in…";
+  btn.querySelector("span:first-child").textContent = "Signing in…";
   try {
     const result = await api("/api/auth/login", {
       method: "POST",
@@ -51,7 +50,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     err.textContent = error.message;
     err.classList.add("show");
     btn.disabled = false;
-    btn.querySelector("span").textContent = "Sign in";
+    btn.querySelector("span:first-child").textContent = "Sign in";
   }
 });
 

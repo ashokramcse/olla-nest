@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <title>Olla Nest</title>
-<meta name="viewport" content="width=1440" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="/theme.js"></script>
 <link rel="stylesheet" href="/styles.css" />
 <link rel="stylesheet" href="/vendor/highlight-github.min.css" />
@@ -134,7 +134,7 @@
           </button>
         </div>
         <div id="sidebarChats" style="display:flex;flex-direction:column;gap:4px;">
-          <div style="font-size:12px;color:var(--mute);padding:4px 0;">No conversations yet</div>
+          <div style="font-size:12px;color:var(--muted1);padding:4px 0;">No conversations yet</div>
         </div>
       </div>
 
@@ -147,7 +147,7 @@
           </button>
         </div>
         <div id="sidebarModels">
-          <div class="model-item"><div class="model-dot" style="background:var(--mute-2)"></div><div class="model-nm" style="color:var(--mute)">Loading…</div></div>
+          <div class="model-item"><div class="model-dot" style="background:var(--muted2)"></div><div class="model-nm" style="color:var(--muted1)">Loading…</div></div>
         </div>
       </div>
 
@@ -157,7 +157,7 @@
           <div class="card-title">My Access</div>
         </div>
         <div id="sidebarAccessRights" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
-        <div id="sidebarTerminalNote" style="display:none;font-size:11px;color:var(--mute);border-top:1px solid #00000010;padding-top:8px;margin-top:4px;">
+        <div id="sidebarTerminalNote" style="display:none;font-size:11px;color:var(--muted1);border-top:1px solid #00000010;padding-top:8px;margin-top:4px;">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
           Terminal access enabled — press <kbd style="background:#00000012;border-radius:3px;padding:1px 4px;font-size:10px;">` </kbd> or click the <strong>&gt;_</strong> button (bottom-right).
         </div>
@@ -197,7 +197,7 @@
                 </div>
               </div>
               <!-- Warning shown when Ollama is unreachable and no cloud models are available -->
-              <div id="noModelBanner" style="display:none;align-items:center;gap:8px;padding:8px 14px 0;font-size:12px;color:#f5a623;">
+              <div id="noModelBanner" style="display:none;align-items:center;gap:8px;padding:8px 14px 0;font-size:12px;color:var(--ac-dark);">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 No models available — Ollama is unreachable. Start Ollama or configure a cloud provider in Admin.
               </div>
@@ -236,7 +236,7 @@
           <div class="card-title">Last Model Used</div>
         </div>
         <div id="routerContent">
-          <div style="font-size:12px;color:var(--mute);line-height:1.6;">
+          <div style="font-size:12px;color:var(--muted1);line-height:1.6;">
             Send a message to see which model handled your request.
           </div>
         </div>
@@ -274,7 +274,7 @@
         <div id="workspaceModeTag"></div>
 
         <div id="workspaceConfigPanel" style="display:none;" class="ws-config-panel">
-          <div style="font-size:12px;color:var(--mute);margin-bottom:4px;">Folder path</div>
+          <div style="font-size:12px;color:var(--muted1);margin-bottom:4px;">Folder path</div>
 
           <!-- Cross-platform path info -->
           <div style="font-size:11px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:7px 10px;margin-bottom:6px;line-height:1.7;">
@@ -283,21 +283,21 @@
           </div>
 
           <!-- Folder browser -->
-          <div id="wsFolderBrowser" style="display:none;background:#f8f8f4;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden;max-height:180px;overflow-y:auto;">
-            <div id="wsBrowserPath" style="font-size:11px;font-family:'Fira Code',monospace;color:var(--mute);padding:6px 10px;border-bottom:1px solid var(--line);background:#fff;"></div>
+          <div id="wsFolderBrowser" style="display:none;background:var(--track);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;max-height:180px;overflow-y:auto;">
+            <div id="wsBrowserPath" style="font-size:11px;font-family:'Fira Code',monospace;color:var(--muted1);padding:6px 10px;border-bottom:1px solid var(--border);background:var(--bubble);"></div>
             <div id="wsBrowserList" style="padding:4px 0;"></div>
           </div>
-          <button id="wsBrowseBtn" style="width:100%;padding:7px;background:#fff;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;margin-bottom:6px;font-family:inherit;color:var(--ink);">📂 Browse folders</button>
+          <button id="wsBrowseBtn" style="width:100%;padding:7px;background:var(--bubble);border:1px solid var(--border);border-radius:10px;font-size:12px;cursor:pointer;margin-bottom:6px;font-family:inherit;color:var(--body-text);">📂 Browse folders</button>
 
           <input class="ap-input" id="workspaceFolderInput" placeholder="/host-home/Documents/my-project" />
-          <div style="font-size:12px;color:var(--mute);">Permission mode</div>
+          <div style="font-size:12px;color:var(--muted1);">Permission mode</div>
           <select class="ap-input" id="permissionModeSelect">
             <option value="default">Approve writes</option>
             <option value="review">Auto-review</option>
             <option value="full">Full access</option>
           </select>
           <button class="ap-btn dark" id="saveWorkspaceBtn" style="width:100%;padding:9px;">Save</button>
-          <div id="workspaceSaveMsg" style="font-size:12px;color:var(--green-deep);margin-top:8px;min-height:14px;"></div>
+          <div id="workspaceSaveMsg" style="font-size:12px;color:#16a34a;margin-top:8px;min-height:14px;"></div>
         </div>
       </div>
       <!-- hidden stub so existing JS cancelWorkspaceBtn reference doesn't throw -->
@@ -602,7 +602,7 @@ function updateModelRing(count, max) {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: #1a1a0e;
+  background: #111113;
   border: 2px solid var(--ac);
   color: var(--ac);
   cursor: pointer;
@@ -613,7 +613,7 @@ function updateModelRing(count, max) {
   transition: transform .15s, background .15s;
   font-size: 18px;
 }
-#termToggle:hover { transform: scale(1.08); background: #2a2a1e; }
+#termToggle:hover { transform: scale(1.08); background: #1e1e20; }
 #termToggle.active { background: var(--ac); color: var(--ac-text); }
 
 /* ── Run-in-terminal chip on code blocks ── */
@@ -623,16 +623,16 @@ function updateModelRing(count, max) {
   gap: 5px;
   padding: 3px 10px;
   border-radius: 999px;
-  border: 1px solid #f0d74b55;
-  background: #1a1a0e;
-  color: #f0d74b;
+  border: 1px solid var(--ac);
+  background: #111113;
+  color: var(--ac);
   font-size: 11px;
   font-family: 'Fira Code', monospace;
   cursor: pointer;
   margin-top: 6px;
   transition: background .12s;
 }
-.run-in-term-btn:hover { background: #2a2a1e; }
+.run-in-term-btn:hover { background: #1e1e20; }
 .run-in-term-btn svg { flex-shrink: 0; }
 </style>
 
@@ -677,9 +677,9 @@ function updateModelRing(count, max) {
       theme: {
         background: "#0e0e10",
         foreground: "#d4d4d4",
-        cursor:     "#f0d74b",
+        cursor:     getComputedStyle(document.documentElement).getPropertyValue("--ac").trim() || "#f5c800",
         cursorAccent: "#0e0e10",
-        selectionBackground: "#f0d74b44",
+        selectionBackground: (getComputedStyle(document.documentElement).getPropertyValue("--ac").trim() || "#f5c800") + "44",
         black:   "#1a1a1e", red:     "#f87171", green:  "#86efac", yellow: "#fde68a",
         blue:    "#93c5fd", magenta: "#c4b5fd", cyan:   "#67e8f9", white:  "#d4d4d4",
         brightBlack: "#374151", brightRed: "#f87171", brightGreen: "#86efac",
@@ -911,18 +911,18 @@ function updateModelRing(count, max) {
 
 <!-- Code Review Modal -->
 <div id="codeReviewModal" style="display:none;position:fixed;inset:0;z-index:9000;background:#000000bb;backdrop-filter:blur(4px);align-items:center;justify-content:center;">
-  <div style="background:#1a1b26;border:1px solid #ffffff18;border-radius:16px;width:90vw;max-width:900px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px #000000aa;">
-    <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid #ffffff12;background:#13141f;">
+  <div style="background:var(--nav-bg);border:1px solid var(--border);border-radius:16px;width:90vw;max-width:900px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px #000000aa;">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--hdr-bg,var(--nav-bg));">
       <span id="codeReviewLang" style="font-size:12px;font-family:'Fira Code',monospace;font-weight:600;padding:2px 10px;border-radius:999px;background:#3178c6;color:#fff;">code</span>
-      <span id="codeReviewFilename" style="font-size:13px;font-family:'Fira Code',monospace;color:#8b949e;flex:1;"></span>
-      <button onclick="closeCodeReview()" style="background:#ffffff18;border:none;color:#e6edf3;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:13px;font-family:inherit;">✕ Close</button>
+      <span id="codeReviewFilename" style="font-size:13px;font-family:'Fira Code',monospace;color:var(--muted2);flex:1;"></span>
+      <button onclick="closeCodeReview()" style="background:var(--track);border:none;color:var(--body-text);border-radius:8px;padding:5px 14px;cursor:pointer;font-size:13px;font-family:inherit;">✕ Close</button>
     </div>
     <div style="overflow:auto;flex:1;">
-      <pre style="margin:0;"><code id="codeReviewContent" class="hljs" style="padding:20px;font-size:13px;font-family:'Fira Code',monospace;line-height:1.7;display:block;background:#1a1b26;"></code></pre>
+      <pre style="margin:0;"><code id="codeReviewContent" class="hljs" style="padding:20px;font-size:13px;font-family:'Fira Code',monospace;line-height:1.7;display:block;background:var(--nav-bg);"></code></pre>
     </div>
-    <div style="padding:12px 20px;border-top:1px solid #ffffff12;background:#13141f;display:flex;align-items:center;gap:10px;justify-content:flex-end;">
-      <span id="codeReviewLines" style="font-size:12px;color:#8b949e;flex:1;"></span>
-      <button onclick="copyReviewCode()" id="codeReviewCopyBtn" style="background:#ffffff18;border:1px solid #ffffff20;color:#e6edf3;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:13px;font-family:inherit;">Copy</button>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);background:var(--hdr-bg,var(--nav-bg));display:flex;align-items:center;gap:10px;justify-content:flex-end;">
+      <span id="codeReviewLines" style="font-size:12px;color:var(--muted2);flex:1;"></span>
+      <button onclick="copyReviewCode()" id="codeReviewCopyBtn" style="background:var(--track);border:1px solid var(--border);color:var(--body-text);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:13px;font-family:inherit;">Copy</button>
     </div>
   </div>
 </div>

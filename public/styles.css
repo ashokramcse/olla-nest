@@ -114,6 +114,7 @@
 }
 [data-theme="night"] .profile-mini {
   background: linear-gradient(180deg, #1c1c22 0%, #28282e 100%);
+  /* night mode uses dark zinc regardless of accent */
 }
 [data-theme="night"] .account-panel {
   background: var(--nav-bg);
@@ -656,7 +657,7 @@ tbody tr:hover { background: var(--ac-pale); }
 
 /* ── USER PROFILE CARD (sidebar) ─────────────────────────── */
 .profile-mini {
-  background: linear-gradient(180deg, #1d1c17 0%, #2a2920 100%);
+  background: linear-gradient(180deg, var(--ac-dark) 0%, color-mix(in srgb, var(--ac-dark) 60%, #000) 100%);
   border-radius: 24px; padding: 20px;
   color: #fff; margin-bottom: 4px;
 }
@@ -1338,3 +1339,98 @@ tbody tr:hover { background: var(--ac-pale); }
 @keyframes fadeUp  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 .spin    { animation: spin 0.7s linear infinite; }
 .fade-up { animation: fadeUp 0.3s ease-out; }
+
+/* ── RESPONSIVE ───────────────────────────────────────────── */
+
+/* ── Large desktop: constrain .page width ── */
+.page { width: 100%; max-width: 1440px; }
+
+/* ── Tablet (≤1100px) ── */
+@media (max-width: 1100px) {
+  .main-grid {
+    grid-template-columns: 240px 1fr;
+    gap: 14px;
+    padding: 0 16px;
+  }
+  /* Hide right panel on tablet — it stacks below */
+  .main-grid > *:nth-child(3) { display: none; }
+
+  .topnav { padding: 0 16px; }
+  .topnav-stats { gap: 16px; }
+  .theme-controls { margin: 0 16px 16px; gap: 8px; }
+
+  .admin-sidebar { width: 200px; }
+  .admin-main { padding: 20px; }
+}
+
+/* ── Mobile (≤768px) ── */
+@media (max-width: 768px) {
+  body { font-size: 13px; }
+  .page { padding: 0; }
+
+  .shell { border-radius: 0; padding: 0; border: none; box-shadow: none; }
+
+  /* Topnav: hide stats, smaller logo */
+  .topnav { height: 52px; padding: 0 12px; }
+  .topnav-stats { display: none; }
+  .logo-name { font-size: 14px; }
+  .logo-sub { display: none; }
+
+  /* Theme controls: horizontal scroll */
+  .theme-controls {
+    margin: 0 0 12px;
+    border-radius: 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding: 10px 12px;
+  }
+
+  /* Main grid: single column */
+  .main-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 0 10px;
+  }
+  /* Hide sidebar and right panel on mobile */
+  .main-grid > *:nth-child(1) { display: none; }
+  .main-grid > *:nth-child(3) { display: none; }
+
+  /* Chat area full width */
+  .chat-wrap { height: calc(100vh - 160px); }
+
+  /* Admin: stack sidebar above main */
+  .admin-body { flex-direction: column; }
+  .admin-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; gap: 4px; padding: 8px 12px; border-right: none; border-bottom: 1px solid var(--border); }
+  .admin-sidebar .nav-item { width: auto !important; padding: 6px 12px; font-size: 12px; }
+  .admin-main { padding: 14px 12px; }
+
+  /* Admin tab bar */
+  .tab-bar { overflow-x: auto; flex-wrap: nowrap; }
+  .tab-bar .nav-item { flex-shrink: 0; }
+
+  /* Cards */
+  .card { border-radius: 16px; padding: 14px; }
+
+  /* Tables: horizontal scroll */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 600px; }
+
+  /* Buttons: touch targets */
+  .btn { min-height: 40px; padding: 8px 16px; }
+
+  /* Login split: stack */
+  .login-shell { flex-direction: column; }
+  .login-brand { display: none; }
+  .login-card { max-width: 100%; border-radius: 0; min-height: 100vh; padding: 28px 20px; }
+
+  /* Account panel */
+  .account-panel-inner { flex-direction: column; gap: 16px; }
+}
+
+/* ── Small mobile (≤420px) ── */
+@media (max-width: 420px) {
+  .topnav-stats { display: none; }
+  .topnav-actions { gap: 6px; }
+  .topnav-actions .btn { padding: 6px 10px; font-size: 12px; }
+  .card { border-radius: 12px; padding: 12px; }
+}
