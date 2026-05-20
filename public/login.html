@@ -81,31 +81,34 @@
     }
     .login-topbar-right a:hover { color: var(--hdr-text); }
 
-    /* ── Main layout — 50/50 split, content centred vertically ── */
+    /* ── Main layout — both panels centred as a pair ── */
     .login-body {
       flex: 1;
       min-height: 0;
       display: flex;
       align-items: center;
-      padding: 48px 0;
+      justify-content: center;
+      padding: 48px 40px;
+      gap: 60px;
     }
 
     /* ── Left brand panel ── */
     .login-brand {
       flex: 1;
+      max-width: 480px;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      padding: 0 6% 0 8%;
-      max-width: 660px;
+      align-items: center;
+      text-align: center;
     }
     .login-brand-eyebrow {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 13px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.14em;
       color: var(--ac);
-      margin-bottom: 18px;
+      margin-bottom: 20px;
     }
     .login-brand-title {
       font-family: var(--font-brand);
@@ -115,6 +118,7 @@
       line-height: 0.95;
       color: var(--body-text);
       margin-bottom: 20px;
+      text-align: center;
     }
     .login-brand-title em {
       font-style: normal;
@@ -126,12 +130,13 @@
       line-height: 1.6;
       max-width: 340px;
       margin-bottom: 36px;
+      text-align: center;
     }
     .login-features {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      max-width: 400px;
+      width: 100%;
     }
     .login-feat {
       display: flex;
@@ -178,7 +183,6 @@
       display: flex;
       flex-direction: column;
       padding: 44px 40px;
-      margin-right: 8%;
     }
     .login-card-label {
       font-family: var(--font-mono);
