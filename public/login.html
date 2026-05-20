@@ -4,31 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Olla Nest — Sign in</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/styles.css" />
   <style>
-    :root {
-      --bg-grad-1: #e9e7e2;
-      --bg-grad-2: #f6e9a8;
-      --cream:      #fdf6d8;
-      --cream-soft: #fbf3c8;
-      --paper:      #f5f3ed;
-      --ink:        #15140f;
-      --ink-2:      #1d1c17;
-      --line:       #0000001a;
-      --line-soft:  #00000010;
-      --mute:       #7a7a72;
-      --mute-2:     #a3a39a;
-      --yellow:     #f4d33a;
-      --yellow-deep:#e8c624;
-    }
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-      color: var(--ink);
+      font-family: var(--font-body), system-ui, sans-serif;
+      color: var(--body-text);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -195,7 +178,7 @@
       border-radius: 16px;
       padding: 16px 20px;
       font-size: 16px;
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: var(--font-body), system-ui, sans-serif;
       color: var(--ink);
       outline: none;
       transition: border-color .18s, box-shadow .18s;
@@ -221,7 +204,7 @@
       padding: 18px 24px 18px 28px;
       font-size: 17px;
       font-weight: 500;
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: var(--font-body), system-ui, sans-serif;
       letter-spacing: -0.01em;
       cursor: pointer;
       margin-top: 28px;
