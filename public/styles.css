@@ -134,8 +134,8 @@ body {
   color: var(--body-text);
   background-color: var(--body-bg);
   background-image:
-    radial-gradient(120% 80% at 90% 30%, rgba(245,200,0,0.22) 0%, transparent 55%),
-    radial-gradient(120% 80% at 10% 80%, rgba(245,200,0,0.08) 0%, transparent 50%);
+    radial-gradient(120% 80% at 90% 30%, var(--ac-pale) 0%, transparent 55%),
+    radial-gradient(120% 80% at 10% 80%, var(--ac-mid) 0%, transparent 50%);
   background-attachment: fixed;
   min-height: 100vh;
 }
@@ -513,6 +513,19 @@ h1.welcome {
 .metric-card-yellow .metric-card-value { color: var(--ac-text); }
 
 /* ── TABLES ───────────────────────────────────────────────── */
+/* Base styles for raw <table> elements (admin.html, etc.) */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  padding: 10px 14px; text-align: left;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted2); background: var(--track);
+  border-bottom: 1px solid var(--div);
+}
+tbody td { padding: 11px 14px; border-bottom: 1px solid var(--div); vertical-align: middle; color: var(--body-text); }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--ac-pale); }
+
 .table-wrap {
   background: var(--bubble); border: 1px solid var(--border);
   border-radius: var(--r-xl); overflow: hidden;
@@ -583,6 +596,16 @@ h1.welcome {
 .btn-sm  { padding: 6px 14px; font-size: 12px; }
 .btn-xs  { padding: 4px 10px; font-size: 11px; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+
+/* Shorthand modifier classes used by admin.html */
+.btn.dark,   .btn.dark:visited   { background: var(--body-text); color: #fff; border-color: var(--body-text); }
+.btn.yellow, .btn.yellow:visited { background: var(--ac); color: var(--ac-text); border-color: var(--ac); }
+.btn.ghost,  .btn.ghost:visited  { background: transparent; color: var(--muted1); border: 1px solid var(--border); }
+.btn.danger, .btn.danger:visited { background: var(--danger-light); color: var(--danger); border-color: var(--danger-border); }
+.btn.sm  { padding: 6px 14px; font-size: 12px; }
+.btn.dark:hover   { opacity: .88; }
+.btn.yellow:hover { opacity: .9; }
+.btn.ghost:hover  { background: var(--track); color: var(--body-text); }
 .w-full { width: 100%; }
 .btn-full { width: 100%; }
 
@@ -602,6 +625,7 @@ h1.welcome {
   font-size: 12px; font-family: var(--font-body);
   outline: none; cursor: pointer;
 }
+.form-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-stack { display: flex; flex-direction: column; gap: 8px; }
 .form-row   { display: flex; flex-direction: column; gap: 5px; }
 .form-label {

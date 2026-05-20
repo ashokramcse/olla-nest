@@ -9,349 +9,416 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html, body { height: 100%; }
+
     body {
       font-family: var(--font-body), system-ui, sans-serif;
+      background: var(--bg);
       color: var(--body-text);
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Top bar ── */
+    .login-topbar {
+      height: 56px;
+      background: var(--hdr-bg);
+      border-bottom: 3px solid var(--ac);
+      display: flex;
+      align-items: stretch;
+      flex-shrink: 0;
+    }
+    .login-topbar .logo {
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 180px;
+      padding: 0 20px;
+      border-right: 1px solid var(--hdr-div);
+      gap: 2px;
+      cursor: default;
+    }
+    .login-topbar .logo-name {
+      font-family: var(--font-brand);
+      font-size: 16px;
+      color: var(--hdr-text);
+      letter-spacing: 0.03em;
+      line-height: 1;
+    }
+    .login-topbar .logo-sub {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--hdr-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      line-height: 1;
+    }
+    .login-topbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 10px;
+    }
+    .login-topbar-right a {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--hdr-muted);
+      text-decoration: none;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .login-topbar-right a:hover { color: var(--hdr-text); }
+
+    /* ── Main layout ── */
+    .login-body {
+      flex: 1;
+      display: flex;
       align-items: center;
       justify-content: center;
-      background:
-        radial-gradient(120% 80% at 90% 30%, #f7e58a 0%, transparent 55%),
-        radial-gradient(120% 80% at 10% 80%, #f2efe5 0%, transparent 50%),
-        linear-gradient(180deg, #e8e6e0 0%, #efeadf 40%, #f7eea8 100%);
-      letter-spacing: -0.005em;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: geometricPrecision;
-      padding: 32px 20px;
+      padding: 40px 24px;
+      gap: 40px;
     }
 
-    /* ── Page wrapper ── */
-    .page {
-      width: 100%;
-      max-width: 1100px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      align-items: center;
+    /* ── Left brand panel ── */
+    .login-brand {
+      max-width: 420px;
+      flex: 1;
     }
-
-    /* ── Left: brand card ── */
-    .brand-card {
-      background:
-        radial-gradient(140% 90% at 100% 100%, #f7e58a 0%, transparent 55%),
-        radial-gradient(140% 90% at 0%   0%,   #efece1 0%, transparent 55%),
-        linear-gradient(180deg, #eeece3 0%, #f8efaa 100%);
-      border-radius: 40px;
-      padding: 52px 48px;
-      box-shadow: 0 40px 80px -40px #00000033, 0 4px 16px -8px #00000010;
-      border: 1px solid #ffffff80;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-height: 540px;
-    }
-
-    /* logo pill */
-    .logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      background: #fff;
-      border: 1px solid var(--line-soft);
-      padding: 12px 22px;
-      border-radius: 999px;
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      align-self: flex-start;
-    }
-    .logo-mark {
-      width: 20px; height: 20px;
-      border-radius: 5px;
-      background: linear-gradient(135deg, var(--ink) 60%, var(--yellow) 60%);
-      position: relative;
-      flex-shrink: 0;
-    }
-    .logo-mark::after {
-      content: "";
-      position: absolute;
-      inset: 5px 4px 4px 5px;
-      background: var(--cream);
-      border-radius: 2px;
-    }
-
-    /* hero headline */
-    .brand-hero {
-      padding: 24px 0 20px;
-    }
-    .brand-hero h1 {
-      font-size: 68px;
-      line-height: 0.93;
-      font-weight: 400;
-      letter-spacing: -0.04em;
-      margin-bottom: 22px;
-      color: var(--ink);
-    }
-    .brand-hero h1 em {
-      font-style: normal;
-      color: var(--mute);
-    }
-    .brand-hero p {
-      font-size: 16px;
-      color: var(--mute);
-      line-height: 1.55;
-      max-width: 320px;
-      font-weight: 400;
-    }
-
-    /* feature pills row */
-    .feat-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 28px;
-    }
-    .feat-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      background: #ffffff70;
-      backdrop-filter: blur(8px);
-      border: 1px solid #ffffff90;
-      border-radius: 999px;
-      padding: 9px 16px;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--ink-2);
-    }
-    .feat-chip .dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--yellow-deep);
-      flex-shrink: 0;
-    }
-    .feat-chip .dot.g { background: #69a444; }
-    .feat-chip .dot.d { background: var(--ink); }
-
-    /* ── Right: sign-in card ── */
-    .signin-card {
-      background: linear-gradient(180deg, #fefcec 0%, #fbf3c8 100%);
-      border-radius: 40px;
-      padding: 52px 48px;
-      box-shadow: 0 40px 80px -40px #00000022, 0 4px 16px -8px #00000010;
-      border: 1px solid #ffffff80;
-    }
-
-    .signin-label {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--mute);
-      letter-spacing: 0.04em;
+    .login-brand-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10px;
       text-transform: uppercase;
-      margin-bottom: 10px;
+      letter-spacing: 0.12em;
+      color: var(--ac);
+      margin-bottom: 18px;
     }
-    .signin-title {
-      font-size: 44px;
+    .login-brand-title {
+      font-family: var(--font-brand);
+      font-size: 58px;
       font-weight: 400;
-      letter-spacing: -0.035em;
-      line-height: 1;
-      margin-bottom: 36px;
-      color: var(--ink);
+      letter-spacing: -0.02em;
+      line-height: 0.95;
+      color: var(--body-text);
+      margin-bottom: 20px;
     }
-
-    /* input field */
-    .field {
+    .login-brand-title em {
+      font-style: normal;
+      color: var(--ac);
+    }
+    .login-brand-sub {
+      font-size: 15px;
+      color: var(--muted1);
+      line-height: 1.6;
+      max-width: 340px;
+      margin-bottom: 36px;
+    }
+    .login-features {
       display: flex;
       flex-direction: column;
-      gap: 7px;
-      margin-bottom: 16px;
+      gap: 10px;
     }
-    .field label {
-      font-size: 13px;
-      color: var(--mute);
-      font-weight: 500;
-    }
-    .field input {
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 16px 20px;
-      font-size: 16px;
-      font-family: var(--font-body), system-ui, sans-serif;
-      color: var(--ink);
-      outline: none;
-      transition: border-color .18s, box-shadow .18s;
-      width: 100%;
-      letter-spacing: -0.01em;
-    }
-    .field input::placeholder { color: var(--mute-2); }
-    .field input:focus {
-      border-color: var(--ink);
-      box-shadow: 0 0 0 3px #15140f14;
-    }
-
-    /* sign in button — pill dark */
-    .btn-signin {
+    .login-feat {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      background: var(--ink);
-      color: #fff;
-      border: none;
-      border-radius: 999px;
-      padding: 18px 24px 18px 28px;
-      font-size: 17px;
-      font-weight: 500;
-      font-family: var(--font-body), system-ui, sans-serif;
-      letter-spacing: -0.01em;
-      cursor: pointer;
-      margin-top: 28px;
-      transition: background .15s, transform .15s, box-shadow .15s;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bubble);
+      border: 1px solid var(--border);
+      border-radius: 12px;
     }
-    .btn-signin:hover {
-      background: var(--ink-2);
-      transform: translateY(-1px);
-      box-shadow: 0 12px 32px -8px #00000040;
-    }
-    .btn-signin:active { transform: none; box-shadow: none; }
-    .btn-signin .arr {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      background: var(--yellow);
-      display: flex; align-items: center; justify-content: center;
+    .login-feat-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--ac-pale);
+      border: 1px solid var(--ac-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
+      color: var(--ac-dark);
+    }
+    .login-feat-text strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--body-text);
+      margin-bottom: 1px;
+    }
+    .login-feat-text span {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted2);
     }
 
-    /* error / hint */
-    .login-error {
-      background: #fff0f0;
-      border: 1px solid #ffd0d0;
-      color: #c00;
-      border-radius: 14px;
-      padding: 12px 16px;
+    /* ── Right sign-in card ── */
+    .login-card {
+      width: 420px;
+      flex-shrink: 0;
+      background: var(--bubble);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 40px 36px;
+      box-shadow: 0 20px 60px -20px rgba(0,0,0,0.12);
+    }
+    .login-card-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted2);
+      margin-bottom: 8px;
+    }
+    .login-card-title {
+      font-family: var(--font-brand);
+      font-size: 32px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      color: var(--body-text);
+      margin-bottom: 28px;
+    }
+    .login-error-box {
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+      border-radius: 10px;
+      padding: 10px 14px;
       font-size: 13px;
       margin-bottom: 14px;
       display: none;
     }
-    .login-hint {
-      margin-top: 14px;
-      font-size: 12px;
-      color: var(--mute);
-      background: #ffffff60;
-      padding: 10px 16px;
-      border-radius: 12px;
-      border: 1px solid var(--line-soft);
-      display: none;
+    .login-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
     }
-
-    /* divider */
-    .divider {
-      display: flex; align-items: center; gap: 12px;
-      margin: 24px 0;
-      color: var(--mute-2); font-size: 13px;
-    }
-    .divider::before, .divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--line);
-    }
-
-    /* workspace pill at bottom of card */
-    .ws-pill {
-      display: inline-flex;
+    .login-field label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted1);
+      font-weight: 600;
+      display: flex;
       align-items: center;
-      gap: 8px;
-      background: #ffffff60;
-      border: 1px solid var(--line-soft);
-      border-radius: 999px;
-      padding: 9px 16px;
-      font-size: 13px;
-      color: var(--mute);
-      margin-top: 24px;
-      width: 100%;
-      justify-content: center;
+      justify-content: space-between;
     }
-    .ws-pill svg { opacity: .5; }
+    .login-field input {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      font-size: 14px;
+      font-family: var(--font-body), system-ui, sans-serif;
+      color: var(--body-text);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .login-field input::placeholder { color: var(--muted2); }
+    .login-field input:focus {
+      border-color: var(--ac);
+      box-shadow: 0 0 0 3px var(--ac-pale);
+    }
+    .toggle-pw-btn {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted1);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    .toggle-pw-btn:hover { color: var(--body-text); }
 
-    .admin-link {
+    .login-submit {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      background: var(--ac);
+      color: var(--ac-text);
+      border: none;
+      border-radius: 999px;
+      padding: 14px 16px 14px 22px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: var(--font-body), system-ui, sans-serif;
+      cursor: pointer;
+      margin-top: 22px;
+      transition: opacity .15s, transform .15s;
+    }
+    .login-submit:hover { opacity: .9; transform: translateY(-1px); }
+    .login-submit:active { transform: none; }
+    .login-submit:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .login-submit .arr {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--ac-text);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .login-submit .arr svg { color: var(--ac); }
+
+    .login-divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 22px 0 16px;
+    }
+    .login-divider::before, .login-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--div);
+    }
+    .login-divider span {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted2);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .login-hint {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted1);
+      background: var(--ac-pale);
+      border: 1px solid var(--ac-mid);
+      padding: 10px 14px;
+      border-radius: 10px;
+      display: none;
+      font-family: var(--font-mono);
+    }
+
+    .login-footer-link {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 7px;
-      font-size: 13px;
-      color: var(--mute);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted1);
       text-decoration: none;
-      padding: 10px;
-      border-radius: 12px;
-      transition: color .15s, background .15s;
-      margin-top: 4px;
+      padding: 9px;
+      border-radius: 10px;
+      transition: background .15s, color .15s;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
-    .admin-link:hover { color: var(--ink); background: rgba(0,0,0,0.04); }
-    .admin-link svg { opacity: .5; }
+    .login-footer-link:hover { color: var(--body-text); background: var(--ac-pale); }
 
-    /* responsive */
-    @media (max-width: 760px) {
-      .page { grid-template-columns: 1fr; max-width: 440px; }
-      .brand-card { min-height: auto; padding: 36px 32px; }
-      .brand-hero h1 { font-size: 48px; }
-      .signin-card { padding: 36px 32px; }
-      .signin-title { font-size: 34px; }
+    .login-ws-note {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted2);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .login-ws-note::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--ac);
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 840px) {
+      .login-brand { display: none; }
+      .login-body  { padding: 24px 16px; }
+      .login-card  { width: 100%; max-width: 420px; }
     }
   </style>
 </head>
 <body>
 
-<div class="page">
+<!-- Top bar -->
+<div class="login-topbar">
+  <div class="logo">
+    <span class="logo-name">OLLA·NEST</span>
+    <span class="logo-sub">// AI Workspace</span>
+  </div>
+  <div class="login-topbar-right">
+    <a href="/admin-login">Admin access →</a>
+  </div>
+</div>
 
-  <!-- ── Left brand panel ── -->
-  <div class="brand-card">
-    <div class="logo">
-      <div class="logo-mark"></div>
-      Olla Nest
-    </div>
+<!-- Body -->
+<div class="login-body">
 
-    <div class="brand-hero">
-      <h1>Your team's<br>local <em>AI,</em><br>one place.</h1>
-      <p>Private AI models for every employee. No data leaves your network. Managed entirely by your team.</p>
+  <!-- Left brand panel -->
+  <div class="login-brand">
+    <div class="login-brand-eyebrow">// AI Workspace</div>
+    <div class="login-brand-title">Your team's<br>local <em>AI,</em><br>one place.</div>
+    <p class="login-brand-sub">Private AI models for every employee. No data leaves your network. Managed entirely by your team.</p>
 
-      <div class="feat-row">
-        <div class="feat-chip"><span class="dot"></span>Auto Router</div>
-        <div class="feat-chip"><span class="dot g"></span>100% Local</div>
-        <div class="feat-chip"><span class="dot d"></span>Admin Control</div>
-        <div class="feat-chip"><span class="dot"></span>File Output</div>
+    <div class="login-features">
+      <div class="login-feat">
+        <div class="login-feat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        </div>
+        <div class="login-feat-text">
+          <strong>Auto Router</strong>
+          <span>Picks the best model for every request</span>
+        </div>
+      </div>
+      <div class="login-feat">
+        <div class="login-feat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="login-feat-text">
+          <strong>100% Local &amp; Private</strong>
+          <span>Runs entirely on your infrastructure</span>
+        </div>
+      </div>
+      <div class="login-feat">
+        <div class="login-feat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="login-feat-text">
+          <strong>Admin-Controlled Access</strong>
+          <span>Roles, quotas and governance per user</span>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ── Right sign-in panel ── -->
-  <div class="signin-card">
-    <div class="signin-label">Workspace access</div>
-    <div class="signin-title">Welcome<br>back.</div>
+  <!-- Right sign-in card -->
+  <div class="login-card">
+    <div class="login-card-label">Workspace access</div>
+    <div class="login-card-title">Welcome<br>back.</div>
 
     <form id="loginForm" novalidate autocomplete="off">
-      <div class="login-error" id="loginError"></div>
+      <div class="login-error-box" id="loginError"></div>
 
-      <div class="field">
+      <div class="login-field">
         <label for="email">Email address</label>
         <input id="email" type="email" autocomplete="username"
                placeholder="you@company.com" required />
       </div>
 
-      <div class="field">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <label for="password">Password</label>
-          <button type="button" id="togglePassword" style="font-size:12px;color:var(--mute);background:none;border:none;cursor:pointer;padding:0;font-family:inherit;">Show</button>
-        </div>
+      <div class="login-field">
+        <label for="password">
+          Password
+          <button type="button" id="togglePassword" class="toggle-pw-btn">Show</button>
+        </label>
         <input id="password" type="password" autocomplete="current-password"
                placeholder="••••••••••••" required />
       </div>
 
-      <button class="btn-signin" type="submit" id="submitBtn">
+      <button class="login-submit" type="submit" id="submitBtn">
         <span>Sign in</span>
         <span class="arr">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-               stroke-linejoin="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <path d="M5 12h14M12 5l7 7-7 7"/>
           </svg>
         </span>
@@ -360,28 +427,21 @@
 
     <div class="login-hint" id="bootstrapHint"></div>
 
-    <div class="divider">Olla Nest · AI Workspace</div>
+    <div class="login-divider"><span>Olla Nest</span></div>
 
-    <a href="/admin-login" class="admin-link">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      Admin? Sign in here instead
+    <a href="/admin-login" class="login-footer-link">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Admin? Sign in here
     </a>
 
-    <div class="ws-pill">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2">
-        <rect x="3" y="11" width="18" height="11" rx="2"/>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      </svg>
-      Runs entirely on your infrastructure
-    </div>
+    <div class="login-ws-note">Runs entirely on your infrastructure</div>
   </div>
 
 </div>
 
-<!-- Dev quick-login panel — visible on localhost only, injected by JS below -->
-<div id="devPanel" style="display:none;position:fixed;bottom:20px;right:20px;background:#1c1c1e;border:1px solid #333;border-radius:14px;padding:14px 16px;min-width:220px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.4);">
-  <div style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#888;text-transform:uppercase;margin-bottom:10px;">⚡ Dev Quick Login</div>
+<!-- Dev quick-login panel — localhost only -->
+<div id="devPanel" style="display:none;position:fixed;bottom:20px;right:20px;background:var(--bubble);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-width:220px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.12);">
+  <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted2);text-transform:uppercase;margin-bottom:10px;">⚡ Dev Quick Login</div>
   <div id="devAccounts" style="display:flex;flex-direction:column;gap:6px;"></div>
 </div>
 
@@ -390,23 +450,19 @@
 (function() {
   const isLocal = ["localhost","127.0.0.1","::1"].includes(location.hostname);
   if (!isLocal) return;
-
-  // Fetch all accounts from bootstrap + state — use the seed accounts
   const accounts = [
-    { label: "Admin",     email: "admin@ollanest.local",    password: "CHANGE_ME_ON_FIRST_BOOT", color: "#f5c842" },
-    { label: "Employee",  email: "employee@ollanest.local", password: "CHANGE_ME_ON_FIRST_BOOT", color: "#4ade80" },
-    { label: "Builder",   email: "builder@ollanest.local",  password: "CHANGE_ME_ON_FIRST_BOOT", color: "#60a5fa" },
-    { label: "Support",   email: "support@ollanest.local",  password: "CHANGE_ME_ON_FIRST_BOOT", color: "#c084fc" },
+    { label: "Admin",    email: "admin@ollanest.local",    password: "CHANGE_ME_ON_FIRST_BOOT", color: "#F5C800" },
+    { label: "Employee", email: "employee@ollanest.local", password: "CHANGE_ME_ON_FIRST_BOOT", color: "#4ade80" },
+    { label: "Builder",  email: "builder@ollanest.local",  password: "CHANGE_ME_ON_FIRST_BOOT", color: "#60a5fa" },
+    { label: "Support",  email: "support@ollanest.local",  password: "CHANGE_ME_ON_FIRST_BOOT", color: "#c084fc" },
   ];
-
   const panel = document.getElementById("devPanel");
   const container = document.getElementById("devAccounts");
   panel.style.display = "block";
-
   accounts.forEach(({ label, email, password, color }) => {
     const btn = document.createElement("button");
     btn.textContent = label;
-    btn.style.cssText = `background:${color}22;border:1px solid ${color}55;color:${color};border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s;`;
+    btn.style.cssText = `background:${color}22;border:1px solid ${color}55;color:${color};border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s;width:100%;`;
     btn.onmouseenter = () => btn.style.background = `${color}44`;
     btn.onmouseleave = () => btn.style.background = `${color}22`;
     btn.onclick = async () => {
