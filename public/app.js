@@ -325,6 +325,39 @@ function renderSidebarChats() {
   }).join("");
 }
 
+// ─── Confirm dialog ──────────────────────────────────────────────────────────
+
+/**
+ * Show a lightweight confirm dialog overlay.
+ * @param {string} message - Confirmation prompt text.
+ * @param {Function} onConfirm - Async callback executed if user confirms.
+ */
+function showConfirm(message, onConfirm) {
+  const existing = document.getElementById("confirmOverlay");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "confirmOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:#1e1e2e;border:1px solid #333;border-radius:12px;padding:24px 28px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5);">
+      <p style="margin:0 0 20px;color:#e2e8f0;font-size:14px;line-height:1.5;">${esc(message)}</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button id="confirmCancel" style="padding:7px 16px;border-radius:8px;border:1px solid #444;background:transparent;color:#aaa;cursor:pointer;font-size:13px;">Cancel</button>
+        <button id="confirmOk" style="padding:7px 16px;border-radius:8px;border:none;background:#ef4444;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">Delete</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  document.getElementById("confirmCancel").addEventListener("click", close);
+  document.getElementById("confirmOk").addEventListener("click", async () => {
+    close();
+    await onConfirm();
+  });
+}
+
 // ─── Chat context menu ────────────────────────────────────────────────────────
 
 let _chatCtxMenu = null;
