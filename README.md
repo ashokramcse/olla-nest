@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/logo-readme.svg" alt="Olla Nest" width="280" />
+<img src="docs/logo-readme.svg" alt="Olla Nest" width="480" />
 
 ### Your AI. Your rules. Your hardware.
 

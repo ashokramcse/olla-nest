@@ -1785,182 +1785,105 @@ function ms(n)  { return n > 0 ? (n >= 1000 ? (n/1000).toFixed(1)+"s" : Math.rou
  */
 function renderKpis(s) {
   const kpis = [
-    { label: "Total Users",   value: fmt(s.total_users),    icon: "👤" },
-    { label: "Chat Sessions", value: fmt(s.total_sessions), icon: "💬" },
-    { label: "Messages",      value: fmt(s.total_messages), icon: "✉️" },
-    { label: "Tokens Used",   value: fmt(s.total_tokens),   icon: "🔢" },
-    { label: "Avg Latency",   value: ms(s.avg_latency),     icon: "⚡" },
+    { label: "Total Users",   value: fmt(s.total_users),    sub: "registered" },
+    { label: "Chat Sessions", value: fmt(s.total_sessions), sub: "in period" },
+    { label: "Messages",      value: fmt(s.total_messages), sub: "sent" },
+    { label: "Tokens Used",   value: fmt(s.total_tokens),   sub: "consumed" },
+    { label: "Avg Latency",   value: ms(s.avg_latency),     sub: "per response" },
   ];
   $("reportKpis").innerHTML = kpis.map(k => `
     <div class="rpt-kpi-card">
-      <div class="rpt-kpi-icon">${k.icon}</div>
-      <div class="rpt-kpi-value">${k.value}</div>
       <div class="rpt-kpi-label">${k.label}</div>
+      <div class="rpt-kpi-value">${k.value}</div>
+      <div class="rpt-kpi-sub">${k.sub}</div>
     </div>
   `).join("");
 }
 
 /** Current leaderboard page index (0-based). Reset to 0 on each data refresh. */
 let _lbPage = 0;
-/** Full leaderboard dataset; sliced per page by renderLeaderboardPage(). */
+/** Full leaderboard dataset. */
 let _lbData = [];
 
-/**
- * Stores leaderboard data and renders the first page.
- * Subsequent navigation uses lbPrev / lbNext / lbGoTo which call renderLeaderboardPage().
- *
- * @param {Array<object>} rows - Leaderboard rows from d.tokenLeaderboard.
- *   Each row: { name, email, ai_access_tier, sessions, messages, total_tokens,
- *               avg_tokens_per_msg, daily_token_limit, last_active }.
- */
 function renderLeaderboard(rows) {
   _lbData = rows;
   _lbPage = 0;
   renderLeaderboardPage();
 }
 
-/**
- * Renders a single page (10 rows) of the leaderboard table from `_lbData`.
- * Includes medal icons for top 3 ranks, an avatar circle, a token-usage progress bar
- * (green < 60%, orange < 90%, red ≥ 90% of daily limit), and pagination controls.
- * Called by renderLeaderboard() and the lbPrev/lbNext/lbGoTo navigation functions.
- */
+/** Render a page of the leaderboard table into #tblLeaderboard. */
 function renderLeaderboardPage() {
-  const PAGE = 10;
+  const PAGE = 20;
   const rows = _lbData;
   const total = rows.length;
   const totalPages = Math.ceil(total / PAGE) || 1;
   const start = _lbPage * PAGE;
   const pageRows = rows.slice(start, start + PAGE);
   const medals = ["🥇","🥈","🥉"];
+  const tbl = $("tblLeaderboard");
+  if (!tbl) return;
 
   if (!total) {
-    $("reportLeaderboard").innerHTML = `<p style="color:var(--muted2);text-align:center;padding:24px;">No data yet — start chatting!</p>`;
+    tbl.querySelector("tbody").innerHTML = `<tr><td colspan="7" class="tbl-empty">No data yet — start chatting!</td></tr>`;
     return;
   }
 
-  const tableHtml = `
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2);border-bottom:1px solid var(--border);">
-          <th style="padding:8px 12px;text-align:left;">#</th>
-          <th style="padding:8px 12px;text-align:left;">Employee</th>
-          <th style="padding:8px 12px;text-align:left;">Tier</th>
-          <th style="padding:8px 12px;text-align:right;">Sessions</th>
-          <th style="padding:8px 12px;text-align:right;">Messages</th>
-          <th style="padding:8px 12px;text-align:right;">Total Tokens</th>
-          <th style="padding:8px 12px;text-align:right;">Avg/Msg</th>
-          <th style="padding:8px 12px;text-align:right;">% of Limit</th>
-          <th style="padding:8px 12px;text-align:right;">Last Active</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${pageRows.map((u, i) => {
-          const absIdx = start + i;
-          const pct = u.daily_token_limit > 0 ? Math.min(100, Math.round(u.total_tokens / u.daily_token_limit * 100)) : 0;
-          const barColor = pct > 90 ? BRAND.red : pct > 60 ? BRAND.orange : BRAND.green;
-          const rank = medals[absIdx] || `<span style="color:var(--muted2);">${absIdx+1}</span>`;
-          const av = (u.name || "?").split(" ").map(p => p[0]).slice(0,2).join("").toUpperCase();
-          const lastActive = u.last_active ? u.last_active.slice(0,10) : "—";
-          return `<tr style="border-bottom:1px solid var(--div);transition:background .1s;" onmouseenter="this.style.background='var(--ac-pale)'" onmouseleave="this.style.background=''">
-            <td style="padding:12px 12px;font-size:18px;">${rank}</td>
-            <td style="padding:12px 12px;">
-              <div style="display:flex;align-items:center;gap:10px;">
-                <div style="width:34px;height:34px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--ac-text);flex-shrink:0;">${esc(av)}</div>
-                <div>
-                  <div style="font-size:13px;font-weight:500;">${esc(u.name)}</div>
-                  <div style="font-size:11px;color:var(--muted2);">${esc(u.email)}</div>
-                </div>
-              </div>
-            </td>
-            <td style="padding:12px 12px;"><span class="badge badge-blue" style="font-size:11px;">${esc(u.ai_access_tier||"standard")}</span></td>
-            <td style="padding:12px 12px;text-align:right;font-size:13px;">${fmt(u.sessions)}</td>
-            <td style="padding:12px 12px;text-align:right;font-size:13px;">${fmt(u.messages)}</td>
-            <td style="padding:12px 12px;text-align:right;font-size:14px;font-weight:600;">${fmt(u.total_tokens)}</td>
-            <td style="padding:12px 12px;text-align:right;font-size:12px;color:var(--muted1);">${fmt(Math.round(u.avg_tokens_per_msg))}</td>
-            <td style="padding:12px 12px;text-align:right;">
-              <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
-                <div style="width:60px;height:5px;background:var(--track);border-radius:3px;overflow:hidden;">
-                  <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px;"></div>
-                </div>
-                <span style="font-size:11px;color:var(--muted2);min-width:30px;">${pct}%</span>
-              </div>
-            </td>
-            <td style="padding:12px 12px;text-align:right;font-size:11px;color:var(--muted2);">${lastActive}</td>
-          </tr>`;
-        }).join("")}
-      </tbody>
-    </table>
-  `;
+  tbl.querySelector("tbody").innerHTML = pageRows.map((u, i) => {
+    const absIdx = start + i;
+    const rank = medals[absIdx] || `<span style="color:var(--muted2);">${absIdx+1}</span>`;
+    const av = (u.name||"?").split(" ").map(p=>p[0]).slice(0,2).join("").toUpperCase();
+    const lastActive = u.last_active ? u.last_active.slice(0,10) : "—";
+    const tierCls = {premium:"tbl-badge-blue", restricted:"tbl-badge-red", standard:"tbl-badge-gray"}[u.ai_access_tier||"standard"] || "tbl-badge-gray";
+    return `<tr>
+      <td class="tbl-rank">${rank}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div style="width:30px;height:30px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ac-text);flex-shrink:0;">${esc(av)}</div>
+          <div><div style="font-weight:500;">${esc(u.name)}</div><div style="font-size:11px;color:var(--muted2);">${esc(u.email)}</div></div>
+        </div>
+      </td>
+      <td>${esc(u.department||"—")}</td>
+      <td class="num">${fmt(u.sessions)}</td>
+      <td class="num">${fmt(u.messages)}</td>
+      <td class="num" style="font-weight:600;">${fmt(u.total_tokens)}</td>
+      <td class="num">${fmt(Math.round(u.avg_tokens_per_msg||0))}</td>
+    </tr>`;
+  }).join("");
 
-  const paginationHtml = totalPages > 1 ? `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 12px;border-top:1px solid var(--div);margin-top:4px;">
-      <span style="font-size:12px;color:var(--muted2);">Showing ${start+1}–${Math.min(start+PAGE,total)} of ${total} employees</span>
+  // Pagination row
+  if (totalPages > 1) {
+    const pfooter = tbl.parentElement.querySelector(".tbl-pagination") || (() => {
+      const d = document.createElement("div"); d.className = "tbl-pagination";
+      d.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:12px 12px 0;border-top:1px solid var(--div);margin-top:4px;font-size:12px;color:var(--muted2);";
+      tbl.parentElement.appendChild(d); return d;
+    })();
+    pfooter.innerHTML = `<span>Showing ${start+1}–${Math.min(start+PAGE,total)} of ${total}</span>
       <div style="display:flex;gap:6px;">
-        <button onclick="lbPrev()" ${_lbPage===0?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--bubble);cursor:${_lbPage===0?'not-allowed':'pointer'};font-size:13px;color:${_lbPage===0?'var(--muted2)':'var(--body-text)'};">← Prev</button>
-        ${Array.from({length:totalPages},(_,i)=>`<button onclick="lbGoTo(${i})" style="padding:6px 12px;border-radius:8px;border:1.5px solid ${i===_lbPage?'var(--ac)':'var(--border)'};background:${i===_lbPage?'var(--ac)':'var(--bubble)'};color:${i===_lbPage?'var(--ac-text)':'var(--body-text)'};font-size:13px;cursor:pointer;">${i+1}</button>`).join("")}
-        <button onclick="lbNext()" ${_lbPage>=totalPages-1?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--bubble);cursor:${_lbPage>=totalPages-1?'not-allowed':'pointer'};font-size:13px;color:${_lbPage>=totalPages-1?'var(--muted2)':'var(--body-text)'};">Next →</button>
-      </div>
-    </div>
-  ` : "";
-
-  $("reportLeaderboard").innerHTML = tableHtml + paginationHtml;
+        <button onclick="lbPrev()" ${_lbPage===0?"disabled":""} class="btn btn-sm">← Prev</button>
+        <button onclick="lbNext()" ${_lbPage>=totalPages-1?"disabled":""} class="btn btn-sm">Next →</button>
+      </div>`;
+  }
 }
 
-// Leaderboard pagination helpers — exposed on window so inline onclick="" attributes in
-// dynamically generated HTML can call them without a module scope barrier.
 window.lbPrev = function() { if(_lbPage>0){_lbPage--;renderLeaderboardPage();} };
-window.lbNext = function() { if(_lbPage<Math.ceil(_lbData.length/10)-1){_lbPage++;renderLeaderboardPage();} };
-window.lbGoTo = function(p) { _lbPage=p; renderLeaderboardPage(); };
+window.lbNext = function() { if(_lbPage<Math.ceil(_lbData.length/20)-1){_lbPage++;renderLeaderboardPage();} };
 
-/**
- * Renders the model performance table beneath the Reports leaderboard.
- * Shows model name, total uses, total tokens, average latency, and a relative
- * usage bar (100% = the top model's use count).
- *
- * @param {Array<object>} rows - Model usage rows from d.modelUsage.
- *   Each row: { model_name, uses, total_tokens, avg_latency }.
- */
-function renderModelTable(rows) {
-  if (!rows.length) { $("reportModelTable").innerHTML = `<p style="color:var(--muted2);text-align:center;padding:20px;">No model data yet.</p>`; return; }
-  $("reportModelTable").innerHTML = `
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2);border-bottom:1px solid var(--border);">
-          <th style="padding:8px 12px;text-align:left;">Model</th>
-          <th style="padding:8px 12px;text-align:right;">Uses</th>
-          <th style="padding:8px 12px;text-align:right;">Total Tokens</th>
-          <th style="padding:8px 12px;text-align:right;">Avg Latency</th>
-          <th style="padding:8px 12px;text-align:left;">Usage bar</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map((m, i) => {
-          const maxUses = rows[0].uses || 1;
-          const pct = Math.round(m.uses / maxUses * 100);
-          return `<tr style="border-bottom:1px solid var(--div);transition:background .1s;" onmouseenter="this.style.background='var(--ac-pale)'" onmouseleave="this.style.background=''">
-            <td style="padding:10px 12px;font-weight:500;">${esc(m.model_name||"—")}</td>
-            <td style="padding:10px 12px;text-align:right;">${fmt(m.uses)}</td>
-            <td style="padding:10px 12px;text-align:right;">${fmt(m.total_tokens)}</td>
-            <td style="padding:10px 12px;text-align:right;">${ms(m.avg_latency)}</td>
-            <td style="padding:10px 12px;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <div style="flex:1;height:6px;background:var(--track);border-radius:3px;overflow:hidden;">
-                  <div style="width:${pct}%;height:100%;background:${PALETTE[i%PALETTE.length]};border-radius:3px;"></div>
-                </div>
-                <span style="font-size:11px;color:var(--muted2);min-width:32px;">${pct}%</span>
-              </div>
-            </td>
-          </tr>`;
-        }).join("")}
-      </tbody>
-    </table>
-  `;
+/** Helper: fill a data-table tbody. tblId = element id, rows = array, cols = fn(row) → array of td html strings */
+function fillTable(tblId, rows, cols, emptyMsg) {
+  const tbl = $(tblId);
+  if (!tbl) return;
+  if (!rows || !rows.length) {
+    tbl.querySelector("tbody").innerHTML = `<tr><td colspan="99" class="tbl-empty">${emptyMsg||"No data."}</td></tr>`;
+    return;
+  }
+  tbl.querySelector("tbody").innerHTML = rows.map(r => `<tr>${cols(r).map(c=>{
+    const isNum = c.includes('class="num"');
+    return `<td${isNum?' class="num"':''}>${c.replace(/<span class="num">(.*?)<\/span>/s,'$1')}</td>`;
+  }).join("")}</tr>`).join("");
 }
 
 /**
- * Fetches analytics data from GET /api/admin/reports?days=N and renders all 9 charts
- * plus KPI cards, the leaderboard, and the model table.
+ * Fetches analytics data from GET /api/admin/reports?days=N and renders all report tables.
  *
  * Charts built:
  *   1. chartDailyActivity  — dual-axis bar (messages) + line (tokens) by day
@@ -1985,116 +1908,84 @@ async function loadReports() {
   // KPIs
   renderKpis(d.summary || {});
 
-  // Snapshot current theme tokens for this render pass
-  const ac      = cssVar("--ac")       || "#f5c800";
-  const acDark  = cssVar("--ac-dark")  || "#c9a200";
-  const muted2  = cssVar("--muted2")   || "#aaa";
-  const bodyTxt = cssVar("--body-text")|| "#1a1a1a";
-  const border  = cssVar("--border")   || "#e5e7eb";
-  const bubble  = cssVar("--bubble")   || "#ffffff";
-  const gridC   = border + "26";      // 15% alpha grid lines
-  const palette = getPalette();
+  // 1. Daily activity table
+  const totalMsgs = d.dailyActivity.reduce((s,r)=>s+(r.messages||0),0) || 1;
+  fillTable("tblDailyActivity", [...d.dailyActivity].reverse(), r => [
+    `<span style="font-family:var(--font-mono);font-size:12px;">${r.day||"—"}</span>`,
+    `<span class="num">${fmt(r.messages)}</span>`,
+    `<span class="num">${fmt(r.tokens)}</span>`,
+    `<span class="num">${r.messages>0?fmt(Math.round(r.tokens/r.messages)):"—"}</span>`
+  ], "No activity in this period.");
 
-  // 1. Daily Messages & Tokens — dual-axis bar+line
-  const labels1 = d.dailyActivity.map(r => r.day.slice(5)); // MM-DD
-  mkChart("chartDailyActivity", "bar", {
-    labels: labels1,
-    datasets: [
-      {
-        label: "Messages",
-        data: d.dailyActivity.map(r => r.messages),
-        backgroundColor: ac + "d9",   // 85% opacity
-        borderColor: acDark,
-        borderWidth: 0,
-        borderRadius: 6,
-        yAxisID: "y",
-      },
-      {
-        label: "Tokens",
-        type: "line",
-        data: d.dailyActivity.map(r => r.tokens),
-        borderColor: BRAND.teal,
-        backgroundColor: BRAND.teal + "14",
-        borderWidth: 2.5,
-        pointRadius: 4,
-        pointBackgroundColor: bubble,
-        pointBorderColor: BRAND.teal,
-        pointBorderWidth: 2,
-        tension: 0.5,
-        fill: true,
-        yAxisID: "y1",
-      },
-    ],
-  }, {
-    scales: {
-      x:  { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } },
-      y:  { position: "left",  ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC }, title: { display: true, text: "Messages", color: muted2, font: { size: 10 } } },
-      y1: { position: "right", ticks: { color: BRAND.teal, font: { size: 10 } }, grid: { drawOnChartArea: false }, title: { display: true, text: "Tokens", color: BRAND.teal, font: { size: 10 } } },
-    },
-  });
+  // 2. Model usage table
+  const totalUses = d.modelUsage.reduce((s,r)=>s+(r.uses||0),0)||1;
+  fillTable("tblModelUsage", d.modelUsage, r => [
+    `<span style="font-family:var(--font-mono);font-size:12px;font-weight:500;">${esc(r.model_name||"—")}</span>`,
+    `<span class="num">${fmt(r.uses)}</span>`,
+    `<span class="num">${fmt(r.total_tokens)}</span>`,
+    `<div class="tbl-bar-wrap"><div class="tbl-bar-track"><div class="tbl-bar-fill" style="width:${Math.round(r.uses/totalUses*100)}%"></div></div><span style="font-size:11px;color:var(--muted2);min-width:34px;text-align:right;">${Math.round(r.uses/totalUses*100)}%</span></div>`
+  ], "No model data.");
 
-  // 2. Model usage — donut
-  const mu = d.modelUsage.slice(0,8);
-  mkChart("chartModelUsage", "doughnut", {
-    labels: mu.map(r => r.model_name || "?"),
-    datasets: [{ data: mu.map(r => r.uses), backgroundColor: palette, borderColor: bubble, borderWidth: 2, hoverOffset: 6 }],
-  }, { cutout: "62%", plugins: { legend: { position: "bottom", labels: { color: bodyTxt, font: { size: 10 }, boxWidth: 10, padding: 8 } } } });
+  // 3. Latency table
+  fillTable("tblLatency", d.latencyByModel, r => [
+    `<span style="font-family:var(--font-mono);font-size:12px;">${esc((r.model_name||"—").slice(0,30))}</span>`,
+    `<span class="num">${r.avg_ms!=null?Math.round(r.avg_ms)+"ms":"—"}</span>`,
+    `<span class="num">${r.min_ms!=null?Math.round(r.min_ms)+"ms":"—"}</span>`,
+    `<span class="num">${r.max_ms!=null?Math.round(r.max_ms)+"ms":"—"}</span>`,
+    `<span class="num">${fmt(r.requests||r.uses||0)}</span>`
+  ], "No latency data.");
 
-  // 3. Mode breakdown — donut
-  const mb = d.modeBreakdown;
-  mkChart("chartModeBreakdown", "doughnut", {
-    labels: mb.map(r => r.mode || "ask"),
-    datasets: [{ data: mb.map(r => r.count), backgroundColor: palette.slice(2), borderColor: bubble, borderWidth: 2, hoverOffset: 6 }],
-  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: bodyTxt, font: { size: 11 }, boxWidth: 10 } } } });
+  // 4. Mode breakdown table
+  const totalModes = d.modeBreakdown.reduce((s,r)=>s+(r.count||0),0)||1;
+  fillTable("tblModeBreakdown", d.modeBreakdown, r => [
+    `<span class="tbl-badge tbl-badge-yellow">${esc(r.mode||"ask")}</span>`,
+    `<span class="num">${fmt(r.count)}</span>`,
+    `<span class="num">${Math.round(r.count/totalModes*100)}%</span>`
+  ], "No mode data.");
 
-  // 4. Live vs Failed — pie
-  const lf = d.liveVsFailed;
-  mkChart("chartLiveVsFailed", "doughnut", {
-    labels: ["Successful", "Failed"],
-    datasets: [{ data: [lf.live_count||0, lf.failed_count||0], backgroundColor: [BRAND.green, BRAND.red], borderColor: bubble, borderWidth: 3, hoverOffset: 6 }],
-  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: bodyTxt, font: { size: 11 }, boxWidth: 10 } } } });
+  // 5. Quality table
+  const lf = d.liveVsFailed || {};
+  const totalQ = (lf.live_count||0)+(lf.failed_count||0)||1;
+  fillTable("tblQuality", [
+    {status:"Successful", count:lf.live_count||0, cls:"tbl-badge-green"},
+    {status:"Failed",     count:lf.failed_count||0, cls:"tbl-badge-red"}
+  ], r => [
+    `<span class="tbl-badge ${r.cls}">${esc(r.status)}</span>`,
+    `<span class="num">${fmt(r.count)}</span>`,
+    `<span class="num">${Math.round(r.count/totalQ*100)}%</span>`
+  ], "No quality data.");
 
-  // 5. Tier distribution — pie
-  const td = d.tierDist;
-  mkChart("chartTierDist", "doughnut", {
-    labels: td.map(r => r.tier || "standard"),
-    datasets: [{ data: td.map(r => r.count), backgroundColor: [ac, BRAND.blue, BRAND.purple, BRAND.teal], borderColor: bubble, borderWidth: 2, hoverOffset: 6 }],
-  }, { cutout: "55%", plugins: { legend: { position: "bottom", labels: { color: bodyTxt, font: { size: 11 }, boxWidth: 10 } } } });
+  // 6. Tier distribution table
+  const totalTier = d.tierDist.reduce((s,r)=>s+(r.count||0),0)||1;
+  fillTable("tblTierDist", d.tierDist, r => [
+    `<span class="tbl-badge tbl-badge-blue">${esc(r.tier||"standard")}</span>`,
+    `<span class="num">${fmt(r.count)}</span>`,
+    `<span class="num">${Math.round(r.count/totalTier*100)}%</span>`
+  ], "No tier data.");
 
-  // 6. Department token usage — horizontal bar
-  const du = d.deptUsage.filter(r => r.dept);
-  mkChart("chartDeptUsage", "bar", {
-    labels: du.map(r => r.dept),
-    datasets: [
-      { label: "Tokens",   data: du.map(r => r.tokens),   backgroundColor: ac + "cc",        borderColor: acDark,     borderWidth: 1, borderRadius: 4 },
-      { label: "Sessions", data: du.map(r => r.sessions), backgroundColor: BRAND.teal + "99", borderColor: BRAND.teal, borderWidth: 1, borderRadius: 4 },
-    ],
-  }, { indexAxis: "y", scales: { x: { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } }, y: { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } } } });
+  // 7. Department usage table
+  fillTable("tblDeptUsage", d.deptUsage.filter(r=>r.dept), r => [
+    `<span style="font-weight:500;">${esc(r.dept)}</span>`,
+    `<span class="num">${fmt(r.sessions)}</span>`,
+    `<span class="num">${fmt(r.messages||0)}</span>`,
+    `<span class="num">${fmt(r.tokens)}</span>`,
+    `<span class="num">${r.sessions>0?fmt(Math.round(r.tokens/r.sessions)):"—"}</span>`
+  ], "No department data.");
 
-  // 7. Response latency — horizontal bar
-  const lat = d.latencyByModel;
-  mkChart("chartLatency", "bar", {
-    labels: lat.map(r => (r.model_name||"?").slice(0,18)),
-    datasets: [{ label: "Avg Latency (ms)", data: lat.map(r => r.avg_ms), backgroundColor: palette, borderWidth: 0, borderRadius: 4 }],
-  }, { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } }, y: { ticks: { color: muted2, font: { size: 10 } }, grid: { display: false } } } });
-
-  // 8. Audit timeline — line
-  const at = d.auditTimeline;
-  mkChart("chartAuditTimeline", "line", {
-    labels: at.map(r => r.day.slice(5)),
-    datasets: [{ label: "Audit Events", data: at.map(r => r.events), borderColor: BRAND.orange, backgroundColor: BRAND.orange + "25", borderWidth: 2, pointRadius: 3, tension: 0.4, fill: true }],
-  });
-
-  // 9. Audit action breakdown — horizontal bar
-  const ab = d.auditBreakdown;
-  mkChart("chartAuditBreakdown", "bar", {
-    labels: ab.map(r => r.action.replace(/\./g, " ")),
-    datasets: [{ label: "Count", data: ab.map(r => r.count), backgroundColor: BRAND.indigo + "cc", borderColor: BRAND.indigo, borderWidth: 1, borderRadius: 4 }],
-  }, { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: { color: muted2, font: { size: 10 } }, grid: { color: gridC } }, y: { ticks: { color: muted2, font: { size: 9 } }, grid: { display: false } } } });
-
-  // Leaderboard & model table
+  // 8. Token leaderboard
   renderLeaderboard(d.tokenLeaderboard);
-  renderModelTable(d.modelUsage);
+
+  // 9. Audit timeline table
+  fillTable("tblAuditTimeline", [...d.auditTimeline].reverse(), r => [
+    `<span style="font-family:var(--font-mono);font-size:12px;">${r.day||"—"}</span>`,
+    `<span class="num">${fmt(r.events)}</span>`
+  ], "No audit events.");
+
+  // 10. Audit actions table
+  fillTable("tblAuditActions", d.auditBreakdown, r => [
+    `<span style="font-family:var(--font-mono);font-size:12px;">${esc((r.action||"—").replace(/\./g," "))}</span>`,
+    `<span class="num" style="font-weight:600;">${fmt(r.count)}</span>`
+  ], "No audit actions.");
 }
 
 // Refresh reports manually or when the time-period selector changes
@@ -2114,13 +2005,9 @@ document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
   }
 });
 
-// Re-apply Chart.js global defaults and redraw all charts when the theme changes
+// Re-apply Chart.js global defaults when the theme changes (charts used in other tabs)
 window.addEventListener("themechange", () => {
   applyChartDefaults();
-  // Re-render reports only if the reports tab has been loaded (i.e. charts exist)
-  if (Object.keys(_charts).length > 0) {
-    loadReports();
-  }
 });
 
 // Bootstrap: fire Ollama check immediately (independent of loadState so the
