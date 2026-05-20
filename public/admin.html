@@ -280,6 +280,136 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 /* Admin layout block */
 .admin-layout { display: block; padding: 0 28px 28px; }
 
+/* ══════════════════════════════════════
+   Reports / Analytics Dashboard
+══════════════════════════════════════ */
+
+/* Header bar */
+.rpt-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; padding: 24px 0 20px; flex-wrap: wrap;
+}
+.rpt-header-title {
+  font-family: var(--font-brand);
+  font-size: 28px; font-weight: 400;
+  letter-spacing: -0.02em; color: var(--body-text); line-height: 1;
+}
+.rpt-header-sub {
+  font-size: 13px; color: var(--muted2); margin-top: 5px;
+  font-family: var(--font-mono); letter-spacing: 0.02em;
+}
+.rpt-header-right {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.rpt-period-label {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--muted2); text-transform: uppercase; letter-spacing: 0.07em;
+}
+.rpt-period-sel {
+  height: 34px; border-radius: 10px; font-size: 13px;
+  padding: 0 10px; cursor: pointer;
+}
+.rpt-refresh-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px; border-radius: 10px;
+  background: var(--body-text); color: #fff;
+  border: none; font-size: 13px; font-weight: 600;
+  font-family: var(--font-body); cursor: pointer;
+  transition: opacity .15s;
+}
+.rpt-refresh-btn:hover { opacity: .85; }
+
+/* KPI grid */
+.rpt-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+/* Section labels */
+.rpt-section-label {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.10em;
+  color: var(--muted1);
+  margin-bottom: 12px; margin-top: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--div);
+}
+.rpt-section-label svg { color: var(--ac); flex-shrink: 0; }
+
+/* Chart rows */
+.rpt-row {
+  display: grid; gap: 14px; margin-bottom: 24px;
+}
+.rpt-row-6040 { grid-template-columns: 1.6fr 1fr; }
+.rpt-row-3    { grid-template-columns: 1fr 1fr 1fr; }
+.rpt-row-half { grid-template-columns: 1fr 1fr; }
+
+/* Chart card */
+.rpt-card {
+  background: var(--bubble);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px 22px 18px;
+  transition: box-shadow .15s;
+}
+.rpt-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,.07); }
+.rpt-card-full { border-radius: 20px; }
+.rpt-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 16px;
+}
+.rpt-card-title {
+  font-size: 13px; font-weight: 600; color: var(--body-text);
+  letter-spacing: -.01em;
+}
+.rpt-card-badge {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--muted2); background: var(--div);
+  border-radius: 6px; padding: 2px 8px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+/* KPI cards — rendered by renderKpis() */
+.rpt-kpi-card {
+  background: var(--bubble);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative; overflow: hidden;
+}
+.rpt-kpi-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--ac); border-radius: 18px 18px 0 0;
+}
+.rpt-kpi-icon {
+  font-size: 20px; line-height: 1;
+}
+.rpt-kpi-value {
+  font-family: var(--font-brand);
+  font-size: 28px; font-weight: 400;
+  letter-spacing: -0.03em; color: var(--body-text); line-height: 1;
+}
+.rpt-kpi-label {
+  font-family: var(--font-mono);
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--muted2);
+}
+
+@media (max-width: 1100px) {
+  .rpt-kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .rpt-row-6040 { grid-template-columns: 1fr; }
+  .rpt-row-3    { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+  .rpt-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .rpt-row-3, .rpt-row-half, .rpt-row-6040 { grid-template-columns: 1fr; }
+}
+
 /* badge tooltip */
 .badge[title] { cursor: help; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -922,89 +1052,150 @@ td:last-child .badge { margin: 2px 2px !important; font-size: 11px !important; }
 
       <!-- ── REPORTS ── -->
       <div class="tab-view" id="tab-reports">
-        <!-- Summary KPI strip -->
-        <div id="reportKpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;"></div>
 
-        <!-- Period selector -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-          <h2 style="font-size:18px;font-weight:500;margin:0;">Analytics &amp; Reports</h2>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span style="font-size:12px;color:var(--muted2);">Period:</span>
-            <select class="input input-sm" id="reportPeriod" style="width:120px;">
+        <!-- ── Dashboard header bar ── -->
+        <div class="rpt-header">
+          <div class="rpt-header-left">
+            <div class="rpt-header-title">Analytics &amp; Reports</div>
+            <div class="rpt-header-sub">Usage insights, model performance and audit activity</div>
+          </div>
+          <div class="rpt-header-right">
+            <span class="rpt-period-label">Period</span>
+            <select class="input input-sm rpt-period-sel" id="reportPeriod">
               <option value="7">Last 7 days</option>
               <option value="30" selected>Last 30 days</option>
               <option value="90">Last 90 days</option>
             </select>
-            <button class="btn dark sm" id="refreshReportsBtn" style="padding:7px 16px;">Refresh</button>
+            <button class="rpt-refresh-btn" id="refreshReportsBtn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Refresh
+            </button>
           </div>
         </div>
 
-        <!-- Row 1: Daily activity + Model usage -->
-        <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px;">
-          <div class="card">
-            <div class="card-head"><div class="card-title">📈 Daily Messages &amp; Tokens</div></div>
-            <canvas id="chartDailyActivity" height="180"></canvas>
+        <!-- ── KPI strip ── -->
+        <div id="reportKpis" class="rpt-kpi-grid"></div>
+
+        <!-- ── Section: Activity ── -->
+        <div class="rpt-section-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Activity
+        </div>
+
+        <div class="rpt-row rpt-row-6040">
+          <div class="rpt-card">
+            <div class="rpt-card-head">
+              <span class="rpt-card-title">Daily Messages &amp; Tokens</span>
+              <span class="rpt-card-badge">Bar + Line</span>
+            </div>
+            <canvas id="chartDailyActivity" height="160"></canvas>
           </div>
-          <div class="card">
-            <div class="card-head"><div class="card-title">🤖 Model Usage</div></div>
-            <canvas id="chartModelUsage" height="180"></canvas>
+          <div class="rpt-card">
+            <div class="rpt-card-head">
+              <span class="rpt-card-title">Model Usage</span>
+              <span class="rpt-card-badge">Donut</span>
+            </div>
+            <canvas id="chartModelUsage" height="160"></canvas>
           </div>
         </div>
 
-        <!-- Row 2: Mode breakdown + Live vs Failed + Tier dist -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
-          <div class="card">
-            <div class="card-head"><div class="card-title">💬 Request Modes</div></div>
-            <canvas id="chartModeBreakdown" height="200"></canvas>
+        <!-- ── Section: Breakdown ── -->
+        <div class="rpt-section-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Breakdown
+        </div>
+
+        <div class="rpt-row rpt-row-3">
+          <div class="rpt-card">
+            <div class="rpt-card-head">
+              <span class="rpt-card-title">Request Modes</span>
+              <span class="rpt-card-badge">Donut</span>
+            </div>
+            <canvas id="chartModeBreakdown" height="190"></canvas>
           </div>
-          <div class="card">
-            <div class="card-head"><div class="card-title">✅ Response Quality</div></div>
-            <canvas id="chartLiveVsFailed" height="200"></canvas>
+          <div class="rpt-card">
+            <div class="rpt-card-head">
+              <span class="rpt-card-title">Response Quality</span>
+              <span class="rpt-card-badge">Donut</span>
+            </div>
+            <canvas id="chartLiveVsFailed" height="190"></canvas>
           </div>
-          <div class="card">
-            <div class="card-head"><div class="card-title">🏷️ Access Tier Distribution</div></div>
-            <canvas id="chartTierDist" height="200"></canvas>
+          <div class="rpt-card">
+            <div class="rpt-card-head">
+              <span class="rpt-card-title">Access Tier Distribution</span>
+              <span class="rpt-card-badge">Donut</span>
+            </div>
+            <canvas id="chartTierDist" height="190"></canvas>
           </div>
         </div>
 
-        <!-- Row 3: Department usage + Response latency -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-          <div class="card">
-            <div class="card-head"><div class="card-title">🏢 Department Token Usage</div></div>
-            <canvas id="chartDeptUsage" height="180"></canvas>
+        <!-- ── Section: Performance ── -->
+        <div class="rpt-section-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Performance
+        </div>
+
+        <div class="rpt-row rpt-row-half">
+          <div class="rpt-card">
+            <div class="rpt-card-head">
+              <span class="rpt-card-title">Department Token Usage</span>
+              <span class="rpt-card-badge">Bar</span>
+            </div>
+            <canvas id="chartDeptUsage" height="160"></canvas>
           </div>
-          <div class="card">
-            <div class="card-head"><div class="card-title">⚡ Response Latency by Model</div></div>
-            <canvas id="chartLatency" height="180"></canvas>
+          <div class="rpt-card">
+            <div class="rpt-card-head">
+              <span class="rpt-card-title">Response Latency by Model</span>
+              <span class="rpt-card-badge">Bar</span>
+            </div>
+            <canvas id="chartLatency" height="160"></canvas>
           </div>
         </div>
 
-        <!-- Row 4: Audit timeline + Audit breakdown -->
-        <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:20px;">
-          <div class="card">
-            <div class="card-head"><div class="card-title">🔐 Audit Events Timeline</div></div>
-            <canvas id="chartAuditTimeline" height="160"></canvas>
+        <!-- ── Section: Audit ── -->
+        <div class="rpt-section-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Security &amp; Audit
+        </div>
+
+        <div class="rpt-row rpt-row-6040">
+          <div class="rpt-card">
+            <div class="rpt-card-head">
+              <span class="rpt-card-title">Audit Events Timeline</span>
+              <span class="rpt-card-badge">Line</span>
+            </div>
+            <canvas id="chartAuditTimeline" height="150"></canvas>
           </div>
-          <div class="card">
-            <div class="card-head"><div class="card-title">📋 Top Audit Actions</div></div>
-            <canvas id="chartAuditBreakdown" height="160"></canvas>
+          <div class="rpt-card">
+            <div class="rpt-card-head">
+              <span class="rpt-card-title">Top Audit Actions</span>
+              <span class="rpt-card-badge">Bar</span>
+            </div>
+            <canvas id="chartAuditBreakdown" height="150"></canvas>
           </div>
         </div>
 
-        <!-- Token Leaderboard -->
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-head">
-            <div class="card-title">🏆 Token Usage Leaderboard</div>
+        <!-- ── Section: Users ── -->
+        <div class="rpt-section-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users
+        </div>
+
+        <div class="rpt-card rpt-card-full" style="margin-bottom:16px;">
+          <div class="rpt-card-head">
+            <span class="rpt-card-title">Token Usage Leaderboard</span>
             <span style="font-size:12px;color:var(--muted2);">Ranked by total tokens consumed</span>
           </div>
           <div id="reportLeaderboard"></div>
         </div>
 
-        <!-- Model efficiency table -->
-        <div class="card">
-          <div class="card-head"><div class="card-title">📊 Model Efficiency Summary</div></div>
+        <div class="rpt-card rpt-card-full" style="margin-bottom:24px;">
+          <div class="rpt-card-head">
+            <span class="rpt-card-title">Model Efficiency Summary</span>
+          </div>
           <div id="reportModelTable"></div>
         </div>
+
       </div>
 
       <!-- ── AUDIT ── -->

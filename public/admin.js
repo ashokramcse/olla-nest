@@ -1781,17 +1781,17 @@ function ms(n)  { return n > 0 ? (n >= 1000 ? (n/1000).toFixed(1)+"s" : Math.rou
  */
 function renderKpis(s) {
   const kpis = [
-    { label: "Total Users", value: fmt(s.total_users), icon: "👤" },
+    { label: "Total Users",   value: fmt(s.total_users),    icon: "👤" },
     { label: "Chat Sessions", value: fmt(s.total_sessions), icon: "💬" },
-    { label: "Messages", value: fmt(s.total_messages), icon: "✉️" },
-    { label: "Tokens Used", value: fmt(s.total_tokens), icon: "🔢" },
-    { label: "Avg Latency", value: ms(s.avg_latency), icon: "⚡" },
+    { label: "Messages",      value: fmt(s.total_messages), icon: "✉️" },
+    { label: "Tokens Used",   value: fmt(s.total_tokens),   icon: "🔢" },
+    { label: "Avg Latency",   value: ms(s.avg_latency),     icon: "⚡" },
   ];
   $("reportKpis").innerHTML = kpis.map(k => `
-    <div style="background:var(--bubble);border:1px solid var(--border);border-radius:20px;padding:18px 20px;text-align:center;">
-      <div style="font-size:24px;margin-bottom:6px;">${k.icon}</div>
-      <div style="font-size:22px;font-weight:700;color:var(--body-text);letter-spacing:-.02em;">${k.value}</div>
-      <div style="font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.07em;margin-top:3px;">${k.label}</div>
+    <div class="rpt-kpi-card">
+      <div class="rpt-kpi-icon">${k.icon}</div>
+      <div class="rpt-kpi-value">${k.value}</div>
+      <div class="rpt-kpi-label">${k.label}</div>
     </div>
   `).join("");
 }
