@@ -1251,3 +1251,343 @@ tbody tr:hover { background: var(--ac-pale); }
   outline-offset: 2px;
   box-shadow: 0 0 0 4px var(--ac-pale);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   USER APP LAYOUT — Onyx-inspired 3-column shell
+   Only applied when body.app-body / div.app-layout are present
+   (app.html only — admin.html is completely unaffected)
+   ══════════════════════════════════════════════════════════════ */
+
+/* Prevent body scroll — the app columns scroll internally */
+.app-body {
+  overflow: hidden;
+  height: 100vh;
+  background: var(--bg);
+  /* Kill the decorative gradient blobs on the app page */
+  background-image: none;
+}
+
+/* Root 3-column grid */
+.app-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr 272px;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Left Sidebar ─────────────────────────────────────────── */
+.app-sidebar {
+  background: #f0ede6;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+[data-theme="night"] .app-sidebar {
+  background: #18181b;
+  border-right-color: var(--border);
+}
+
+/* Scrollable nav section */
+.app-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--div) transparent;
+}
+.app-sidebar-nav::-webkit-scrollbar { width: 3px; }
+.app-sidebar-nav::-webkit-scrollbar-thumb { background: var(--div); border-radius: 3px; }
+
+/* Logo area */
+.app-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 4px 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+  cursor: default;
+}
+.app-sidebar-brand .logo-icon { width: 28px; height: 28px; flex-shrink: 0; }
+.app-sidebar-brand .logo-name { font-size: 13px; }
+.app-sidebar-brand .logo-sub  { font-size: 9px; }
+
+/* New Chat button */
+.app-new-chat-btn {
+  width: 100%;
+  background: var(--ac);
+  color: var(--ac-text);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.15s;
+  letter-spacing: 0.01em;
+}
+.app-new-chat-btn:hover { opacity: 0.86; }
+.app-new-chat-btn:focus-visible {
+  outline: 2px solid var(--ac-dark);
+  outline-offset: 2px;
+}
+
+/* Section labels (RECENTS, MODELS …) */
+.app-sidebar-section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted2);
+  padding: 0 4px;
+  margin: 0 0 5px;
+}
+
+/* Override chat item styles inside sidebar */
+.app-sidebar .sidebar-chat-item {
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+.app-sidebar .sidebar-chat-item.active {
+  background: var(--ac-pale);
+  border-color: transparent;
+  border-left: 3px solid var(--ac);
+  padding-left: 5px;  /* compensate for 3px border */
+}
+.app-sidebar .sidebar-chat-item:hover:not(.active) {
+  background: rgba(0,0,0,0.04);
+}
+[data-theme="night"] .app-sidebar .sidebar-chat-item:hover:not(.active) {
+  background: rgba(255,255,255,0.05);
+}
+
+/* Model items in sidebar */
+.app-sidebar .model-item  { padding: 5px 4px; }
+.app-sidebar .model-nm    { font-size: 11px; }
+
+/* Sidebar footer */
+.app-sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding: 10px 12px 12px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Ollama status row */
+.app-sidebar-ollama {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+}
+
+/* User profile area */
+.app-sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border: 1px solid transparent;
+}
+.app-sidebar-user:hover {
+  background: var(--ac-pale);
+  border-color: var(--ac-mid);
+}
+.app-sidebar-user-info {
+  flex: 1;
+  min-width: 0;
+}
+.app-sidebar-user-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--body-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app-sidebar-user-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+/* Logout icon inside user row */
+.app-sidebar-logout {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--muted2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.13s, color 0.13s;
+}
+.app-sidebar-logout:hover {
+  background: var(--div);
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+/* ── Main Chat Area ────────────────────────────────────────── */
+.app-main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Override chat-wrap to fill remaining height */
+.app-main .chat-wrap {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+/* Chat header bar */
+.app-chat-header {
+  height: 52px;
+  background: var(--bubble);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 14px 0 18px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.app-chat-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--body-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-chat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Model pill in header (shown by JS) */
+.app-header-model-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: var(--r-pill);
+  background: var(--track);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted1);
+}
+
+/* Token pill in right panel header */
+.app-token-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted2);
+  padding: 3px 10px;
+  background: var(--track);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+}
+
+/* ── Right Context Panel ───────────────────────────────────── */
+.app-right-panel {
+  background: var(--bubble);
+  border-left: 1px solid var(--border);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-right-header {
+  height: 52px;
+  background: var(--bubble);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--body-text);
+  flex-shrink: 0;
+}
+
+.app-right-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--div) transparent;
+}
+.app-right-content::-webkit-scrollbar { width: 3px; }
+.app-right-content::-webkit-scrollbar-thumb { background: var(--div); border-radius: 3px; }
+
+/* Tighter cards in right panel */
+.app-right-content .card {
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.app-right-content .card + .card { margin-top: 10px; }
+.app-right-content .card-title { font-size: 13px; }
+
+/* Night mode surfaces */
+[data-theme="night"] .app-chat-header,
+[data-theme="night"] .app-right-header,
+[data-theme="night"] .app-right-panel {
+  background: var(--bubble);
+  border-color: var(--border);
+}
+[data-theme="night"] .app-main {
+  background: var(--bg);
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .app-layout {
+    grid-template-columns: 200px 1fr;
+  }
+  .app-right-panel { display: none; }
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+  .app-sidebar    { display: none; }
+  .app-right-panel { display: none; }
+  .app-main       { height: 100svh; }
+  .app-chat-header { padding: 0 12px; }
+}
