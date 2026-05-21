@@ -163,12 +163,14 @@ function initDatabase() {
     CREATE TABLE IF NOT EXISTS chat_messages (
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL,
+      user_id TEXT,
       role TEXT NOT NULL,
       content TEXT NOT NULL,
       mode TEXT,
       model_id TEXT,
       model_name TEXT,
       route_reason TEXT,
+      tokens_used INTEGER DEFAULT 0,
       live INTEGER DEFAULT 1,
       artifacts_json TEXT,
       extracted_files_json TEXT,
@@ -251,6 +253,12 @@ function initDatabase() {
   // Docker/macOS virtualised filesystems, making cross-connection reads
   // invisible.  synchronous=FULL ensures durability on every commit.
   db.exec("PRAGMA journal_mode=DELETE; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;");
+  // Runtime migrations — ALTER TABLE is idempotent via try/catch (SQLite has no ADD COLUMN IF NOT EXISTS)
+  [
+    "ALTER TABLE chat_messages ADD COLUMN user_id TEXT",
+    "ALTER TABLE chat_messages ADD COLUMN tokens_used INTEGER DEFAULT 0",
+    "ALTER TABLE chat_messages ADD COLUMN latency_ms INTEGER",
+  ].forEach(sql => { try { db.exec(sql); } catch (_) { /* column already exists */ } });
   // Performance indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);

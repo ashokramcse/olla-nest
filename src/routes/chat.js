@@ -97,9 +97,9 @@ module.exports = function(deps) {
       const asstMsgId = uid("msg");
       db.exec("BEGIN");
       try {
-        db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, "user", message, mode, now);
-        db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-          asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), now
+        db.prepare("INSERT INTO chat_messages (id, session_id, user_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, user.id, "user", message, mode, now);
+        db.prepare("INSERT INTO chat_messages (id, session_id, user_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+          asstMsgId, chat.id, user.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), now
         );
         db.exec("COMMIT");
       } catch (txErr) {
@@ -224,9 +224,9 @@ module.exports = function(deps) {
         const latencyMs = Date.now() - startMs;
         db.exec("BEGIN");
         try {
-          db.prepare("INSERT INTO chat_messages (id, session_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, "user", message, mode, now);
-          db.prepare("INSERT INTO chat_messages (id, session_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, tokens_used, latency_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-            asstMsgId, chat.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), tokensUsed, latencyMs, now
+          db.prepare("INSERT INTO chat_messages (id, session_id, user_id, role, content, mode, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(userMsgId, chat.id, user.id, "user", message, mode, now);
+          db.prepare("INSERT INTO chat_messages (id, session_id, user_id, role, content, model_id, model_name, route_reason, live, artifacts_json, extracted_files_json, tokens_used, latency_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+            asstMsgId, chat.id, user.id, "assistant", chatContent, route.selected.id, route.selected.name, route.reason, live ? 1 : 0, JSON.stringify(artifacts), JSON.stringify(extractedFiles), tokensUsed, latencyMs, now
           );
           db.exec("COMMIT");
         } catch (txErr) {
