@@ -8,15 +8,125 @@ Tracks every release, version tag, and key commit in the project history.
 
 | Field | Value |
 |---|---|
-| **Version** | `v2026.0.22` |
-| **Released** | 2026-05-19 |
-| **Commit** | `7c5eb83` |
+| **Version** | `v2026.0.28` |
+| **Released** | 2026-05-21 |
+| **Commit** | *(pending)* |
 | **Status** | ✅ Stable |
 | **Branch** | `main` |
 
 ---
 
 ## Version History
+
+### v2026.0.28 — 2026-05-21
+> **CSS dead code purge, icon branding fix, logo centering, version catch-up**
+
+**Key changes:**
+- Removed ~280 lines of dead CSS: hero section, admin sidebar layout, infographic ring/gauge/sparkline, `.account-panel`, `.settings-grid`, `.welcome-bar`, `.stats-bar`, `.theme-controls` block, `.logo-mark`, `.app-shell`, `.user-avatar-wrap`, `.model-select`
+- **Critical bug fix**: `.login-brand-sub { display:none }` was hiding real content on login pages
+- Fixed `.page` duplicate width rule — consolidated to `width:100%; max-width:1440px`
+- Fixed `.nav-item` sidebar-specific `border-left` removed from base rule (no more `!important` battles in admin tab-bar)
+- Hardcoded colours replaced: `.app-model-dot` `#4caf50` → `var(--success)`, `.status-dot.off` `#aaa` → `var(--muted2)`
+- Font size audit: `8px`/`9px` labels upgraded to `10px` minimum (`.topnav-stat-label`, `.logo-sub`)
+- Duplicate `.rpt-kpi-card` definition removed from admin.html; dead chart-row CSS removed
+- **Empty state icon** (✦ "Ready when you are") now uses `var(--ac)` as solid fill and `var(--ac-text)` for icon colour — automatically follows user theme changes
+- `logo-readme.svg` content centered within the SVG viewport
+
+---
+
+### v2026.0.27 — 2026-05-20
+> **Branding assets, header overlap fix, architecture SVG fix, reports → tables**
+
+| Commit | Date | Description |
+|---|---|---|
+| `a3bb701` | 2026-05-20 | Fix architecture SVG overlaps, bigger README logo, replace reports charts with tables |
+| `d6fac76` | 2026-05-20 | Fix header overlap and layout issues across app and admin |
+| `1c62743` | 2026-05-20 | Add branding assets, favicon, logo, and updated docs |
+
+**Key changes:**
+- Architecture SVG widened 760→820px; all three boxes (LOCAL/CLOUD/ADMIN) no longer overlap
+- README logo `width` 280→480px for high-DPI screens
+- Reports tab rebuilt from scratch: 9 Chart.js canvases replaced with 10 structured `<table class="data-table">` elements
+- `overflow:hidden` on `.shell` changed to `overflow:clip` — fixes sticky topnav
+- `padding-top:20px` added to `.main-grid` and all `.tab-view.active` panels
+- Chat height changed to `calc(100vh - 200px)` from fixed `680px`
+- Router card sticky top updated to `calc(56px + 20px)`
+- Profile card colours fixed for day mode (was dark olive gradient)
+
+---
+
+### v2026.0.26 — 2026-05-20
+> **Per-user theme storage, System mode, theme controls moved to Settings**
+
+| Commit | Date | Description |
+|---|---|---|
+| `30def9f` | 2026-05-20 | Move theme controls to Settings; per-user storage; add System mode |
+| `9c937e8` | 2026-05-20 | Login: center both panels, bigger eyebrow, center-align brand text |
+| `6f7808f` | 2026-05-20 | Login pages: Option A layout — 50/50 split with floating card |
+| `cb9cf94` | 2026-05-20 | Add Olla Nest logo and fix login pages to fill viewport |
+| `4e76643` | 2026-05-20 | Redesign login pages (full-page split) and dashboard reports tab |
+
+**Key changes:**
+- Theme preferences stored per user in localStorage (`themeHex_u_${userId}` / `themeMode_u_${userId}`)
+- System mode added: follows OS `prefers-color-scheme`
+- Theme controls moved from persistent topbar bar into profile drawer → Settings
+- Login redesigned: full-page 50/50 split — dark brand panel left, card right
+- Olla Nest logo SVG added with CSS-var-driven colours
+
+---
+
+### v2026.0.25 — 2026-05-20
+> **Full theme audit, night mode surface fix**
+
+| Commit | Date | Description |
+|---|---|---|
+| `256fc49` | 2026-05-20 | Full theme audit: replace all hardcoded colors with CSS vars across all files |
+| `69b7b8c` | 2026-05-20 | Fix night mode surface hierarchy and make all charts theme-aware |
+
+**Key changes:**
+- Every hardcoded hex colour in HTML/JS/CSS replaced with semantic CSS variables
+- Night mode surface hierarchy corrected: bg → shell → card layering consistent
+- All Chart.js charts updated to read from `getComputedStyle(document.documentElement)` at render time
+
+---
+
+### v2026.0.24 — 2026-05-20
+> **Design system refactor — theme.js token engine, UX audit fixes, code cleanup**
+
+| Commit | Date | Description |
+|---|---|---|
+| `3a90500` | 2026-05-20 | Code cleanup: purge all legacy design tokens across HTML/JS/CSS |
+| `378a0ef` | 2026-05-20 | Fix 12-phase UX audit: viewport, legacy vars, security, responsive CSS |
+| `7baf557` | 2026-05-20 | Fix admin tab-bar break + redesign login pages to match dashboard |
+| `2fade10` | 2026-05-20 | Design system refactor: theme.js engine, new CSS variables, updated all pages |
+
+**Key changes:**
+- `theme.js` introduced: `applyTheme(hex, mode)` writes ~25 design tokens to `:root` at runtime
+- All `--yellow-*`, `--black`, `--card`, `--ink-*` legacy tokens replaced
+- Admin tab-bar restored after design system refactor
+- 12-phase UX audit fixes: viewport meta, missing outline, responsive breakpoints
+
+---
+
+### v2026.0.23 — 2026-05-20
+> **Cross-platform workspace, folder browser, OS detection**
+
+| Commit | Date | Description |
+|---|---|---|
+| `34c22d2` | 2026-05-20 | fix: workspace path validation — reject host paths, show container path hint in UI |
+| `0cbc246` | 2026-05-20 | feat: make mac-home writable so employees can save files to their own machine folders |
+| `a7dfe2f` | 2026-05-20 | feat: cross-platform workspace — rename mac-home to host-home, add folder browser, OS detection |
+| `1042b22` | 2026-05-20 | fix: workspace panel always shows OS hint and replaces invalid saved paths |
+| `b668b7c` | 2026-05-20 | fix: remove missing sourceMappingURL from chart.umd.min.js |
+| `ed9f8b5` | 2026-05-20 | fix: add missing showConfirm dialog — fixes crash that blocked New Chat |
+
+**Key changes:**
+- Workspace volume renamed `mac-home` → `host-home` for cross-platform clarity
+- In-app folder browser added to workspace config panel
+- OS detection for path hints (macOS, Windows, Linux)
+- `showConfirm` was missing from app.js — caused a crash that broke New Chat
+
+---
 
 ### v2026.0.22 — 2026-05-19
 > **Thinking indicator, code review modal, project knowledge, input history, settings bug fix**
@@ -84,13 +194,6 @@ Tracks every release, version tag, and key commit in the project history.
 |---|---|---|
 | `5894b4a` | 2026-05-17 | feat: full external provider support — resolveProvider, dynamic test, Anthropic real API, mirror api_models |
 
-**Key changes:**
-- `resolveProvider(db, route)` — single helper for all provider types in both chat endpoints
-- `/api/admin/providers/:id/test` — uses first real model from `api_models`, never hardcoded names
-- Anthropic sync calls real `/v1/models` API instead of static list
-- `mirrorApiModelToModels()` — approved external models sync into main `models` table for router visibility
-- `getModelContextWindow()` — checks `api_models.context_window` for external providers
-
 ---
 
 ### v2026.0.9 — 2026-05-17
@@ -100,11 +203,6 @@ Tracks every release, version tag, and key commit in the project history.
 |---|---|---|
 | `8229f05` | 2026-05-17 | fix: fully model-agnostic context window + real Ollama /api/show lookup |
 
-**Key changes:**
-- Removed all hardcoded model name patterns from `contextWindowForModel()`
-- Queries Ollama `/api/show` for real context length; cached in `models.context_size`
-- Universal 8192-token fallback for any model without a known context size
-
 ---
 
 ### v2026.0.8 — 2026-05-17
@@ -113,12 +211,6 @@ Tracks every release, version tag, and key commit in the project history.
 | Commit | Date | Description |
 |---|---|---|
 | `aa4d046` | 2026-05-17 | feat: chat context history, file upload, dropdown fix |
-
-**Key changes:**
-- Sliding-window chat history: loads all prior messages from DB, trims to model context limit
-- `buildSystemPrompt()` / `buildContextMessages()` / `estimateTokens()` helpers
-- File upload: images (base64 → Ollama multimodal) + text files (code block append), up to 5 attachments
-- Model picker dropdown: changed to `position:fixed` + JS rect positioning to escape `overflow:hidden`
 
 ---
 
@@ -139,9 +231,6 @@ Tracks every release, version tag, and key commit in the project history.
 |---|---|---|
 | `b2d2184` | 2026-05-17 | feat: branded toast + confirm dialogs, fix Ollama URL detection |
 | `d33eddd` | 2026-05-17 | fix: Ollama sync diagnosis + CSP fix for admin markdown |
-| `b37e969` | 2026-05-17 | fix: dead code cleanup, state.me bug, console.error removal |
-| `e476b7c` | 2026-05-17 | fix: remove Security Policies card, expand Department Defaults |
-| `ba5d4cd` | 2026-05-17 | fix: remove Active Sessions card, expand User Access |
 | `731cf19` | 2026-05-17 | feat: redesign Access Control + fix Ollama sync + permission groups |
 
 ---
@@ -152,7 +241,6 @@ Tracks every release, version tag, and key commit in the project history.
 | Commit | Date | Description |
 |---|---|---|
 | `4e7c6d7` | 2026-05-17 | fix: reduce JS/CSS cache TTL from 1 day to 5 minutes |
-| `e776491` | 2026-05-17 | fix: cache-bust admin.js and app.js with version query string |
 
 ---
 
@@ -171,8 +259,6 @@ Tracks every release, version tag, and key commit in the project history.
 | Commit | Date | Description |
 |---|---|---|
 | `ca6044e` | 2026-05-17 | fix: security hardening, DB indexes, rate limit enforcement, XSS sanitization |
-| `c84e351` | 2026-05-17 | docs: v2026.0.2 changelog entry |
-| `7e6831f` | 2026-05-17 | feat: separate admin/employee login, model status + token usage UI |
 
 ---
 
@@ -185,38 +271,12 @@ Tracks every release, version tag, and key commit in the project history.
 
 ---
 
-### v2026.0.1.mvp — 2026-05-17
+### v2026.0.1.mvp — 2026-05-16
 > **First public MVP release**
 
 | Commit | Date | Description |
 |---|---|---|
-| `e9cf007` | 2026-05-17 | security: harden app — rate limiting, CSRF headers, security headers, path restrictions |
-| `3e79d12` | 2026-05-16 | ux: remove mode bar from admin chat |
-| `2ae7347` | 2026-05-16 | ux: remove mode bar from chat |
-| `1770136` | 2026-05-16 | fix: Admin UI — 6 issues: layout, providers tab, leaderboard pagination, chart quality |
-| `a8be484` | 2026-05-16 | feat: Reports tab with 10 branded interactive charts + token leaderboard |
-| `31675a7` | 2026-05-16 | feat: 4 fixes — model staleness, card parity, invite modal, team management |
-| `38a9a79` | 2026-05-16 | feat: user profile drawer with enterprise-aware field locking |
-| `cc11175` | 2026-05-16 | fix: remove infinite-recursion wrapper pattern in admin.js |
-| `3db9f68` | 2026-05-16 | fix: switch SSE abort listener from req.close to res.close |
-| `374dafc` | 2026-05-16 | feat: major platform upgrade — SQLite migration, API providers, SSE streaming, router intelligence |
-| `ae20838` | 2026-05-16 | feat: SQLite chat store, API provider integration, SSE streaming, router intelligence, feedback |
-| `af9d477` | 2026-05-16 | feat: beautiful chat UI with syntax-highlighted code blocks |
-| `69da61b` | 2026-05-15 | fix: remove password leak from /api/bootstrap + auto-refresh Ollama status |
-| `0e8fee6` | 2026-05-15 | fix: persist extractedFiles in message so download chips work on all messages |
-| `680227c` | 2026-05-15 | fix: show browser-appropriate UI in folder modal (Firefox vs Chrome) |
-| `9eabb7f` | 2026-05-15 | fix: cross-browser file saving via download chips (Mac/Windows/Linux) |
-| `611ece2` | 2026-05-15 | feat: client-side file writes — files save to user's own computer |
-| `335902d` | 2026-05-15 | fix: mount Mac home into container so files save to real Mac folders |
-| `758a6a4` | 2026-05-15 | fix: rebuild chat history sidebar from scratch |
-| `93ef0e1` | 2026-05-15 | fix: Claude-like chat flow, file saving, instant new chat, elapsed time |
-| `869a78e` | 2026-05-15 | feat: branded dialog system replacing all native confirm/alert/prompt |
-| `4d85ee5` | 2026-05-15 | feat: Finder-style folder picker with sidebar, grid view, back btn, new folder |
-| `74c37b3` | 2026-05-15 | feat: chat history sidebar with thread management |
-| `aa5fcd3` | 2026-05-15 | feat: Claude-style model selector with context window bar |
-| `2e33c28` | 2026-05-14 | feat: full enterprise-grade admin dashboard — RBAC, governance, audit trail |
-| `24122ec` | 2026-05-14 | feat: Move to Docker-only runtime and rebuild UI from scratch |
-| `518fb85` | 2026-05-05 | chore: first commit |
+| `9ca6aa8` | 2026-05-16 | docs: update README, add CHANGELOG and VERSION tracker for v2026.0.1.mvp |
 
 ---
 
@@ -230,18 +290,8 @@ v{YEAR}.{MINOR}.{PATCH}[.{STAGE}]
 |---|---|---|
 | `YEAR` | `2026` | Calendar year of release |
 | `MINOR` | `0` | Feature increment within the year |
-| `PATCH` | `10` | Bug fix / hotfix increment |
+| `PATCH` | `28` | Bug fix / hotfix increment |
 | `STAGE` | `mvp` | Optional: `mvp`, `beta`, `rc`, `lts` |
-
-### Examples
-
-| Tag | Meaning |
-|---|---|
-| `v2026.0.1.mvp` | First MVP release, 2026 |
-| `v2026.1.0` | First feature release after MVP |
-| `v2026.1.1` | Patch on top of 2026.1.0 |
-| `v2026.2.0.beta` | Beta of second major feature drop |
-| `v2027.0.0` | New year, new baseline |
 
 ---
 

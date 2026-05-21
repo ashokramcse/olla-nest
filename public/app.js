@@ -718,10 +718,10 @@ function renderMessages() {
   const chat = state.chats?.find(c => c.userId === state.activeUser.id) || state.chats?.[0];
   const msgs = chat?.messages || [];
   if (!msgs.length) {
-    $("messages").innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--muted1);">
-      <div style="font-size:32px; margin-bottom:12px;">✦</div>
-      <div style="font-size:15px; font-weight:600; color:var(--body-text); margin-bottom:6px;">Ready when you are</div>
-      <div style="font-size:13px;">Ask anything · Build · Review · Fix · Learn</div>
+    $("messages").innerHTML = `<div style="text-align:center; padding:60px 20px; color:var(--muted1); display:flex; flex-direction:column; align-items:center;">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--ac);color:var(--ac-text);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:20px;box-shadow:0 4px 24px var(--ac-mid),0 0 0 6px var(--ac-pale);">✦</div>
+      <div style="font-size:18px; font-weight:700; color:var(--body-text); margin-bottom:8px; letter-spacing:-0.02em;">Ready when you are</div>
+      <div style="font-size:13px; line-height:1.7; max-width:280px;">Ask anything · Build · Review · Fix · Learn</div>
     </div>`;
     return;
   }

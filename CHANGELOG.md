@@ -5,6 +5,97 @@ Versioning scheme: `v{YEAR}.{MINOR}.{PATCH}` — see [VERSION.md](VERSION.md).
 
 ---
 
+## [v2026.0.28] — 2026-05-21
+
+### 🐛 Bug Fixes
+
+- **Critical**: `.login-brand-sub { display:none }` in `styles.css` was hiding real content on the login and admin-login pages. Removed.
+- **Empty state icon**: "Ready when you are" ✦ icon was using `var(--ac-dark)` in a gradient — rendered as dark olive in day mode. Fixed to use solid `var(--ac)` with `var(--ac-text)` foreground and a `var(--ac-pale)` ring. Icon now automatically follows the user's chosen accent colour.
+
+### 🧹 Code Cleanup
+
+- Removed ~280 lines of dead CSS from `styles.css`: hero section, admin sidebar layout, infographic ring/gauge/sparkline/activity CSS, `.account-panel` container, `.settings-grid/.settings-card`, `.welcome-bar/.stats-bar`, `.theme-controls` block, `.logo-mark`, `.app-shell`, `.user-avatar-wrap`, `.model-select`
+- Removed responsive media query rules that referenced the deleted dead classes
+- Removed duplicate `.rpt-kpi-card` definition and dead chart-row CSS from `admin.html` inline styles
+- Consolidated `.page` width — removed the dead `width: 1440px` first rule (the `max-width` rule is the only rule needed)
+- Refactored `.nav-item` base rule — removed sidebar-specific `border-left` so the admin tab-bar no longer needs `!important` overrides
+
+### ✨ Polish
+
+- Hardcoded colours replaced: `.app-model-dot` `#4caf50` → `var(--success)`, `.status-dot.off` `#aaa` → `var(--muted2)`
+- Font size audit: `8px`/`9px` labels upgraded to `10px` minimum (`.topnav-stat-label`, `.logo-sub`)
+- `logo-readme.svg` content now centered within the SVG viewport (44px left translate)
+
+---
+
+## [v2026.0.27] — 2026-05-20
+
+### 🐛 Bug Fixes
+
+- Architecture SVG boxes no longer overlap — widened 760→820px, all three panels (LOCAL/CLOUD/ADMIN) have 14px gaps
+- Header overlap fixed: `overflow:hidden` on `.shell` changed to `overflow:clip` (was breaking sticky topnav); `padding-top:20px` added to `.main-grid` and all `.tab-view.active` panels
+- Profile card in day mode was rendering dark olive (HSL 49° 96% 20%) — replaced gradient with `var(--ac-pale)` to `var(--bubble)`
+- Chat height changed from fixed `680px` to `calc(100vh - 200px)` with `min-height:420px`
+- Router card `top` updated to `calc(56px + 20px)` to clear the fixed header
+
+### ✨ Features
+
+- Reports tab fully rebuilt: 9 Chart.js canvases replaced with 10 `<table class="data-table">` elements — stable, theme-aware, no external charting dependency
+- `fillTable(tblId, rows, cols, emptyMsg)` helper added to `admin.js`
+- README logo enlarged to `width="480"` for high-DPI display
+
+---
+
+## [v2026.0.26] — 2026-05-20
+
+### ✨ Features
+
+- **Per-user theme storage**: accent colour and light/dark/system mode stored per user in `localStorage` keyed by `themeHex_u_${userId}` / `themeMode_u_${userId}`
+- **System mode**: new `system` option in theme mode toggle — follows OS `prefers-color-scheme` automatically
+- **Theme controls moved**: removed from persistent topbar into profile drawer Settings section; topbar is cleaner
+- **Login redesign**: full-page 50/50 split layout — dark brand panel on left with feature list, floating card on right
+- **Olla Nest logo**: custom SVG mark added with CSS-var-driven colours
+
+---
+
+## [v2026.0.25] — 2026-05-20
+
+### 🐛 Bug Fixes
+
+- Night mode surface hierarchy corrected — `bg → shell → card` layering was inconsistent
+- All Chart.js charts re-read CSS variables at render time via `getComputedStyle(document.documentElement)`
+
+### 🧹 Cleanup
+
+- Full theme audit: every hardcoded hex colour in HTML/JS/CSS replaced with semantic CSS variables
+
+---
+
+## [v2026.0.24] — 2026-05-20
+
+### 🏗 Architecture
+
+- `theme.js` introduced: `applyTheme(hex, mode)` writes ~25 design tokens to `:root`
+- All `--yellow-*`, `--black`, `--card`, `--ink-*` legacy tokens removed and replaced
+- Admin tab-bar restored after design system refactor broke it
+- 12-phase UX audit fixes applied: viewport meta, outline focus states, responsive breakpoints
+
+---
+
+## [v2026.0.23] — 2026-05-20
+
+### ✨ Features
+
+- `mac-home` volume renamed to `host-home` for cross-platform clarity
+- In-app folder browser added to workspace config panel
+- OS detection for path hints in workspace UI
+
+### 🐛 Bug Fixes
+
+- `showConfirm` missing from `app.js` caused crash blocking New Chat and all event listeners
+
+---
+
 ## [v2026.0.22] — 2026-05-19
 
 ### ✨ Features
