@@ -1433,6 +1433,46 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
 #chatMessages::-webkit-scrollbar-thumb:hover{background:#00000030;}
 
 /* Typing indicator */
+/* ── Streaming phase UI ── */
+.cmsg-streaming .stream-avatar{
+  background:linear-gradient(135deg,var(--ac),color-mix(in srgb,var(--ac) 60%,#000));
+  color:var(--ac-text);animation:stream-pulse 2s ease-in-out infinite;
+}
+@keyframes stream-pulse{0%,100%{opacity:1}50%{opacity:.65}}
+.stream-phase-badge{
+  display:inline-flex;align-items:center;
+  font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 8px;border-radius:99px;margin-left:6px;
+}
+.phase-routing {background:#f3f4f6;color:#6b7280;}
+.phase-thinking{background:#eff6ff;color:#2563eb;}
+.phase-writing {background:#f0fdf4;color:#16a34a;}
+.phase-error   {background:#fef2f2;color:#dc2626;}
+/* thinking animation */
+.stream-thinking{display:flex;align-items:center;gap:10px;padding:4px 0;}
+.stream-phase-text{font-size:13px;color:var(--muted1);}
+.stream-dots{display:flex;align-items:center;gap:5px;}
+.stream-dots span{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--ac);opacity:.5;
+  animation:stream-bounce .9s ease-in-out infinite;
+}
+.stream-dots span:nth-child(2){animation-delay:.15s;}
+.stream-dots span:nth-child(3){animation-delay:.3s;}
+@keyframes stream-bounce{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-5px);opacity:1}}
+/* streaming cursor */
+.stream-cursor{
+  display:inline-block;width:2px;height:1em;
+  background:var(--ac);margin-left:2px;vertical-align:text-bottom;
+  animation:blink .7s step-start infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+/* error */
+.stream-error-msg{
+  display:flex;align-items:flex-start;gap:8px;
+  color:#dc2626;font-size:13px;padding:4px 0;
+}
+/* ── legacy typing indicator ── */
 .typing-row{display:flex;align-items:center;gap:10px;}
 .typing-timer{font-size:11px;color:var(--muted1);font-variant-numeric:tabular-nums;min-width:28px;letter-spacing:.02em;}
 .typing-dots{display:flex;align-items:center;gap:5px;padding:6px 2px;}
@@ -2432,14 +2472,14 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
     }, 1000);
   }
 
+  /* ── streaming chat ── */
   async function sendChat() {
     var input   = get("chatInput");
     var sendBtn = get("chatSendBtn");
-    if (!input || !sendBtn) return;
+    if (!input || !sendBtn || sendBtn.disabled) return;
     var baseMsg = input.value.trim();
     if (!baseMsg) return;
 
-    /* inject file context if any files are attached */
     var fileCtx = (typeof window._chatFileContext === "function") ? window._chatFileContext() : "";
     var msg = fileCtx ? baseMsg + fileCtx : baseMsg;
 
@@ -2447,20 +2487,33 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
     input.value = "";
     input.style.height = "auto";
 
-    /* show user bubble + typing indicator immediately */
-    appendOptimisticMessage(baseMsg);
+    /* show user bubble + thinking indicator immediately */
+    var msgEl = get("chatMessages");
+    if (msgEl) {
+      var empty = msgEl.querySelector(".chat-empty");
+      if (empty) empty.remove();
+      var userName = (state && state.activeUser && state.activeUser.name) || "Admin";
+      var userInitial = userName.charAt(0).toUpperCase();
+      var userDiv = document.createElement("div");
+      userDiv.className = "cmsg-user";
+      userDiv.innerHTML = '<div class="cmsg-meta" style="justify-content:flex-end;">'
+        + esc(userName)
+        + '<span class="cmsg-meta-dot" style="background:var(--ink);color:#fff;">' + userInitial + '</span>'
+        + '</div><div class="cmsg-bubble-user">' + esc(baseMsg) + '</div>';
+      msgEl.appendChild(userDiv);
+    }
 
-    /* clear attachments */
     if (typeof window._chatAfterSend === "function") window._chatAfterSend();
 
-    /* write to workspace whenever project folder is set */
     var projectPath = (typeof window._chatGetProjectPath === "function") ? window._chatGetProjectPath() : null;
     var writeToWorkspace = !!projectPath;
-
     var t0 = Date.now();
 
+    /* create thinking bubble */
+    var aiBubble = _createStreamBubble();
+
     try {
-      var res = await fetch("/api/chat", {
+      var res = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify({
@@ -2470,42 +2523,184 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
           writeToWorkspace: writeToWorkspace,
         })
       });
-      var data = await res.json();
-      var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-      data._elapsed = elapsed;
 
-      /* Write files to client's local folder if FSA folder is set (Chrome/Edge) */
-      if (data.extractedFiles && data.extractedFiles.length) {
-        data._extractedFiles = data.extractedFiles; /* store for download chips */
-        if (typeof writeFilesLocally === "function") {
-          var written = await writeFilesLocally(data.extractedFiles);
-          data._localWritten = written;
+      if (!res.ok || !res.body) throw new Error("Stream unavailable");
+
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = "";
+      var accumulated = "";
+      var routedModel = null;
+
+      while (true) {
+        var _r = await reader.read();
+        if (_r.done) break;
+        buffer += decoder.decode(_r.value, { stream: true });
+        var lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (var li = 0; li < lines.length; li++) {
+          var line = lines[li].trim();
+          if (!line.startsWith("data:")) continue;
+          var raw = line.slice(5).trim();
+          if (!raw || raw === "[DONE]") continue;
+          var evt;
+          try { evt = JSON.parse(raw); } catch { continue; }
+
+          if (evt.type === "routing") {
+            routedModel = evt.model;
+            _setStreamPhase(aiBubble, "thinking", routedModel);
+          } else if (evt.type === "token") {
+            if (!accumulated && evt.content) _setStreamPhase(aiBubble, "streaming", routedModel);
+            accumulated += evt.content;
+            _updateStreamContent(aiBubble, accumulated);
+          } else if (evt.type === "error") {
+            _setStreamPhase(aiBubble, "error", evt.message);
+            accumulated = evt.message || "An error occurred.";
+            _updateStreamContent(aiBubble, accumulated);
+          } else if (evt.type === "done") {
+            var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+            _finaliseStreamBubble(aiBubble, accumulated, routedModel, elapsed, evt);
+            /* update model bar */
+            if (routedModel) {
+              var ctx2 = estimateCtx(routedModel);
+              var nameEl2 = get("cmpModelName");
+              if (nameEl2 && !selectedModelId) nameEl2.textContent = "Auto Router → " + (routedModel.length > 18 ? routedModel.slice(0,16)+"…" : routedModel);
+              usedTokens += Math.round(accumulated.length / 4);
+              updateCtxBar(routedModel, ctx2, usedTokens);
+            }
+            if (typeof loadState === "function") loadState();
+            loadThreads();
+          }
         }
       }
-
-      /* stop timer and remove typing indicator before re-render */
-      clearInterval(window._typingTimerInterval);
-      var ti = get("chatTypingIndicator");
-      if (ti) ti.remove();
-      if (typeof loadState === "function") await loadState();
-      renderMessages(data);
-      renderRouter(data.route);
-      loadThreads();
-      /* update token count */
-      usedTokens = estimateUsedTokens();
-      var modelName = data.model && data.model.name;
-      if (modelName) {
-        var ctx = estimateCtx(modelName);
-        setSelectedModel(data.model.id, "Auto Router → " + modelName, ctx);
-        updateCtxBar(modelName, ctx, usedTokens);
-      }
     } catch (err) {
-      clearInterval(window._typingTimerInterval);
-      var ti2 = get("chatTypingIndicator");
-      if (ti2) ti2.remove();
+      _setStreamPhase(aiBubble, "error", "Connection error: " + err.message);
     } finally {
       sendBtn.disabled = false;
     }
+  }
+
+  /* ── streaming bubble helpers ── */
+  function _createStreamBubble() {
+    var msgEl = get("chatMessages");
+    if (!msgEl) return null;
+    var wrap = document.createElement("div");
+    wrap.className = "cmsg-ai cmsg-streaming";
+    wrap.innerHTML =
+      '<div class="cmsg-ai-avatar stream-avatar">✦</div>'
+      + '<div class="cmsg-ai-body">'
+      + '<div class="cmsg-meta"><span class="cmsg-meta-model-badge stream-badge">'
+      + '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>'
+      + '<span class="stream-model-name">Routing…</span>'
+      + '</span>'
+      + '<span class="stream-phase-badge phase-routing">Routing</span>'
+      + '</div>'
+      + '<div class="cmsg-bubble-ai stream-bubble-body">'
+      + '<div class="stream-thinking"><div class="stream-dots"><span></span><span></span><span></span></div><span class="stream-phase-text">Finding the best model…</span></div>'
+      + '</div>'
+      + '</div>';
+    msgEl.appendChild(wrap);
+    msgEl.scrollTop = msgEl.scrollHeight;
+    return wrap;
+  }
+
+  var _PHASE_CFG = {
+    routing:   { label: "Routing",   text: "Finding the best model…",        badge: "phase-routing"   },
+    thinking:  { label: "Thinking",  text: "Generating response…",           badge: "phase-thinking"  },
+    streaming: { label: "Writing",   text: "",                               badge: "phase-writing"   },
+    error:     { label: "Error",     text: "",                               badge: "phase-error"     },
+  };
+
+  function _setStreamPhase(wrap, phase, detail) {
+    if (!wrap) return;
+    var cfg = _PHASE_CFG[phase] || _PHASE_CFG.routing;
+    var badge = wrap.querySelector(".stream-phase-badge");
+    var modelName = wrap.querySelector(".stream-model-name");
+    var body = wrap.querySelector(".stream-bubble-body");
+    if (badge) { badge.className = "stream-phase-badge " + cfg.badge; badge.textContent = cfg.label; }
+    if (modelName && detail && phase === "thinking") modelName.textContent = detail;
+    if (phase === "error") {
+      if (body) body.innerHTML = '<div class="stream-error-msg">'
+        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+        + esc(detail || "Something went wrong") + '</div>';
+    } else if (phase === "thinking") {
+      if (body) body.innerHTML = '<div class="stream-thinking"><div class="stream-dots"><span></span><span></span><span></span></div><span class="stream-phase-text">' + cfg.text + '</span></div>';
+    }
+  }
+
+  function _updateStreamContent(wrap, text) {
+    if (!wrap) return;
+    var body = wrap.querySelector(".stream-bubble-body");
+    if (!body) return;
+    body.innerHTML = renderMd(text) + '<span class="stream-cursor"></span>';
+    var msgEl = get("chatMessages");
+    if (msgEl) msgEl.scrollTop = msgEl.scrollHeight;
+  }
+
+  function _finaliseStreamBubble(wrap, text, modelName, elapsed, doneEvt) {
+    if (!wrap) return;
+    var body = wrap.querySelector(".stream-bubble-body");
+    var badge = wrap.querySelector(".stream-phase-badge");
+    var modelNameEl = wrap.querySelector(".stream-model-name");
+    var avatar = wrap.querySelector(".stream-avatar");
+
+    if (badge) badge.remove();
+    if (modelNameEl && modelName) modelNameEl.textContent = modelName;
+    if (avatar) { avatar.textContent = modelName ? modelName.charAt(0).toUpperCase() : "O"; }
+    wrap.classList.remove("cmsg-streaming");
+
+    /* render final markdown */
+    if (body) body.innerHTML = renderMd(text || "");
+
+    /* build footer — elapsed + file chips */
+    var artifacts  = (doneEvt && doneEvt.artifacts)      || [];
+    var extracted  = (doneEvt && doneEvt.extractedFiles) || [];
+    var footerEl   = document.createElement("div");
+    footerEl.className = "cmsg-footer";
+
+    if (elapsed) {
+      var sp = document.createElement("span");
+      sp.className = "cmsg-elapsed";
+      sp.textContent = "⏱ " + elapsed + "s";
+      footerEl.appendChild(sp);
+    }
+
+    /* file chips — prefer extracted (has content for download) */
+    var seen = {};
+    extracted.forEach(function (f) {
+      if (seen[f.name]) return; seen[f.name] = true;
+      var btn = document.createElement("button");
+      btn.className = "cmsg-artifact-chip cmsg-dl-btn";
+      btn.title = "Download " + f.name;
+      btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+        + esc(f.name.split("/").pop()) + ' <span style="color:#2563eb;font-size:10px;">↓</span>';
+      btn.addEventListener("click", function () {
+        var a = document.createElement("a");
+        a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(f.content);
+        a.download = f.name.split("/").pop();
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      });
+      footerEl.appendChild(btn);
+    });
+    artifacts.forEach(function (a) {
+      var n = a.relativePath || a.name;
+      if (seen[n]) return; seen[n] = true;
+      var chip = document.createElement("span");
+      chip.className = "cmsg-artifact-chip";
+      chip.title = "Saved to workspace";
+      chip.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
+        + esc(n) + ' <span style="color:#16a34a;font-size:10px;">✓</span>';
+      footerEl.appendChild(chip);
+    });
+
+    if (footerEl.children.length) {
+      var aiBody = wrap.querySelector(".cmsg-ai-body");
+      if (aiBody) aiBody.appendChild(footerEl);
+    }
+
+    var msgEl = get("chatMessages");
+    if (msgEl) msgEl.scrollTop = msgEl.scrollHeight;
   }
 
   /* ── wire up events ── */
