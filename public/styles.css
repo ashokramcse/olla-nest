@@ -281,14 +281,14 @@ input, select, textarea { font: inherit; }
   display: inline-flex; align-items: center;
   padding: 4px 10px; border-radius: var(--r-pill);
   background: var(--ac); color: var(--ac-text);
-  font-family: var(--font-mono); font-size: 9px;
+  font-family: var(--font-mono); font-size: 10px;
   font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
 }
 .header-pill-route {
   display: inline-flex; align-items: center;
   padding: 4px 10px; border-radius: var(--r-pill);
   border: 1px solid var(--hdr-div); color: var(--hdr-muted);
-  font-family: var(--font-mono); font-size: 9px;
+  font-family: var(--font-mono); font-size: 10px;
   letter-spacing: 0.1em; text-transform: uppercase;
 }
 
@@ -432,7 +432,7 @@ tbody tr:hover { background: var(--ac-pale); }
 .data-table th {
   text-align: left; padding: 9px 14px;
   font-family: var(--font-mono);
-  font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.10em;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.10em;
   color: var(--muted2); background: var(--track);
   border-bottom: 1px solid var(--div);
 }
@@ -485,7 +485,7 @@ tbody tr:hover { background: var(--ac-pale); }
 .btn-danger { background: var(--danger-light); color: var(--danger); border-color: var(--danger-border); }
 .btn-sm  { padding: 6px 14px; font-size: 12px; }
 .btn-xs  { padding: 4px 10px; font-size: 11px; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; pointer-events: none; }
 
 /* Shorthand modifier classes used by admin.html */
 .btn.dark,   .btn.dark:visited   { background: var(--body-text); color: #fff; border-color: var(--body-text); }
@@ -550,7 +550,9 @@ tbody tr:hover { background: var(--ac-pale); }
   border: 1.5px solid var(--ac-mid);
   border-radius: 24px; padding: 20px;
   color: var(--body-text); margin-bottom: 4px;
+  cursor: pointer; transition: opacity 0.15s;
 }
+.profile-mini:hover { opacity: 0.85; }
 .user-av {
   width: 48px; height: 48px; border-radius: 50%;
   background: var(--ac); color: var(--ac-text);
@@ -873,9 +875,9 @@ tbody tr:hover { background: var(--ac-pale); }
 .code-ln    { display: table-cell; padding: 0 12px 0 16px; text-align: right; font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.14); user-select: none; min-width: 40px; vertical-align: top; }
 .code-lc    { display: table-cell; padding: 0 16px 0 4px; white-space: pre; font-family: var(--font-mono); font-size: 13px; color: #e6edf3; width: 100%; }
 .code-block-plain .code-ln { display: none; }
-.diff-add { background: #1a3a1a !important; color: #7ee787; }
-.diff-del { background: #3a1a1a !important; color: #ff7b72; }
-.diff-hunk { background: #0d2137 !important; color: #79c0ff; font-style: italic; }
+.md-code-block .diff-add  { background: #1a3a1a; color: #7ee787; }
+.md-code-block .diff-del  { background: #3a1a1a; color: #ff7b72; }
+.md-code-block .diff-hunk { background: #0d2137; color: #79c0ff; font-style: italic; }
 .diff-file { background: #13141f; color: #e6edf3; font-weight: 600; padding: 8px 16px; font-family: var(--font-mono); font-size: 12px; }
 .diff-add .code-lc::before { content: "+ "; color: #3fb950; }
 .diff-del .code-lc::before { content: "- "; color: #f85149; }
@@ -1028,7 +1030,7 @@ tbody tr:hover { background: var(--ac-pale); }
   font-family: var(--font-brand); font-size: 18px; font-weight: 400; color: #fff;
 }
 .login-brand-name span {
-  font-family: var(--font-mono); font-size: 9px; color: rgba(255,255,255,0.35);
+  font-family: var(--font-mono); font-size: 10px; color: rgba(255,255,255,0.35);
   display: block; text-transform: uppercase; letter-spacing: 0.12em; margin-top: 2px;
 }
 .login-title { font-family: var(--font-brand); font-size: 28px; font-weight: 400; line-height: 1.2; margin-bottom: 12px; color: #fff; }
@@ -1194,4 +1196,25 @@ tbody tr:hover { background: var(--ac-pale); }
   .topnav-actions { gap: 6px; }
   .topnav-actions .btn { padding: 6px 10px; font-size: 12px; }
   .card { border-radius: 12px; padding: 12px; }
+}
+
+/* ── Focus-visible accessibility ring ────────────────────── */
+/* Applied only on keyboard navigation — invisible on mouse click */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--ac);
+  outline-offset: 2px;
+}
+.btn:focus-visible,
+.icon-btn:focus-visible,
+.card-action:focus-visible,
+.pill-btn:focus-visible,
+.nav-item:focus-visible,
+.mode-btn:focus-visible,
+.thumb-btn:focus-visible,
+.appr-swatch:focus-visible,
+.appr-mode-btn:focus-visible {
+  outline: 2px solid var(--ac);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--ac-pale);
 }

@@ -203,9 +203,9 @@
       margin-bottom: 28px;
     }
     .login-error-box {
-      background: #fee2e2;
-      border: 1px solid #fecaca;
-      color: #b91c1c;
+      background: var(--danger-light);
+      border: 1px solid var(--danger-border);
+      color: var(--danger);
       border-radius: 10px;
       padding: 10px 14px;
       font-size: 13px;
@@ -353,6 +353,19 @@
       flex-shrink: 0;
     }
 
+    /* Dev quick-login buttons — color set via --dev-btn-color CSS var */
+    .dev-account-btn {
+      background: color-mix(in srgb, var(--dev-btn-color) 13%, transparent);
+      border: 1px solid color-mix(in srgb, var(--dev-btn-color) 33%, transparent);
+      color: var(--dev-btn-color);
+      border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 600;
+      cursor: pointer; text-align: left; font-family: inherit;
+      transition: background .15s; width: 100%;
+    }
+    .dev-account-btn:hover {
+      background: color-mix(in srgb, var(--dev-btn-color) 26%, transparent);
+    }
+
     @media (max-width: 840px) {
       .login-brand { display: none; }
       .login-body { padding: 24px 16px; justify-content: center; }
@@ -496,9 +509,8 @@
   accounts.forEach(({ label, email, password, color }) => {
     const btn = document.createElement("button");
     btn.textContent = label;
-    btn.style.cssText = `background:${color}22;border:1px solid ${color}55;color:${color};border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s;width:100%;`;
-    btn.onmouseenter = () => btn.style.background = `${color}44`;
-    btn.onmouseleave = () => btn.style.background = `${color}22`;
+    btn.className = "dev-account-btn";
+    btn.style.setProperty("--dev-btn-color", color);
     btn.onclick = async () => {
       document.getElementById("email").value = email;
       document.getElementById("password").value = password;
