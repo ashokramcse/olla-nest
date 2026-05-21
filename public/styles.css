@@ -807,6 +807,7 @@ tbody tr:hover { background: var(--ac-pale); }
 [data-theme="night"] .user-bubble { background: var(--bubble); color: var(--body-text); border-color: var(--border); }
 .message-wrap.user { display: flex; flex-direction: column; align-items: flex-end; }
 .assistant-bubble { background: var(--bubble-reply); color: var(--bubble-reply-text); border: 1px solid var(--ac-mid); border-radius: 18px 18px 18px 4px; }
+.thinking-bubble { background: var(--div); border: 1px solid var(--border); border-radius: 18px 18px 18px 4px; }
 .message-footer { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
 .message-model-tag {
   display: inline-flex; align-items: center; gap: 4px;

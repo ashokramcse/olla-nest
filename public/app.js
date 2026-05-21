@@ -986,7 +986,7 @@ $("chatForm").addEventListener("submit", async (e) => {
   const sendBtn = $("sendBtn");
   const stopBtn = $("stopBtn");
   sendBtn.disabled = true;
-  sendBtn.textContent = "Sending…";
+  sendBtn.style.display = "none";
   stopBtn.style.display = "inline-flex";
   // Save to input history (deduplicate consecutive identical messages)
   if (inputHistory[inputHistory.length - 1] !== message) inputHistory.push(message);
@@ -1017,7 +1017,7 @@ $("chatForm").addEventListener("submit", async (e) => {
     </div>
     <div class="message-wrap assistant" id="${asstBubbleId}">
       <div class="message-meta">Olla Nest</div>
-      <div class="message-bubble assistant-bubble md-body" id="${asstBubbleId}-content"><div class="thinking-indicator"><span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-phase" id="${asstBubbleId}-phase">Routing…</span></div></div>
+      <div class="message-bubble thinking-bubble" id="${asstBubbleId}-content"><div class="thinking-indicator"><span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-phase" id="${asstBubbleId}-phase">Routing…</span></div></div>
     </div>
   `);
   msgs.scrollTop = msgs.scrollHeight;
@@ -1088,6 +1088,7 @@ $("chatForm").addEventListener("submit", async (e) => {
             if (bubble) {
               if (firstToken) {
                 firstToken = false;
+                bubble.className = "message-bubble assistant-bubble md-body";
                 bubble.innerHTML = renderMarkdown(fullContent) + '<span class="streaming-cursor"></span>';
               } else {
                 bubble.innerHTML = renderMarkdown(fullContent) + '<span class="streaming-cursor"></span>';
@@ -1129,7 +1130,7 @@ $("chatForm").addEventListener("submit", async (e) => {
   } finally {
     activeStreamReader = null;
     sendBtn.disabled = false;
-    sendBtn.textContent = "Send";
+    sendBtn.style.display = "inline-flex";
     stopBtn.style.display = "none";
   }
 });
