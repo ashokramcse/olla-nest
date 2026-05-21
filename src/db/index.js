@@ -253,17 +253,36 @@ function initDatabase() {
   // Docker/macOS virtualised filesystems, making cross-connection reads
   // invisible.  synchronous=FULL ensures durability on every commit.
   db.exec("PRAGMA journal_mode=DELETE; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;");
-  // Runtime migrations — ALTER TABLE is idempotent via try/catch (SQLite has no ADD COLUMN IF NOT EXISTS)
-  [
-    "ALTER TABLE chat_messages ADD COLUMN user_id TEXT",
-    "ALTER TABLE chat_messages ADD COLUMN tokens_used INTEGER DEFAULT 0",
-    "ALTER TABLE chat_messages ADD COLUMN latency_ms INTEGER",
-  ].forEach(sql => { try { db.exec(sql); } catch (_) { /* column already exists */ } });
+  // Schema version table — tracks applied migrations so they run exactly once
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  // Runtime migrations — numbered, run exactly once via schema_migrations guard
+  const MIGRATIONS = [
+    // v1 — add missing columns to chat_messages (deployed 2026-05-21)
+    [1, "ALTER TABLE chat_messages ADD COLUMN user_id TEXT"],
+    [2, "ALTER TABLE chat_messages ADD COLUMN tokens_used INTEGER DEFAULT 0"],
+    [3, "ALTER TABLE chat_messages ADD COLUMN latency_ms INTEGER"],
+  ];
+  const applied = new Set(
+    db.prepare("SELECT version FROM schema_migrations").all().map(r => r.version)
+  );
+  for (const [ver, sql] of MIGRATIONS) {
+    if (applied.has(ver)) continue;
+    try {
+      db.exec(sql);
+    } catch (_) { /* column may already exist on a fresh DB — safe to skip */ }
+    db.prepare("INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)").run(ver);
+  }
   // Performance indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_user_date ON chat_messages(user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at);
     CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_active ON chat_sessions(user_id, is_active);
     CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON audit_events(created_at);

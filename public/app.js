@@ -633,10 +633,10 @@ function splitThinkingContent(raw) {
 
 function renderMarkdown(content) {
   if (typeof marked === "undefined") return `<pre style="white-space:pre-wrap;">${esc(content)}</pre>`;
-  marked.setOptions({ breaks: true, gfm: true });
   const renderer = new marked.Renderer();
   renderer.code = ({ text, lang }) => renderCodeBlock(text, lang);
-  const raw = marked.parse(content, { renderer });
+  // Pass options directly to marked.parse (setOptions is deprecated in marked v16+)
+  const raw = marked.parse(content, { renderer, breaks: true, gfm: true });
   return typeof DOMPurify !== "undefined"
     ? DOMPurify.sanitize(raw, { ADD_ATTR: ["onclick"], FORCE_BODY: false })
     : raw;

@@ -2067,7 +2067,6 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
     if (typeof marked === "undefined") {
       return '<p style="white-space:pre-wrap;">' + esc(text) + '</p>';
     }
-    marked.setOptions({ breaks: true, gfm: true });
     var r = new marked.Renderer();
     r.code = function (token) {
       var raw  = typeof token === "object" ? token.text : String(token);
@@ -2096,7 +2095,7 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
         + '<pre><code class="hljs">' + highlighted + '</code></pre>'
         + '</div>';
     };
-    return marked.parse(text, { renderer: r });
+    return marked.parse(text, { renderer: r, breaks: true, gfm: true });
   }
 
   /* ── render messages ── */
@@ -3066,7 +3065,7 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
           helpEl.insertAdjacentHTML("beforeend",
             '<div class="cmsg-ai">'
             + '<div class="cmsg-meta"><span class="cmsg-meta-dot ai-dot">O</span>Olla Nest</div>'
-            + '<div class="cmsg-bubble-ai">' + (typeof marked !== "undefined" ? marked.parse(helpMsg) : helpMsg) + '</div>'
+            + '<div class="cmsg-bubble-ai">' + (typeof marked !== "undefined" ? marked.parse(helpMsg, { breaks: true, gfm: true }) : helpMsg) + '</div>'
             + '</div>');
           helpEl.scrollTop = helpEl.scrollHeight;
         }
