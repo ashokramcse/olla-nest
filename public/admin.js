@@ -1252,16 +1252,18 @@ function renderOllamaProvider() {
 if (document.getElementById("provOllamaTestBtn")) {
   document.getElementById("provOllamaTestBtn").addEventListener("click", async () => {
     const btn = $("provOllamaTestBtn");
+    const urlVal = ($("provOllamaUrl").value || "").trim();
     btn.disabled = true; btn.textContent = "Testing…";
     try {
-      const ping = await api("/api/admin/ollama/ping");
+      const ping = await api(`/api/admin/ollama/ping?url=${encodeURIComponent(urlVal)}`);
       if (ping?.ok) {
         showToast(`Ollama connected — ${ping.modelCount} model${ping.modelCount !== 1 ? "s" : ""} available at ${ping.url}`, "success", 5000);
       } else {
-        showToast(`Connection failed at ${ping?.url}: ${ping?.error || "unknown error"}. Change URL to http://host.docker.internal:11434 in the field above.`, "error", 8000);
+        const hint = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(urlVal)
+          ? " Tip: the test runs inside Docker — use http://host.docker.internal:11434 to reach Ollama on this Mac."
+          : "";
+        showToast(`Connection failed at ${ping?.url}: ${ping?.error || "unknown error"}.${hint}`, "error", 8000);
       }
-      await loadState();
-      renderOllamaProvider();
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -1273,11 +1275,12 @@ if (document.getElementById("provOllamaTestBtn")) {
 if (document.getElementById("provOllamaSyncBtn")) {
   document.getElementById("provOllamaSyncBtn").addEventListener("click", async () => {
     const btn = $("provOllamaSyncBtn");
+    const urlVal = ($("provOllamaUrl").value || "").trim();
     btn.disabled = true; btn.textContent = "Syncing…";
     try {
-      const ping = await api("/api/admin/ollama/ping");
+      const ping = await api(`/api/admin/ollama/ping?url=${encodeURIComponent(urlVal)}`);
       if (!ping?.ok) {
-        showToast(`Ollama not reachable at ${ping?.url || "unknown URL"}. Update the URL in Settings to http://host.docker.internal:11434`, "error", 8000);
+        showToast(`Ollama not reachable at ${ping?.url || "unknown URL"}. Update the URL and click Save first.`, "error", 8000);
         return;
       }
       await api("/api/ollama/models");

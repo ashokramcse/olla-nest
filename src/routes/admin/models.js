@@ -12,9 +12,10 @@ module.exports = function(deps) {
   const { ollamaUrl, cleanBaseUrl } = deps;
 
   // [GET] /api/admin/ollama/ping — Auth: requireAdmin — Purpose: test raw Ollama connectivity; returns URL tried + model count
+  // Optional ?url= query param lets the UI test a URL before saving it to the DB.
   router.get("/ollama/ping", requireAdmin, async (req, res) => {
     const db = openSql();
-    const url = ollamaUrl(db);
+    const url = req.query.url ? cleanBaseUrl(req.query.url) : ollamaUrl(db);
     db.close();
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 10000);
