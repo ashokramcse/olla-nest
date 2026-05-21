@@ -86,7 +86,7 @@ function computeDayTokens(hex) {
     muted2:          "#888888",
     midx:            hslToHex(h, Math.min(s + 5, 100), Math.max(l * 0.35, 20)),
     bubble:          "#ffffff",
-    bubbleReply:     hslToHex(h, s * 0.70, 95),
+    bubbleReply:     hslToHex(h, Math.min(s * 0.12, 8), 96),
     bubbleReplyText: "#1a1a1a",
     actionBg:        "#ffffff",
     logOk:           "#16a34a",
@@ -123,8 +123,8 @@ function computeNightTokens(hex) {
     midx:            hslToHex(h, s, Math.min(l + (100 - l) * 0.42, 74)),
     // Card surface — elevated above bg by ~4 L steps
     bubble:          "#1c1c22",   // card background
-    bubbleReply:     hex,
-    bubbleReplyText: textColour(hex),
+    bubbleReply:     "#252529",
+    bubbleReplyText: "#e4e4e7",
     actionBg:        "#111115",
     logOk:           "#4ade80",
     logWarn:         "#fb923c",
