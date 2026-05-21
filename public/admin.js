@@ -1276,17 +1276,26 @@ if (document.getElementById("provOllamaSyncBtn")) {
   document.getElementById("provOllamaSyncBtn").addEventListener("click", async () => {
     const btn = $("provOllamaSyncBtn");
     const urlVal = ($("provOllamaUrl").value || "").trim();
-    btn.disabled = true; btn.textContent = "Syncing…";
+    btn.disabled = true; btn.textContent = "Checking…";
     try {
       const ping = await api(`/api/admin/ollama/ping?url=${encodeURIComponent(urlVal)}`);
       if (!ping?.ok) {
-        showToast(`Ollama not reachable at ${ping?.url || "unknown URL"}. Update the URL and click Save first.`, "error", 8000);
+        const hint = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(urlVal)
+          ? " Use http://host.docker.internal:11434 to reach Ollama on this Mac."
+          : "";
+        showToast(`Ollama not reachable at ${ping?.url || urlVal}.${hint}`, "error", 8000);
         return;
       }
+      // Auto-save the URL if it differs from what's in the DB, since the test just proved it works.
+      const savedUrl = (state?.settings?.ollamaUrl || "").trim();
+      if (urlVal && urlVal !== savedUrl) {
+        await api("/api/admin/settings", { method: "POST", body: JSON.stringify({ ollamaUrl: urlVal }) });
+      }
+      btn.textContent = "Syncing…";
       await api("/api/ollama/models");
       await loadState();
       renderOllamaProvider();
-      showToast("Ollama models synced", "success");
+      showToast(`Ollama models synced — ${ping.modelCount} model${ping.modelCount !== 1 ? "s" : ""} found`, "success", 5000);
     } catch (err) {
       showToast(err.message, "error");
     } finally {
