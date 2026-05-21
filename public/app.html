@@ -58,11 +58,8 @@
         <div style="font-size:12px;color:var(--muted1);padding:4px 6px;">No conversations yet</div>
       </div>
 
-      <!-- MODELS -->
-      <div class="app-sidebar-section-label" style="margin-top:16px;">Models</div>
-      <div id="sidebarModels">
-        <div class="model-item"><div class="model-dot" style="background:var(--muted2)"></div><div class="model-nm" style="color:var(--muted1)">Loading…</div></div>
-      </div>
+      <!-- sidebarModels kept hidden for JS compatibility — models shown in composer dropdown -->
+      <div id="sidebarModels" style="display:none;"></div>
 
       <!-- Access level — hidden card kept for JS; badges shown as small chips -->
       <div id="accessLevelCard" style="display:none;">
@@ -122,15 +119,12 @@
         </div>
         <!-- Live indicator -->
         <span class="header-pill-live" style="font-size:9px;padding:3px 8px;letter-spacing:.08em;">● LIVE</span>
-        <!-- New chat icon -->
-        <button class="icon-btn" id="newChatBtn" style="width:28px;height:28px;" title="New chat" aria-label="New chat">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
       </div>
     </div>
 
     <!-- Hidden compatibility stubs (required by app.js) -->
     <div style="display:none;" aria-hidden="true">
+      <button id="newChatBtn"></button>
       <div id="accountPanel"><div id="accessPolicy"></div></div>
       <span id="topbarSub"></span>
       <span id="statWorkspace">not set</span>
@@ -229,24 +223,8 @@
         </div>
       </div>
 
-      <!-- Session info -->
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title">Session</div>
-        </div>
-        <div class="info-row">
-          <span class="info-row-label">Department</span>
-          <span class="info-row-value" id="infoDept">—</span>
-        </div>
-        <div class="info-row">
-          <span class="info-row-label">Router</span>
-          <span class="info-row-value">Auto</span>
-        </div>
-        <div class="info-row">
-          <span class="info-row-label">Runtime</span>
-          <span class="info-row-value">Local</span>
-        </div>
-      </div>
+      <!-- Session info row — hidden, infoDept kept for JS compatibility -->
+      <span id="infoDept" style="display:none;"></span>
 
       <!-- Workspace -->
       <div class="card">

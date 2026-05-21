@@ -256,10 +256,17 @@ module.exports = function(deps) {
   });
 
   // [POST] /api/chat/clear — Auth: requireAuth — Purpose: archive the current chat and start a fresh active session
+  // Always force-archives (even if no user messages) so New Chat always creates a truly new session
   router.post("/clear", requireAuth, (req, res) => {
     const db = openSql();
     try {
-      archiveCurrentChat(db, req.user.id);
+      const existing = db.prepare(
+        "SELECT id FROM chat_sessions WHERE user_id = ? AND is_active = 1 ORDER BY updated_at DESC LIMIT 1"
+      ).get(req.user.id);
+      if (existing) {
+        db.prepare("UPDATE chat_sessions SET is_active = 0, updated_at = ? WHERE id = ?")
+          .run(new Date().toISOString(), existing.id);
+      }
       getActiveChat(db, req.user.id);
       res.json({ ok: true });
     } finally {

@@ -1262,17 +1262,26 @@ tbody tr:hover { background: var(--ac-pale); }
 .app-body {
   overflow: hidden;
   height: 100vh;
-  background: var(--bg);
-  /* Kill the decorative gradient blobs on the app page */
+  /* Warm parchment background visible around the floating card */
+  background: #e8e5de;
   background-image: none;
+  padding: 14px;
+  box-sizing: border-box;
 }
 
-/* Root 3-column grid */
+[data-theme="night"] .app-body {
+  background: #09090b;
+}
+
+/* Root 3-column grid — floats inside the padded body */
 .app-layout {
   display: grid;
   grid-template-columns: 220px 1fr 272px;
-  height: 100vh;
+  height: calc(100vh - 28px);
   overflow: hidden;
+  border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+  border: 1px solid var(--border);
 }
 
 /* ── Left Sidebar ─────────────────────────────────────────── */
@@ -1583,8 +1592,13 @@ tbody tr:hover { background: var(--ac-pale); }
 }
 
 @media (max-width: 768px) {
+  .app-body { padding: 0; }
   .app-layout {
     grid-template-columns: 1fr;
+    height: 100vh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
   }
   .app-sidebar    { display: none; }
   .app-right-panel { display: none; }
