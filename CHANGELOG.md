@@ -5,6 +5,22 @@ Versioning scheme: `v{YEAR}.{MINOR}.{PATCH}` — see [VERSION.md](VERSION.md).
 
 ---
 
+## [v2026.0.30] — 2026-05-21
+
+### ✨ Features
+
+- **Real-time SSE streaming chat**: Admin chat (and employee workspace) switched from blocking `/api/chat` to the streaming `/api/chat/stream` endpoint. Tokens appear as the model writes them — no waiting for the full response.
+- **Four-phase streaming UX**: Every response goes through visible phases — Routing (grey badge, animated dots), Thinking (blue badge, model name shown), Writing (green badge, tokens live with blinking cursor), Done (full markdown rendered, elapsed time + file chips in footer). Error state shown inline with red badge.
+- **Streaming infrastructure**: `ReadableStream` reader with `TextDecoder` parses SSE line-by-line. Each `token` event appends to accumulated text and re-renders markdown in place. Blinking cursor removed on `done` event.
+- **Response footer**: On completion, each response shows elapsed time chip and download chips (↓) for extracted files, plus ✓ saved chips for server-written workspace files.
+- **Avatar animation**: AI avatar pulses with `stream-pulse` animation while the model is generating; settles on completion showing the model's initial letter.
+
+### 🔒 Security
+
+- Removed `Co-Authored-By` AI attribution lines from all git commits — git `commit-msg` hook installed globally (`~/.git-hooks-global/`) to strip them automatically from every future commit on this machine and all future projects.
+
+---
+
 ## [v2026.0.29] — 2026-05-21
 
 ### 🐛 Bug Fixes

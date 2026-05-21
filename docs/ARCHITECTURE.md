@@ -2,13 +2,14 @@
 
 ## Overview
 
-Olla Nest is a single-container web application that runs via Docker. The backend is a Node.js Express server. The frontend is plain HTML, CSS, and JavaScript served as static files — no build step required.
+Olla Nest is a single-container web application that runs via Docker. The backend is a modular Node.js Express server split across `src/`. The frontend is plain HTML, CSS, and JavaScript served as static files — no build step required.
 
 ```
 Docker container
-├── Node.js 24 (Express)     ← API, routing logic, auth, Ollama integration
+├── Node.js 24 (Express)     ← API, routing logic, auth, Ollama + cloud provider integration
+│   └── src/                 ← Modular backend (routes, services, middleware, models, db)
 ├── public/                  ← Static frontend (login, workspace, admin)
-└── /app/data/               ← SQLite database + JSON document store (volume mount)
+└── /app/data/               ← SQLite database + workspace files (volume mount)
 
 Host machine
 └── Ollama                   ← Local model inference (reached via host.docker.internal)
@@ -22,9 +23,9 @@ Host machine
 |---|---|---|
 | Runtime | Node.js 24 Alpine | Express API server |
 | Frontend | HTML / CSS / JS | Served as static files from `public/` |
-| SQL | SQLite (DELETE journal mode) | Users, groups, models, permissions, settings |
-| Document | JSON file | Chat history, audit log, router traces, workspace preferences |
+| SQL | SQLite (DELETE journal mode) | Users, groups, models, permissions, chat, settings |
 | AI inference | Ollama (host) | Local model execution |
+| Cloud AI | Anthropic, OpenAI, Groq | Cloud provider calls via provider service |
 | Syntax highlighting | highlight.js (vendor) | Client-side code block rendering, 30+ languages |
 | Markdown | marked.js (vendor) | AI response markdown rendering with custom code renderer |
 | XSS sanitisation | DOMPurify (vendor) | Sanitises all AI-generated HTML before DOM insertion |
@@ -34,9 +35,74 @@ Host machine
 
 ### Docker-Only Runtime Contract
 
-The application is designed to run only in Docker. `server.js` checks for Docker runtime signals (`/.dockerenv` or `OLLA_NEST_DOCKER_RUNTIME=true`) during startup. Host-machine starts are blocked by default so production, demos, and contributor testing all use the same container path.
+The application is designed to run only in Docker. `server.js` checks for Docker runtime signals (`/.dockerenv` or `OLLA_NEST_DOCKER_RUNTIME=true`) during startup. Host-machine starts are blocked by default.
 
 The Docker image sets `OLLA_NEST_DOCKER_RUNTIME=true`, and `docker-compose.yml` repeats it for clarity. The container starts with `npm run container:start`; the public `npm start` command is intentionally disabled to avoid accidental local runs.
+
+---
+
+## Source Layout
+
+```
+src/
+├── app.js                     # Express app setup, middleware chain, route mounting
+├── config.js                  # Environment variables, defaults, constants
+│
+├── db/
+│   └── index.js               # openSql(), initDatabase(), all CREATE TABLE + migrations
+│
+├── middleware/
+│   ├── auth.js                # parseCookies, sessionUser, requireAuth, requireAdmin,
+│   │                          #   hasRight, setSession, logout, forceLogoutUser
+│   └── security.js            # checkChatRateLimit, loginAttempts, securityHeaders,
+│                              #   enforceDockerRuntime
+│
+├── models/
+│   └── user.js                # publicUser(), USER_SELECT, getUsers, allowedModels,
+│                              #   allowedModelIds, effectiveAccess, userOverrides,
+│                              #   userGroupIds, roleCatalog, permissionCatalog
+│
+├── services/
+│   ├── router.js              # routeModel() — classify, score, privacy gate
+│   │                          # detectSensitiveContent()
+│   ├── providers.js           # resolveProvider(), callProvider(), callProviderStream()
+│   ├── chat.js                # buildSystemPrompt(), buildContextMessages(),
+│   │                          #   getActiveChat(), archiveCurrentChat(), appendAudit(),
+│   │                          #   appendTrace(), cleanModelOutput()
+│   ├── workspace.js           # workspaceForUser(), writeLocalArtifacts(),
+│   │                          #   extractArtifacts()
+│   └── backup.js              # runBackup() — daily SQLite VACUUM + file copy
+│
+└── routes/
+    ├── auth.js                # POST /api/auth/login, /api/auth/logout
+    ├── state.js               # GET /api/state, /api/ollama/ping, /api/ollama/models
+    ├── chat.js                # POST /api/chat, POST /api/chat/stream,
+    │                          #   POST /api/chat/clear, DELETE /api/chat,
+    │                          #   POST /api/chat/feedback
+    ├── threads.js             # GET/PATCH/DELETE /api/threads
+    ├── workspace.js           # GET /api/workspace/browse,
+    │                          #   POST /api/workspace/local-settings
+    ├── account.js             # PATCH /api/account/password, GET /api/account/usage
+    ├── pages.js               # HTML page routes with auth redirects
+    └── admin/
+        ├── users.js           # GET/POST /api/admin (user list + create)
+        │                      # PATCH /api/admin/:id
+        │                      # GET /api/admin/sessions/active
+        │                      # DELETE /api/admin/sessions/user/:userId
+        ├── models.js          # /api/admin/models/:id/governance
+        │                      # GET /api/admin/ollama/ping
+        ├── providers.js       # GET/POST/DELETE/PATCH /api/admin/providers
+        │                      # POST /api/admin/providers/:id/sync
+        │                      # POST /api/admin/providers/:id/test
+        │                      # POST/DELETE /api/admin/providers/:id/models/:modelId/approve
+        ├── settings.js        # POST /api/admin/settings
+        │                      # GET/PATCH /api/admin/departments/:id/rights
+        │                      # POST /api/admin/settings/backup
+        ├── reports.js         # GET /api/admin/reports, /api/admin/feedback
+        ├── teams.js           # /api/admin/teams
+        ├── overrides.js       # /api/admin/overrides
+        └── health.js          # GET /api/admin/health
+```
 
 ---
 
@@ -46,30 +112,60 @@ The Docker image sets `OLLA_NEST_DOCKER_RUNTIME=true`, and `docker-compose.yml` 
 Browser
   │
   ▼
-Express (server.js)
+Express (src/app.js)
   │
-  ├── Auth middleware (cookie session)
+  ├── Security headers (HSTS, CSP, X-Frame-Options…)
+  ├── JSON body parser
+  ├── Static file serving (public/)
   │
-  ├── /api/state        → load user, models, settings, chat
-  ├── /api/chat         → classify → route → Ollama → response → optional file write
-  ├── /api/ollama/*     → model discovery and sync
-  ├── /api/admin/*      → user management, RBAC, settings, model governance, model sources
-  └── /api/account/*    → password change
+  ├── /api/auth/*        → login / logout
+  ├── /api/state         → user state, models, settings, session list
+  ├── /api/chat          → blocking chat (legacy fallback)
+  ├── /api/chat/stream   → SSE streaming chat (primary endpoint)
+  ├── /api/threads       → chat thread CRUD
+  ├── /api/workspace/*   → browse + local-settings
+  ├── /api/account/*     → password change, usage stats
+  ├── /api/admin/*       → admin CRUD, settings, reports, providers
   │
-  ▼
-Ollama (host:11434)
-  └── /api/generate     → model inference
+  └── Page routes        → HTML pages with session-based redirects
+```
+
+### SSE Streaming Flow
+
+```
+POST /api/chat/stream
+  │
+  ├── requireAuth + CSRF check
+  ├── Daily token quota check
+  ├── routeModel() → picks best approved model
+  │
+  ├── SSE: data: {"type":"routing", "model":"...", "reason":"..."}
+  │
+  ├── callProviderStream() → opens connection to Ollama or cloud provider
+  │   Each token callback:
+  │   └── SSE: data: {"type":"token", "content":"..."}
+  │
+  ├── cleanModelOutput() → strip think-block artifacts
+  ├── extractArtifacts() → detect generated files in response
+  ├── writeLocalArtifacts() → optionally write to workspace folder
+  │
+  ├── SQLite transaction:
+  │   ├── INSERT chat_messages (user)
+  │   └── INSERT chat_messages (assistant, with tokensUsed, latencyMs)
+  │
+  └── SSE: data: {"type":"done", "tokensUsed":N, "latencyMs":N,
+                  "messageId":"...", "artifacts":[...], "extractedFiles":[...]}
 ```
 
 ---
 
 ## Auto Router
 
-The router runs on every `/api/chat` and `/api/chat/stream` request:
+The router (`src/services/router.js`) runs on every `/api/chat` and `/api/chat/stream` request:
 
 1. **Classify** — detect request type from message text and mode (coding, writing, OCR, medical, review, general)
 2. **Filter** — collect models the user is approved to access via user, group, and department grants
-3. **Score** — rank each candidate by: capability match × 35pts, specialist bonus × 45pts, speed weight, quality weight, privacy score
+3. **Score** — rank each candidate: capability match × 35pts, specialist bonus × 45pts, speed weight, quality weight, privacy score
 4. **Select** — pick the highest-scoring approved model
 5. **Privacy gate** — SSN / credit card / PHI patterns detected → forced local-only, regardless of user selection
 6. **Generate** — call provider (Ollama or cloud) with mode-specific system prompt + project knowledge + sliding-window history
@@ -81,18 +177,49 @@ The router runs on every `/api/chat` and `/api/chat/stream` request:
 Every chat request builds the system prompt in this order:
 
 ```
-[Base instructions]
+[Base mode instruction (ask / build / fix / review / learn…)]
   + Routing context (selected model + reason)
   + Project Knowledge (admin-configured, if set)
-  + Workspace context (active folder + file list, if workspace active)
-  + Mode instruction (ask / build / fix / review / debug / test / plan / docs / learn)
-  ──────────────────────────────────────────────────────────────────
+  + Workspace context (active folder, if workspace enabled)
+  ──────────────────────────────────────────────────────────
   → Sent as the "system" role message to the model
-  → Followed by sliding-window chat history
-  → Followed by the current user message
+  → Followed by sliding-window chat history (newest → oldest, within token budget)
+  → Followed by the current user message (+ images if vision model)
 ```
 
-**Project Knowledge** is a free-text block admins set in Admin → Settings. It is injected into every prompt for every user, making it ideal for tech stack context, coding conventions, or team-specific terminology.
+**Project Knowledge** is free-text set by admins in Admin → Settings. It is injected into every prompt for every user — ideal for tech stack context, coding conventions, and team terminology.
+
+---
+
+## Chat Streaming UX (Client Side)
+
+The browser uses the `ReadableStream` API to consume SSE:
+
+```javascript
+const res = await fetch("/api/chat/stream", { method: "POST", ... });
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  // parse SSE lines from buffer
+  // "routing" → show model name in Thinking phase badge
+  // "token"   → append to accumulated text, re-render markdown
+  // "done"    → finalise bubble, show elapsed time + file chips
+  // "error"   → show error in red badge inline
+}
+```
+
+Visual phases:
+
+| Phase | Trigger | Badge colour | UI state |
+|---|---|---|---|
+| Routing | Request sent | Grey | Animated dots, "Finding the best model…" |
+| Thinking | `routing` event | Blue | Model name + dots, "Generating response…" |
+| Writing | First `token` | Green | Live tokens + blinking cursor |
+| Done | `done` event | — | Full markdown, footer chips, avatar settled |
+| Error | `error` event | Red | Error message inline |
 
 ---
 
@@ -102,6 +229,7 @@ AI responses flow through a custom `renderMarkdown()` pipeline before reaching t
 
 ```
 Raw model output (string)
+  → cleanModelOutput() strips <think>…</think> blocks
   → marked.js parser with custom renderer.code()
       → highlight.js syntax highlighting (30+ languages)
       → Line number table-cell layout
@@ -113,70 +241,70 @@ Raw model output (string)
   → innerHTML insertion
 ```
 
-The `renderCodeBlock()` function stores the raw source text in a `data-raw` attribute (URL-encoded) on each `.md-code-block` div. The code review modal and copy button both read from this attribute to ensure plain text — not hljs-decorated HTML — is used.
-
 ---
 
 ## Data Layer
 
-### SQLite (structural source of truth)
+### SQLite (single source of truth)
 
-All relational data lives in a single SQLite database at `/app/data/olla-nest.sqlite`.
+All data lives in a single SQLite database at `/app/data/olla-nest.sqlite`.
 
 | Table | Contents |
 |---|---|
-| `users` | Accounts, profile fields, password hash, role, rights, department, AI access tier, quotas, security status |
+| `users` | Accounts, profile, password hash, role, rights, department, AI quotas, security status |
 | `groups` | Named access groups |
-| `departments` | Company departments |
+| `departments` | Company departments with default rights |
 | `user_groups` | User-to-group membership |
-| `models` | Discovered Ollama models with scores, capabilities, governance status, sensitivity, runtime limits |
+| `models` | Discovered Ollama models — scores, capabilities, governance status, context size |
+| `api_providers` | Cloud provider configs (type, URL, encrypted API key) |
+| `api_models` | Models synced from cloud providers (with context window, approval status) |
 | `access_grants` | Model access by user / group / department |
-| `role_catalog` | Enterprise RBAC role templates and permission sets |
-| `permission_catalog` | AI usage, admin, model, workflow, and infrastructure permissions |
-| `user_overrides` | Individual user access overrides that outrank department and role defaults |
-| `settings` | Key-value configuration (router toggle, Ollama URL, workspace root, project knowledge, etc.) |
+| `role_catalog` | Enterprise RBAC role templates |
+| `permission_catalog` | Granular AI usage, admin, model, and workspace permissions |
+| `user_overrides` | Per-user access overrides that outrank department and role defaults |
+| `chat_sessions` | Per-user chat threads (active / archived, title, timestamps) |
+| `chat_messages` | All messages with model attribution, routing reason, latency, token counts |
+| `sessions` | Auth session tokens (HttpOnly cookie, 12-hour expiry) |
+| `audit_events` | Rolling admin action log |
+| `router_traces` | Routing decision log per chat turn |
+| `workspace_prefs` | Per-user workspace root, output folder, permission mode |
+| `feedback` | Thumbs-up/down ratings on assistant messages |
+| `settings` | Key-value config (router, Ollama URL, workspace root, project knowledge…) |
 
-### Notable Settings Keys
+### Key Settings
 
-| Key | Type | Purpose |
-|---|---|---|
-| `routerEnabled` | boolean | Enable/disable Auto Router |
-| `ollama_url` | string | URL to reach Ollama from container |
-| `workspaceRoot` | string | Default workspace folder path |
-| `projectKnowledge` | string | Admin-set context injected into every chat prompt |
-| `localOnlyDefault` | boolean | Route to local models by default |
-| `allowApiModels` | boolean | Allow cloud provider models |
-
-### JSON Document Store (cognitive archive)
-
-Flexible document data lives in `/app/data/documents.json`:
-
-| Key | Contents |
+| Key | Purpose |
 |---|---|
-| `chats` | Per-user chat history with messages, model attribution, artifacts |
-| `audit` | Rolling 200-event audit log (actor, action, detail, timestamp) |
-| `routerTraces` | Rolling 200-trace log of routing decisions |
-| `workspacePrefs` | Per-user workspace folder and permission mode |
+| `routerEnabled` | Enable / disable Auto Router |
+| `ollama_url` | URL to reach Ollama from the container |
+| `workspaceRoot` | Default workspace folder path |
+| `projectKnowledge` | Admin-set context injected into every chat prompt |
+| `localOnlyDefault` | Route to local models by default |
+| `allowApiModels` | Allow cloud provider models |
+| `localWritesEnabled` | Allow Build/Fix to write files to workspace |
 
 ---
 
 ## Authentication
 
-- Sessions use a secure random token stored in an `HttpOnly`, `SameSite=Lax` cookie
-- Sessions expire after 12 hours
-- Passwords are hashed with bcrypt (cost factor 12)
-- No external auth provider in MVP — admin creates accounts manually
+- Sessions use a 256-bit secure random token stored in an `HttpOnly`, `SameSite=Lax`, 12-hour cookie
+- Passwords hashed with bcrypt cost factor 12
+- CSRF guard: all non-GET API requests require `X-Requested-With: XMLHttpRequest`
+- Login rate-limited: 10 failed attempts per IP per 15 minutes
+- Session fixation prevented: old token deleted on every new login
+
+---
 
 ## Enterprise Access Model
 
-Access is evaluated in this order:
+Access is evaluated in this priority order:
 
 1. User override
 2. Department policy
 3. Role permission template
-4. Organization default
+4. Organisation default
 
-The current MVP implements the data foundation and admin screens for users, roles, permissions, model governance, and overrides. Future enterprise connectors such as SSO, SCIM, LDAP, Google Workspace, and Microsoft Entra should attach to the same access model instead of bypassing it.
+The data foundation (users, roles, permission catalog, model governance, overrides) is fully implemented. Future enterprise connectors (SSO, SCIM, LDAP) should attach to this layer rather than bypass it.
 
 ---
 
@@ -185,33 +313,29 @@ The current MVP implements the data foundation and admin screens for users, role
 Build and Fix modes can write generated files to the host filesystem via the Docker volume:
 
 ```
-Container: /app/data/workspace/olla-nest-output/
+Container: /app/data/workspace/
 Volume:    app-data → /app/data/
 ```
-
-Users configure their workspace path from the workspace panel. Admins set the company default from Settings.
 
 Permission modes:
 
 | Mode | Behaviour |
 |---|---|
-| `default` | User must check "Write to workspace" on each Build/Fix request |
+| `default` | User must check "Write to workspace" per Build/Fix request |
 | `review` | Same as default — approval visible and required |
-| `full` | Files are written automatically on every Build/Fix request |
+| `full` | Files written automatically on every Build/Fix request |
 
 ---
 
 ## Production Database Direction
 
-The current MVP uses SQLite and JSON for simplicity. The intended production architecture for company-scale deployment is:
+The current release uses SQLite for simplicity and Docker portability. The intended production architecture for company-scale deployment:
 
 | Layer | Production target | Reason |
 |---|---|---|
 | SQL | PostgreSQL + pgvector | Multi-user, RBAC, RAG embeddings, audit at scale |
 | Document | MongoDB | Flexible AI artifacts, chat history, tool outputs |
 | Realtime | Redis | Token streaming, sessions, rate limiting, pub/sub |
-
-These are not used in the current Docker image. The `infra/postgres/init.sql` file contains the schema foundation for the future PostgreSQL migration.
 
 ---
 
@@ -220,10 +344,9 @@ These are not used in the current Docker image. The `infra/postgres/init.sql` fi
 | Layer | Current | Target |
 |---|---|---|
 | Backend | Node.js JS | Node.js TypeScript |
-| Frontend | Docker-served HTML/CSS/JS | React + Vite served only through Docker |
+| Frontend | Docker-served HTML/CSS/JS | React + Vite served through Docker |
 | Desktop | — | Tauri wrapper around the Docker-backed web UI |
 | Mobile | — | React Native / Expo against the same APIs |
 | SQL | SQLite | PostgreSQL + pgvector |
-| Document | JSON | MongoDB |
-| Realtime | In-memory | Redis |
-| Auth | Simple session | SSO / OIDC |
+| Realtime | — | Redis |
+| Auth | Cookie sessions | SSO / OIDC |

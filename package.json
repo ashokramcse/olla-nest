@@ -1,6 +1,6 @@
 {
   "name": "olla-nest",
-  "version": "2026.0.17",
+  "version": "2026.0.30",
   "description": "Company-ready AI workspace — local Ollama models, cloud providers (Anthropic/OpenAI/Groq), chat memory, file upload, and full admin control.",
   "main": "server.js",
   "license": "MIT",

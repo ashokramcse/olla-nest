@@ -8,7 +8,7 @@ Tracks every release, version tag, and key commit in the project history.
 
 | Field | Value |
 |---|---|
-| **Version** | `v2026.0.29` |
+| **Version** | `v2026.0.30` |
 | **Released** | 2026-05-21 |
 | **Commit** | — |
 | **Status** | ✅ Stable |
@@ -17,6 +17,17 @@ Tracks every release, version tag, and key commit in the project history.
 ---
 
 ## Version History
+
+### v2026.0.30 — 2026-05-21
+> **Real-time SSE streaming UX — Routing → Thinking → Writing → Done phases**
+
+**Key changes:**
+- Admin and employee chat switched from blocking `/api/chat` to `/api/chat/stream`
+- Four-phase streaming UX with animated badges, pulsing avatar, blinking cursor
+- Response footer: elapsed time + file download chips on completion
+- Removed all AI co-author lines from git history; global git hook prevents future occurrences
+
+---
 
 ### v2026.0.29 — 2026-05-21
 > **Hotfix: `showToast` crash — `c is not defined`**

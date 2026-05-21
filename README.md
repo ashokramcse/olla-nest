@@ -9,15 +9,15 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-v2026.0.29-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
+[![Version](https://img.shields.io/badge/version-v2026.0.30-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com)
 [![Node](https://img.shields.io/badge/Node-24--alpine-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
-[![SQLite](https://img.shields.io/badge/SQLite-WAL-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![SQLite](https://img.shields.io/badge/SQLite-DELETE_journal-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
 
 <br/>
 
-[**Quick Start**](#quick-start) · [**Features**](#features) · [**Auto Router**](#auto-router) · [**Admin Dashboard**](#admin-dashboard) · [**Providers**](#cloud-provider-setup) · [**Security**](#security) · [**Docs**](docs/) · [**Changelog**](CHANGELOG.md)
+[**Quick Start**](#quick-start) · [**Features**](#features) · [**Streaming Chat**](#streaming-chat-ux) · [**Auto Router**](#auto-router) · [**Admin Dashboard**](#admin-dashboard) · [**Providers**](#cloud-provider-setup) · [**Security**](#security) · [**Docs**](docs/) · [**Changelog**](CHANGELOG.md)
 
 <br/>
 
@@ -43,6 +43,7 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 
 **🤖 Intelligence**
 - Auto Router — classifies every request, picks the best model
+- Real-time SSE streaming — tokens appear as the model writes them
 - Chat memory — sliding-window session history, model remembers the conversation
 - Sensitive content detection — SSN, PHI, API keys → local-only routing
 - Manual model override in composer
@@ -56,6 +57,7 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - RBAC role catalog with colour-coded permission groups
 - Governance tier tagging (approved / restricted / private)
 - Audit trail — every routing decision and admin action logged
+- Admin test chat with full routing panel and streaming
 
 </td>
 </tr>
@@ -75,7 +77,7 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - File upload — images (vision) + text files in composer
 - Generated code saved to a configured project folder
 - Integrated xterm.js terminal for `workspace:build` users
-- Chat history — pin, archive, fork, rename threads
+- Chat history — pin, archive, rename threads
 - Input history — ↑/↓ arrow keys navigate past messages
 
 </td>
@@ -84,10 +86,10 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 <td>
 
 **📊 Reports & Analytics**
-- 10 interactive Chart.js charts
+- 10 structured data tables — stable, theme-aware, no chart dependencies
 - Token usage leaderboard (paginated)
 - Latency by model, daily activity, dept usage
-- Live vs failed breakdown
+- Live vs failed breakdown, feedback summary
 
 </td>
 <td>
@@ -97,6 +99,7 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - DOMPurify XSS sanitisation on all AI output
 - Login rate limiting, CSRF protection, HSTS
 - Workspace path traversal protection
+- Non-root container user
 
 </td>
 </tr>
@@ -114,11 +117,12 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 </td>
 <td>
 
-**🧠 Live Feedback**
-- Thinking indicator — animated dots while model routes and generates
-- Phase labels: Routing → Thinking → response streams in
-- ↑/↓ input history like a terminal — draft preserved on ↓
-- Copy button extracts clean plain text, not decorated HTML
+**⚡ Streaming UX**
+- Phase indicators: Routing → Thinking → Writing → Done
+- Animated avatar pulse while the model generates
+- Blinking cursor on live token stream
+- Elapsed time chip and file chips in response footer
+- Error phase shown inline if model call fails
 
 </td>
 </tr>
@@ -179,6 +183,21 @@ ollama pull gemma4:26b         # vision + text, 128k context
 5. Done — approved models are immediately live in the Auto Router
 
 No restart. No hardcoded model names. Works for any number of providers simultaneously.
+
+---
+
+## Streaming Chat UX
+
+Every chat request streams tokens live from the model, with four visual phases:
+
+| Phase | Badge colour | What's happening |
+|---|---|---|
+| **Routing** | Grey | Auto Router is picking the best model |
+| **Thinking** | Blue | Model selected — waiting for first token |
+| **Writing** | Green | Tokens streaming in with blinking cursor |
+| **Done** | — | Full response rendered, footer shows elapsed time + files |
+
+The avatar pulses while the model is working. On error, a red badge shows the failure reason inline — no full-page message.
 
 ---
 
@@ -281,13 +300,13 @@ Context limits are fetched dynamically — from Ollama's `/api/show` for local m
 | Tab | What you can do |
 |---|---|
 | **Overview** | Live stats, audit event feed, quick actions |
-| **Chat** | Admin test chat with full router panel and streaming |
+| **Chat** | Admin test chat with full router panel and live streaming |
 | **Models** | Sync Ollama models, set governance tier and scores |
 | **Users** | Create / edit employees, inline permission grid, deactivate |
 | **Access Control** | Department defaults, RBAC roles, permission matrix |
-| **Settings** | Router config, workspace root, API model access |
+| **Settings** | Router config, workspace root, API model access, project knowledge |
 | **Providers** | Add / sync / test Anthropic, OpenAI, Groq, custom |
-| **Reports** | 10 Chart.js charts + paginated leaderboard |
+| **Reports** | 10 structured data tables + paginated token leaderboard |
 
 ---
 
@@ -303,6 +322,7 @@ Context limits are fetched dynamically — from Ollama's `/api/show` for local m
 | AI output | DOMPurify sanitisation before rendering |
 | Workspace | Path traversal protection, writes restricted to workspace root |
 | Privacy routing | PHI / SSN / credit card patterns → forced local model |
+| Container | Runs as non-root `appuser` |
 
 ---
 
@@ -323,33 +343,67 @@ docker compose restart app         # restart without rebuild
 
 ```
 olla-nest/
-├── server.js              # Express backend — all routes, auth, router engine, SSE
+├── server.js                      # Entry point — cluster, DB init, server listen
 ├── package.json
-├── Dockerfile             # Node 24 Alpine
+├── Dockerfile                     # Node 24 Alpine, non-root user
 ├── docker-compose.yml
 ├── .env.example
 │
+├── src/
+│   ├── app.js                     # Express setup, middleware, route mounting
+│   ├── config.js                  # Environment variables and defaults
+│   ├── db/
+│   │   └── index.js               # openSql(), initDatabase(), schema migrations
+│   ├── middleware/
+│   │   ├── auth.js                # Sessions, requireAuth, requireAdmin, hasRight, CSRF
+│   │   └── security.js            # Rate limiting, login lockout, security headers
+│   ├── models/
+│   │   └── user.js                # publicUser(), USER_SELECT, permission helpers
+│   ├── services/
+│   │   ├── router.js              # Auto Router — classify, score, select, privacy gate
+│   │   ├── providers.js           # resolveProvider, callProvider, callProviderStream
+│   │   ├── workspace.js           # workspaceForUser, writeLocalArtifacts, extractArtifacts
+│   │   ├── chat.js                # buildSystemPrompt, buildContextMessages, history sliding window
+│   │   └── backup.js              # Daily SQLite backup
+│   └── routes/
+│       ├── auth.js                # POST /api/auth/login, /logout
+│       ├── state.js               # GET /api/state, /api/ollama/ping, /api/ollama/models
+│       ├── chat.js                # POST /api/chat, /api/chat/stream, /clear, DELETE /api/chat
+│       ├── threads.js             # GET/PATCH/DELETE /api/threads
+│       ├── workspace.js           # GET /api/workspace/browse, POST /api/workspace/local-settings
+│       ├── account.js             # PATCH /api/account/password, GET /api/account/usage
+│       ├── pages.js               # Serves HTML pages, auth redirects
+│       └── admin/
+│           ├── users.js           # GET/POST/PATCH /api/admin (users + sessions)
+│           ├── models.js          # /api/admin/models, /api/admin/ollama/ping
+│           ├── providers.js       # /api/admin/providers
+│           ├── settings.js        # POST /api/admin/settings, /api/admin/departments
+│           ├── reports.js         # GET /api/admin/reports, /api/admin/feedback
+│           ├── teams.js           # /api/admin/teams
+│           ├── overrides.js       # /api/admin/overrides
+│           └── health.js          # /api/admin/health
+│
 ├── public/
 │   ├── app.html + app.js          # Employee workspace SPA
-│   ├── admin.html + admin.js      # Admin dashboard SPA
+│   ├── admin.html                 # Admin dashboard SPA (single file)
 │   ├── login.html + login.js      # Employee sign-in
 │   ├── admin-login.html           # Admin sign-in
 │   ├── theme.js                   # Design-system colour engine (CSS var tokens)
 │   ├── styles.css                 # Design system (all components)
 │   ├── logo.svg                   # Brand logo mark (inline, CSS var colours)
-│   └── favicon.svg                # Favicon (hardcoded brand colours)
+│   └── favicon.svg                # Favicon
 │
 ├── data/                          # Runtime only — gitignored
 │   ├── olla-nest.sqlite
 │   └── workspace/
 │
 └── docs/
-    ├── ARCHITECTURE.md            # Architecture deep-dive
-    ├── BRAND.md                   # Branding guidelines
-    ├── architecture.svg           # Architecture diagram (branded)
-    ├── logo-readme.svg            # Logo for README / external use
+    ├── ARCHITECTURE.md
+    ├── BRAND.md
+    ├── DEPLOYMENT.md
     ├── ENTERPRISE_ACCESS_CONTROL.md
-    └── DEPLOYMENT.md
+    ├── architecture.svg
+    └── logo-readme.svg
 ```
 
 ---
@@ -364,6 +418,8 @@ olla-nest/
 - [ ] Desktop app (Tauri) for macOS, Windows, Linux
 - [ ] Mobile PWA
 - [ ] Webhook / notification support for admin alerts
+- [ ] Visual diff preview before applying generated file changes
+- [ ] Audit log filters and CSV export
 
 ---
 

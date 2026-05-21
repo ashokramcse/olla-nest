@@ -98,8 +98,7 @@ All data is stored inside the `app-data` named Docker volume:
 
 | Path in container | Contents |
 |---|---|
-| `/app/data/olla-nest.sqlite` | Users, roles, permissions, departments, groups, model governance, user overrides, settings |
-| `/app/data/documents.json` | Chat history, audit log, router traces, workspace preferences |
+| `/app/data/olla-nest.sqlite` | Users, roles, permissions, departments, groups, model governance, user overrides, chat sessions, chat messages, settings |
 | `/app/data/workspace/` | Default local output folder for Build/Fix file writes |
 
 Data persists across `docker compose down / up` because the volume is not removed unless you pass `-v`.
