@@ -815,6 +815,14 @@ tbody tr:hover { background: var(--ac-pale); }
   background: var(--track); padding: 3px 8px; border-radius: var(--r-pill);
   border: 1px solid var(--border);
 }
+.artifact-row {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 6px;
+}
+.artifact-row-label {
+  font-size: 10px; color: var(--muted2); font-family: var(--font-mono);
+  white-space: nowrap;
+}
 .artifact-chip {
   display: inline-flex; align-items: center; gap: 4px;
   font-family: var(--font-mono); font-size: 10px; color: var(--ac-dark);

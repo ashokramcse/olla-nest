@@ -773,11 +773,14 @@ function renderMessages() {
       ? `${esc(state.activeUser.name)}${msg.mode ? ` · <span class="badge badge-default" style="font-size:10px;">${esc(msg.mode)}</span>` : ""}`
       : `${esc(msg.modelName || "Olla Nest")}${msg.live === false ? ` · <span class="badge badge-amber" style="font-size:10px;">setup needed</span>` : ""}`;
 
+    const artifactChips = (msg.artifacts || []).map(a =>
+      `<span class="artifact-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>${esc(a.relativePath || a.name)}</span>`
+    ).join("");
     const footer = !isUser ? `
       <div class="message-footer">
         ${msg.modelName ? `<span class="message-model-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>${esc(msg.modelName)}</span>` : ""}
-        ${(msg.artifacts || []).map(a => `<span class="artifact-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>${esc(a.relativePath || a.name)}</span>`).join("")}
-      </div>` : "";
+      </div>
+      ${artifactChips ? `<div class="artifact-row"><span class="artifact-row-label">Saved to workspace</span>${artifactChips}</div>` : ""}` : "";
 
     const bubbleContent = isUser
       ? `<div class="message-bubble user-bubble">${esc(msg.content)}</div>`
