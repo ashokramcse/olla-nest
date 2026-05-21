@@ -33,24 +33,30 @@ module.exports = function(deps) {
                AVG(latency_ms) AS avg_latency
         FROM chat_messages
         WHERE role='assistant' AND model_name IS NOT NULL AND model_name != ''
+          AND created_at >= ?
         GROUP BY model_name ORDER BY uses DESC LIMIT 10
-      `).all();
+      `).all(since);
 
       // 3. Token leaderboard (users ranked by total tokens)
       const tokenLeaderboard = db.prepare(`
         SELECT u.name, u.email, u.role, u.department_id,
+               d.name AS department,
                u.ai_access_tier, u.daily_token_limit,
                COUNT(DISTINCT cs.id) AS sessions,
-               COUNT(cm.id) AS messages,
-               COALESCE(SUM(cm.tokens_used),0) AS total_tokens,
-               COALESCE(AVG(cm.tokens_used),0) AS avg_tokens_per_msg,
+               COUNT(DISTINCT um.id) AS messages,
+               COALESCE(SUM(am.tokens_used),0) AS total_tokens,
+               CASE WHEN COUNT(DISTINCT um.id) > 0
+                    THEN ROUND(COALESCE(SUM(am.tokens_used),0) * 1.0 / COUNT(DISTINCT um.id))
+                    ELSE 0 END AS avg_tokens_per_msg,
                MAX(cs.updated_at) AS last_active
         FROM users u
-        LEFT JOIN chat_sessions cs ON cs.user_id = u.id
-        LEFT JOIN chat_messages cm ON cm.session_id = cs.id AND cm.role = 'assistant'
+        LEFT JOIN departments d ON d.id = u.department_id
+        LEFT JOIN chat_sessions cs ON cs.user_id = u.id AND cs.created_at >= ?
+        LEFT JOIN chat_messages um ON um.session_id = cs.id AND um.role = 'user'
+        LEFT JOIN chat_messages am ON am.session_id = cs.id AND am.role = 'assistant'
         WHERE u.active = 1
         GROUP BY u.id ORDER BY total_tokens DESC LIMIT 20
-      `).all();
+      `).all(since);
 
       // 4. Mode breakdown (ask / build / fix / review etc.)
       const modeBreakdown = db.prepare(`
@@ -63,10 +69,12 @@ module.exports = function(deps) {
       const deptUsage = db.prepare(`
         SELECT d.name AS dept,
                COUNT(DISTINCT cs.id) AS sessions,
+               COUNT(DISTINCT um.id) AS messages,
                COALESCE(SUM(cm.tokens_used),0) AS tokens
         FROM departments d
         LEFT JOIN users u ON u.department_id = d.id
         LEFT JOIN chat_sessions cs ON cs.user_id = u.id AND cs.created_at >= ?
+        LEFT JOIN chat_messages um ON um.session_id = cs.id AND um.role = 'user'
         LEFT JOIN chat_messages cm ON cm.session_id = cs.id AND cm.role = 'assistant'
         GROUP BY d.id ORDER BY tokens DESC
       `).all(since);
@@ -105,12 +113,12 @@ module.exports = function(deps) {
                ROUND(AVG(latency_ms)) AS avg_ms,
                MIN(latency_ms) AS min_ms,
                MAX(latency_ms) AS max_ms,
-               COUNT(*) AS count
+               COUNT(*) AS requests
         FROM chat_messages
         WHERE role='assistant' AND model_name IS NOT NULL AND model_name != ''
-          AND latency_ms > 0
+          AND latency_ms > 0 AND created_at >= ?
         GROUP BY model_name ORDER BY avg_ms ASC LIMIT 10
-      `).all();
+      `).all(since);
 
       // Summary stats
       const summary = db.prepare(`

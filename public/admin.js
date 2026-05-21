@@ -1962,7 +1962,7 @@ async function loadReports() {
     `<span class="num">${r.avg_ms!=null?Math.round(r.avg_ms)+"ms":"—"}</span>`,
     `<span class="num">${r.min_ms!=null?Math.round(r.min_ms)+"ms":"—"}</span>`,
     `<span class="num">${r.max_ms!=null?Math.round(r.max_ms)+"ms":"—"}</span>`,
-    `<span class="num">${fmt(r.requests||r.uses||0)}</span>`
+    `<span class="num">${fmt(r.requests||0)}</span>`
   ], "No latency data.");
 
   // 4. Mode breakdown table
