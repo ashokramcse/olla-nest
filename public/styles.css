@@ -1253,7 +1253,7 @@ tbody tr:hover { background: var(--ac-pale); }
 }
 
 /* ══════════════════════════════════════════════════════════════
-   USER APP LAYOUT — Onyx-inspired 3-column shell
+   USER APP LAYOUT — 3-column shell
    Only applied when body.app-body / div.app-layout are present
    (app.html only — admin.html is completely unaffected)
    ══════════════════════════════════════════════════════════════ */
