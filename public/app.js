@@ -162,6 +162,7 @@ function renderTopnavStats() {
   }
 }
 
+/**
  * Re-renders the entire sidebar from the current global `state`.
  * Called after every loadState() — covers user info, department, model list,
  * model picker, token usage pill, workspace path, access policy card,
