@@ -705,6 +705,11 @@ tbody tr:hover { background: var(--ac-pale); }
 .composer-inner {
   background: var(--bubble); border-radius: 18px; border: 1px solid var(--border);
   box-shadow: 0 4px 24px rgba(0,0,0,0.18); overflow: visible;
+  transition: border-color .15s, box-shadow .15s;
+}
+.composer-inner:focus-within {
+  border-color: var(--ac-mid);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18), 0 0 0 3px var(--ac-pale);
 }
 .composer-textarea {
   width: 100%; border: none; outline: none; resize: none;
@@ -1201,10 +1206,9 @@ tbody tr:hover { background: var(--ac-pale); }
 /* ── Focus-visible accessibility ring ────────────────────── */
 /* Applied only on keyboard navigation — invisible on mouse click */
 :focus { outline: none; }
-:focus-visible {
-  outline: 2px solid var(--ac);
-  outline-offset: 2px;
-}
+:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+/* Textarea inside the composer shows focus via the wrapper's :focus-within ring instead */
+.composer-textarea:focus-visible { outline: none; }
 .btn:focus-visible,
 .icon-btn:focus-visible,
 .card-action:focus-visible,
