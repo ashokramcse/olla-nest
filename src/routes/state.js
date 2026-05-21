@@ -51,8 +51,19 @@ module.exports = function(deps) {
       }
       const auditRows = db.prepare("SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 20").all();
       const audit = auditRows.map(r => ({ id: r.id, actor: r.actor, action: r.action, detail: r.detail, extra: safeJson(r.extra_json, {}), createdAt: r.created_at }));
+      // Topnav stats — requests today, avg latency, uptime
+      const reqToday = (db.prepare(
+        "SELECT COUNT(*) as n FROM chat_messages WHERE role = 'user' AND date(created_at) = date('now')"
+      ).get()?.n) || 0;
+      const latencyRow = db.prepare(
+        "SELECT AVG(latency_ms) as avg FROM chat_messages WHERE role = 'assistant' AND latency_ms IS NOT NULL AND date(created_at) = date('now')"
+      ).get();
+      const avgLatency = latencyRow?.avg ? Math.round(latencyRow.avg) : null;
+      const uptimeMs = process.uptime() * 1000;
+
       res.json({
         activeUser: user,
+        stats: { reqToday, avgLatency, uptimeMs },
         // users omitted — fetch via GET /api/admin/users for paginated access
         departments: (() => {
           const depts = rows(db, "SELECT id, name FROM departments ORDER BY name");

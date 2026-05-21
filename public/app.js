@@ -137,6 +137,31 @@ function timeAgo(iso) {
 }
 
 /**
+/**
+ * Renders the three topnav stats: Requests Today, Avg Latency, Uptime.
+ * Data comes from state.stats, populated by GET /api/state.
+ */
+function renderTopnavStats() {
+  const s = state?.stats;
+  if (!s) return;
+
+  const reqEl = document.getElementById("statReqToday");
+  if (reqEl) reqEl.textContent = s.reqToday ?? "—";
+
+  const latEl = document.getElementById("statAvgLatency");
+  if (latEl) {
+    latEl.textContent = s.avgLatency != null ? `${s.avgLatency}ms` : "—";
+    latEl.className = "topnav-stat-num" + (s.avgLatency != null && s.avgLatency > 5000 ? " warn" : "");
+  }
+
+  const upEl = document.getElementById("statUptime");
+  if (upEl && s.uptimeMs != null) {
+    const h = Math.floor(s.uptimeMs / 3600000);
+    const m = Math.floor((s.uptimeMs % 3600000) / 60000);
+    upEl.textContent = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+}
+
  * Re-renders the entire sidebar from the current global `state`.
  * Called after every loadState() — covers user info, department, model list,
  * model picker, token usage pill, workspace path, access policy card,
@@ -800,6 +825,7 @@ async function loadState(retries = 3) {
         }
         renderSidebar();
         renderMessages();
+        renderTopnavStats();
         break;
       }
     } catch (err) {
