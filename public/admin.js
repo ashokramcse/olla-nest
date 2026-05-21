@@ -150,7 +150,7 @@ function showToast(msg, type = "info", duration = 4000) {
   const border = accent + "55";      // 33% alpha accent border
   const text   = cssVar("--body-text") || "#1a1a1a";
   toast.style.cssText = `background:${bg};border:1px solid ${border};color:${text};border-left:3px solid ${accent};padding:12px 16px;border-radius:12px;font-size:13px;font-weight:500;display:flex;align-items:flex-start;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);animation:slideInToast .2s ease;cursor:pointer;`;
-  toast.innerHTML = `<span style="font-size:16px;line-height:1;">${c.icon}</span><span style="flex:1;line-height:1.4;">${esc(msg)}</span>`;
+  toast.innerHTML = `<span style="font-size:16px;line-height:1;">${icon}</span><span style="flex:1;line-height:1.4;">${esc(msg)}</span>`;
   toast.onclick = () => toast.remove();
   container.appendChild(toast);
   if (duration > 0) setTimeout(() => toast?.remove(), duration);

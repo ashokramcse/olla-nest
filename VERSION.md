@@ -8,15 +8,24 @@ Tracks every release, version tag, and key commit in the project history.
 
 | Field | Value |
 |---|---|
-| **Version** | `v2026.0.28` |
+| **Version** | `v2026.0.29` |
 | **Released** | 2026-05-21 |
-| **Commit** | `097dc24` |
+| **Commit** | — |
 | **Status** | ✅ Stable |
 | **Branch** | `main` |
 
 ---
 
 ## Version History
+
+### v2026.0.29 — 2026-05-21
+> **Hotfix: `showToast` crash — `c is not defined`**
+
+**Key changes:**
+- Fixed `ReferenceError: c is not defined` at `admin.js:716` / `showToast:153`
+- `c.icon` was a stale reference from before the `accentColors` refactor; replaced with the already-defined `icon` variable
+
+---
 
 ### v2026.0.28 — 2026-05-21
 > **CSS dead code purge, icon branding fix, logo centering, version catch-up**

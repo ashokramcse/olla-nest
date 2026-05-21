@@ -5,6 +5,14 @@ Versioning scheme: `v{YEAR}.{MINOR}.{PATCH}` — see [VERSION.md](VERSION.md).
 
 ---
 
+## [v2026.0.29] — 2026-05-21
+
+### 🐛 Bug Fixes
+
+- **Critical crash**: `ReferenceError: c is not defined` at `admin.js:716` inside `showToast`. The `c.icon` reference was a stale leftover from before `accentColors` was refactored to a plain hex map. Replaced with the already-correct `icon` variable defined in the same function.
+
+---
+
 ## [v2026.0.28] — 2026-05-21
 
 ### 🐛 Bug Fixes
