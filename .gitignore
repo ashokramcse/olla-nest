@@ -20,5 +20,11 @@ data/
 .idea/
 .claude/
 
+# Eclipse IDE
+.classpath
+.project
+.settings/
+*.launch
+
 # Local business docs
 PROJECT_BUSINESS_OVERVIEW.txt
