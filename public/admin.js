@@ -1208,7 +1208,7 @@ function renderOllamaProvider() {
 
   const dot = $("ollamaProvStatusDot");
   const txt = $("ollamaProvStatusText");
-  if (dot) dot.style.background = hasAvailable ? "#4caf50" : "#aaa";
+  if (dot) dot.style.background = hasAvailable ? "var(--success)" : "var(--muted2)";
   if (txt) txt.textContent = hasAvailable ? "Connected" : "No models available";
 
   const listEl = $("ollamaProvModelList");
@@ -1224,12 +1224,30 @@ function renderOllamaProvider() {
     } else {
       listEl.innerHTML = availableModels.map(m =>
         `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--ac-pale);border:1px solid var(--ac-mid);font-size:12px;font-weight:500;color:var(--body-text);">
-          <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0;"></span>${esc(m.name)}
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;"></span>${esc(m.name)}
         </span>`
       ).join("");
     }
   }
 }
+
+// Show an inline hint when the user types a LAN/loopback IP that Docker cannot reach.
+// The ping runs server-side (inside Docker), so host LAN IPs like 192.168.x.x won't work.
+(function attachOllamaUrlHint() {
+  const urlEl = document.getElementById("provOllamaUrl");
+  const hintEl = document.getElementById("provOllamaUrlHint");
+  if (!urlEl || !hintEl) return;
+  const LAN_IP = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|\d+\.\d+\.\d+\.\d+)/;
+  urlEl.addEventListener("input", () => {
+    const v = urlEl.value.trim();
+    if (LAN_IP.test(v)) {
+      hintEl.textContent = "⚠ The ping runs inside Docker — LAN IPs are unreachable from the container. Use http://host.docker.internal:11434 to reach Ollama on this Mac.";
+      hintEl.style.display = "block";
+    } else {
+      hintEl.style.display = "none";
+    }
+  });
+})();
 
 if (document.getElementById("provOllamaTestBtn")) {
   document.getElementById("provOllamaTestBtn").addEventListener("click", async () => {
