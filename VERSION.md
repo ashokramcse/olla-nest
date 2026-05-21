@@ -10,7 +10,7 @@ Tracks every release, version tag, and key commit in the project history.
 |---|---|
 | **Version** | `v2026.0.28` |
 | **Released** | 2026-05-21 |
-| **Commit** | *(pending)* |
+| **Commit** | `097dc24` |
 | **Status** | ✅ Stable |
 | **Branch** | `main` |
 
