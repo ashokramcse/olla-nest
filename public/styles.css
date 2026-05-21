@@ -719,7 +719,8 @@ tbody tr:hover { background: var(--ac-pale); }
   min-height: 44px; max-height: 200px; caret-color: var(--ac);
 }
 .composer-textarea::placeholder { color: var(--muted2); }
-.composer-footer { display: flex; align-items: center; gap: 8px; padding: 8px 10px 10px; flex-wrap: wrap; }
+.composer-footer { display: flex; align-items: center; gap: 8px; padding: 8px 10px 10px; flex-wrap: nowrap; }
+.write-toggle { margin-left: auto; }
 .upload-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 8px;
@@ -1290,7 +1291,7 @@ tbody tr:hover { background: var(--ac-pale); }
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -1461,7 +1462,7 @@ tbody tr:hover { background: var(--ac-pale); }
 .app-main {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   background: var(--bg);
 }
@@ -1534,7 +1535,7 @@ tbody tr:hover { background: var(--ac-pale); }
 .app-right-panel {
   background: var(--bubble);
   border-left: 1px solid var(--border);
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
