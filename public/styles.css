@@ -918,6 +918,26 @@ tbody tr:hover { background: var(--ac-pale); }
 @keyframes tdot { 0%,80%,100%{opacity:0.2;transform:scale(0.8)} 40%{opacity:1;transform:scale(1)} }
 .thinking-phase { font-family: var(--font-mono); font-size: 12px; color: var(--muted2); margin-left: 2px; }
 
+/* ── THINKING BLOCK (collapsible <think> output) ──────────── */
+.think-block {
+  margin-bottom: 10px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--div);
+  font-size: 12px; overflow: hidden;
+}
+.think-block summary {
+  padding: 6px 12px; cursor: pointer; font-family: var(--font-mono);
+  font-size: 11px; color: var(--muted1); user-select: none;
+  list-style: none; display: flex; align-items: center; gap: 6px;
+}
+.think-block summary::before { content: "▸"; transition: transform .15s; }
+.think-block[open] summary::before { transform: rotate(90deg); }
+.think-block summary:hover { color: var(--body-text); }
+.think-body {
+  padding: 8px 12px 10px; color: var(--muted1); line-height: 1.6;
+  white-space: pre-wrap; border-top: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 11px; max-height: 240px; overflow-y: auto;
+}
+
 /* ── ACCOUNT / WORKSPACE PANEL ────────────────────────────── */
 .ap-section { margin-bottom: 14px; }
 .ap-label { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.10em; color: var(--muted2); margin-bottom: 6px; }

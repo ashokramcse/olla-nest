@@ -615,6 +615,21 @@ function renderCodeBlock(text, lang) {
   </div>`;
 }
 
+/**
+ * Strips <think>...</think> blocks from model output (thinking models like qwen3.5).
+ * Returns { thinking: string|null, reply: string } where thinking holds the raw thought
+ * text (for display in a collapsible) and reply is the cleaned response to render.
+ */
+function splitThinkingContent(raw) {
+  const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/i);
+  const thinking = thinkMatch ? thinkMatch[1].trim() : null;
+  const reply = raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/^\s*<\/think>\s*/i, "")
+    .trim();
+  return { thinking, reply };
+}
+
 function renderMarkdown(content) {
   if (typeof marked === "undefined") return `<pre style="white-space:pre-wrap;">${esc(content)}</pre>`;
   marked.setOptions({ breaks: true, gfm: true });
@@ -1112,18 +1127,32 @@ $("chatForm").addEventListener("submit", async (e) => {
             fullContent += event.content;
             const bubble = $(`${asstBubbleId}-content`);
             if (bubble) {
-              if (firstToken) {
-                firstToken = false;
-                bubble.className = "message-bubble assistant-bubble md-body";
-                bubble.innerHTML = renderMarkdown(fullContent) + '<span class="streaming-cursor"></span>';
-              } else {
-                bubble.innerHTML = renderMarkdown(fullContent) + '<span class="streaming-cursor"></span>';
+              const { thinking, reply } = splitThinkingContent(fullContent);
+              // Only show the bubble once we have visible reply content or thinking is complete
+              const hasReply = reply.length > 0;
+              const thinkingComplete = !fullContent.includes("<think>") || fullContent.includes("</think>");
+              if (hasReply || thinkingComplete) {
+                if (firstToken) {
+                  firstToken = false;
+                  bubble.className = "message-bubble assistant-bubble md-body";
+                }
+                const thinkHtml = thinking
+                  ? `<details class="think-block"><summary>Thinking…</summary><div class="think-body">${esc(thinking)}</div></details>`
+                  : "";
+                bubble.innerHTML = thinkHtml + (hasReply ? renderMarkdown(reply) : "") + '<span class="streaming-cursor"></span>';
               }
             }
             msgs.scrollTop = msgs.scrollHeight;
           } else if (event.type === "done") {
             const bubble = $(`${asstBubbleId}-content`);
-            if (bubble) bubble.innerHTML = renderMarkdown(fullContent);
+            if (bubble) {
+              const { thinking, reply } = splitThinkingContent(fullContent);
+              if (firstToken) { firstToken = false; bubble.className = "message-bubble assistant-bubble md-body"; }
+              const thinkHtml = thinking
+                ? `<details class="think-block"><summary>Thought process</summary><div class="think-body">${esc(thinking)}</div></details>`
+                : "";
+              bubble.innerHTML = thinkHtml + renderMarkdown(reply || "(No response)");
+            }
             // Add feedback buttons
             streamingMessageId = event.messageId || null;
             streamingSessionId = state?.chats?.[0]?.id || null;
