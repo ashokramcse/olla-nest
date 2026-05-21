@@ -320,6 +320,7 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
 .rpt-kpi-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
+  align-items: stretch;
   gap: 12px;
   margin-bottom: 28px;
 }
@@ -378,6 +379,8 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
   padding: 18px 20px;
   display: flex; flex-direction: column; gap: 6px;
   position: relative; overflow: hidden;
+  min-height: 110px;
+  justify-content: space-between;
 }
 .rpt-kpi-card::before {
   content: '';
@@ -391,6 +394,7 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
   font-family: var(--font-brand);
   font-size: 28px; font-weight: 400;
   letter-spacing: -0.03em; color: var(--body-text); line-height: 1;
+  word-break: break-all;
 }
 .rpt-kpi-label {
   font-family: var(--font-mono);
