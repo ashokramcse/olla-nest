@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,9 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final String COOKIE_NAME = "olla_nest_session";
     private static final long SESSION_DURATION_SECONDS = 43200; // 12 hours
+
+    @Value("${app.cookie-secure:false}")
+    private boolean cookieSecure;
 
     // In-memory session cache: token -> User
     private final ConcurrentHashMap<String, CachedSession> sessions = new ConcurrentHashMap<>();
@@ -121,9 +125,10 @@ public class AuthService {
         cookie.setMaxAge((int) SESSION_DURATION_SECONDS);
         // SameSite=Lax via header (Cookie API doesn't support it directly in older servlet API)
         res.addCookie(cookie);
-        // Override with full Set-Cookie header to include SameSite=Lax
+        // Override with full Set-Cookie header to include SameSite=Lax and optional Secure flag
+        String secureFlag = cookieSecure ? "; Secure" : "";
         res.addHeader("Set-Cookie",
-            COOKIE_NAME + "=" + token + "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" + SESSION_DURATION_SECONDS);
+            COOKIE_NAME + "=" + token + "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" + SESSION_DURATION_SECONDS + secureFlag);
     }
 
     public void clearSession(HttpServletResponse res, String token) {

@@ -37,6 +37,10 @@ public class WorkspaceController extends BaseController {
                                                        HttpServletRequest req) {
         ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
         if (authError != null) return authError;
+        User browseUser = getUser(req);
+        boolean hasBuildRight = "admin".equals(browseUser.role)
+            || (browseUser.rights != null && browseUser.rights.contains("workspace:build"));
+        if (!hasBuildRight) return ResponseEntity.status(403).body(Map.of("error", "workspace:build right required"));
 
         // Use the user's real home directory
         String userHome = System.getProperty("user.home");
@@ -45,9 +49,15 @@ public class WorkspaceController extends BaseController {
         File workspace = new File(dataDir, "workspace");
         workspace.mkdirs();
 
+        String absDataDir = new File(dataDir).getAbsolutePath();
         try {
             String requestedPath = (path != null && !path.isBlank()) ? path : defaultHome;
             File resolved = new File(requestedPath).getCanonicalFile();
+
+            // Guard: restrict to user home or app data dir
+            if (!resolved.getAbsolutePath().startsWith(userHome) && !resolved.getAbsolutePath().startsWith(absDataDir)) {
+                resolved = new File(defaultHome).getCanonicalFile();
+            }
 
             if ("1".equals(create)) {
                 resolved.mkdirs();
@@ -105,6 +115,11 @@ public class WorkspaceController extends BaseController {
         }
 
         String nextRoot = Paths.get(workspaceRootInput).toAbsolutePath().normalize().toString();
+        String userHome2 = System.getProperty("user.home");
+        String absDataDir2 = new File(dataDir).getAbsolutePath();
+        if (!nextRoot.startsWith(userHome2) && !nextRoot.startsWith(absDataDir2)) {
+            return ResponseEntity.status(400).body(Map.of("error", "Workspace path must be within your home directory"));
+        }
 
         try {
             new File(nextRoot).mkdirs();

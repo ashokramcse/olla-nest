@@ -7,6 +7,7 @@ import com.ollanest.service.DatabaseService;
 import com.ollanest.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -28,6 +29,9 @@ public class AuthController extends BaseController {
     private static final int LOGIN_MAX_ATTEMPTS = 10;
     private static final long LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
+    @Value("${app.trusted-proxy:}")
+    private String trustedProxy;
+
     public AuthController(AuthService authService, UserService userService,
                           DatabaseService databaseService, ChatService chatService, JdbcTemplate db) {
         this.authService = authService;
@@ -40,9 +44,14 @@ public class AuthController extends BaseController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, Object> body,
                                                       HttpServletRequest req, HttpServletResponse res) {
-        String ip = Optional.ofNullable(req.getHeader("x-forwarded-for"))
-            .map(h -> h.split(",")[0].trim())
-            .orElse(req.getRemoteAddr() != null ? req.getRemoteAddr() : "unknown");
+        String remoteAddr = req.getRemoteAddr() != null ? req.getRemoteAddr() : "unknown";
+        String ip;
+        if (trustedProxy != null && !trustedProxy.isBlank() && trustedProxy.equals(remoteAddr)) {
+            String forwarded = req.getHeader("x-forwarded-for");
+            ip = forwarded != null ? forwarded.split(",")[0].trim() : remoteAddr;
+        } else {
+            ip = remoteAddr;
+        }
         long now = System.currentTimeMillis();
 
         // Rate limit check
@@ -67,9 +76,9 @@ public class AuthController extends BaseController {
             return ResponseEntity.status(400).body(Map.of("error", "Email and password are required"));
         }
 
-        // Look up user with password hash
+        // Look up user with password hash — also enforce access_expires_at
         List<Map<String, Object>> rows = db.queryForList(
-            "SELECT id, name, email, role, rights, department_id, active, employee_id, designation, team, branch, manager, organization, ai_access_tier, daily_token_limit, monthly_token_limit, gpu_quota_minutes, vram_limit_mb, concurrent_model_limit, api_rate_limit_per_minute, max_context_size, mfa_enabled, security_risk_score, access_status, access_expires_at, last_active_at, auth_provider, phone, avatar_initials, password_hash FROM users WHERE email = ? AND active = 1",
+            "SELECT id, name, email, role, rights, department_id, active, employee_id, designation, team, branch, manager, organization, ai_access_tier, daily_token_limit, monthly_token_limit, gpu_quota_minutes, vram_limit_mb, concurrent_model_limit, api_rate_limit_per_minute, max_context_size, mfa_enabled, security_risk_score, access_status, access_expires_at, last_active_at, auth_provider, phone, avatar_initials, password_hash FROM users WHERE email = ? AND active = 1 AND (access_expires_at IS NULL OR access_expires_at = '' OR access_expires_at > datetime('now'))",
             email);
 
         Map<String, Object> row = rows.isEmpty() ? null : rows.get(0);
@@ -85,7 +94,6 @@ public class AuthController extends BaseController {
         // Success — clear attempts
         db.update("DELETE FROM login_attempts WHERE ip = ?", ip);
         User user = userService.publicUser(row);
-        databaseService.setSetting("activeUserId", user.id);
         authService.setSession(res, req, user);
         chatService.appendAudit(user.name, "auth.login", "User signed in", null);
 

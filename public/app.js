@@ -570,15 +570,15 @@ function renderCodeBlock(text, lang) {
   const SHELL_LANGS = ["bash","sh","shell","zsh","fish","console","terminal","cmd","powershell"];
   const isRunnable = SHELL_LANGS.includes(langKey);
   const runBtn = isRunnable
-    ? `<button class="run-in-term-btn" onclick="runInTerminal(this)" title="Run in terminal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
+    ? `<button class="run-in-term-btn" data-action="run" title="Run in terminal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
     : "";
-  const viewBtn = `<button class="md-copy-btn" onclick="openCodeReview(this)" title="Full screen view">⛶ View</button>`;
+  const viewBtn = `<button class="md-copy-btn" data-action="view" title="Full screen view">⛶ View</button>`;
 
   // Diff rendering
   if (isDiff) {
     const codeEl = renderDiffBlock(text, langKey);
     return `<div class="md-code-block" data-lang="${esc(langKey)}" data-filename="${esc(filename)}" data-raw="${encodeURIComponent(text)}">
-      <div class="code-header">${badge}${fileEl}<div class="code-header-actions">${viewBtn}<button class="md-copy-btn" onclick="copyCode(this)">Copy</button>${runBtn}</div></div>
+      <div class="code-header">${badge}${fileEl}<div class="code-header-actions">${viewBtn}<button class="md-copy-btn" data-action="copy">Copy</button>${runBtn}</div></div>
       <pre><code>${codeEl}</code></pre>
     </div>`;
   }
@@ -611,7 +611,7 @@ function renderCodeBlock(text, lang) {
   });
 
   return `<div class="md-code-block" data-lang="${esc(langKey)}" data-filename="${esc(filename)}" data-raw="${encodeURIComponent(text)}">
-    <div class="code-header">${badge}${fileEl}<div class="code-header-actions">${viewBtn}<button class="md-copy-btn" onclick="copyCode(this)">Copy</button>${runBtn}</div></div>
+    <div class="code-header">${badge}${fileEl}<div class="code-header-actions">${viewBtn}<button class="md-copy-btn" data-action="copy">Copy</button>${runBtn}</div></div>
     <pre><code class="hljs"><div class="code-lines">${rows.join("")}</div></code></pre>
   </div>`;
 }
@@ -638,7 +638,7 @@ function renderMarkdown(content) {
   // Pass options directly to marked.parse (setOptions is deprecated in marked v16+)
   const raw = marked.parse(content, { renderer, breaks: true, gfm: true });
   return typeof DOMPurify !== "undefined"
-    ? DOMPurify.sanitize(raw, { ADD_ATTR: ["onclick"], FORCE_BODY: false })
+    ? DOMPurify.sanitize(raw, { ADD_ATTR: ["data-action", "data-lang", "data-filename", "data-raw", "data-msg-id", "data-session-id", "data-rating"], FORCE_BODY: false })
     : raw;
 }
 
@@ -1163,8 +1163,8 @@ $("chatForm").addEventListener("submit", async (e) => {
             const asstWrap = $(`${asstBubbleId}`);
             if (asstWrap) {
               const feedbackBtns = event.messageId
-                ? `<button class="thumb-btn" onclick="submitFeedback(this,'${event.messageId}','${streamingSessionId || ''}',1)">👍</button>
-                   <button class="thumb-btn" onclick="submitFeedback(this,'${event.messageId}','${streamingSessionId || ''}', -1)">👎</button>`
+                ? `<button class="thumb-btn fb-btn" data-msg-id="${esc(event.messageId || '')}" data-session-id="${esc(streamingSessionId || '')}" data-rating="1">👍</button>
+                   <button class="thumb-btn fb-btn" data-msg-id="${esc(event.messageId || '')}" data-session-id="${esc(streamingSessionId || '')}" data-rating="-1">👎</button>`
                 : "";
               asstWrap.insertAdjacentHTML("beforeend", `
                 <div class="feedback-row">
@@ -1518,6 +1518,23 @@ if (fileInput) {
     renderFilePreviews();
   });
 }
+
+// ─── Delegated event handlers for code block and feedback buttons ─────────────
+// Replaces inline onclick attributes to prevent XSS via AI-generated content.
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-action]");
+  if (btn) {
+    const action = btn.dataset.action;
+    if (action === "copy") { copyCode(btn); return; }
+    if (action === "run") { runInTerminal(btn); return; }
+    if (action === "view") { openCodeReview(btn); return; }
+  }
+  // Feedback buttons
+  const fbBtn = e.target.closest(".fb-btn");
+  if (fbBtn) {
+    submitFeedback(fbBtn, fbBtn.dataset.msgId, fbBtn.dataset.sessionId, parseInt(fbBtn.dataset.rating, 10));
+  }
+});
 
 // Fire Ollama status check immediately — don't wait for loadState() so
 // the status chip resolves in ≤2s regardless of how long state takes.

@@ -43,7 +43,6 @@ public class StateController extends BaseController {
         if (authError != null) return authError;
 
         User user = getUser(req);
-        databaseService.setSetting("activeUserId", user.id);
 
         List<Map<String, Object>> allModels = db.queryForList("SELECT * FROM models ORDER BY provider, name");
         List<Object> models = new ArrayList<>();
@@ -73,15 +72,17 @@ public class StateController extends BaseController {
             for (Map<String, Object> s : sessions) chats.add(chatService.buildChatObject(s));
         }
 
-        List<Map<String, Object>> auditRows = db.queryForList(
-            "SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 20");
         List<Map<String, Object>> audit = new ArrayList<>();
-        for (Map<String, Object> r : auditRows) {
-            Map<String, Object> a = new LinkedHashMap<>();
-            a.put("id", r.get("id")); a.put("actor", r.get("actor")); a.put("action", r.get("action"));
-            a.put("detail", r.get("detail")); a.put("extra", safeJson(str(r, "extra_json")));
-            a.put("createdAt", r.get("created_at"));
-            audit.add(a);
+        if ("admin".equals(user.role)) {
+            List<Map<String, Object>> auditRows = db.queryForList(
+                "SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 20");
+            for (Map<String, Object> r : auditRows) {
+                Map<String, Object> a = new LinkedHashMap<>();
+                a.put("id", r.get("id")); a.put("actor", r.get("actor")); a.put("action", r.get("action"));
+                a.put("detail", r.get("detail")); a.put("extra", safeJson(str(r, "extra_json")));
+                a.put("createdAt", r.get("created_at"));
+                audit.add(a);
+            }
         }
 
         Integer reqToday = db.queryForObject(

@@ -346,6 +346,12 @@ public class ChatController extends BaseController {
         int rating = ((Number) ratingObj).intValue();
         if (rating != 1 && rating != -1)
             return ResponseEntity.status(400).body(Map.of("error", "rating must be 1 or -1"));
+        // IDOR guard: verify the message belongs to the user's session
+        Integer msgCount = db.queryForObject(
+            "SELECT COUNT(*) FROM chat_messages WHERE id = ? AND session_id IN (SELECT id FROM chat_sessions WHERE user_id = ?)",
+            Integer.class, messageId, user.id);
+        if (msgCount == null || msgCount == 0)
+            return ResponseEntity.status(404).body(Map.of("error", "Message not found"));
         db.update("INSERT INTO feedback (id, message_id, session_id, user_id, rating, comment, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
             chatService.uid("fb"), messageId, sessionId, user.id, rating, body.get("comment"), Instant.now().toString());
         return ResponseEntity.ok(Map.of("ok", true));

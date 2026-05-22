@@ -9,6 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import java.security.SecureRandom;
 import java.util.*;
 
 /**
@@ -178,9 +179,24 @@ public class DatabaseService {
         }
     }
 
+    private static final String FIRST_BOOT_SENTINEL = "CHANGE_ME_ON_FIRST_BOOT";
+
+    private String generateSecurePassword() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+        SecureRandom rng = new SecureRandom();
+        StringBuilder sb = new StringBuilder(16);
+        for (int i = 0; i < 16; i++) sb.append(chars.charAt(rng.nextInt(chars.length())));
+        return sb.toString();
+    }
+
     private void seedUsers() {
         if (tableCount("users") > 0) return;
-        String adminHash = BCrypt.hashpw(appConfig.getDefaultAdminPassword(), BCrypt.gensalt(12));
+        String adminPassword = appConfig.getDefaultAdminPassword();
+        if (FIRST_BOOT_SENTINEL.equals(adminPassword)) {
+            adminPassword = generateSecurePassword();
+            log.warn("=== OLLA·NEST FIRST BOOT: Admin password: {} ===", adminPassword);
+        }
+        String adminHash = BCrypt.hashpw(adminPassword, BCrypt.gensalt(12));
         String userHash = BCrypt.hashpw(appConfig.getDefaultUserPassword(), BCrypt.gensalt(12));
         String adminEmail = appConfig.getDefaultAdminEmail();
 

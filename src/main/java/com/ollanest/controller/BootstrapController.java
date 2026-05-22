@@ -29,9 +29,9 @@ public class BootstrapController {
         if (!rows.isEmpty()) {
             String hash = (String) rows.get(0).get("password_hash");
             if (hash != null && BCrypt.checkpw(appConfig.getDefaultAdminPassword(), hash)) {
-                return ResponseEntity.ok(Map.of("ready", true, "adminEmail", appConfig.getDefaultAdminEmail()));
+                return ResponseEntity.ok(Map.of("ready", true, "firstBoot", true));
             }
         }
-        return ResponseEntity.ok(Map.of("ready", true));
+        return ResponseEntity.ok(Map.of("ready", true, "firstBoot", false));
     }
 }

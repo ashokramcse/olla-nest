@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import com.ollanest.util.UrlValidator;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -70,11 +71,14 @@ public class AdminProvidersController extends BaseController {
         String apiKey = (String) body.get("api_key");
         if (name == null || type == null || apiKey == null)
             return ResponseEntity.status(400).body(Map.of("error", "name, type, and api_key are required"));
+        String baseUrl = body.get("base_url") != null ? body.get("base_url").toString().trim() : "";
+        if (!baseUrl.isEmpty() && !UrlValidator.isSafeUrl(baseUrl))
+            return ResponseEntity.status(400).body(Map.of("error", "base_url resolves to a disallowed address"));
         String id = uid("prov");
         String now = Instant.now().toString();
         try {
             db.update("INSERT INTO api_providers (id, name, type, base_url, api_key_enc, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
-                id, name, type, body.get("base_url"), cryptoService.encryptKey(apiKey), now, now);
+                id, name, type, baseUrl.isEmpty() ? null : baseUrl, cryptoService.encryptKey(apiKey), now, now);
         } catch (Exception e) {
             return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         }
@@ -93,6 +97,8 @@ public class AdminProvidersController extends BaseController {
         String name = body.containsKey("name") ? (String) body.get("name") : (String) existing.get("name");
         String type = body.containsKey("type") ? (String) body.get("type") : (String) existing.get("type");
         Object baseUrl = body.containsKey("base_url") ? body.get("base_url") : existing.get("base_url");
+        if (body.containsKey("base_url") && baseUrl != null && !baseUrl.toString().isBlank() && !UrlValidator.isSafeUrl(baseUrl.toString()))
+            return ResponseEntity.status(400).body(Map.of("error", "base_url resolves to a disallowed address"));
         String keyEnc = body.containsKey("api_key") ? cryptoService.encryptKey((String) body.get("api_key")) : (String) existing.get("api_key_enc");
         int enabled = body.containsKey("enabled") ? (Boolean.TRUE.equals(body.get("enabled")) ? 1 : 0) : ((Number) existing.get("enabled")).intValue();
         db.update("UPDATE api_providers SET name=?, type=?, base_url=?, api_key_enc=?, enabled=?, updated_at=? WHERE id=?",

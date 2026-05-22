@@ -191,6 +191,7 @@ public class AdminUserController extends BaseController {
             db.update("UPDATE users SET " + e.getValue() + " = ? WHERE id = ?", val, id);
         }
 
+        authService.invalidateUserSessions(id);
         chatService.appendAudit(admin.name, "admin.user.update", "Updated user " + id, null);
         return ResponseEntity.ok(Map.of("ok", true, "user", userService.findUserById(id)));
     }
@@ -200,6 +201,8 @@ public class AdminUserController extends BaseController {
         ResponseEntity<Map<String, Object>> err = requireAdmin(req);
         if (err != null) return err;
         User admin = getUser(req);
+        if (id.equals(admin.id)) return ResponseEntity.badRequest().body(Map.of("error", "Cannot delete your own account"));
+        authService.invalidateUserSessions(id);
         db.update("DELETE FROM users WHERE id = ?", id);
         chatService.appendAudit(admin.name, "admin.user.delete", "Deleted user " + id, null);
         return ResponseEntity.ok(Map.of("ok", true));
@@ -214,6 +217,7 @@ public class AdminUserController extends BaseController {
         if (newPassword.length() < 12) return ResponseEntity.status(400).body(Map.of("error", "Password must be at least 12 characters"));
         int changed = db.update("UPDATE users SET password_hash = ? WHERE id = ?", BCrypt.hashpw(newPassword, BCrypt.gensalt(12)), id);
         if (changed == 0) return ResponseEntity.status(404).body(Map.of("error", "User not found"));
+        authService.invalidateUserSessions(id);
         chatService.appendAudit(admin.name, "admin.user.reset_password", "Reset password for " + id, null);
         return ResponseEntity.ok(Map.of("ok", true));
     }

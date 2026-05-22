@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import com.ollanest.util.UrlValidator;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.*;
@@ -73,7 +74,16 @@ public class AdminSettingsController extends BaseController {
             String nextUrl = ollamaService.cleanBaseUrl(body.get("ollamaUrl").toString());
             if (!nextUrl.matches("^https?://[^ \"]+$"))
                 return ResponseEntity.status(400).body(Map.of("error", "Ollama URL must start with http:// or https://"));
+            if (!UrlValidator.isSafeUrl(nextUrl))
+                return ResponseEntity.status(400).body(Map.of("error", "Ollama URL resolves to a disallowed address"));
             databaseService.setSetting("ollamaUrl", nextUrl);
+        }
+        for (String urlKey : Arrays.asList("anthropicBaseUrl", "openaiBaseUrl", "customBaseUrl")) {
+            if (body.containsKey(urlKey)) {
+                String urlVal = body.get(urlKey).toString().trim();
+                if (!urlVal.isEmpty() && !UrlValidator.isSafeUrl(urlVal))
+                    return ResponseEntity.status(400).body(Map.of("error", urlKey + " resolves to a disallowed address"));
+            }
         }
 
         chatService.appendAudit(admin.name, "admin.settings.save", "Updated system settings", null);

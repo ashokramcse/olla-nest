@@ -11,14 +11,17 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final TerminalService terminalService;
+    private final WebSocketAuthInterceptor authInterceptor;
 
-    public WebSocketConfig(TerminalService terminalService) {
+    public WebSocketConfig(TerminalService terminalService, WebSocketAuthInterceptor authInterceptor) {
         this.terminalService = terminalService;
+        this.authInterceptor = authInterceptor;
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(terminalService, "/api/terminal")
-                .setAllowedOrigins("*");
+                .setAllowedOriginPatterns("*")
+                .addInterceptors(authInterceptor);
     }
 }
