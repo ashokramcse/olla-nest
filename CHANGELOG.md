@@ -4,6 +4,18 @@ All notable changes to Olla Nest are documented here.
 
 ---
 
+## v2026.1.1 — 2026-05-22
+
+### 🔧 Dependency Upgrade
+
+- **Upgraded** runtime to **Oracle Java 26** (JVM 26.0.1)
+- **Upgraded** `sqlite-jdbc` from `3.46.1.3` → `3.49.1.0` (latest)
+- **Confirmed** Spring Boot `3.5.3` is current latest stable
+- **Added** `maven.compiler.release=21` — compiles to Java 21 LTS bytecode (Spring Boot ASM compatibility); runs on Java 26 JVM
+- **Updated** README, VERSION.md, ARCHITECTURE.md to reflect Java 26 runtime
+
+---
+
 ## v2026.1.0 — 2026-05-22
 
 ### 🚀 Major: Complete Backend Migration to Java Spring Boot
