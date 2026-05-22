@@ -2,17 +2,18 @@
 
 ## Overview
 
-Olla Nest is a single-container web application that runs via Docker. The backend is a modular Node.js Express server split across `src/`. The frontend is plain HTML, CSS, and JavaScript served as static files — no build step required.
+Olla Nest is a standalone Java Spring Boot web application. The backend is a modular Spring Boot 3.3.5 server with embedded Tomcat. The frontend is plain HTML, CSS, and JavaScript served as static files — no build step, no framework, no bundler required. No Docker. No Node.js.
 
 ```
-Docker container
-├── Node.js 24 (Express)     ← API, routing logic, auth, Ollama + cloud provider integration
-│   └── src/                 ← Modular backend (routes, services, middleware, models, db)
-├── public/                  ← Static frontend (login, workspace, admin)
-└── /app/data/               ← SQLite database + workspace files (volume mount)
+Standalone Java Process (java -jar olla-nest.jar)
+├── Spring Boot 3.3.5 (embedded Tomcat)   ← HTTP server, REST API, SSE, WebSocket
+│   └── src/main/java/com/ollanest/       ← Controllers, services, filters, config
+├── public/                               ← Static frontend (login, workspace, admin)
+├── data/olla-nest.sqlite                 ← SQLite database (file, no server)
+└── data/backups/                         ← Automated daily backups
 
 Host machine
-└── Ollama                   ← Local model inference (reached via host.docker.internal)
+└── Ollama                                ← Local model inference (http://localhost:11434)
 ```
 
 ---
@@ -21,332 +22,190 @@ Host machine
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| Runtime | Node.js 24 Alpine | Express API server |
-| Frontend | HTML / CSS / JS | Served as static files from `public/` |
-| SQL | SQLite (DELETE journal mode) | Users, groups, models, permissions, chat, settings |
+| Runtime | Java 21 + Spring Boot 3.3.5 | Embedded Tomcat HTTP server |
+| Frontend | HTML / CSS / Vanilla JS | Served as static files from `public/` |
+| Database | SQLite via JDBC (sqlite-jdbc 3.46) | Users, groups, models, permissions, chat, settings |
+| Connection pool | HikariCP (pool-size=1) | SQLite single-writer constraint |
+| Schema migrations | Flyway | `V1__init.sql` — runs automatically on startup |
 | AI inference | Ollama (host) | Local model execution |
-| Cloud AI | Anthropic, OpenAI, Groq | Cloud provider calls via provider service |
-| Syntax highlighting | highlight.js (vendor) | Client-side code block rendering, 30+ languages |
-| Markdown | marked.js (vendor) | AI response markdown rendering with custom code renderer |
-| XSS sanitisation | DOMPurify (vendor) | Sanitises all AI-generated HTML before DOM insertion |
-| Container | Docker + Docker Compose | Only supported runtime |
+| Cloud AI | Anthropic, OpenAI, Groq, Custom | Outbound calls via Java HttpClient |
+| Syntax highlighting | highlight.js (vendor) | Client-side code block rendering |
+| Markdown | marked.js (vendor) | AI response rendering with custom code renderer |
+| XSS sanitisation | DOMPurify (vendor) | Sanitises AI-generated HTML before DOM insertion |
+| Terminal | ProcessBuilder → WebSocket | Interactive shell via Spring WebSocket |
 
-> **SQLite journal mode**: WAL mode is intentionally disabled. On Docker-for-Mac and similar virtualised filesystems, WAL produces 0-byte WAL files — writes in one connection are invisible to all others. `PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL` is used instead for reliable cross-connection visibility.
+### SQLite Configuration
 
-### Docker-Only Runtime Contract
+SQLite runs in **WAL (Write-Ahead Logging) mode** with the following pragmas set on every connection:
 
-The application is designed to run only in Docker. `server.js` checks for Docker runtime signals (`/.dockerenv` or `OLLA_NEST_DOCKER_RUNTIME=true`) during startup. Host-machine starts are blocked by default.
+```sql
+PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
+PRAGMA synchronous=NORMAL;
+PRAGMA busy_timeout=5000;
+```
 
-The Docker image sets `OLLA_NEST_DOCKER_RUNTIME=true`, and `docker-compose.yml` repeats it for clarity. The container starts with `npm run container:start`; the public `npm start` command is intentionally disabled to avoid accidental local runs.
+HikariCP is configured with `maximum-pool-size=1` to respect SQLite's single-writer constraint. All writes are serialised through this single connection.
 
 ---
 
 ## Source Layout
 
 ```
-src/
-├── app.js                     # Express app setup, middleware chain, route mounting
-├── config.js                  # Environment variables, defaults, constants
+src/main/java/com/ollanest/
+├── OllaNestApplication.java              # Spring Boot entry point
 │
-├── db/
-│   └── index.js               # openSql(), initDatabase(), all CREATE TABLE + migrations
+├── config/
+│   ├── AppConfig.java                    # ObjectMapper, global beans
+│   ├── SecurityConfig.java               # Spring Security filter chain (custom, no defaults)
+│   ├── WebConfig.java                    # Static resource handler (serves ./public/**)
+│   ├── WebSocketConfig.java              # WebSocket endpoint + auth interceptor
+│   └── WebSocketAuthInterceptor.java     # Validates session cookie before WebSocket handshake
 │
-├── middleware/
-│   ├── auth.js                # parseCookies, sessionUser, requireAuth, requireAdmin,
-│   │                          #   hasRight, setSession, logout, forceLogoutUser
-│   └── security.js            # checkChatRateLimit, loginAttempts, securityHeaders,
-│                              #   enforceDockerRuntime
+├── controller/
+│   ├── BaseController.java               # requireAuth(), requireAdmin(), currentUser() helpers
+│   ├── AuthController.java               # POST /api/auth/login, /logout; GET /me
+│   ├── BootstrapController.java          # GET /api/bootstrap (first-boot detection)
+│   ├── ChatController.java               # POST /api/chat, /stream (SSE), /clear, /feedback; DELETE /api/chat
+│   ├── ThreadController.java             # GET/DELETE/PATCH /api/threads, /activate, /fork
+│   ├── StateController.java              # GET /api/state (full app hydration)
+│   ├── AccountController.java            # POST /api/account/password, PATCH /profile, GET /usage
+│   ├── WorkspaceController.java          # GET /api/workspace/browse, POST /local-settings
+│   ├── PageController.java               # Serves HTML pages (/, /app, /admin, /login)
+│   └── admin/
+│       ├── AdminUserController.java      # User CRUD, sessions, overrides, effective-access
+│       ├── AdminSettingsController.java  # Settings, departments, backup trigger
+│       ├── AdminReportsController.java   # Analytics, feedback
+│       ├── AdminModelsController.java    # Model governance, Ollama ping
+│       ├── AdminProvidersController.java # Provider CRUD, model approval
+│       ├── AdminTeamsController.java     # Teams CRUD
+│       └── AdminHealthController.java    # Health check, DB stats, JVM info
 │
-├── models/
-│   └── user.js                # publicUser(), USER_SELECT, getUsers, allowedModels,
-│                              #   allowedModelIds, effectiveAccess, userOverrides,
-│                              #   userGroupIds, roleCatalog, permissionCatalog
+├── filter/
+│   ├── SessionAuthFilter.java            # Reads cookie, sets authenticated user on request
+│   └── SecurityHeadersFilter.java        # CSP, HSTS, X-Frame-Options, etc.
 │
-├── services/
-│   ├── router.js              # routeModel() — classify, score, privacy gate
-│   │                          # detectSensitiveContent()
-│   ├── providers.js           # resolveProvider(), callProvider(), callProviderStream()
-│   ├── chat.js                # buildSystemPrompt(), buildContextMessages(),
-│   │                          #   getActiveChat(), archiveCurrentChat(), appendAudit(),
-│   │                          #   appendTrace(), cleanModelOutput()
-│   ├── workspace.js           # workspaceForUser(), writeLocalArtifacts(),
-│   │                          #   extractArtifacts()
-│   └── backup.js              # runBackup() — daily SQLite VACUUM + file copy
+├── service/
+│   ├── AuthService.java                  # Session map (in-memory + DB), cookie creation
+│   ├── ChatService.java                  # Context building, system prompt, active session management
+│   ├── ProviderService.java              # callProvider() / callProviderStream() for all AI providers
+│   ├── RouterService.java                # routeModel(), classifyRequest(), detectSensitiveContent()
+│   ├── OllamaService.java                # syncOllamaModels() — @Scheduled every 60s
+│   ├── WorkspaceService.java             # File workspace management, artifact extraction
+│   ├── BackupService.java                # Daily SQLite backup with 7-file rotation
+│   ├── CryptoService.java                # AES-256-GCM encrypt/decrypt for API keys
+│   ├── DatabaseService.java              # Schema seeding, settings helpers, first-boot init
+│   ├── ModelService.java                 # Model parsing and allowed-model resolution
+│   ├── UserService.java                  # publicUser(), effectiveAccess(), hasRight()
+│   ├── MonitorService.java               # Request counters
+│   └── TerminalService.java              # WebSocket shell bridge via ProcessBuilder
 │
-└── routes/
-    ├── auth.js                # POST /api/auth/login, /api/auth/logout
-    ├── state.js               # GET /api/state, /api/ollama/ping, /api/ollama/models
-    ├── chat.js                # POST /api/chat, POST /api/chat/stream,
-    │                          #   POST /api/chat/clear, DELETE /api/chat,
-    │                          #   POST /api/chat/feedback
-    ├── threads.js             # GET/PATCH/DELETE /api/threads
-    ├── workspace.js           # GET /api/workspace/browse,
-    │                          #   POST /api/workspace/local-settings
-    ├── account.js             # PATCH /api/account/password, GET /api/account/usage
-    ├── pages.js               # HTML page routes with auth redirects
-    └── admin/
-        ├── users.js           # GET/POST /api/admin (user list + create)
-        │                      # PATCH /api/admin/:id
-        │                      # GET /api/admin/sessions/active
-        │                      # DELETE /api/admin/sessions/user/:userId
-        ├── models.js          # /api/admin/models/:id/governance
-        │                      # GET /api/admin/ollama/ping
-        ├── providers.js       # GET/POST/DELETE/PATCH /api/admin/providers
-        │                      # POST /api/admin/providers/:id/sync
-        │                      # POST /api/admin/providers/:id/test
-        │                      # POST/DELETE /api/admin/providers/:id/models/:modelId/approve
-        ├── settings.js        # POST /api/admin/settings
-        │                      # GET/PATCH /api/admin/departments/:id/rights
-        │                      # POST /api/admin/settings/backup
-        ├── reports.js         # GET /api/admin/reports, /api/admin/feedback
-        ├── teams.js           # /api/admin/teams
-        ├── overrides.js       # /api/admin/overrides
-        └── health.js          # GET /api/admin/health
+├── model/
+│   ├── User.java                         # User POJO
+│   ├── ChatSession.java                  # Chat session POJO
+│   ├── ChatMessage.java                  # Chat message POJO
+│   └── Model.java                        # AI model POJO
+│
+└── util/
+    └── UrlValidator.java                 # SSRF protection — validates URLs, blocks private IPs
+
+src/main/resources/
+├── application.properties               # All config with env var defaults
+└── db/migration/
+    └── V1__init.sql                     # Full SQLite schema (Flyway managed)
+
+public/                                  # Frontend — unchanged, served as static files
+├── app.html / app.js                    # User workspace SPA
+├── admin.html / admin.js                # Admin dashboard SPA
+├── login.html / login.js                # User login
+├── styles.css                           # All application styles
+├── theme.js / dropdown.js               # UI utilities
+└── vendor/                              # marked, highlight.js, DOMPurify, xterm, chart.js
 ```
 
 ---
 
 ## Request Flow
 
+### Standard REST Request
 ```
-Browser
-  │
-  ▼
-Express (src/app.js)
-  │
-  ├── Security headers (HSTS, CSP, X-Frame-Options…)
-  ├── JSON body parser
-  ├── Static file serving (public/)
-  │
-  ├── /api/auth/*        → login / logout
-  ├── /api/state         → user state, models, settings, session list
-  ├── /api/chat          → blocking chat (legacy fallback)
-  ├── /api/chat/stream   → SSE streaming chat (primary endpoint)
-  ├── /api/threads       → chat thread CRUD
-  ├── /api/workspace/*   → browse + local-settings
-  ├── /api/account/*     → password change, usage stats
-  ├── /api/admin/*       → admin CRUD, settings, reports, providers
-  │
-  └── Page routes        → HTML pages with session-based redirects
+Browser → HTTP request
+  → SecurityHeadersFilter  (adds CSP, HSTS, X-Frame-Options)
+  → SessionAuthFilter       (reads olla_nest_session cookie → attaches user to request)
+  → Spring DispatcherServlet
+  → Controller              (requireAuth / requireAdmin guard)
+  → Service layer           (JdbcTemplate → SQLite)
+  → JSON response
 ```
 
-### SSE Streaming Flow
-
+### SSE Streaming Chat
 ```
-POST /api/chat/stream
-  │
-  ├── requireAuth + CSRF check
-  ├── Daily token quota check
-  ├── routeModel() → picks best approved model
-  │
-  ├── SSE: data: {"type":"routing", "model":"...", "reason":"..."}
-  │
-  ├── callProviderStream() → opens connection to Ollama or cloud provider
-  │   Each token callback:
-  │   └── SSE: data: {"type":"token", "content":"..."}
-  │
-  ├── cleanModelOutput() → strip think-block artifacts
-  ├── extractArtifacts() → detect generated files in response
-  ├── writeLocalArtifacts() → optionally write to workspace folder
-  │
-  ├── SQLite transaction:
-  │   ├── INSERT chat_messages (user)
-  │   └── INSERT chat_messages (assistant, with tokensUsed, latencyMs)
-  │
-  └── SSE: data: {"type":"done", "tokensUsed":N, "latencyMs":N,
-                  "messageId":"...", "artifacts":[...], "extractedFiles":[...]}
+Browser → POST /api/chat/stream
+  → Auth filters
+  → ChatController.stream()
+  → RouterService.routeModel() — classifies + scores candidates
+  → SSE: {"type":"routing","model":"llama3.2:3b"}
+  → ProviderService.callProviderStream() — streams from Ollama/Anthropic/OpenAI
+  → SSE: {"type":"token","content":"..."} × N tokens
+  → DB: INSERT user message + assistant message (atomic transaction)
+  → SSE: {"type":"done","tokensUsed":N,"messageId":"..."}
+```
+
+### WebSocket Terminal
+```
+Browser → WS /api/terminal
+  → WebSocketAuthInterceptor (validates session + workspace:build right)
+  → TerminalService.afterConnectionEstablished()
+  → ProcessBuilder → /bin/bash -i
+  → stdin/stdout bridged bidirectionally to WebSocket frames
 ```
 
 ---
 
-## Auto Router
+## Database Schema (key tables)
 
-The router (`src/services/router.js`) runs on every `/api/chat` and `/api/chat/stream` request:
-
-1. **Classify** — detect request type from message text and mode (coding, writing, OCR, medical, review, general)
-2. **Filter** — collect models the user is approved to access via user, group, and department grants
-3. **Score** — rank each candidate: capability match × 35pts, specialist bonus × 45pts, speed weight, quality weight, privacy score
-4. **Select** — pick the highest-scoring approved model
-5. **Privacy gate** — SSN / credit card / PHI patterns detected → forced local-only, regardless of user selection
-6. **Generate** — call provider (Ollama or cloud) with mode-specific system prompt + project knowledge + sliding-window history
-
----
-
-## System Prompt Pipeline
-
-Every chat request builds the system prompt in this order:
-
-```
-[Base mode instruction (ask / build / fix / review / learn…)]
-  + Routing context (selected model + reason)
-  + Project Knowledge (admin-configured, if set)
-  + Workspace context (active folder, if workspace enabled)
-  ──────────────────────────────────────────────────────────
-  → Sent as the "system" role message to the model
-  → Followed by sliding-window chat history (newest → oldest, within token budget)
-  → Followed by the current user message (+ images if vision model)
-```
-
-**Project Knowledge** is free-text set by admins in Admin → Settings. It is injected into every prompt for every user — ideal for tech stack context, coding conventions, and team terminology.
-
----
-
-## Chat Streaming UX (Client Side)
-
-The browser uses the `ReadableStream` API to consume SSE:
-
-```javascript
-const res = await fetch("/api/chat/stream", { method: "POST", ... });
-const reader = res.body.getReader();
-const decoder = new TextDecoder();
-
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-  // parse SSE lines from buffer
-  // "routing" → show model name in Thinking phase badge
-  // "token"   → append to accumulated text, re-render markdown
-  // "done"    → finalise bubble, show elapsed time + file chips
-  // "error"   → show error in red badge inline
-}
-```
-
-Visual phases:
-
-| Phase | Trigger | Badge colour | UI state |
-|---|---|---|---|
-| Routing | Request sent | Grey | Animated dots, "Finding the best model…" |
-| Thinking | `routing` event | Blue | Model name + dots, "Generating response…" |
-| Writing | First `token` | Green | Live tokens + blinking cursor |
-| Done | `done` event | — | Full markdown, footer chips, avatar settled |
-| Error | `error` event | Red | Error message inline |
-
----
-
-## Code Rendering Pipeline
-
-AI responses flow through a custom `renderMarkdown()` pipeline before reaching the DOM:
-
-```
-Raw model output (string)
-  → cleanModelOutput() strips <think>…</think> blocks
-  → marked.js parser with custom renderer.code()
-      → highlight.js syntax highlighting (30+ languages)
-      → Line number table-cell layout
-      → Diff detection (+ / - / @@ line prefixes)
-      → Filename header extraction (// filename: comment)
-      → Language badge with colour map
-      → ⛶ View + Copy + Run button injection
-  → DOMPurify sanitisation (XSS prevention)
-  → innerHTML insertion
-```
-
----
-
-## Data Layer
-
-### SQLite (single source of truth)
-
-All data lives in a single SQLite database at `/app/data/olla-nest.sqlite`.
-
-| Table | Contents |
+| Table | Purpose |
 |---|---|
-| `users` | Accounts, profile, password hash, role, rights, department, AI quotas, security status |
-| `groups` | Named access groups |
-| `departments` | Company departments with default rights |
-| `user_groups` | User-to-group membership |
-| `models` | Discovered Ollama models — scores, capabilities, governance status, context size |
-| `api_providers` | Cloud provider configs (type, URL, encrypted API key) |
-| `api_models` | Models synced from cloud providers (with context window, approval status) |
-| `access_grants` | Model access by user / group / department |
-| `role_catalog` | Enterprise RBAC role templates |
-| `permission_catalog` | Granular AI usage, admin, model, and workspace permissions |
-| `user_overrides` | Per-user access overrides that outrank department and role defaults |
-| `chat_sessions` | Per-user chat threads (active / archived, title, timestamps) |
-| `chat_messages` | All messages with model attribution, routing reason, latency, token counts |
-| `sessions` | Auth session tokens (HttpOnly cookie, 12-hour expiry) |
-| `audit_events` | Rolling admin action log |
-| `router_traces` | Routing decision log per chat turn |
-| `workspace_prefs` | Per-user workspace root, output folder, permission mode |
-| `feedback` | Thumbs-up/down ratings on assistant messages |
-| `settings` | Key-value config (router, Ollama URL, workspace root, project knowledge…) |
+| `users` | Accounts, roles, departments, access tiers, token limits, expiry |
+| `sessions` | Persistent session tokens (in-memory map is primary; DB is fallback) |
+| `models` | Available AI models from Ollama sync or approved provider models |
+| `api_providers` | External provider configs with AES-encrypted API keys |
+| `api_models` | Models approved per provider for router selection |
+| `chat_sessions` | Conversation threads (active + archived history) |
+| `chat_messages` | Messages with token counts, latency, model used, artifacts |
+| `settings` | Key-value platform configuration |
+| `audit_events` | Immutable audit trail of all admin and user actions |
+| `router_traces` | Per-request routing decisions for observability |
+| `feedback` | Thumbs up/down ratings on assistant messages |
+| `login_attempts` | Per-IP brute-force protection counters |
+| `workspace_prefs` | Per-user workspace folder and permission mode |
+| `departments` / `groups` / `teams` | Organisational hierarchy |
+| `access_grants` | Fine-grained permission overrides per user/group/team |
 
-### Key Settings
+---
 
-| Key | Purpose |
+## Security Architecture
+
+| Layer | Mechanism |
 |---|---|
-| `routerEnabled` | Enable / disable Auto Router |
-| `ollama_url` | URL to reach Ollama from the container |
-| `workspaceRoot` | Default workspace folder path |
-| `projectKnowledge` | Admin-set context injected into every chat prompt |
-| `localOnlyDefault` | Route to local models by default |
-| `allowApiModels` | Allow cloud provider models |
-| `localWritesEnabled` | Allow Build/Fix to write files to workspace |
+| Authentication | HttpOnly `SameSite=Lax` cookie, 256-bit SecureRandom token |
+| Session storage | `ConcurrentHashMap` (primary) + `sessions` DB table (recovery) |
+| Password hashing | BCrypt cost factor 12 |
+| API key encryption | AES-256-GCM, random 12-byte IV, hex-encoded |
+| CSRF protection | `X-Requested-With` header required on all state-changing endpoints |
+| Rate limiting | Per-IP login counter in DB; per-user chat counter in memory |
+| SSRF protection | `UrlValidator` blocks private/loopback IPs on all provider URLs |
+| Path safety | Workspace browse + root restricted to `user.home` / `data/` |
+| Terminal auth | WebSocket requires session + `workspace:build` right |
+| Response headers | CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy |
+| Sensitive content | SSN, credit card, API key, PHI patterns block external routing |
 
 ---
 
-## Authentication
+## Background Jobs
 
-- Sessions use a 256-bit secure random token stored in an `HttpOnly`, `SameSite=Lax`, 12-hour cookie
-- Passwords hashed with bcrypt cost factor 12
-- CSRF guard: all non-GET API requests require `X-Requested-With: XMLHttpRequest`
-- Login rate-limited: 10 failed attempts per IP per 15 minutes
-- Session fixation prevented: old token deleted on every new login
-
----
-
-## Enterprise Access Model
-
-Access is evaluated in this priority order:
-
-1. User override
-2. Department policy
-3. Role permission template
-4. Organisation default
-
-The data foundation (users, roles, permission catalog, model governance, overrides) is fully implemented. Future enterprise connectors (SSO, SCIM, LDAP) should attach to this layer rather than bypass it.
-
----
-
-## Local File Output
-
-Build and Fix modes can write generated files to the host filesystem via the Docker volume:
-
-```
-Container: /app/data/workspace/
-Volume:    app-data → /app/data/
-```
-
-Permission modes:
-
-| Mode | Behaviour |
-|---|---|
-| `default` | User must check "Write to workspace" per Build/Fix request |
-| `review` | Same as default — approval visible and required |
-| `full` | Files written automatically on every Build/Fix request |
-
----
-
-## Production Database Direction
-
-The current release uses SQLite for simplicity and Docker portability. The intended production architecture for company-scale deployment:
-
-| Layer | Production target | Reason |
+| Job | Schedule | Description |
 |---|---|---|
-| SQL | PostgreSQL + pgvector | Multi-user, RBAC, RAG embeddings, audit at scale |
-| Document | MongoDB | Flexible AI artifacts, chat history, tool outputs |
-| Realtime | Redis | Token streaming, sessions, rate limiting, pub/sub |
-
----
-
-## Product Stack Direction
-
-| Layer | Current | Target |
-|---|---|---|
-| Backend | Node.js JS | Node.js TypeScript |
-| Frontend | Docker-served HTML/CSS/JS | React + Vite served through Docker |
-| Desktop | — | Tauri wrapper around the Docker-backed web UI |
-| Mobile | — | React Native / Expo against the same APIs |
-| SQL | SQLite | PostgreSQL + pgvector |
-| Realtime | — | Redis |
-| Auth | Cookie sessions | SSO / OIDC |
+| Ollama model sync | Every 60 seconds | Calls `/api/tags`, upserts available models |
+| Session cleanup | Every hour | Removes expired sessions from memory + DB |
+| SQLite backup | Daily at 02:00 | `VACUUM INTO` backup, keeps last 7 files |

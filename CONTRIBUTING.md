@@ -39,7 +39,7 @@ If we decide to build your request, it ships in the next release. You will be cr
 - Features that require mandatory cloud infrastructure
 - Features that make the admin control layer optional or bypassable
 - Features that add heavy dependencies for marginal benefit
-- Anything that makes the project harder to self-host on a single Docker Compose file
+- Anything that makes the project harder to self-host as a standalone Java JAR
 
 ---
 
@@ -50,7 +50,7 @@ Found a bug? Open an issue with:
 - What you did
 - What you expected
 - What actually happened
-- Your Docker version and host OS
+- Your Java version and host OS
 
 **[→ Open a Bug Report](https://github.com/ashokramcse/olla-nest/issues/new?template=bug_report.md)**
 

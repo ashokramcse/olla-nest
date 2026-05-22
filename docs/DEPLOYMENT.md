@@ -1,255 +1,271 @@
 # Deployment
 
-Olla Nest runs exclusively via Docker. There is no local Node.js development mode and no host-machine frontend dev server.
-
-The server enforces this at startup. `npm start` intentionally exits with a Docker-only message, and `node server.js` exits unless it is running inside the container. The only supported way to run the product is Docker Compose.
+Olla Nest is a standalone Java Spring Boot application. It runs as a single `java -jar` process — no Docker, no Node.js, no external services beyond Ollama.
 
 ---
 
 ## Prerequisites
 
-- [Docker Engine](https://docs.docker.com/engine/install/) 24+ and Docker Compose v2
-- [Ollama](https://ollama.com) running on the host machine
-- At least one model pulled in Ollama:
+| Requirement | Version | Notes |
+|---|---|---|
+| Java (JDK) | 21+ | [Adoptium OpenJDK](https://adoptium.net) recommended |
+| Maven | 3.9+ | [Download](https://maven.apache.org/download.cgi) — only needed to build from source |
+| Ollama | Latest | [Download](https://ollama.com) — at least one model pulled |
 
+Pull a model before starting:
 ```bash
-ollama pull qwen2.5:7b
+ollama pull llama3.2:3b
 ```
 
 ---
 
-## Starting the App
+## Quick Start
 
 ```bash
+# 1. Clone
 git clone https://github.com/ashokramcse/olla-nest.git
 cd olla-nest
+
+# 2. Configure
 cp .env.example .env
-# Edit .env — set real credentials before first boot
-docker compose up --build
+# Edit .env — set ENCRYPTION_KEY and OLLAMA_URL
+
+# 3. Build
+mvn clean package -DskipTests
+
+# 4. Run
+java -jar target/olla-nest-*.jar
 ```
 
-Open: **http://localhost:3000**
-
-The login page will appear. Use the credentials from `.env` (defaults shown below).
-
-Do not start the app with `npm start` or `node server.js` on the host. For rare one-off diagnostics, maintainers can set `ALLOW_NON_DOCKER=1`, but that path is unsupported for normal use and should not be documented as a user setup.
+Open **http://localhost:3000**
 
 ---
 
 ## Environment Variables
 
-All configuration is done via `.env`. Copy `.env.example` to `.env` and edit before first boot:
+All configuration is done via environment variables or a `.env` file. Copy `.env.example` to `.env` and edit before first boot:
 
-| Variable | Default | Description |
-|---|---|---|
-| `DEFAULT_ADMIN_EMAIL` | `admin@ollanest.local` | Admin account email, seeded on first boot |
-| `DEFAULT_ADMIN_PASSWORD` | `CHANGE_ME_ON_FIRST_BOOT` | Admin password, seeded on first boot |
-| `DEFAULT_USER_PASSWORD` | `CHANGE_ME_ON_FIRST_BOOT` | Default password for new employee accounts |
-| `OLLAMA_URL` | `http://host.docker.internal:11434` | URL the container uses to reach Ollama |
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `ENCRYPTION_KEY` | — | **Yes** | Secret key for AES-256-GCM API key encryption |
+| `PORT` | `3000` | No | HTTP port the server listens on |
+| `OLLAMA_URL` | `http://localhost:11434` | No | URL of your Ollama instance |
+| `DATA_DIR` | `./data` | No | Directory for SQLite DB and backups |
+| `STATIC_DIR` | `./public` | No | Directory for static frontend files |
+| `DEFAULT_ADMIN_EMAIL` | `admin@ollanest.local` | No | Admin email seeded on first boot |
+| `DEFAULT_ADMIN_PASSWORD` | *(auto-generated)* | No | Leave blank — a secure password is printed to the console on first boot |
+| `DEFAULT_USER_PASSWORD` | `CHANGE_ME_ON_FIRST_BOOT` | No | Default password assigned to new user accounts |
+| `COOKIE_SECURE` | `false` | No | Set `true` when running behind HTTPS/TLS |
+| `TRUSTED_PROXY` | *(empty)* | No | Trusted proxy IP for X-Forwarded-For header |
 
-> Credentials set in `.env` are only used during the **first boot** to seed the database. Changing them after first boot requires resetting the database (see below) or updating via the Admin dashboard.
+> **First boot:** On the first startup, the server checks whether any users exist. If none do, it seeds a default admin account. If `DEFAULT_ADMIN_PASSWORD` is not set (or is the sentinel value `CHANGE_ME_ON_FIRST_BOOT`), a random 16-character password is generated and printed clearly to the server log. Copy it from the log and log in immediately. You can change it from **Admin → Users**.
 
-`OLLA_NEST_DOCKER_RUNTIME=true` is set by the Docker image and Compose file. Do not move it into local host workflows.
+---
+
+## Running the Server
+
+### Option 1 — Direct JAR (recommended for production)
+
+```bash
+ENCRYPTION_KEY=your-secret-key \
+OLLAMA_URL=http://localhost:11434 \
+java -jar target/olla-nest-*.jar
+```
+
+### Option 2 — Maven (development)
+
+```bash
+mvn spring-boot:run
+```
+
+### Option 3 — Eclipse IDE
+
+1. **File → Import → Maven → Existing Maven Projects** → select the project folder
+2. Right-click `OllaNestApplication.java` → **Run As → Run Configurations**
+3. Go to the **Environment** tab → add your env vars
+4. Click **Run**
+
+After installing the **Spring Tools 4** plugin *(Eclipse Marketplace → search "Spring Tools")*, you can use the Spring Boot Dashboard panel for one-click start/stop.
+
+### Option 4 — IntelliJ IDEA
+
+1. **File → Open** → select the project folder (auto-detects Maven)
+2. Open `OllaNestApplication.java`
+3. Click the green ▶ Run button
+4. Go to **Run → Edit Configurations** → add env vars under **Environment variables**
+
+---
+
+## Building a Production JAR
+
+```bash
+mvn clean package -DskipTests
+```
+
+Output: `target/olla-nest-2026.1.0.jar`
+
+This is a **fat JAR** — it contains the embedded Tomcat server and all dependencies. Copy it to any machine with Java 21+ and run it.
+
+---
+
+## Running as a System Service (macOS / Linux)
+
+### macOS — launchd
+
+Create `/Library/LaunchDaemons/com.ollanest.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.ollanest</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/java</string>
+    <string>-jar</string>
+    <string>/opt/olla-nest/olla-nest-2026.1.0.jar</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ENCRYPTION_KEY</key><string>your-secret-key</string>
+    <key>OLLAMA_URL</key><string>http://localhost:11434</string>
+    <key>DATA_DIR</key><string>/opt/olla-nest/data</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/var/log/olla-nest.log</string>
+  <key>StandardErrorPath</key><string>/var/log/olla-nest-error.log</string>
+</dict>
+</plist>
+```
+
+```bash
+sudo launchctl load /Library/LaunchDaemons/com.ollanest.plist
+```
+
+### Linux — systemd
+
+Create `/etc/systemd/system/olla-nest.service`:
+
+```ini
+[Unit]
+Description=Olla Nest AI Workspace
+After=network.target
+
+[Service]
+Type=simple
+User=ollanest
+WorkingDirectory=/opt/olla-nest
+ExecStart=/usr/bin/java -jar /opt/olla-nest/olla-nest-2026.1.0.jar
+Environment=ENCRYPTION_KEY=your-secret-key
+Environment=OLLAMA_URL=http://localhost:11434
+Environment=DATA_DIR=/opt/olla-nest/data
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable olla-nest
+sudo systemctl start olla-nest
+sudo journalctl -u olla-nest -f   # view logs
+```
+
+---
+
+## Updating to a New Version
+
+1. Stop the running server
+2. Pull the latest code: `git pull origin main`
+3. Rebuild: `mvn clean package -DskipTests`
+4. Start the new JAR
+
+Flyway will automatically apply any new database migrations on startup. No manual SQL needed.
+
+---
+
+## Data Directory
+
+| Path | Contents |
+|---|---|
+| `data/olla-nest.sqlite` | Main SQLite database |
+| `data/backups/` | Daily backups (last 7 kept) |
+| `data/workspace/` | Default local workspace folder |
+
+**Backup manually:**
+```bash
+# Trigger an immediate backup via the Admin API
+curl -b cookies.txt -X POST http://localhost:3000/api/admin/settings/backup
+```
+
+**Restore from backup:**
+```bash
+cp data/backups/olla-nest-2026-05-21T02-00-00.sqlite data/olla-nest.sqlite
+```
 
 ---
 
 ## Ollama Connectivity
 
-| Platform | Setup | OLLAMA_URL |
-|---|---|---|
-| macOS / Windows (Docker Desktop) | Works out of the box | `http://host.docker.internal:11434` |
-| Linux | `extra_hosts` already set in docker-compose.yml | `http://host.docker.internal:11434` |
-| Ollama on a separate machine | Set IP in `.env` | `http://192.168.x.x:11434` |
-
-If the dashboard shows **Ollama not connected**, sign in as admin, go to **Settings → Model Sources**, update the Ollama URL, click **Test connection**, and **Save URL**.
-
----
-
-## Docker Commands
-
-```bash
-# Start (build image first)
-docker compose up --build
-
-# Start in background
-docker compose up -d --build
-
-# Stop
-docker compose down
-
-# Stream logs
-docker compose logs -f app
-
-# Restart app only (no rebuild)
-docker compose restart app
-
-# Rebuild image after code changes
-docker compose up --build
-
-# Remove all containers + data volume (full reset)
-docker compose down -v
-```
-
----
-
-## Data Persistence
-
-All data is stored inside the `app-data` named Docker volume:
-
-| Path in container | Contents |
+| Scenario | OLLAMA_URL |
 |---|---|
-| `/app/data/olla-nest.sqlite` | Users, roles, permissions, departments, groups, model governance, user overrides, chat sessions, chat messages, settings |
-| `/app/data/workspace/` | Default local output folder for Build/Fix file writes |
+| Ollama on same machine | `http://localhost:11434` |
+| Ollama on another machine | `http://192.168.x.x:11434` |
+| Ollama on a remote server | `http://your-server.internal:11434` |
 
-Data persists across `docker compose down / up` because the volume is not removed unless you pass `-v`.
+If the dashboard shows **Ollama offline**, go to **Admin → Settings → Model Sources**, update the URL, click **Test connection**, and **Save URL**.
 
-**Full reset** (deletes all users, settings, chat history):
+---
+
+## Changing the Port
 
 ```bash
-docker compose down -v
-docker compose up --build
+PORT=8080 java -jar target/olla-nest-*.jar
 ```
 
-**Backup the volume** before upgrading or resetting:
-
-```bash
-docker run --rm \
-  -v olla-nest_app-data:/data \
-  -v $(pwd):/backup \
-  alpine tar czf /backup/olla-nest-backup.tar.gz /data
+Or in `application.properties`:
+```properties
+server.port=8080
 ```
 
 ---
 
-## Upgrading
+## HTTPS / TLS
 
-```bash
-git pull
-docker compose up --build
-```
+Olla Nest does not handle TLS directly. Place it behind a reverse proxy (Nginx, Caddy, or Traefik) for HTTPS.
 
-The app migrates the SQLite schema automatically on startup (additive changes only). Existing data is preserved.
+Once TLS is in place, set `COOKIE_SECURE=true` so the session cookie is only sent over HTTPS.
 
-## Validation
-
-Before publishing a change, validate the Docker setup:
-
-```bash
-docker compose config --quiet
-docker compose build app
-docker compose up -d
-docker compose ps
-docker compose logs --tail=80 app
-docker compose down
-```
-
-The container command is `npm run container:start`, which starts `server.js` inside Docker after the Docker-only runtime flag is set.
-
----
-
-## First-Time Setup Checklist
-
-After first boot, complete these steps in the Admin dashboard before inviting employees:
-
-1. **Change admin password** — Admin → Users → Edit admin → Change Password
-2. **Add Ollama models** — Admin → Models → Sync Ollama (or pull models via `ollama pull` on the host first)
-3. **Configure cloud providers** (optional) — Admin → Providers → Add Provider → Sync Models → Approve models
-4. **Set Project Knowledge** — Admin → Settings → Project Knowledge → enter your tech stack, conventions, and team context → Save Settings
-5. **Create employee accounts** — Admin → Users → Add Employee → copy the one-time password for the invite
-
----
-
-## Project Knowledge
-
-Admin → Settings → Project Knowledge accepts free text. This is injected into **every chat system prompt** for every user. Use it to describe:
-
-- Tech stack: frameworks, languages, database, hosting
-- Coding conventions: naming, patterns, what to avoid
-- Project structure: key folders, entry points
-- Team rules: PR style, test requirements, security policies
-
-Example:
-```
-This is a Next.js 14 + Postgres e-commerce platform.
-Always use TypeScript strict mode. Prefer Tailwind CSS for styling.
-Never use class components. API routes live in /app/api/.
-Run `pnpm test` before every commit. Use Zod for all input validation.
-```
-
----
-
-## Production Hardening Checklist
-
-Before sharing with your team:
-
-- [ ] Set a real `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD` in `.env`
-- [ ] Set a real `DEFAULT_USER_PASSWORD` in `.env`
-- [ ] Place a reverse proxy (Nginx, Caddy, Traefik) in front for HTTPS
-- [ ] Restrict port 3000 to localhost; expose only via reverse proxy
-- [ ] Store `.env` outside the repository or use Docker secrets
-- [ ] Back up the `app-data` volume regularly
-- [ ] Point `OLLAMA_URL` to a dedicated Ollama host if running multi-user
-
-### Example Nginx reverse proxy config
-
+Example Nginx config:
 ```nginx
 server {
     listen 443 ssl;
     server_name ai.yourcompany.com;
 
-    ssl_certificate     /etc/ssl/certs/yourcompany.crt;
-    ssl_certificate_key /etc/ssl/private/yourcompany.key;
+    ssl_certificate     /etc/ssl/certs/your.crt;
+    ssl_certificate_key /etc/ssl/private/your.key;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://localhost:3000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        # Required for SSE streaming:
+        proxy_buffering off;
+        proxy_read_timeout 300s;
     }
 }
 ```
 
 ---
 
-## Troubleshooting
-
-**Container exits immediately**
+## Health Check
 
 ```bash
-docker compose logs app
+curl http://localhost:3000/api/admin/health
 ```
 
-Check for port conflicts or missing `.env`.
-
-**Settings not saving (redirects to /login)**
-
-This was a known bug fixed in v2026.0.22. If you see `POST /api/admin/settings` returning a redirect instead of `200 OK`, rebuild the container:
-
-```bash
-docker compose up --build
-```
-
-**Ollama not connected / no models**
-
-1. Confirm Ollama is running on the host: `ollama list`
-2. Sign in as admin → **Settings** → update and test the Ollama URL
-3. On Linux, confirm `host.docker.internal` resolves: `docker exec olla-nest-app ping -c1 host.docker.internal`
-
-**Port 3000 already in use**
-
-Edit `docker-compose.yml` and change the host port:
-
-```yaml
-ports:
-  - "8080:3000"   # access at http://localhost:8080
-```
-
-**Reset admin password**
-
-```bash
-docker compose down -v   # removes data — start fresh
-docker compose up --build
-```
-
-Or update via Admin → Users → Reset Password if you still have admin access.
+Returns server uptime, DB stats, JVM memory usage, and Ollama status.

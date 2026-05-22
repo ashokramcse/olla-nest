@@ -9,15 +9,15 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-v2026.0.30-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
+[![Version](https://img.shields.io/badge/version-v2026.1.0-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com)
-[![Node](https://img.shields.io/badge/Node-24--alpine-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
-[![SQLite](https://img.shields.io/badge/SQLite-DELETE_journal-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.5-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![SQLite](https://img.shields.io/badge/SQLite-WAL_mode-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
 
 <br/>
 
-[**Quick Start**](#quick-start) · [**Features**](#features) · [**Streaming Chat**](#streaming-chat-ux) · [**Auto Router**](#auto-router) · [**Admin Dashboard**](#admin-dashboard) · [**Providers**](#cloud-provider-setup) · [**Security**](#security) · [**Docs**](docs/) · [**Changelog**](CHANGELOG.md)
+[**Quick Start**](#quick-start) · [**Features**](#features) · [**Auto Router**](#auto-router) · [**Admin Dashboard**](#admin-dashboard) · [**Providers**](#cloud-provider-setup) · [**Security**](#security) · [**Docs**](docs/) · [**Changelog**](CHANGELOG.md)
 
 <br/>
 
@@ -43,86 +43,46 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 
 **🤖 Intelligence**
 - Auto Router — classifies every request, picks the best model
-- Real-time SSE streaming — tokens appear as the model writes them
-- Chat memory — sliding-window session history, model remembers the conversation
-- Sensitive content detection — SSN, PHI, API keys → local-only routing
-- Manual model override in composer
-- Project Knowledge — admin injects company context into every prompt
+- Multi-provider: Ollama, Anthropic, OpenAI, Groq, custom
+- Streaming SSE responses with real-time token output
+- Privacy gate — sensitive content never routed externally
+- Configurable router weights (speed / quality / privacy)
+- Per-mode local-only enforcement (build, fix)
 
 </td>
 <td width="50%">
 
-**🏢 Admin Control**
-- Per-user, per-group, per-department model access
-- RBAC role catalog with colour-coded permission groups
-- Governance tier tagging (approved / restricted / private)
-- Audit trail — every routing decision and admin action logged
-- Admin test chat with full routing panel and streaming
+**🔐 Security**
+- Cookie-based session auth (HttpOnly, SameSite=Lax)
+- AES-256-GCM encrypted API keys at rest
+- IP brute-force protection on login
+- SSRF protection on all provider URLs
+- WebSocket terminal requires authentication
+- Content-Security-Policy + HSTS headers
 
 </td>
 </tr>
 <tr>
-<td>
+<td width="50%">
 
-**🔌 Multi-Provider**
-- Ollama (local — any model you pull)
-- Anthropic Claude (real `/v1/models` API — no hardcoded lists)
-- OpenAI, Groq, any OpenAI-compatible endpoint
-- Approved models instantly visible to router — no restart
-
-</td>
-<td>
-
-**💬 Workspace**
-- File upload — images (vision) + text files in composer
-- Generated code saved to a configured project folder
-- Integrated xterm.js terminal for `workspace:build` users
-- Chat history — pin, archive, rename threads
-- Input history — ↑/↓ arrow keys navigate past messages
+**👥 Enterprise**
+- Role-based access control (admin / user)
+- Departments, groups, teams
+- Per-user daily token limits and rate limits
+- Model governance (tier, GPU, sensitivity)
+- Full audit log
+- User access expiry enforcement
 
 </td>
-</tr>
-<tr>
-<td>
+<td width="50%">
 
-**📊 Reports & Analytics**
-- 10 structured data tables — stable, theme-aware, no chart dependencies
-- Token usage leaderboard (paginated)
-- Latency by model, daily activity, dept usage
-- Live vs failed breakdown, feedback summary
-
-</td>
-<td>
-
-**🔒 Security**
-- bcrypt passwords, AES-256-GCM API key encryption
-- DOMPurify XSS sanitisation on all AI output
-- Login rate limiting, CSRF protection, HSTS
-- Workspace path traversal protection
-- Non-root container user
-
-</td>
-</tr>
-<tr>
-<td>
-
-**✨ Code Experience**
-- Syntax highlighting — 30+ languages via highlight.js
-- Language badges with per-language colour coding
-- Line numbers on every code block
-- Diff view — `+` green, `-` red, `@@` hunk headers
-- Filename header — reads `// filename:` comment in code
-- Full-screen code review modal (⛶ View button)
-
-</td>
-<td>
-
-**⚡ Streaming UX**
-- Phase indicators: Routing → Thinking → Writing → Done
-- Animated avatar pulse while the model generates
-- Blinking cursor on live token stream
-- Elapsed time chip and file chips in response footer
-- Error phase shown inline if model call fails
+**🛠 Developer**
+- 8 chat modes: ask, build, fix, review, debug, test, docs, plan
+- Local workspace integration — AI writes files directly
+- Interactive terminal (WebSocket / ProcessBuilder)
+- Workspace file browser with path safety
+- Automated SQLite backups (7-rotation)
+- Flyway schema migrations
 
 </td>
 </tr>
@@ -132,210 +92,137 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 
 ## Quick Start
 
-> **Requirement:** [Docker](https://docs.docker.com/get-docker/) + Docker Compose v2.  
-> [Ollama](https://ollama.com) on the host for local models — or an API key for cloud providers.
+### Prerequisites
+
+- **Java 21+** — [Download OpenJDK](https://adoptium.net)
+- **Maven 3.9+** — [Download Maven](https://maven.apache.org/download.cgi)
+- **Ollama** — [Download Ollama](https://ollama.com) with at least one model pulled:
+  ```bash
+  ollama pull llama3.2:3b
+  ```
+
+### 1 — Clone and configure
 
 ```bash
 git clone https://github.com/ashokramcse/olla-nest.git
 cd olla-nest
-cp .env.example .env        # edit credentials before first boot
-docker compose up --build
+cp .env.example .env
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)**
-
-| | Admin | Employee |
-|---|---|---|
-| **URL** | `/admin-login` | `/login` |
-| **Default email** | `admin@ollanest.local` | *(created by admin)* |
-| **Default password** | `CHANGE_ME_ON_FIRST_BOOT` | *(shown on creation)* |
-
-> ⚠️ **Change the admin password on first login.** Admin → Users → Edit, or set `DEFAULT_ADMIN_PASSWORD` in `.env` before boot.
-
----
-
-## Ollama Setup
-
-Ollama runs on the **host machine**. The container reaches it via `host.docker.internal`.
-
-| Platform | Action needed |
-|---|---|
-| macOS / Windows (Docker Desktop) | Nothing — works out of the box |
-| Linux | Already configured via `extra_hosts` in `docker-compose.yml` |
-| Remote machine | Set `OLLAMA_URL=http://192.168.x.x:11434` in `.env` |
-
-```bash
-# Pull a few models to get started
-ollama pull gemma3:4b          # fast, 4 GB, great default
-ollama pull qwen2.5:7b         # strong all-rounder, 32k context
-ollama pull llama3.1:8b        # reasoning, 128k context
-ollama pull gemma4:26b         # vision + text, 128k context
-```
-
----
-
-## Cloud Provider Setup
-
-1. Open **Admin → Providers → Add Provider**
-2. Choose type (Anthropic / OpenAI / Groq / Custom), enter API key
-3. Click **Sync Models** — calls the provider's real model list API
-4. **Approve** any models you want employees to access
-5. Done — approved models are immediately live in the Auto Router
-
-No restart. No hardcoded model names. Works for any number of providers simultaneously.
-
----
-
-## Streaming Chat UX
-
-Every chat request streams tokens live from the model, with four visual phases:
-
-| Phase | Badge colour | What's happening |
-|---|---|---|
-| **Routing** | Grey | Auto Router is picking the best model |
-| **Thinking** | Blue | Model selected — waiting for first token |
-| **Writing** | Green | Tokens streaming in with blinking cursor |
-| **Done** | — | Full response rendered, footer shows elapsed time + files |
-
-The avatar pulses while the model is working. On error, a red badge shows the failure reason inline — no full-page message.
-
----
-
-## Configuration
+Edit `.env` — set a strong `ENCRYPTION_KEY` and your `OLLAMA_URL`:
 
 ```env
-# .env — copy from .env.example
-
-DEFAULT_ADMIN_EMAIL=admin@yourcompany.com
-DEFAULT_ADMIN_PASSWORD=replace-with-a-strong-password
-DEFAULT_USER_PASSWORD=replace-with-employee-default
-OLLAMA_URL=http://host.docker.internal:11434
-SECRET_KEY=replace-with-64-char-hex-string
-SESSION_SECRET=replace-with-random-string
+ENCRYPTION_KEY=your-random-secret-key-here
+OLLAMA_URL=http://localhost:11434
+DEFAULT_ADMIN_EMAIL=admin@ollanest.local
 ```
+
+> **First-boot password:** Leave `DEFAULT_ADMIN_PASSWORD` unset or as `CHANGE_ME_ON_FIRST_BOOT`. The server will generate a secure random password and print it once to the console on first startup.
+
+### 2 — Build
 
 ```bash
-# Apply changes
-docker compose down && docker compose up --build
+mvn clean package -DskipTests
 ```
 
----
+### 3 — Run
 
-## Code Experience
-
-Every AI response that contains code is rendered with a professional code block:
-
-| Feature | Detail |
-|---|---|
-| **Syntax highlighting** | 30+ languages — JS, TS, Python, Rust, Go, SQL, HTML, CSS, YAML, and more |
-| **Language badge** | Colour-coded pill per language (JS=yellow, TS=blue, Python=green, SQL=orange…) |
-| **Line numbers** | Every line numbered in a fixed-width gutter |
-| **Diff view** | Lines starting with `+` → green, `-` → red, `@@` → blue hunk header. Auto-detected |
-| **Filename header** | First-line comment `// filename: src/app.js` shows a file chip in the header bar |
-| **⛶ View** | Opens the code block in a full-screen modal with clean highlighting and line count |
-| **Copy** | Copies plain text — no markup, no line numbers in clipboard |
-| **Run** | Shell code blocks get a ▶ Run button that sends the command to the embedded terminal |
-
----
-
-## Project Knowledge
-
-Admins can inject company-wide context into every chat prompt via **Admin → Settings → Project Knowledge**.
-
-```
-Example:
-This is a Next.js 14 + Postgres platform. Always use TypeScript strict mode.
-Prefer Tailwind CSS. Never use class components. All API routes live in /app/api/.
+```bash
+java -jar target/olla-nest-*.jar
 ```
 
-Every employee message — regardless of mode — will have this context prepended in the system prompt. Useful for:
-- Tech stack conventions
-- Coding standards and patterns
-- Team-specific terminology
-- Project structure notes
+Or with explicit env vars:
+
+```bash
+ENCRYPTION_KEY=my-secret OLLAMA_URL=http://localhost:11434 java -jar target/olla-nest-*.jar
+```
+
+Open **http://localhost:3000** — the login page will appear.
+
+### Running from Eclipse
+
+1. **File → Import → Maven → Existing Maven Projects** → select the project folder
+2. Right-click `OllaNestApplication.java` → **Run As → Run Configurations**
+3. Add environment variables in the **Environment** tab
+4. Click **Run**
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full deployment guide.
 
 ---
 
 ## Auto Router
 
-The router runs on every message — invisible to the employee, fully auditable by admins.
-
-| Step | What happens |
-|---|---|
-| **1. Classify** | Detects request type: coding, writing, reasoning, medical, OCR, general… |
-| **2. Authorise** | Finds which models the user can access via user + group + department grants |
-| **3. Score** | Ranks each candidate: capability match × speed × quality × privacy weight |
-| **4. Select** | Picks the highest-scoring available model |
-| **5. Privacy gate** | SSN / credit card / PHI detected → local-only, regardless of user settings |
-| **6. Fallback** | No model available → clear error with admin configuration guidance |
-
-The routing decision (model name, reason, candidate scores) is shown in the **Auto Router** panel on the right side of every chat.
-
----
-
-## Chat Memory
-
-Every session's history is stored in SQLite and sent back to the model on every turn.
+Every message is classified into capability tags (coding, debugging, writing, medical, vision, etc.) and scored against all approved models:
 
 ```
-Token budget = model context limit
-             − system prompt tokens
-             − new message tokens
-             − 512 (response buffer)
-
-Walk history newest → oldest:
-  if message fits in budget → include it
-  else → stop (older messages dropped)
-
-Final array sent to model:
-  [system prompt, ...kept history, new user message]
+score = capabilityMatch(35) + specialistBonus(45) + speedScore + qualityScore + privacyScore
 ```
 
-Context limits are fetched dynamically — from Ollama's `/api/show` for local models, from `api_models.context_window` for cloud providers. Nothing hardcoded.
+**Privacy gate:** If a message contains SSNs, credit cards, API keys, or medical terms — or the mode is `build`/`fix` — external providers are removed from the candidate pool automatically. Sensitive content stays local.
+
+**Manual override:** Users can bypass the router and select any model they are approved for from the composer dropdown.
 
 ---
 
 ## Admin Dashboard
 
-| Tab | What you can do |
-|---|---|
-| **Overview** | Live stats, audit event feed, quick actions |
-| **Chat** | Admin test chat with full router panel and live streaming |
-| **Models** | Sync Ollama models, set governance tier and scores |
-| **Users** | Create / edit employees, inline permission grid, deactivate |
-| **Access Control** | Department defaults, RBAC roles, permission matrix |
-| **Settings** | Router config, workspace root, API model access, project knowledge |
-| **Providers** | Add / sync / test Anthropic, OpenAI, Groq, custom |
-| **Reports** | 10 structured data tables + paginated token leaderboard |
+| Section | What you control |
+|---------|-----------------|
+| **Users** | Create, edit, deactivate, set roles, reset passwords, view effective access |
+| **Models** | Governance tier, GPU requirement, sensitivity policy, per-model caps |
+| **Providers** | Add Anthropic / OpenAI / Groq / custom endpoints with encrypted API keys |
+| **Settings** | Ollama URL, router weights, local-only modes, sensitive content patterns, workspace |
+| **Teams** | Departments, groups, teams with default permission sets |
+| **Reports** | Daily activity, model usage, token leaderboard, latency, department breakdown |
+| **Health** | DB stats, JVM memory, uptime, request counters |
+
+---
+
+## Cloud Provider Setup
+
+Go to **Admin → Providers → Add Provider** to connect any cloud AI:
+
+| Provider | Type | Notes |
+|----------|------|-------|
+| Anthropic Claude | `anthropic` | Requires API key from console.anthropic.com |
+| OpenAI | `openai` | Requires API key from platform.openai.com |
+| Groq | `groq` | Requires API key from console.groq.com |
+| Custom / LiteLLM | `custom` | Any OpenAI-compatible endpoint |
+
+All API keys are encrypted with AES-256-GCM before storage. Keys are never returned to the browser after saving.
 
 ---
 
 ## Security
 
-| Control | Details |
-|---|---|
-| Sessions | `HttpOnly`, `SameSite=Lax`, `Secure` (HTTPS), 12-hour expiry |
-| Login protection | 10 failed attempts per IP per 15 min → lockout |
-| CSRF | `X-Requested-With` required on all state-changing requests |
-| Passwords | bcrypt cost 12 |
-| API keys | AES-256-GCM encryption at rest |
-| AI output | DOMPurify sanitisation before rendering |
-| Workspace | Path traversal protection, writes restricted to workspace root |
-| Privacy routing | PHI / SSN / credit card patterns → forced local model |
-| Container | Runs as non-root `appuser` |
+| Feature | Implementation |
+|---------|---------------|
+| Session tokens | 256-bit `SecureRandom` hex, HttpOnly cookie, SameSite=Lax |
+| Password hashing | BCrypt cost factor 12 |
+| API key encryption | AES-256-GCM, random 12-byte IV per value |
+| Login protection | IP-based rate limiting (5 attempts / 15 min) |
+| SSRF protection | All provider URLs validated — private IPs blocked |
+| Path traversal | Workspace browse restricted to user home directory |
+| Terminal auth | WebSocket requires authenticated session + `workspace:build` right |
+| CSP | `Content-Security-Policy` header on all responses |
+| HSTS | `Strict-Transport-Security` header |
+| Sensitive content | Built-in SSN, credit card, API key, PHI detection blocks external routing |
 
 ---
 
-## Docker Commands
+## Environment Variables
 
-```bash
-docker compose up --build          # build and start
-docker compose up -d --build       # background
-docker compose down                # stop (data persists)
-docker compose down -v             # stop + DELETE ALL DATA
-docker compose logs -f app         # stream logs
-docker compose restart app         # restart without rebuild
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | HTTP port |
+| `ENCRYPTION_KEY` | *(required)* | AES key for encrypting stored API keys |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
+| `DATA_DIR` | `./data` | Directory for SQLite DB and backups |
+| `STATIC_DIR` | `./public` | Directory for static frontend files |
+| `DEFAULT_ADMIN_EMAIL` | `admin@ollanest.local` | Admin email seeded on first boot |
+| `DEFAULT_ADMIN_PASSWORD` | *(auto-generated)* | Set to override; leave blank to auto-generate |
+| `COOKIE_SECURE` | `false` | Set `true` when running behind HTTPS |
+| `TRUSTED_PROXY` | *(empty)* | Trusted proxy IP for X-Forwarded-For |
 
 ---
 
@@ -343,112 +230,41 @@ docker compose restart app         # restart without rebuild
 
 ```
 olla-nest/
-├── server.js                      # Entry point — cluster, DB init, server listen
-├── package.json
-├── Dockerfile                     # Node 24 Alpine, non-root user
-├── docker-compose.yml
-├── .env.example
-│
+├── pom.xml                              # Maven build (Spring Boot 3.3.5)
 ├── src/
-│   ├── app.js                     # Express setup, middleware, route mounting
-│   ├── config.js                  # Environment variables and defaults
-│   ├── db/
-│   │   └── index.js               # openSql(), initDatabase(), schema migrations
-│   ├── middleware/
-│   │   ├── auth.js                # Sessions, requireAuth, requireAdmin, hasRight, CSRF
-│   │   └── security.js            # Rate limiting, login lockout, security headers
-│   ├── models/
-│   │   └── user.js                # publicUser(), USER_SELECT, permission helpers
-│   ├── services/
-│   │   ├── router.js              # Auto Router — classify, score, select, privacy gate
-│   │   ├── providers.js           # resolveProvider, callProvider, callProviderStream
-│   │   ├── workspace.js           # workspaceForUser, writeLocalArtifacts, extractArtifacts
-│   │   ├── chat.js                # buildSystemPrompt, buildContextMessages, history sliding window
-│   │   └── backup.js              # Daily SQLite backup
-│   └── routes/
-│       ├── auth.js                # POST /api/auth/login, /logout
-│       ├── state.js               # GET /api/state, /api/ollama/ping, /api/ollama/models
-│       ├── chat.js                # POST /api/chat, /api/chat/stream, /clear, DELETE /api/chat
-│       ├── threads.js             # GET/PATCH/DELETE /api/threads
-│       ├── workspace.js           # GET /api/workspace/browse, POST /api/workspace/local-settings
-│       ├── account.js             # PATCH /api/account/password, GET /api/account/usage
-│       ├── pages.js               # Serves HTML pages, auth redirects
-│       └── admin/
-│           ├── users.js           # GET/POST/PATCH /api/admin (users + sessions)
-│           ├── models.js          # /api/admin/models, /api/admin/ollama/ping
-│           ├── providers.js       # /api/admin/providers
-│           ├── settings.js        # POST /api/admin/settings, /api/admin/departments
-│           ├── reports.js         # GET /api/admin/reports, /api/admin/feedback
-│           ├── teams.js           # /api/admin/teams
-│           ├── overrides.js       # /api/admin/overrides
-│           └── health.js          # /api/admin/health
-│
-├── public/
-│   ├── app.html + app.js          # Employee workspace SPA
-│   ├── admin.html                 # Admin dashboard SPA (single file)
-│   ├── login.html + login.js      # Employee sign-in
-│   ├── admin-login.html           # Admin sign-in
-│   ├── theme.js                   # Design-system colour engine (CSS var tokens)
-│   ├── styles.css                 # Design system (all components)
-│   ├── logo.svg                   # Brand logo mark (inline, CSS var colours)
-│   └── favicon.svg                # Favicon
-│
-├── data/                          # Runtime only — gitignored
-│   ├── olla-nest.sqlite
-│   └── workspace/
-│
-└── docs/
-    ├── ARCHITECTURE.md
-    ├── BRAND.md
-    ├── DEPLOYMENT.md
-    ├── ENTERPRISE_ACCESS_CONTROL.md
-    ├── architecture.svg
-    └── logo-readme.svg
+│   └── main/
+│       ├── java/com/ollanest/
+│       │   ├── OllaNestApplication.java
+│       │   ├── config/                  # Spring config (Security, WebSocket, Web)
+│       │   ├── controller/              # REST controllers (all API endpoints)
+│       │   │   └── admin/               # Admin-only controllers
+│       │   ├── filter/                  # Auth filter, security headers filter
+│       │   ├── service/                 # Business logic (auth, chat, AI providers, etc.)
+│       │   ├── model/                   # POJO models
+│       │   └── util/                    # URL validator, helpers
+│       └── resources/
+│           ├── application.properties   # App configuration
+│           └── db/migration/
+│               └── V1__init.sql         # Full schema (Flyway managed)
+├── public/                              # Frontend (HTML/CSS/JS — unchanged)
+│   ├── app.html / app.js                # User workspace
+│   ├── admin.html / admin.js            # Admin dashboard
+│   ├── login.html / login.js            # Login page
+│   ├── styles.css                       # All styles
+│   └── vendor/                          # marked, highlight.js, DOMPurify, xterm, chart
+└── data/                                # Runtime data (gitignored)
+    ├── olla-nest.sqlite                 # SQLite database
+    └── backups/                         # Automated daily backups
 ```
 
 ---
 
-## Roadmap
+## Changelog
 
-- [ ] SSO / LDAP / SAML integration
-- [ ] RAG document knowledge base
-- [ ] Conversation summarisation for ultra-long sessions
-- [ ] Department and group policy editor UI
-- [ ] Usage analytics dashboard for employees
-- [ ] Desktop app (Tauri) for macOS, Windows, Linux
-- [ ] Mobile PWA
-- [ ] Webhook / notification support for admin alerts
-- [ ] Visual diff preview before applying generated file changes
-- [ ] Audit log filters and CSV export
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ---
 
-## Request a Feature
+## License
 
-Olla Nest is **not an open-contribution project** — there are no pull requests.  
-Every feature is designed and built by the maintainer team to keep the product coherent and secure.
-
-**Have a feature idea?** Tell us what you need and we build it.
-
-> 💡 [**Open a Feature Request →**](https://github.com/ashokramcse/olla-nest/issues/new?template=feature_request.md)
->
-> Describe what you want, why you need it, and who it affects.  
-> No code required. No mockups required. We read every request.
-
-**Found a bug?**
-
-> 🐛 [**Open a Bug Report →**](https://github.com/ashokramcse/olla-nest/issues/new?template=bug_report.md)
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process and what we will and won't build.
-
----
-
-<div align="center">
-
-[Architecture](docs/ARCHITECTURE.md) · [Enterprise Access Control](docs/ENTERPRISE_ACCESS_CONTROL.md) · [Deployment](docs/DEPLOYMENT.md) · [Changelog](CHANGELOG.md) · [Version History](VERSION.md)
-
-<br/>
-
-**Built for teams that want AI power without giving up control.**
-
-</div>
+MIT — see [LICENSE](LICENSE)
