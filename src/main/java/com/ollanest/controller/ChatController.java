@@ -28,11 +28,14 @@ public class ChatController extends BaseController {
     private final WorkspaceService workspaceService;
     private final DatabaseService databaseService;
     private final com.fasterxml.jackson.databind.ObjectMapper mapper;
+    private final RagService ragService;
+    private final FunctionCallService functionCallService;
 
     public ChatController(JdbcTemplate db, ChatService chatService, RouterService routerService,
                           ProviderService providerService, ModelService modelService,
                           WorkspaceService workspaceService, DatabaseService databaseService,
-                          com.fasterxml.jackson.databind.ObjectMapper mapper) {
+                          com.fasterxml.jackson.databind.ObjectMapper mapper,
+                          RagService ragService, FunctionCallService functionCallService) {
         this.db = db;
         this.chatService = chatService;
         this.routerService = routerService;
@@ -41,6 +44,8 @@ public class ChatController extends BaseController {
         this.workspaceService = workspaceService;
         this.databaseService = databaseService;
         this.mapper = mapper;
+        this.ragService = ragService;
+        this.functionCallService = functionCallService;
     }
 
     @PostMapping("/chat")
@@ -96,11 +101,36 @@ public class ChatController extends BaseController {
         boolean live = true;
         try {
             Map<String, Object> provider = providerService.resolveProvider(route);
-            String systemPrompt = chatService.buildSystemPrompt(mode, route, workspace, databaseService.getSetting("projectKnowledge", ""));
+            String ragContext = ragService.buildRagContext(message, user.id);
+            String systemPrompt = chatService.buildSystemPromptWithRag(mode, route, workspace, databaseService.getSetting("projectKnowledge", ""), ragContext);
             List<String> images = body.get("images") instanceof List ? (List<String>) body.get("images") : List.of();
             List<Map<String, Object>> messages = chatService.buildContextMessages(
                 (String) chat.get("id"), systemPrompt, message, route.selected.model, images);
-            ProviderService.ProviderResult result = providerService.callProvider(provider, route.selected.model, messages, 300000);
+            // Function calling: include tools for Ollama providers
+            List<Map<String, Object>> tools = "ollama".equals(provider.get("type"))
+                ? functionCallService.getToolDefinitions() : null;
+            ProviderService.ProviderResult result = providerService.callProvider(provider, route.selected.model, messages, 300000, tools);
+            // Handle tool calls (max 1 round-trip)
+            if (result.toolCalls != null && !result.toolCalls.isEmpty()) {
+                List<Map<String, Object>> toolMessages = new ArrayList<>(messages);
+                // Append assistant tool-call message
+                Map<String, Object> assistantMsg = new LinkedHashMap<>();
+                assistantMsg.put("role", "assistant");
+                assistantMsg.put("content", "");
+                assistantMsg.put("tool_calls", result.toolCalls);
+                toolMessages.add(assistantMsg);
+                // Execute each tool and append results
+                for (Map<String, Object> tc : result.toolCalls) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> args = (Map<String, Object>) tc.getOrDefault("args", Map.of());
+                    String toolResult = functionCallService.executeTool((String) tc.get("name"), args, user.id);
+                    Map<String, Object> toolMsg = new LinkedHashMap<>();
+                    toolMsg.put("role", "tool");
+                    toolMsg.put("content", toolResult);
+                    toolMessages.add(toolMsg);
+                }
+                result = providerService.callProvider(provider, route.selected.model, toolMessages, 300000, null);
+            }
             content = result.content;
         } catch (Exception e) {
             live = false;
@@ -231,7 +261,8 @@ public class ChatController extends BaseController {
                 List<String> images = body.get("images") instanceof List ? (List<String>) body.get("images") : List.of();
                 Map<String, Object> chatSession = chatService.getActiveChat(user.id);
                 String chatId = (String) chatSession.get("id");
-                String systemPrompt = chatService.buildSystemPrompt(finalMode, route, workspace, databaseService.getSetting("projectKnowledge", ""));
+                String ragContext = ragService.buildRagContext(finalMessage, user.id);
+                String systemPrompt = chatService.buildSystemPromptWithRag(finalMode, route, workspace, databaseService.getSetting("projectKnowledge", ""), ragContext);
                 List<Map<String, Object>> messages = chatService.buildContextMessages(chatId, systemPrompt, finalMessage, route.selected.model, images);
 
                 StringBuilder fullContent = new StringBuilder();
@@ -241,13 +272,53 @@ public class ChatController extends BaseController {
 
                 try {
                     Map<String, Object> provider = providerService.resolveProvider(route);
-                    providerService.callProviderStream(provider, route.selected.model, messages,
-                        token -> {
-                            fullContent.append(token);
-                            try { emitter.send(SseEmitter.event().data(toJson(Map.of("type", "token", "content", token)))); }
-                            catch (Exception ignored) {}
-                        },
-                        total -> tokensUsed[0] = total);
+                    // For Ollama: try non-streaming function-call first, then stream the final response
+                    if ("ollama".equals(provider.get("type"))) {
+                        List<Map<String, Object>> tools = functionCallService.getToolDefinitions();
+                        ProviderService.ProviderResult fcResult = providerService.callProvider(provider, route.selected.model, messages, 300000, tools);
+                        if (fcResult.toolCalls != null && !fcResult.toolCalls.isEmpty()) {
+                            List<Map<String, Object>> toolMessages = new ArrayList<>(messages);
+                            Map<String, Object> assistantMsg = new LinkedHashMap<>();
+                            assistantMsg.put("role", "assistant");
+                            assistantMsg.put("content", "");
+                            assistantMsg.put("tool_calls", fcResult.toolCalls);
+                            toolMessages.add(assistantMsg);
+                            for (Map<String, Object> tc : fcResult.toolCalls) {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> args = (Map<String, Object>) tc.getOrDefault("args", Map.of());
+                                String toolResult = functionCallService.executeTool((String) tc.get("name"), args, user.id);
+                                Map<String, Object> toolMsg = new LinkedHashMap<>();
+                                toolMsg.put("role", "tool");
+                                toolMsg.put("content", toolResult);
+                                toolMessages.add(toolMsg);
+                            }
+                            // Stream the follow-up response
+                            providerService.callProviderStream(provider, route.selected.model, toolMessages,
+                                token -> {
+                                    fullContent.append(token);
+                                    try { emitter.send(SseEmitter.event().data(toJson(Map.of("type", "token", "content", token)))); }
+                                    catch (Exception ignored) {}
+                                },
+                                total -> tokensUsed[0] = total);
+                        } else {
+                            // No tool calls — stream normally
+                            providerService.callProviderStream(provider, route.selected.model, messages,
+                                token -> {
+                                    fullContent.append(token);
+                                    try { emitter.send(SseEmitter.event().data(toJson(Map.of("type", "token", "content", token)))); }
+                                    catch (Exception ignored) {}
+                                },
+                                total -> tokensUsed[0] = total);
+                        }
+                    } else {
+                        providerService.callProviderStream(provider, route.selected.model, messages,
+                            token -> {
+                                fullContent.append(token);
+                                try { emitter.send(SseEmitter.event().data(toJson(Map.of("type", "token", "content", token)))); }
+                                catch (Exception ignored) {}
+                            },
+                            total -> tokensUsed[0] = total);
+                    }
                 } catch (Exception e) {
                     live[0] = false;
                     String errMsg = "Auto Router selected " + route.selected.name + ", but the model call did not complete.\n\nReason: " + e.getMessage();

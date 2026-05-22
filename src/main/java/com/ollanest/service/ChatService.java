@@ -23,12 +23,15 @@ public class ChatService {
     private final WorkspaceService workspaceService;
     private final DatabaseService databaseService;
     private final ObjectMapper mapper;
+    private final PromptTemplateService promptTemplateService;
 
-    public ChatService(JdbcTemplate db, WorkspaceService workspaceService, DatabaseService databaseService, ObjectMapper mapper) {
+    public ChatService(JdbcTemplate db, WorkspaceService workspaceService, DatabaseService databaseService,
+                       ObjectMapper mapper, PromptTemplateService promptTemplateService) {
         this.db = db;
         this.workspaceService = workspaceService;
         this.databaseService = databaseService;
         this.mapper = mapper;
+        this.promptTemplateService = promptTemplateService;
     }
 
     public int estimateTokens(String text) {
@@ -88,47 +91,34 @@ public class ChatService {
     }
 
     public String buildSystemPrompt(String mode, RouterService.RouteResult route, Map<String, Object> workspace, String projectKnowledge) {
-        List<String> base = new ArrayList<>();
-        base.add("You are Olla Nest, a company AI workspace assistant.");
-        base.add("Answer the user's request directly and completely.");
-        base.add("Do not answer with only the selected model name.");
-        base.add("Do not include hidden thinking, <think> blocks, or internal reasoning traces.");
-        base.add("Selected model route: " + (route.selected != null ? route.selected.name : "auto") + ".");
-        base.add("Routing reason: " + route.reason);
+        return buildSystemPromptWithRag(mode, route, workspace, projectKnowledge, null);
+    }
 
+    public String buildSystemPromptWithRag(String mode, RouterService.RouteResult route, Map<String, Object> workspace,
+                                            String projectKnowledge, String ragContext) {
+        String modelName = route.selected != null ? route.selected.name : "auto";
+        String routeReason = route.reason;
+
+        // Build workspace section string (same detail as before)
+        StringBuilder wsSection = new StringBuilder();
         if (workspace != null && workspace.get("workspaceRoot") != null) {
             String wsRoot = (String) workspace.get("workspaceRoot");
-            base.add("Active project folder: " + wsRoot);
-            base.add("Write permission mode: " + workspace.getOrDefault("permissionMode", "default"));
-            base.add("When building, fixing, or generating files, treat the active project folder as the working directory.");
-            base.add("IMPORTANT: When generating code files, always specify the filename in the code fence header using the format: ```language:filename.ext — for example: ```html:index.html or ```jsx:src/App.jsx or ```css:styles.css. Use relative paths from the project root. This allows files to be saved directly to the workspace.");
+            wsSection.append("Active project folder: ").append(wsRoot).append("\n");
+            wsSection.append("Write permission mode: ").append(workspace.getOrDefault("permissionMode", "default")).append("\n");
+            wsSection.append("When building, fixing, or generating files, treat the active project folder as the working directory.\n");
+            wsSection.append("IMPORTANT: When generating code files, always specify the filename in the code fence header using the format: ```language:filename.ext — for example: ```html:index.html or ```jsx:src/App.jsx or ```css:styles.css. Use relative paths from the project root. This allows files to be saved directly to the workspace.\n");
             List<String> files = workspaceService.listWorkspaceFiles(wsRoot);
             if (!files.isEmpty()) {
-                StringBuilder sb = new StringBuilder("Current project files:\n");
-                for (String f : files) sb.append("  ").append(f).append("\n");
-                base.add(sb.toString().trim());
+                wsSection.append("Current project files:\n");
+                for (String f : files) wsSection.append("  ").append(f).append("\n");
             } else {
-                base.add("Current project files: (empty — this is a new project)");
+                wsSection.append("Current project files: (empty — this is a new project)");
             }
         }
 
-        if (projectKnowledge != null && !projectKnowledge.trim().isEmpty()) {
-            base.add("\nProject Knowledge (injected by admin):\n" + projectKnowledge.trim());
-        }
-
-        Map<String, String> modeInstructions = new LinkedHashMap<>();
-        modeInstructions.put("ask", "Give a clear, useful answer with enough detail to be acted on.");
-        modeInstructions.put("build", "Build the requested output. Return the implementation as one complete, runnable file in a fenced code block. For UI pages, prefer a complete React JSX component when React is implied, otherwise a complete HTML file with embedded CSS and JavaScript. Do not return only a plan.");
-        modeInstructions.put("review", "Review the request for issues, risks, improvements, and missing pieces. Lead with actionable findings.");
-        modeInstructions.put("fix", "Diagnose the problem and provide the fix with exact steps or code changes. Be specific.");
-        modeInstructions.put("learn", "Teach the concept clearly with examples and simple explanation.");
-        modeInstructions.put("debug", "Identify the root cause of the error or unexpected behavior. Show the exact line or logic that is wrong, explain why it fails, then provide a specific corrected version. Include a checklist of other things to verify.");
-        modeInstructions.put("test", "Write comprehensive tests for the provided code or feature. Include unit tests, edge cases, and error cases. Use the most appropriate test framework for the language. Add brief comments explaining what each test covers.");
-        modeInstructions.put("docs", "Generate complete documentation for the provided code, feature, or project. Include: purpose, parameters or props, return values, usage examples, and any important notes. For a project, write a professional README with setup, usage, and API reference sections.");
-        modeInstructions.put("plan", "Break this down into a clear implementation plan. Include: recommended tech stack with reasoning, folder/file structure, step-by-step build order, key decisions the developer needs to make, and estimated complexity per phase. Be opinionated and specific.");
-
-        String instruction = modeInstructions.getOrDefault(mode, modeInstructions.get("ask"));
-        return String.join("\n", base) + "\nMode: " + mode + "\nInstruction: " + instruction;
+        return promptTemplateService.buildSystemPrompt(mode, modelName, routeReason,
+            wsSection.length() > 0 ? wsSection.toString().trim() : null,
+            projectKnowledge, ragContext);
     }
 
     public Map<String, Object> getActiveChat(String userId) {

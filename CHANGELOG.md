@@ -4,6 +4,33 @@ All notable changes to Olla Nest are documented here.
 
 ---
 
+## v2026.1.2 — 2026-05-22
+
+### ✨ Spring AI 1.0.0 — RAG, Prompt Templates, Function Calling
+
+#### RAG / Vector Store
+- **Added** `RagService` — document ingestion with paragraph-aware chunking + overlap, PDF and text extraction
+- **Added** `EmbeddingService` — calls Ollama `/api/embed` for vector embeddings; cosine similarity search with keyword-match fallback when no embedding model is available
+- **Added** `V2__rag.sql` Flyway migration — `rag_documents` + `rag_chunks` tables
+- **Added** `DocumentController` — `POST /api/documents/upload` (PDF/TXT/MD, max 10 MB), `GET /api/documents`, `DELETE /api/documents/{id}`
+- **Wired** RAG context automatically injected into every chat system prompt (top-5 relevant chunks above 0.30 threshold)
+
+#### Prompt Templates
+- **Added** `PromptTemplateService` — Spring AI `PromptTemplate`-based system prompts with `{variable}` substitution
+- **Replaced** manual string concatenation in `ChatService.buildSystemPrompt()` with structured per-mode templates
+- **Modes covered**: ask, build, review, fix, debug, test, docs, plan, learn — each with precise, expert-level instructions
+
+#### Function Calling
+- **Added** `FunctionCallService` — 4 callable tools the AI can invoke:
+  - `get_datetime` — current date, time, day of week, timezone
+  - `calculate` — safe math expression evaluator
+  - `search_knowledge_base` — searches the RAG vector store on demand
+  - `get_system_info` — product version and runtime info
+- **Wired** tool calling into Ollama chat calls (1 round-trip maximum to prevent loops)
+- **Dependency**: `spring-ai-client-chat` from Spring AI BOM 1.0.0, `pdfbox:3.0.4`
+
+---
+
 ## v2026.1.1 — 2026-05-22
 
 ### 🔧 Dependency Upgrade

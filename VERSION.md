@@ -1,6 +1,6 @@
 # Version
 
-**Current version:** v2026.1.1
+**Current version:** v2026.1.2
 
 **Release date:** 2026-05-22
 
@@ -16,6 +16,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| v2026.1.2 | 2026-05-22 | Spring AI 1.0.0: RAG/vector store, prompt templates, function calling |
 | v2026.1.1 | 2026-05-22 | Java 26, sqlite-jdbc 3.49.1.0, Spring Boot 3.5.3 confirmed latest |
 | v2026.1.0 | 2026-05-22 | Full migration to Java Spring Boot, Docker removed, 19 security fixes |
 | v2026.0.30 | 2026-05-21 | 3-column workspace UI redesign, new chat session fix |

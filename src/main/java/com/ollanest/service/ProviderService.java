@@ -31,6 +31,7 @@ public class ProviderService {
     private final OllamaService ollamaService;
     private final ObjectMapper mapper;
     private final HttpClient httpClient;
+    private FunctionCallService functionCallService; // set via setter to avoid circular dependency
 
     public ProviderService(JdbcTemplate db, CryptoService cryptoService, OllamaService ollamaService, ObjectMapper mapper) {
         this.db = db;
@@ -42,10 +43,16 @@ public class ProviderService {
             .build();
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setFunctionCallService(FunctionCallService functionCallService) {
+        this.functionCallService = functionCallService;
+    }
+
     public static class ProviderResult {
         public String content;
         public int tokensUsed;
         public String providerName;
+        public List<Map<String, Object>> toolCalls; // non-null if model responded with tool calls
         public ProviderResult(String content, int tokensUsed, String providerName) {
             this.content = content; this.tokensUsed = tokensUsed; this.providerName = providerName;
         }
@@ -71,6 +78,10 @@ public class ProviderService {
     }
 
     public ProviderResult callProvider(Map<String, Object> provider, String modelId, List<Map<String, Object>> messages, int timeoutMs) throws Exception {
+        return callProvider(provider, modelId, messages, timeoutMs, null);
+    }
+
+    public ProviderResult callProvider(Map<String, Object> provider, String modelId, List<Map<String, Object>> messages, int timeoutMs, List<Map<String, Object>> tools) throws Exception {
         String type = (String) provider.get("type");
         String apiKey = cryptoService.decryptKey((String) provider.get("api_key_enc"));
 
@@ -84,6 +95,9 @@ public class ProviderService {
             options.put("temperature", 0.5);
             options.put("num_predict", 4096);
             body.put("options", options);
+            if (tools != null && !tools.isEmpty()) {
+                body.put("tools", tools);
+            }
             HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(base + "/api/chat"))
                 .timeout(Duration.ofMillis(timeoutMs > 0 ? timeoutMs : 300000))
@@ -96,13 +110,20 @@ public class ProviderService {
                 throw ex;
             }
             JsonNode data = mapper.readTree(resp.body());
+            JsonNode messageNode = data.get("message");
             String content = "";
-            if (data.has("message") && data.get("message").has("content"))
-                content = data.get("message").get("content").asText("");
+            if (messageNode != null && messageNode.has("content"))
+                content = messageNode.get("content").asText("");
             else if (data.has("response"))
                 content = data.get("response").asText("");
             int tokens = data.has("eval_count") ? data.get("eval_count").asInt(0) : 0;
-            return new ProviderResult(WorkspaceService.cleanModelOutput(content), tokens, (String) provider.getOrDefault("name", "Ollama"));
+            ProviderResult result = new ProviderResult(WorkspaceService.cleanModelOutput(content), tokens, (String) provider.getOrDefault("name", "Ollama"));
+            // Parse tool calls if present
+            if (messageNode != null && messageNode.has("tool_calls")) {
+                FunctionCallService fcs = functionCallService;
+                if (fcs != null) result.toolCalls = fcs.parseToolCalls(messageNode);
+            }
+            return result;
 
         } else if ("anthropic".equals(type)) {
             String base = ollamaService.cleanBaseUrl((String) provider.getOrDefault("base_url", "https://api.anthropic.com"));
