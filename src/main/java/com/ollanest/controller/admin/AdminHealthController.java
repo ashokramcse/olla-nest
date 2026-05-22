@@ -45,8 +45,9 @@ public class AdminHealthController extends BaseController {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("ok", true);
         result.put("status", "healthy");
-        result.put("uptime_ms", snapshot.get("uptime_ms"));
-        result.put("memory", snapshot.get("memory"));
+        result.put("uptimeMs", snapshot.get("uptimeMs"));
+        result.put("memoryUsedMb", snapshot.get("memoryUsedMb"));
+        result.put("memoryTotalMb", snapshot.get("memoryTotalMb"));
         result.put("requests", snapshot.get("requests"));
         result.put("errors", snapshot.get("errors"));
         result.put("db", db_stats);

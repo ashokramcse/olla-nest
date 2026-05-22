@@ -39,21 +39,26 @@ public class AdminModelsController extends BaseController {
         if (err != null) return err;
         String testUrl = url != null ? ollamaService.cleanBaseUrl(url) : ollamaService.ollamaUrl();
         try {
+            URI uri = URI.create(testUrl + "/api/tags");
             HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(testUrl + "/api/tags"))
+                .uri(uri)
                 .timeout(Duration.ofSeconds(10))
                 .GET().build();
             HttpResponse<String> resp = client.send(request, HttpResponse.BodyHandlers.ofString());
-            com.fasterxml.jackson.databind.JsonNode data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(resp.body());
-            com.fasterxml.jackson.databind.JsonNode models = data.get("models");
-            int modelCount = models != null && models.isArray() ? models.size() : 0;
-            List<String> modelNames = new ArrayList<>();
-            if (models != null && models.isArray()) for (com.fasterxml.jackson.databind.JsonNode m : models) modelNames.add(m.path("name").asText(""));
-            return ResponseEntity.ok(Map.of("ok", resp.statusCode() == 200, "url", testUrl,
-                "status", resp.statusCode(), "modelCount", modelCount, "models", modelNames));
+            try {
+                com.fasterxml.jackson.databind.JsonNode data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(resp.body());
+                com.fasterxml.jackson.databind.JsonNode models = data.get("models");
+                int modelCount = models != null && models.isArray() ? models.size() : 0;
+                List<String> modelNames = new ArrayList<>();
+                if (models != null && models.isArray()) for (com.fasterxml.jackson.databind.JsonNode m : models) modelNames.add(m.path("name").asText(""));
+                return ResponseEntity.ok(Map.of("ok", resp.statusCode() == 200, "url", testUrl,
+                    "status", resp.statusCode(), "modelCount", modelCount, "models", modelNames));
+            } catch (Exception parseEx) {
+                return ResponseEntity.ok(Map.of("ok", false, "url", testUrl, "error", "Invalid response from Ollama"));
+            }
         } catch (Exception e) {
-            return ResponseEntity.ok(Map.of("ok", false, "url", testUrl, "error", e.getMessage()));
+            return ResponseEntity.ok(Map.of("ok", false, "url", testUrl, "error", e.getMessage() != null ? e.getMessage() : "Connection failed"));
         }
     }
 
