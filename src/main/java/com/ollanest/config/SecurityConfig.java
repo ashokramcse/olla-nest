@@ -14,32 +14,32 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final SessionAuthFilter sessionAuthFilter;
-    private final SecurityHeadersFilter securityHeadersFilter;
+	private final SessionAuthFilter sessionAuthFilter;
+	private final SecurityHeadersFilter securityHeadersFilter;
 
-    public SecurityConfig(SessionAuthFilter sessionAuthFilter, SecurityHeadersFilter securityHeadersFilter) {
-        this.sessionAuthFilter = sessionAuthFilter;
-        this.securityHeadersFilter = securityHeadersFilter;
-    }
+	public SecurityConfig(SessionAuthFilter sessionAuthFilter, SecurityHeadersFilter securityHeadersFilter) {
+		this.sessionAuthFilter = sessionAuthFilter;
+		this.securityHeadersFilter = securityHeadersFilter;
+	}
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            // Disable CSRF — we use X-Requested-With header check manually
-            .csrf(csrf -> csrf.disable())
-            // Disable default form login and basic auth
-            .formLogin(form -> form.disable())
-            .httpBasic(basic -> basic.disable())
-            // Disable Spring Security sessions (we manage sessions ourselves)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            // Allow all requests — our custom SessionAuthFilter handles auth
-            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-            // Disable Spring Security default headers (we set our own via SecurityHeadersFilter)
-            .headers(headers -> headers.disable())
-            // Add our custom filters
-            .addFilterBefore(securityHeadersFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(sessionAuthFilter, UsernamePasswordAuthenticationFilter.class);
+	@Bean
+	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+		http
+				// Disable CSRF — we use X-Requested-With header check manually
+				.csrf(csrf -> csrf.disable())
+				// Disable default form login and basic auth
+				.formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
+				// Disable Spring Security sessions (we manage sessions ourselves)
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				// Allow all requests — our custom SessionAuthFilter handles auth
+				.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+				// Disable Spring Security default headers (we set our own via
+				// SecurityHeadersFilter)
+				.headers(headers -> headers.disable())
+				// Add our custom filters
+				.addFilterBefore(securityHeadersFilter, UsernamePasswordAuthenticationFilter.class)
+				.addFilterBefore(sessionAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+		return http.build();
+	}
 }
