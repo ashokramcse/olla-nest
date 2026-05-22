@@ -4,7 +4,7 @@
 
 **Release date:** 2026-05-22
 
-**Runtime:** Java 21 + Spring Boot 3.3.5
+**Runtime:** Java 21 + Spring Boot 3.5.3
 
 **Database:** SQLite 3.46 (Flyway managed, WAL mode)
 
