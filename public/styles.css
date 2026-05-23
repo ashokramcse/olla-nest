@@ -1671,3 +1671,60 @@ tbody tr:hover { background: var(--ac-pale); }
   color: var(--body-text);
   transition: opacity .3s;
 }
+
+/* ── Code Sandbox output panel ──────────────────────────────── */
+.sandbox-output {
+  margin: -6px 0 12px;
+  border-radius: 0 0 10px 10px;
+  border: 1px solid var(--border);
+  border-top: none;
+  background: var(--track);
+  font-size: 13px;
+  overflow: hidden;
+}
+.sandbox-output.running { border-color: var(--ac-mid); background: var(--ac-pale); }
+.sandbox-output.ok      { border-color: rgba(74,222,128,.35); }
+.sandbox-output.error   { border-color: rgba(239,68,68,.35); }
+
+.sandbox-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 5px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bubble);
+}
+.sandbox-status-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted1);
+  margin-right: auto;
+}
+.sandbox-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.sandbox-badge.ok      { background: rgba(74,222,128,.15);  color: #16a34a; }
+.sandbox-badge.err     { background: rgba(239,68,68,.12);   color: #dc2626; }
+.sandbox-badge.warn    { background: rgba(245,200, 0,.18);  color: #92400e; }
+.sandbox-badge.neutral { background: var(--div); color: var(--muted1); }
+
+.sandbox-pre {
+  margin: 0;
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--body-text);
+  max-height: 400px;
+  overflow-y: auto;
+}
+.sandbox-pre.error { color: #dc2626; }

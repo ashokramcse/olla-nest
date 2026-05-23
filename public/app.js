@@ -570,10 +570,15 @@ function renderCodeBlock(text, lang) {
 
   // Runnable?
   const SHELL_LANGS = ["bash","sh","shell","zsh","fish","console","terminal","cmd","powershell"];
-  const isRunnable = SHELL_LANGS.includes(langKey);
-  const runBtn = isRunnable
+  const SANDBOX_LANGS = ["python","python3","javascript","js","typescript","ts","ruby","rb","java"];
+  const isShellRunnable = SHELL_LANGS.includes(langKey);
+  const isSandboxRunnable = SANDBOX_LANGS.includes(langKey);
+  const isRunnable = isShellRunnable || isSandboxRunnable;
+  const runBtn = isShellRunnable
     ? `<button class="run-in-term-btn" data-action="run" title="Run in terminal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
-    : "";
+    : isSandboxRunnable
+      ? `<button class="run-in-term-btn sandbox-run-btn" data-action="sandbox" title="Run in sandbox"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
+      : "";
   const viewBtn = `<button class="md-copy-btn" data-action="view" title="Full screen view">⛶ View</button>`;
 
   // Diff rendering
@@ -721,6 +726,79 @@ function runInTerminal(btn) {
     window.termSendCommand(code);
   } else {
     alert("Terminal not available. Make sure you have workspace:build permission.");
+  }
+}
+
+// ── Code Sandbox (inline execution for Python, JS, Ruby, Java, etc.) ─────────
+/**
+ * Sends the code block's content to POST /api/sandbox/run and renders the
+ * output inline immediately below the code block, replacing any previous run.
+ */
+async function runInSandbox(btn) {
+  const block = btn.closest(".md-code-block");
+  if (!block) return;
+
+  const lang = block.dataset.lang || "";
+  // Extract plain text: prefer line-cell spans (numbered blocks), fall back to <code>
+  const lineCells = block.querySelectorAll(".code-lc");
+  const code = (lineCells.length
+    ? Array.from(lineCells).map(el => el.innerText).join("\n")
+    : block.querySelector("code")?.innerText || "").trim();
+  if (!code) return;
+
+  // Ensure a sandbox output panel exists immediately after the block
+  let panel = block.nextElementSibling;
+  if (!panel || !panel.classList.contains("sandbox-output")) {
+    panel = document.createElement("div");
+    panel.className = "sandbox-output";
+    block.insertAdjacentElement("afterend", panel);
+  }
+
+  // Running state
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Running…`;
+  panel.className = "sandbox-output running";
+  panel.innerHTML = `<span class="sandbox-status-label">Running…</span>`;
+
+  try {
+    const res = await fetch("/api/sandbox/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+      body: JSON.stringify({ language: lang, code })
+    });
+    const data = await res.json();
+
+    const exitBadge = data.exitCode === 0
+      ? `<span class="sandbox-badge ok">exit 0</span>`
+      : `<span class="sandbox-badge err">exit ${data.exitCode ?? "?"}</span>`;
+    const timeBadge = data.elapsedMs != null
+      ? `<span class="sandbox-badge neutral">${data.elapsedMs}ms</span>`
+      : "";
+    const phaseBadge = data.phase && data.phase !== "run"
+      ? `<span class="sandbox-badge warn">${esc(data.phase)}</span>`
+      : "";
+
+    if (data.error) {
+      // Unsupported language, timeout, or spawn failure
+      panel.className = "sandbox-output error";
+      panel.innerHTML =
+        `<div class="sandbox-header"><span class="sandbox-status-label">Error</span>${phaseBadge}${timeBadge}</div>` +
+        `<pre class="sandbox-pre error">${esc(data.error)}</pre>`;
+    } else {
+      const hasOutput = data.output && data.output.trim().length > 0;
+      panel.className = `sandbox-output ${data.ok ? "ok" : "error"}`;
+      panel.innerHTML =
+        `<div class="sandbox-header"><span class="sandbox-status-label">Output</span>${exitBadge}${phaseBadge}${timeBadge}</div>` +
+        `<pre class="sandbox-pre">${hasOutput ? esc(data.output) : '<span style="opacity:.45;">(no output)</span>'}</pre>`;
+    }
+  } catch (err) {
+    panel.className = "sandbox-output error";
+    panel.innerHTML =
+      `<div class="sandbox-header"><span class="sandbox-status-label">Error</span></div>` +
+      `<pre class="sandbox-pre error">${esc(err.message)}</pre>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run`;
   }
 }
 
@@ -1566,7 +1644,8 @@ document.addEventListener("click", (e) => {
   if (btn) {
     const action = btn.dataset.action;
     if (action === "copy") { copyCode(btn); return; }
-    if (action === "run") { runInTerminal(btn); return; }
+    if (action === "run")     { runInTerminal(btn); return; }
+    if (action === "sandbox") { runInSandbox(btn);  return; }
     if (action === "view") { openCodeReview(btn); return; }
   }
   // Feedback buttons
