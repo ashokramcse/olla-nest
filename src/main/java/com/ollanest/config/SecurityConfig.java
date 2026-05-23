@@ -14,26 +14,36 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Spring Security filter chain configuration for Olla Nest.
  *
- * <p>Disables all of Spring Security's default protective mechanisms (form login,
- * HTTP Basic, CSRF token, default session management, and default security headers)
- * so that they do not interfere with Olla Nest's own cookie-based session
- * authentication, which is handled entirely by {@link SessionAuthFilter} and
- * {@link SecurityHeadersFilter}.
+ * <h3>Why this class exists</h3>
+ * <p>Spring Security is retained on the classpath for its filter-chain infrastructure
+ * and BCrypt password hashing support. However, all of its opinionated default
+ * behaviours — form login, HTTP Basic, CSRF token management, default session
+ * handling, and the standard security-header set — are explicitly disabled because
+ * Olla Nest implements its own cookie-based session authentication via
+ * {@link SessionAuthFilter} and its own header policy via {@link SecurityHeadersFilter}.
  *
- * <p>All HTTP requests are permitted at the Spring Security layer; actual
- * authentication and authorisation enforcement happens inside the custom filters
- * and the {@code BaseController} helper methods.
- *
- * <p><b>Design decisions:</b>
+ * <h3>Design notes</h3>
  * <ul>
- *   <li>Spring Security is kept on the classpath for its filter-chain infrastructure
- *       and BCrypt support, but its opinionated defaults are fully opted out of.</li>
+ *   <li>All HTTP requests are permitted at the Spring Security layer; actual
+ *       authentication and authorisation are enforced inside the custom filters
+ *       and the {@code BaseController} helper methods ({@code requireAuth()},
+ *       {@code requireAdmin()}).</li>
  *   <li>CSRF protection is implemented manually via the {@code X-Olla-CSRF} header
  *       check in {@code BaseController.requireAuthWithCsrf()}.</li>
+ *   <li>Session creation policy is set to {@code STATELESS} because Olla Nest
+ *       manages sessions in SQLite, not in the servlet container.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ *   <li>v2026.1.0 — initial migration; replaces Node.js express-session and
+ *       bcryptjs middleware</li>
+ *   <li>v2026.1.4 — no functional changes; retained as part of security audit pass</li>
  * </ul>
  *
  * @author  Ashok Ram
- * @since   v2026.1.0  — initial Java Spring Boot migration
+ * @since   v2026.1.0
+ * @version v2026.1.4
  */
 @Configuration
 @EnableWebSecurity
@@ -47,13 +57,14 @@ public class SecurityConfig {
 
     /**
      * Constructor-injects the two custom servlet filters that replace Spring
-     * Security's defaults.
+     * Security's built-in defaults.
      *
-     * @param  sessionAuthFilter     the filter that validates session cookies
-     * @param  securityHeadersFilter the filter that sets HTTP security headers
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * @param  sessionAuthFilter     the filter that validates Olla Nest session cookies
+     * @param  securityHeadersFilter the filter that sets HTTP security response headers
+     * @since  v2026.1.0
      */
-    public SecurityConfig(SessionAuthFilter sessionAuthFilter, SecurityHeadersFilter securityHeadersFilter) {
+    public SecurityConfig(SessionAuthFilter sessionAuthFilter,
+            SecurityHeadersFilter securityHeadersFilter) {
         this.sessionAuthFilter = sessionAuthFilter;
         this.securityHeadersFilter = securityHeadersFilter;
     }
@@ -63,12 +74,13 @@ public class SecurityConfig {
      *
      * <p>The chain is configured to:
      * <ul>
-     *   <li>Disable CSRF (handled manually via {@code X-Olla-CSRF} header)</li>
-     *   <li>Disable form login and HTTP Basic</li>
-     *   <li>Use stateless session policy (Olla Nest manages sessions in SQLite)</li>
-     *   <li>Permit all requests (auth enforced by {@link SessionAuthFilter})</li>
-     *   <li>Disable default Spring Security headers ({@link SecurityHeadersFilter}
-     *       sets its own)</li>
+     *   <li>Disable CSRF (handled manually via the {@code X-Olla-CSRF} header)</li>
+     *   <li>Disable form login and HTTP Basic authentication</li>
+     *   <li>Use a stateless session policy (sessions are managed in SQLite)</li>
+     *   <li>Permit all requests at the Spring Security layer (auth enforced by
+     *       {@link SessionAuthFilter} and controller helpers)</li>
+     *   <li>Disable the default Spring Security header set ({@link SecurityHeadersFilter}
+     *       applies its own)</li>
      *   <li>Insert both custom filters before Spring's
      *       {@code UsernamePasswordAuthenticationFilter}</li>
      * </ul>
@@ -76,7 +88,7 @@ public class SecurityConfig {
      * @param  http  the {@link HttpSecurity} builder provided by Spring Security
      * @return       the configured {@link SecurityFilterChain}
      * @throws Exception  if Spring Security configuration fails
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * @since  v2026.1.0
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {

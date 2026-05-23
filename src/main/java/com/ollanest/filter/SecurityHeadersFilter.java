@@ -13,44 +13,59 @@ import java.io.IOException;
 /**
  * {@link OncePerRequestFilter} that adds HTTP security headers to every response.
  *
- * <p>Applied before all other filters in the Spring Security chain (registered in
- * {@link com.ollanest.config.SecurityConfig}). Spring Security's own default
- * security headers are disabled so this filter has full control over the header set.
+ * <h3>Why this class exists</h3>
+ * <p>Spring Security's default security-header set is disabled in
+ * {@link com.ollanest.config.SecurityConfig} so that Olla Nest can own the exact
+ * header values rather than relying on framework defaults. This filter runs before
+ * all other filters in the chain and applies a curated set of headers that harden
+ * the application against common browser-based attacks.
  *
- * <p>Headers set on every response:
- * <ul>
- *   <li><b>X-Content-Type-Options: nosniff</b> — prevents MIME-type sniffing</li>
- *   <li><b>X-Frame-Options: SAMEORIGIN</b> — prevents clickjacking</li>
- *   <li><b>X-XSS-Protection: 1; mode=block</b> — legacy XSS filter hint</li>
- *   <li><b>Referrer-Policy: strict-origin-when-cross-origin</b> — limits referrer leakage</li>
- *   <li><b>Content-Security-Policy</b> (MED-1) — restricts resource origins</li>
- *   <li><b>Strict-Transport-Security</b> (MED-2) — enforces HTTPS for 1 year</li>
- * </ul>
- *
- * <p><b>Design decisions:</b>
+ * <h3>Design notes</h3>
  * <ul>
  *   <li>{@code 'unsafe-inline'} is permitted for scripts and styles because the
  *       frontend uses inline event handlers; a nonce-based CSP is a future
  *       improvement.</li>
+ *   <li>The filter is registered via {@link Component} so Spring Boot auto-detects
+ *       it, but its position in the security filter chain is controlled explicitly
+ *       in {@link com.ollanest.config.SecurityConfig#filterChain}.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ *   <li>v2026.1.0 — initial migration from Node.js security-header middleware</li>
+ *   <li>v2026.1.4 — added {@code Content-Security-Policy} (MED-1) and
+ *       {@code Strict-Transport-Security} (MED-2) headers as part of the security
+ *       hardening pass</li>
+ * </ul>
+ *
+ * <p>Headers applied on every response:
+ * <ul>
+ *   <li>{@code X-Content-Type-Options: nosniff} — prevents MIME-type sniffing</li>
+ *   <li>{@code X-Frame-Options: SAMEORIGIN} — prevents clickjacking</li>
+ *   <li>{@code X-XSS-Protection: 1; mode=block} — legacy XSS filter hint</li>
+ *   <li>{@code Referrer-Policy: strict-origin-when-cross-origin} — limits referrer
+ *       leakage</li>
+ *   <li>{@code Content-Security-Policy} — restricts resource origins (MED-1)</li>
+ *   <li>{@code Strict-Transport-Security} — enforces HTTPS for 1 year (MED-2)</li>
  * </ul>
  *
  * @author  Ashok Ram
- * @since   v2026.1.0  — initial Java Spring Boot migration
- * @version v2026.1.0  — security hardening: added CSP (MED-1) and HSTS (MED-2) headers
+ * @since   v2026.1.0
+ * @version v2026.1.4
  */
 @Component
 public class SecurityHeadersFilter extends OncePerRequestFilter {
 
     /**
-     * Adds all security headers to the response, then passes control to the next filter.
+     * Adds all security headers to the HTTP response, then passes control to the
+     * next filter in the chain.
      *
      * @param  request      the incoming HTTP request
      * @param  response     the HTTP response to which headers are added
      * @param  filterChain  the remaining filter chain to invoke
      * @throws ServletException  if the next filter throws a servlet error
      * @throws IOException       if an I/O error occurs during filter chaining
-     * @since   v2026.1.0  — initial Java Spring Boot migration
-     * @version v2026.1.0  — security hardening: added CSP and HSTS headers
+     * @since  v2026.1.0
      */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,

@@ -14,22 +14,72 @@ import java.util.Arrays;
 import java.util.Comparator;
 
 /**
- * Scheduled SQLite backup using VACUUM INTO.
- * Keeps the last 7 backups.
+ * Scheduled SQLite backup service using the {@code VACUUM INTO} statement.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>Olla Nest stores all application state (sessions, chats, models, audit log)
+ * in a single SQLite file. This service takes a consistent online snapshot of that
+ * file once per day without requiring the application to stop or acquiring any
+ * exclusive lock, using SQLite's built-in {@code VACUUM INTO} command. It also
+ * performs a rolling retention of the last seven backups to bound disk usage.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ *   <li>{@code VACUUM INTO} is preferred over file-copy because it rewrites the
+ *       database into a clean, defragmented SQLite file atomically, even while other
+ *       connections are active.</li>
+ *   <li>Backup filenames embed an ISO-8601-like timestamp ({@code yyyy-MM-dd'T'HH-mm-ss})
+ *       so they sort lexicographically in chronological order, allowing simple
+ *       {@link Arrays#sort} to identify the oldest files for pruning.</li>
+ *   <li>Errors in the scheduled job are swallowed after logging so they never
+ *       propagate to the scheduler thread and disable future runs.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ *   <li>v2026.1.0 — initial migration from Node.js/better-sqlite3 backup cron job</li>
+ *   <li>v2026.1.4 — added {@link #runBackup()} as a public method callable from the
+ *       admin REST endpoint for on-demand backups</li>
+ * </ul>
+ *
+ * @author  Ashok Ram
+ * @since   v2026.1.0
+ * @version v2026.1.4
  */
 @Service
 public class BackupService {
 
     private static final Logger log = LoggerFactory.getLogger(BackupService.class);
+
+    /** JDBC template bound to the application's SQLite data source. */
     private final JdbcTemplate db;
 
+    /**
+     * Root data directory; resolved from the {@code app.data-dir} property or the
+     * {@code APP_DATA_DIR} environment variable, defaulting to {@code ./data}.
+     * Backups are written to {@code <dataDir>/backups/}.
+     */
     @Value("${app.data-dir:./data}")
     private String dataDir;
 
+    /**
+     * Constructs the service with the application's primary {@link JdbcTemplate}.
+     *
+     * @param  db  the JDBC template wired to the SQLite data source
+     * @since  v2026.1.0
+     */
     public BackupService(JdbcTemplate db) {
         this.db = db;
     }
 
+    /**
+     * Scheduled entry point that triggers a backup every day at 03:00 local time.
+     *
+     * <p>Any exception thrown by {@link #runBackup()} is caught and logged at
+     * {@code ERROR} level so the scheduler does not suppress future executions.
+     *
+     * @since  v2026.1.0
+     */
     // Run daily at 3 AM
     @Scheduled(cron = "0 0 3 * * *")
     public void scheduledBackup() {
@@ -40,6 +90,22 @@ public class BackupService {
         }
     }
 
+    /**
+     * Performs an immediate, on-demand backup of the SQLite database using
+     * {@code VACUUM INTO} and prunes old backups so that at most seven are retained.
+     *
+     * <p>The backup file is written to {@code <dataDir>/backups/olla-nest-<timestamp>.sqlite}.
+     * The timestamp format is {@code yyyy-MM-dd'T'HH-mm-ss}. After writing the new
+     * backup, all {@code .sqlite} files in the backup directory are sorted
+     * lexicographically and any files beyond the seven most recent are deleted.
+     *
+     * @return a {@link java.util.Map} with:
+     *         <ul>
+     *           <li>{@code ok=true, file=<absolute-path>} on success</li>
+     *           <li>{@code ok=false, error=<message>} on failure</li>
+     *         </ul>
+     * @since  v2026.1.4
+     */
     public java.util.Map<String, Object> runBackup() {
         File backupDir = new File(dataDir, "backups");
         if (!backupDir.exists()) backupDir.mkdirs();

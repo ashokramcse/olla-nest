@@ -4,39 +4,43 @@ import java.net.InetAddress;
 import java.net.URL;
 
 /**
- * SSRF protection utility that validates URLs before they are used as provider endpoints.
+ * SSRF protection utility that validates provider base URLs before they are
+ * persisted or used for outbound HTTP calls.
  *
- * <p>Created as part of the HIGH-3 security fix to prevent Server-Side Request Forgery
- * attacks via the admin provider management API. Any URL submitted as a provider base
- * URL is passed through {@link #isSafeUrl(String)} before being persisted or used for
- * outbound HTTP calls.
+ * <h3>Why this class exists</h3>
+ * <p>Created as part of the HIGH-3 security fix to prevent Server-Side Request
+ * Forgery attacks via the admin provider management API. Any URL submitted as a
+ * provider base URL is passed through {@link #isSafeUrl(String)} before being
+ * stored or used for API calls, ensuring the application cannot be turned into a
+ * proxy to internal network services.
  *
- * <p>{@link #isSafeUrl(String)} rejects:
+ * <h3>Design notes</h3>
  * <ul>
- *   <li>Non-HTTP/HTTPS schemes (e.g. {@code file://}, {@code ftp://})</li>
- *   <li>Loopback addresses (127.x.x.x, IPv6 ::1)</li>
- *   <li>Link-local addresses (169.254.x.x)</li>
- *   <li>Private RFC-1918 ranges (10.x, 172.16–31.x, 192.168.x)</li>
+ *   <li>DNS resolution is performed at validation time so that DNS-rebinding
+ *       attacks (where a benign hostname later resolves to a private IP) are
+ *       mitigated at the point of configuration, not at call time.</li>
+ *   <li>Both JDK address classification methods and explicit byte-level RFC-1918
+ *       checks are applied as defence-in-depth against JDK version differences.</li>
+ *   <li>This class is a non-instantiable static utility; the constructor is
+ *       private.</li>
  * </ul>
  *
- * <p><b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- *   <li>DNS resolution is performed at validation time so that DNS-rebinding attacks
- *       (where a benign hostname later resolves to a private IP) are mitigated at the
- *       point of configuration, not at call time.</li>
- *   <li>This class is a pure static utility; instantiation is prevented via a private
- *       constructor.</li>
+ *   <li>v2026.1.0 — created during security hardening (HIGH-3 SSRF protection)</li>
+ *   <li>v2026.1.4 — no functional changes; retained as part of audit pass</li>
  * </ul>
  *
  * @author  Ashok Ram
- * @since   v2026.1.0  — created during security hardening (HIGH-3 SSRF protection)
+ * @since   v2026.1.0
+ * @version v2026.1.4
  */
 public class UrlValidator {
 
     /**
-     * Private constructor — this class is a non-instantiable static utility.
+     * Private constructor — this is a non-instantiable static utility class.
      *
-     * @since  v2026.1.0  — initial creation
+     * @since  v2026.1.0
      */
     private UrlValidator() {}
 
@@ -49,13 +53,14 @@ public class UrlValidator {
      *   <li>Parses the URL; rejects if malformed.</li>
      *   <li>Rejects schemes other than {@code http} and {@code https}.</li>
      *   <li>Resolves all DNS addresses for the host and rejects if any resolve
-     *       to a private or loopback range (see {@link #isPrivateOrLoopback}).</li>
+     *       to a private, loopback, or link-local range (see
+     *       {@link #isPrivateOrLoopback}).</li>
      * </ol>
      *
      * @param  urlStr  the URL string to validate; may be {@code null}
      * @return         {@code true} if the URL passes all safety checks,
      *                 {@code false} for any invalid or unsafe input
-     * @since   v2026.1.0  — created during security hardening
+     * @since  v2026.1.0
      */
     public static boolean isSafeUrl(String urlStr) {
         if (urlStr == null || urlStr.isBlank()) return false;
@@ -81,18 +86,20 @@ public class UrlValidator {
      * Returns {@code true} if the given address falls within a private, loopback,
      * or link-local range that must not be reachable via user-supplied provider URLs.
      *
-     * <p>Checks (in order):
+     * <p>Checks applied (in order):
      * <ul>
-     *   <li>JDK loopback detection (covers 127.x.x.x and ::1)</li>
-     *   <li>JDK link-local detection (covers 169.254.x.x and fe80::/10)</li>
-     *   <li>JDK site-local detection (covers 10.x, 172.16–31.x, 192.168.x)</li>
-     *   <li>Explicit byte-level checks for RFC-1918 ranges as a defence-in-depth
-     *       guard against JDK version differences.</li>
+     *   <li>JDK loopback detection (covers {@code 127.x.x.x} and {@code ::1})</li>
+     *   <li>JDK link-local detection (covers {@code 169.254.x.x} and
+     *       {@code fe80::/10})</li>
+     *   <li>JDK site-local detection (covers {@code 10.x}, {@code 172.16–31.x},
+     *       {@code 192.168.x})</li>
+     *   <li>Explicit byte-level RFC-1918 checks as defence-in-depth against JDK
+     *       version differences</li>
      * </ul>
      *
      * @param  addr  the resolved {@link InetAddress} to evaluate
      * @return       {@code true} if the address is private, loopback, or link-local
-     * @since   v2026.1.0  — created during security hardening
+     * @since  v2026.1.0
      */
     private static boolean isPrivateOrLoopback(InetAddress addr) {
         if (addr.isLoopbackAddress()) return true;
