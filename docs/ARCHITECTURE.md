@@ -2,11 +2,11 @@
 
 ## Overview
 
-Olla Nest is a standalone Java Spring Boot web application. The backend is a modular Spring Boot 3.5.3 server with embedded Tomcat. The frontend is plain HTML, CSS, and JavaScript served as static files — no build step, no framework, no bundler required. No Docker. No Node.js.
+Olla Nest is a standalone Java Spring Boot web application. The backend is a modular Spring Boot 3.5.3 (latest stable) server with embedded Tomcat. The frontend is plain HTML, CSS, and JavaScript served as static files — no build step, no framework, no bundler required. No Docker. No Node.js.
 
 ```
 Standalone Java Process (java -jar olla-nest.jar)
-├── Spring Boot 3.5.3 (embedded Tomcat)   ← HTTP server, REST API, SSE, WebSocket
+├── Spring Boot 3.5.3 (latest stable) (embedded Tomcat)   ← HTTP server, REST API, SSE, WebSocket
 │   └── src/main/java/com/ollanest/       ← Controllers, services, filters, config
 ├── public/                               ← Static frontend (login, workspace, admin)
 ├── data/olla-nest.sqlite                 ← SQLite database (file, no server)
@@ -22,7 +22,7 @@ Host machine
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| Runtime | Java 26 + Spring Boot 3.5.3 | Embedded Tomcat HTTP server |
+| Runtime | Java 26 + Spring Boot 3.5.3 (latest stable) | Embedded Tomcat HTTP server |
 | Frontend | HTML / CSS / Vanilla JS | Served as static files from `public/` |
 | Database | SQLite via JDBC (sqlite-jdbc 3.49) | Users, groups, models, permissions, chat, settings |
 | Connection pool | HikariCP (pool-size=1) | SQLite single-writer constraint |

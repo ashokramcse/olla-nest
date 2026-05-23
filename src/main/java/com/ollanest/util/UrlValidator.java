@@ -4,16 +4,58 @@ import java.net.InetAddress;
 import java.net.URL;
 
 /**
- * Validates URLs for SSRF protection.
- * Rejects non-http/https schemes and private/loopback IP ranges.
+ * SSRF protection utility that validates URLs before they are used as provider endpoints.
+ *
+ * <p>Created as part of the HIGH-3 security fix to prevent Server-Side Request Forgery
+ * attacks via the admin provider management API. Any URL submitted as a provider base
+ * URL is passed through {@link #isSafeUrl(String)} before being persisted or used for
+ * outbound HTTP calls.
+ *
+ * <p>{@link #isSafeUrl(String)} rejects:
+ * <ul>
+ *   <li>Non-HTTP/HTTPS schemes (e.g. {@code file://}, {@code ftp://})</li>
+ *   <li>Loopback addresses (127.x.x.x, IPv6 ::1)</li>
+ *   <li>Link-local addresses (169.254.x.x)</li>
+ *   <li>Private RFC-1918 ranges (10.x, 172.16–31.x, 192.168.x)</li>
+ * </ul>
+ *
+ * <p><b>Design decisions:</b>
+ * <ul>
+ *   <li>DNS resolution is performed at validation time so that DNS-rebinding attacks
+ *       (where a benign hostname later resolves to a private IP) are mitigated at the
+ *       point of configuration, not at call time.</li>
+ *   <li>This class is a pure static utility; instantiation is prevented via a private
+ *       constructor.</li>
+ * </ul>
+ *
+ * @author  Ashok Ram
+ * @since   v2026.1.0  — created during security hardening (HIGH-3 SSRF protection)
  */
 public class UrlValidator {
 
+    /**
+     * Private constructor — this class is a non-instantiable static utility.
+     *
+     * @since  v2026.1.0  — initial creation
+     */
     private UrlValidator() {}
 
     /**
-     * Returns true if the URL is safe to use as a provider base URL.
-     * Rejects: non-http/https schemes, private IPs, loopback addresses.
+     * Returns {@code true} if the URL is safe to use as a provider base URL.
+     *
+     * <p>Performs the following checks in order:
+     * <ol>
+     *   <li>Rejects blank or {@code null} input.</li>
+     *   <li>Parses the URL; rejects if malformed.</li>
+     *   <li>Rejects schemes other than {@code http} and {@code https}.</li>
+     *   <li>Resolves all DNS addresses for the host and rejects if any resolve
+     *       to a private or loopback range (see {@link #isPrivateOrLoopback}).</li>
+     * </ol>
+     *
+     * @param  urlStr  the URL string to validate; may be {@code null}
+     * @return         {@code true} if the URL passes all safety checks,
+     *                 {@code false} for any invalid or unsafe input
+     * @since   v2026.1.0  — created during security hardening
      */
     public static boolean isSafeUrl(String urlStr) {
         if (urlStr == null || urlStr.isBlank()) return false;
@@ -35,6 +77,23 @@ public class UrlValidator {
         }
     }
 
+    /**
+     * Returns {@code true} if the given address falls within a private, loopback,
+     * or link-local range that must not be reachable via user-supplied provider URLs.
+     *
+     * <p>Checks (in order):
+     * <ul>
+     *   <li>JDK loopback detection (covers 127.x.x.x and ::1)</li>
+     *   <li>JDK link-local detection (covers 169.254.x.x and fe80::/10)</li>
+     *   <li>JDK site-local detection (covers 10.x, 172.16–31.x, 192.168.x)</li>
+     *   <li>Explicit byte-level checks for RFC-1918 ranges as a defence-in-depth
+     *       guard against JDK version differences.</li>
+     * </ul>
+     *
+     * @param  addr  the resolved {@link InetAddress} to evaluate
+     * @return       {@code true} if the address is private, loopback, or link-local
+     * @since   v2026.1.0  — created during security hardening
+     */
     private static boolean isPrivateOrLoopback(InetAddress addr) {
         if (addr.isLoopbackAddress()) return true;
         if (addr.isLinkLocalAddress()) return true;

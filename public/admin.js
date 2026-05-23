@@ -1,6 +1,8 @@
 /**
  * @file admin.js
+ * @version v2026.1.0
  * @description Olla Nest — admin dashboard SPA script (served at /admin).
+ * Backend: Spring Boot 3.5.3 / Java 26  |  DB: SQLite 3.49.x (WAL)
  *
  * Responsibilities:
  *   - Loads full application state from GET /api/state on boot

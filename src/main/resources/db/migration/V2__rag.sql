@@ -1,3 +1,7 @@
+-- =============================================================================
+-- Olla Nest — Database Schema  V2 (RAG document knowledge base)
+-- Adds rag_documents and rag_chunks tables for Retrieval-Augmented Generation
+-- =============================================================================
 -- RAG: document knowledge base
 CREATE TABLE IF NOT EXISTS rag_documents (
   id TEXT PRIMARY KEY,

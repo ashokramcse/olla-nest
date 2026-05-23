@@ -1,4 +1,8 @@
--- V1: Initial schema for Olla Nest (translated from src/db/index.js)
+-- =============================================================================
+-- Olla Nest — Database Schema  V1 (baseline)
+-- Runtime  : SQLite 3.49.x  |  WAL mode  |  Flyway managed
+-- Applied  : automatically on first boot via Flyway baseline-on-migrate
+-- =============================================================================
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
