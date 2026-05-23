@@ -128,7 +128,13 @@ public class AdminSettingsController extends BaseController {
                 "anthropicEnabled", "anthropicApiKey", "anthropicBaseUrl",
                 "openaiEnabled", "openaiApiKey", "openaiBaseUrl",
                 "groqEnabled", "groqApiKey",
-                "customEnabled", "customApiKey", "customBaseUrl", "customName");
+                "customEnabled", "customApiKey", "customBaseUrl", "customName",
+                // ── Web search ──────────────────────────────────────────────
+                "searchProvider", "searchApiKey",
+                // ── Image generation ────────────────────────────────────────
+                "imageProvider", "imageModel", "imageSize", "sdBaseUrl",
+                // ── Voice (STT/TTS via OpenAI Whisper / TTS API) ────────────
+                "voiceEnabled", "ttsVoice");
         for (String key : simpleKeys) {
             if (body.containsKey(key)) databaseService.setSetting(key, body.get(key).toString());
         }
@@ -168,8 +174,18 @@ public class AdminSettingsController extends BaseController {
             }
             databaseService.setSetting("ollamaUrl", nextUrl);
         }
+        // searchBaseUrl for SearXNG self-hosted instance
+        if (body.containsKey("searchBaseUrl")) {
+            String urlVal = body.get("searchBaseUrl").toString().trim();
+            if (!urlVal.isEmpty() && !UrlValidator.isSafeUrl(urlVal)) {
+                return ResponseEntity.status(400).body(
+                        Map.of("error", "searchBaseUrl resolves to a disallowed address"));
+            }
+            databaseService.setSetting("searchBaseUrl", urlVal);
+        }
+
         // Validate all base URL fields for SSRF
-        for (String urlKey : Arrays.asList("anthropicBaseUrl", "openaiBaseUrl", "customBaseUrl")) {
+        for (String urlKey : Arrays.asList("anthropicBaseUrl", "openaiBaseUrl", "customBaseUrl", "sdBaseUrl")) {
             if (body.containsKey(urlKey)) {
                 String urlVal = body.get(urlKey).toString().trim();
                 if (!urlVal.isEmpty() && !UrlValidator.isSafeUrl(urlVal)) {

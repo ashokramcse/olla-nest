@@ -10,6 +10,8 @@
 	     Framework: Spring Boot 3.5.3  (latest stable, May 2026)
 	     Database : SQLite 3.49.x via JDBC  (BOM-managed)
 	     Build    : Maven 3.9+
+	     Features : 20+ connectors, SSO (Google/OIDC/SAML), web search,
+	                voice/image generation, deep research
 	     =================================================================== -->
 
 	<parent>
@@ -124,6 +126,12 @@
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
 			<version>${pdfbox.version}</version>
+		</dependency>
+
+		<!-- ── SSO: JWT / OIDC id_token validation ─────────────────────── -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-jose</artifactId>
 		</dependency>
 
 		<!-- ── Test ─────────────────────────────────────────────────────── -->

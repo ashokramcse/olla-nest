@@ -1610,3 +1610,64 @@ tbody tr:hover { background: var(--ac-pale); }
   .app-main       { height: 100svh; }
   .app-chat-header { padding: 0 12px; }
 }
+
+/* ── Composer icon buttons (voice, image gen) ──────────────── */
+.composer-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted1);
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+  flex-shrink: 0;
+}
+.composer-icon-btn:hover { border-color: var(--ac); color: var(--ac); background: var(--ac-pale); }
+.composer-icon-btn.recording { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,.08); animation: pulse-rec 1s infinite; }
+
+@keyframes pulse-rec {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .55; }
+}
+
+/* ── Composer toggle buttons (web search, research) ─────────── */
+.composer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted1);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .15s, color .15s, background .15s;
+  flex-shrink: 0;
+}
+.composer-toggle:hover { border-color: var(--ac); color: var(--ac-dark); background: var(--ac-pale); }
+.composer-toggle.active {
+  border-color: var(--ac);
+  background: var(--ac);
+  color: var(--ac-text);
+}
+.composer-toggle.active svg { stroke: var(--ac-text); }
+
+/* ── Research progress card ─────────────────────────────────── */
+.research-step-card {
+  background: var(--ac-pale);
+  border: 1px solid var(--ac-mid);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--body-text);
+  transition: opacity .3s;
+}

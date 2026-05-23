@@ -486,6 +486,8 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
       <button class="nav-item" data-tab="access">Access Control</button>
       <button class="nav-item" data-tab="settings">Settings</button>
       <button class="nav-item" data-tab="providers">Providers</button>
+      <button class="nav-item" data-tab="connectors">Connectors</button>
+      <button class="nav-item" data-tab="sso">SSO</button>
       <button class="nav-item" data-tab="reports">Reports</button>
       <button class="nav-item" data-tab="audit" style="display:none;">Audit Log</button>
 
@@ -1247,6 +1249,122 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
       </div>
 
       <!-- ── AUDIT ── -->
+      <!-- ── Connectors tab ── -->
+      <div class="tab-view" id="tab-connectors">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head">
+            <div class="card-title">Data Connectors</div>
+            <button class="ap-btn dark" id="addConnectorBtn" style="padding:6px 14px;font-size:12px;">+ Add Connector</button>
+          </div>
+          <div id="connectorTypeHint" style="font-size:12px;color:var(--muted1);padding:0 0 10px;"></div>
+          <div id="connectorList">
+            <div style="text-align:center;padding:24px;color:var(--muted1);">Loading connectors…</div>
+          </div>
+        </div>
+
+        <!-- Add/Edit connector form (hidden by default) -->
+        <div class="card" id="connectorFormCard" style="display:none;">
+          <div class="card-head">
+            <div class="card-title" id="connectorFormTitle">New Connector</div>
+            <button class="ap-btn" id="cancelConnectorBtn" style="padding:5px 12px;font-size:12px;">Cancel</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Name</label>
+              <input class="ap-input" id="connName" placeholder="e.g. Engineering GitHub" />
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Type</label>
+              <select class="ap-input" id="connType">
+                <option value="github">GitHub</option>
+                <option value="gdrive">Google Drive</option>
+                <option value="slack">Slack</option>
+                <option value="notion">Notion</option>
+                <option value="jira">Jira</option>
+                <option value="confluence">Confluence</option>
+                <option value="gitlab">GitLab</option>
+                <option value="zendesk">Zendesk</option>
+                <option value="linear">Linear</option>
+                <option value="asana">Asana</option>
+                <option value="hubspot">HubSpot</option>
+                <option value="dropbox">Dropbox</option>
+                <option value="airtable">Airtable</option>
+                <option value="discord">Discord</option>
+                <option value="bitbucket">Bitbucket</option>
+                <option value="onedrive">OneDrive</option>
+                <option value="gmail">Gmail</option>
+                <option value="teams">Microsoft Teams</option>
+                <option value="figma">Figma</option>
+                <option value="salesforce">Salesforce</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Credentials (JSON)</label>
+            <textarea class="ap-input" id="connCredentials" rows="3" placeholder='{"token":"...","email":"..."}' style="font-family:var(--font-mono);font-size:12px;resize:vertical;"></textarea>
+          </div>
+          <div style="margin-top:12px;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Config (JSON, optional)</label>
+            <textarea class="ap-input" id="connConfig" rows="2" placeholder='{"repo":"owner/repo","org":"myorg"}' style="font-family:var(--font-mono);font-size:12px;resize:vertical;"></textarea>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;">
+            <button class="ap-btn dark" id="saveConnectorBtn">Save Connector</button>
+            <div id="connectorSaveMsg" style="font-size:12px;color:var(--log-ok);display:flex;align-items:center;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SSO tab ── -->
+      <div class="tab-view" id="tab-sso">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head">
+            <div class="card-title">SSO Providers</div>
+            <button class="ap-btn dark" id="addSsoBtn" style="padding:6px 14px;font-size:12px;">+ Add Provider</button>
+          </div>
+          <div id="ssoProviderList">
+            <div style="text-align:center;padding:24px;color:var(--muted1);">Loading SSO providers…</div>
+          </div>
+        </div>
+
+        <!-- Add SSO provider form -->
+        <div class="card" id="ssoFormCard" style="display:none;">
+          <div class="card-head">
+            <div class="card-title">New SSO Provider</div>
+            <button class="ap-btn" id="cancelSsoBtn" style="padding:5px 12px;font-size:12px;">Cancel</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Display Name</label>
+              <input class="ap-input" id="ssoName" placeholder="e.g. Sign in with Google" />
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Type</label>
+              <select class="ap-input" id="ssoType">
+                <option value="google">Google OAuth 2.0</option>
+                <option value="oidc">Generic OIDC</option>
+                <option value="saml">SAML 2.0</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Client ID</label>
+            <input class="ap-input" id="ssoClientId" placeholder="OAuth client ID or SAML entity ID" />
+          </div>
+          <div style="margin-top:12px;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Client Secret</label>
+            <input class="ap-input" id="ssoClientSecret" type="password" placeholder="OAuth client secret" />
+          </div>
+          <div style="margin-top:12px;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted1);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Config (JSON — issuerUrl, metadataUrl, scopes, etc.)</label>
+            <textarea class="ap-input" id="ssoConfig" rows="3" placeholder='{"issuerUrl":"https://accounts.google.com","scopes":"openid email profile"}' style="font-family:var(--font-mono);font-size:12px;resize:vertical;"></textarea>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;">
+            <button class="ap-btn dark" id="saveSsoBtn">Save Provider</button>
+            <div id="ssoSaveMsg" style="font-size:12px;color:var(--log-ok);display:flex;align-items:center;"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="tab-view" id="tab-audit">
         <div class="card">
           <div class="card-head"><div class="card-title">Audit Log</div></div>

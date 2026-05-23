@@ -5,11 +5,13 @@ import com.ollanest.model.ModelRecord;
 import com.ollanest.model.User;
 import com.ollanest.service.ChatService;
 import com.ollanest.service.DatabaseService;
+import com.ollanest.service.DeepResearchService;
 import com.ollanest.service.FunctionCallService;
 import com.ollanest.service.ModelService;
 import com.ollanest.service.ProviderService;
 import com.ollanest.service.RagService;
 import com.ollanest.service.RouterService;
+import com.ollanest.service.WebSearchService;
 import com.ollanest.service.WorkspaceService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -112,6 +114,12 @@ public class ChatController extends BaseController {
     /** AI tool/function calling registry and executor. */
     private final FunctionCallService functionCallService;
 
+    /** Web search service for Serper/Brave/SearXNG. */
+    private final WebSearchService webSearchService;
+
+    /** Deep research multi-step pipeline. */
+    private final DeepResearchService deepResearchService;
+
     /**
      * Constructor-injects all required dependencies.
      *
@@ -131,7 +139,8 @@ public class ChatController extends BaseController {
     public ChatController(JdbcTemplate db, ChatService chatService, RouterService routerService,
             ProviderService providerService, ModelService modelService,
             WorkspaceService workspaceService, DatabaseService databaseService,
-            ObjectMapper mapper, RagService ragService, FunctionCallService functionCallService) {
+            ObjectMapper mapper, RagService ragService, FunctionCallService functionCallService,
+            WebSearchService webSearchService, DeepResearchService deepResearchService) {
         this.db = db;
         this.chatService = chatService;
         this.routerService = routerService;
@@ -142,6 +151,8 @@ public class ChatController extends BaseController {
         this.mapper = mapper;
         this.ragService = ragService;
         this.functionCallService = functionCallService;
+        this.webSearchService = webSearchService;
+        this.deepResearchService = deepResearchService;
     }
 
     /**
@@ -423,9 +434,18 @@ public class ChatController extends BaseController {
             return emitter;
         }
 
+        // Deep research path — delegates entirely to DeepResearchService
+        if (Boolean.TRUE.equals(body.get("deepResearch"))) {
+            final User researchUser = user;
+            final String researchMessage = message;
+            Thread.ofVirtual().start(() -> deepResearchService.executeResearch(researchMessage, researchUser, emitter));
+            return emitter;
+        }
+
         // Run streaming on a virtual thread to avoid blocking Tomcat
         final String finalMessage = message;
         final String finalMode = mode;
+        final boolean enableWebSearch = Boolean.TRUE.equals(body.get("enableWebSearch"));
         Thread.ofVirtual().start(() -> {
             try {
                 ModelRecord manualModel = null;
@@ -477,9 +497,29 @@ public class ChatController extends BaseController {
                 Map<String, Object> chatSession = chatService.getActiveChat(user.id);
                 String chatId = (String) chatSession.get("id");
                 String ragContext = ragService.buildRagContext(finalMessage, user.id);
+
+                // Web search — inject results into system prompt if enabled
+                String webSearchContext = "";
+                if (enableWebSearch) {
+                    try {
+                        List<WebSearchService.SearchResult> searchResults =
+                                webSearchService.search(finalMessage, 5);
+                        if (!searchResults.isEmpty()) {
+                            emitter.send(SseEmitter.event().data(toJson(Map.of(
+                                    "type", "search_status",
+                                    "query", finalMessage,
+                                    "resultsCount", searchResults.size()))));
+                            webSearchContext = webSearchService.formatResultsForPrompt(searchResults);
+                        }
+                    } catch (Exception e) {
+                        log.warn("[chat/stream] web search failed: {}", e.getMessage());
+                    }
+                }
+
                 String systemPrompt = chatService.buildSystemPromptWithRag(
                         finalMode, route, workspace,
-                        databaseService.getSetting("projectKnowledge", ""), ragContext);
+                        databaseService.getSetting("projectKnowledge", ""),
+                        ragContext + (webSearchContext.isEmpty() ? "" : "\n\n" + webSearchContext));
                 List<Map<String, Object>> messages = chatService.buildContextMessages(
                         chatId, systemPrompt, finalMessage, route.selected.model, images);
 

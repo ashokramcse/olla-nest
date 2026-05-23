@@ -130,6 +130,28 @@ public class RagService {
         return db.queryForList("SELECT id, name, type, size, chunk_count, uploaded_by, scope, created_at FROM rag_documents ORDER BY created_at DESC");
     }
 
+    /**
+     * Convenience: ingest plain text directly (used by connectors).
+     * Creates a rag_documents row with scope = connectorId and returns the doc ID.
+     */
+    public String ingestText(String content, String name, String scope) {
+        String docId = "doc-" + Long.toString(System.currentTimeMillis(), 36)
+                + "-" + Long.toString((long)(Math.random() * 1_000_000), 36);
+        List<String> chunks = chunkText(content);
+        String now = java.time.Instant.now().toString();
+        db.update("INSERT INTO rag_documents (id, name, type, size, chunk_count, uploaded_by, scope, created_at) VALUES (?,?,?,?,?,?,?,?)",
+                docId, name, "text/plain", (long) content.length(), chunks.size(), "connector", scope, now);
+        for (int i = 0; i < chunks.size(); i++) {
+            String chunk = chunks.get(i);
+            String chunkId = docId + "-c" + i;
+            List<Double> vec = embeddingService.embed(chunk);
+            String embJson = vec.isEmpty() ? null : embeddingService.vectorToJson(vec);
+            db.update("INSERT INTO rag_chunks (id, document_id, chunk_index, content, embedding_json, created_at) VALUES (?,?,?,?,?,?)",
+                    chunkId, docId, i, chunk, embJson, now);
+        }
+        return docId;
+    }
+
     public void deleteDocument(String docId) {
         db.update("DELETE FROM rag_chunks WHERE document_id = ?", docId);
         db.update("DELETE FROM rag_documents WHERE id = ?", docId);

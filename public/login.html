@@ -475,6 +475,12 @@
 
     <div class="login-hint" id="bootstrapHint"></div>
 
+    <!-- SSO providers — rendered by login.js when GET /api/auth/sso/providers returns results -->
+    <div id="ssoProviders" style="display:none;">
+      <div class="login-divider"><span>Or continue with</span></div>
+      <div id="ssoProviderList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
     <div class="login-divider"><span>Olla Nest</span></div>
 
     <a href="/admin-login" class="login-footer-link">

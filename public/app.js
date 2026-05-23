@@ -633,6 +633,35 @@ function splitThinkingContent(raw) {
   return { thinking, reply };
 }
 
+/**
+ * Renders a research_step SSE event as a live progress card above the assistant bubble.
+ * Cards are upserted (keyed by step name) so status updates in place.
+ */
+function renderResearchStep(event, bubbleId) {
+  const cardId = `rs-${bubbleId}-${event.step}`;
+  let card = document.getElementById(cardId);
+  const bubble = document.getElementById(`${bubbleId}-content`);
+  if (!card) {
+    card = document.createElement("div");
+    card.id = cardId;
+    card.className = "research-step-card";
+    if (bubble) bubble.parentNode.insertBefore(card, bubble);
+  }
+  const icons = { plan: "📋", search: "🔍", synthesize: "✍️" };
+  const icon = icons[event.step] || "⟳";
+  const statusIcon = event.status === "done" ? "✓" : event.status === "running" ? "⟳" : "•";
+  let detail = "";
+  if (event.step === "plan" && event.subQuestions) {
+    detail = `<ul style="margin:4px 0 0 16px;padding:0;list-style:disc;">${event.subQuestions.map(q => `<li style="font-size:11px;color:var(--muted1);">${esc(q)}</li>`).join("")}</ul>`;
+  } else if (event.step === "search" && event.query) {
+    detail = `<span style="font-size:11px;color:var(--muted2);">${esc(event.query)}</span>`;
+  } else if (event.msg) {
+    detail = `<span style="font-size:11px;color:var(--muted2);">${esc(event.msg)}</span>`;
+  }
+  card.innerHTML = `<div style="display:flex;align-items:flex-start;gap:8px;"><span style="font-size:14px;">${icon}</span><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;color:var(--body-text);">${statusIcon} ${event.step.charAt(0).toUpperCase() + event.step.slice(1)}</div>${detail}</div></div>`;
+  card.style.opacity = event.status === "done" ? "0.6" : "1";
+}
+
 function renderMarkdown(content) {
   if (typeof marked === "undefined") return `<pre style="white-space:pre-wrap;">${esc(content)}</pre>`;
   const renderer = new marked.Renderer();
@@ -1096,6 +1125,8 @@ $("chatForm").addEventListener("submit", async (e) => {
         manualModelId: selectedModelId || null,
         writeToWorkspace: $("writeToWorkspace")?.checked || false,
         images: imageFiles.length ? imageFiles : undefined,
+        enableWebSearch: enableWebSearch || false,
+        deepResearch: enableDeepResearch || false,
       }),
     });
 
@@ -1119,7 +1150,14 @@ $("chatForm").addEventListener("submit", async (e) => {
         if (!part.startsWith("data: ")) continue;
         try {
           const event = JSON.parse(part.slice(6));
-          if (event.type === "routing") {
+          if (event.type === "search_status") {
+            const bubble = $(`${asstBubbleId}-content`);
+            if (bubble && firstToken) {
+              bubble.insertAdjacentHTML("beforebegin", `<div class="research-step-card" id="search-status-card">🔍 Web search: ${esc(event.query)} — ${event.resultsCount} results found</div>`);
+            }
+          } else if (event.type === "research_step") {
+            renderResearchStep(event, asstBubbleId);
+          } else if (event.type === "routing") {
             $("routerContent").innerHTML = `<div class="router-body">
               <div class="router-model">${esc(event.model)}</div>
               <div class="router-reason">${esc(event.reason)}</div>
@@ -1537,6 +1575,136 @@ document.addEventListener("click", (e) => {
     submitFeedback(fbBtn, fbBtn.dataset.msgId, fbBtn.dataset.sessionId, parseInt(fbBtn.dataset.rating, 10));
   }
 });
+
+// ─── Web search toggle ───────────────────────────────────────────────────────
+let enableWebSearch = false;
+const webSearchBtn = document.getElementById("webSearchBtn");
+if (webSearchBtn) {
+  webSearchBtn.addEventListener("click", () => {
+    enableWebSearch = !enableWebSearch;
+    webSearchBtn.classList.toggle("active", enableWebSearch);
+    webSearchBtn.title = enableWebSearch ? "Web search ON — click to disable" : "Search the web for up-to-date information";
+  });
+}
+
+// ─── Deep research toggle ────────────────────────────────────────────────────
+let enableDeepResearch = false;
+const deepResearchBtn = document.getElementById("deepResearchBtn");
+if (deepResearchBtn) {
+  deepResearchBtn.addEventListener("click", () => {
+    enableDeepResearch = !enableDeepResearch;
+    deepResearchBtn.classList.toggle("active", enableDeepResearch);
+    deepResearchBtn.title = enableDeepResearch ? "Deep research ON — click to disable" : "Multi-step research with planning, search, and synthesis";
+    if (enableDeepResearch) {
+      const input = document.getElementById("messageInput");
+      if (input && !input.placeholder.includes("research query")) {
+        input.setAttribute("data-default-placeholder", input.placeholder);
+        input.placeholder = "Enter your research query — I'll plan, search, and synthesise a full report…";
+      }
+    } else {
+      const input = document.getElementById("messageInput");
+      if (input) {
+        const def = input.getAttribute("data-default-placeholder");
+        if (def) input.placeholder = def;
+      }
+    }
+  });
+}
+
+// ─── Voice input ─────────────────────────────────────────────────────────────
+const voiceBtn = document.getElementById("voiceBtn");
+let mediaRecorder = null;
+let audioChunks = [];
+
+if (voiceBtn) {
+  // Prefer browser Web Speech API if available (no API key needed)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition) {
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      const input = document.getElementById("messageInput");
+      if (input) { input.value = (input.value ? input.value + " " : "") + transcript; input.focus(); }
+      voiceBtn.classList.remove("recording");
+    };
+    recognition.onerror = () => voiceBtn.classList.remove("recording");
+    recognition.onend = () => voiceBtn.classList.remove("recording");
+    voiceBtn.addEventListener("click", () => {
+      voiceBtn.classList.add("recording");
+      recognition.start();
+    });
+  } else {
+    // Fallback: MediaRecorder → OpenAI Whisper API
+    voiceBtn.addEventListener("mousedown", async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          voiceBtn.classList.remove("recording");
+          const blob = new Blob(audioChunks, { type: "audio/webm" });
+          const formData = new FormData();
+          formData.append("audio", blob, "voice.webm");
+          try {
+            const res = await fetch("/api/voice/transcribe", {
+              method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" }, body: formData
+            });
+            const data = await res.json();
+            if (data.text) {
+              const input = document.getElementById("messageInput");
+              if (input) { input.value = (input.value ? input.value + " " : "") + data.text; input.focus(); }
+            }
+          } catch {}
+        };
+        mediaRecorder.start();
+        voiceBtn.classList.add("recording");
+      } catch {}
+    });
+    voiceBtn.addEventListener("mouseup", () => { if (mediaRecorder?.state === "recording") mediaRecorder.stop(); });
+    voiceBtn.addEventListener("mouseleave", () => { if (mediaRecorder?.state === "recording") mediaRecorder.stop(); });
+  }
+}
+
+// ─── Image generation ─────────────────────────────────────────────────────────
+const imageGenBtn = document.getElementById("imageGenBtn");
+if (imageGenBtn) {
+  imageGenBtn.addEventListener("click", async () => {
+    const input = document.getElementById("messageInput");
+    const prompt = input?.value?.trim();
+    if (!prompt) { alert("Enter an image prompt first."); return; }
+    imageGenBtn.disabled = true;
+    const msgs = document.getElementById("messages");
+    const pendingId = "img-" + Date.now();
+    if (msgs) msgs.insertAdjacentHTML("beforeend", `<div id="${pendingId}" style="display:flex;gap:12px;padding:12px 0;"><div style="font-size:13px;color:var(--muted1);">🖼 Generating image…</div></div>`);
+    try {
+      const res = await fetch("/api/images/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ prompt })
+      });
+      const data = await res.json();
+      const pending = document.getElementById(pendingId);
+      if (pending) {
+        if (data.imageUrl) {
+          pending.innerHTML = `<div style="max-width:600px;"><img src="${data.imageUrl}" alt="Generated image" style="max-width:100%;border-radius:12px;border:1px solid var(--border);" /><div style="font-size:11px;color:var(--muted2);margin-top:6px;font-family:var(--font-mono);">Provider: ${data.provider || "unknown"}</div></div>`;
+        } else if (data.base64) {
+          pending.innerHTML = `<div style="max-width:600px;"><img src="data:image/png;base64,${data.base64}" alt="Generated image" style="max-width:100%;border-radius:12px;border:1px solid var(--border);" /><div style="font-size:11px;color:var(--muted2);margin-top:6px;font-family:var(--font-mono);">Provider: ${data.provider || "unknown"}</div></div>`;
+        } else {
+          pending.innerHTML = `<div style="color:var(--danger);font-size:13px;">Image generation failed: ${esc(data.error || "Unknown error")}</div>`;
+        }
+      }
+    } catch (err) {
+      const pending = document.getElementById(pendingId);
+      if (pending) pending.innerHTML = `<div style="color:var(--danger);font-size:13px;">Image generation failed: ${esc(err.message)}</div>`;
+    } finally {
+      imageGenBtn.disabled = false;
+    }
+  });
+}
 
 // Fire Ollama status check immediately — don't wait for loadState() so
 // the status chip resolves in ≤2s regardless of how long state takes.

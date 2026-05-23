@@ -2048,3 +2048,188 @@ checkOllama();
 loadState();
 /* Re-check Ollama every 30 seconds so status stays current without a page reload */
 setInterval(checkOllama, 30000);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONNECTORS MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function loadConnectors() {
+  const list = $("connectorList");
+  if (!list) return;
+  try {
+    const data = await adminApi("/api/admin/connectors");
+    const connectors = data.connectors || [];
+    if (!connectors.length) {
+      list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted1);">No connectors configured yet. Click "+ Add Connector" to create one.</div>';
+      return;
+    }
+    list.innerHTML = `<table class="data-table" style="width:100%;">
+      <thead><tr>
+        <th>Name</th><th>Type</th><th>Status</th><th>Last Sync</th><th>Docs</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${connectors.map(c => `<tr>
+        <td><div class="table-name">${esc(c.name)}</div></td>
+        <td><span style="font-family:var(--font-mono);font-size:12px;">${esc(c.type)}</span></td>
+        <td><span class="log-${c.sync_status==='ok'?'ok':c.sync_status==='error'?'error':'warn'}">${esc(c.sync_status||'idle')}</span></td>
+        <td style="font-size:12px;color:var(--muted1);">${c.last_synced_at ? new Date(c.last_synced_at).toLocaleString() : '—'}</td>
+        <td class="num">${c.docs_total||0}</td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="ap-btn" onclick="syncConnector('${esc(c.id)}')" style="padding:4px 10px;font-size:11px;">Sync</button>
+          <button class="ap-btn" onclick="testConnector('${esc(c.id)}')" style="padding:4px 10px;font-size:11px;">Test</button>
+          <button class="ap-btn" onclick="deleteConnector('${esc(c.id)}','${esc(c.name)}')" style="padding:4px 10px;font-size:11px;color:var(--danger);">Delete</button>
+        </td>
+      </tr>`).join("")}</tbody>
+    </table>`;
+  } catch(e) {
+    list.innerHTML = `<div style="color:var(--danger);padding:12px;">Error loading connectors: ${esc(e.message)}</div>`;
+  }
+}
+
+async function syncConnector(id) {
+  try {
+    await adminApi(`/api/admin/connectors/${id}/sync`, { method: "POST" });
+    showToast("Sync started in background");
+    setTimeout(loadConnectors, 2000);
+  } catch(e) { showToast("Sync failed: " + e.message, true); }
+}
+
+async function testConnector(id) {
+  try {
+    const data = await adminApi(`/api/admin/connectors/${id}/test`, { method: "POST" });
+    showToast(data.ok ? "✓ Connection successful" : "✗ " + (data.message||"Connection failed"), !data.ok);
+  } catch(e) { showToast("Test failed: " + e.message, true); }
+}
+
+async function deleteConnector(id, name) {
+  if (!confirm(`Delete connector "${name}"? This will also remove all its synced documents.`)) return;
+  try {
+    await adminApi(`/api/admin/connectors/${id}`, { method: "DELETE" });
+    showToast("Connector deleted");
+    loadConnectors();
+  } catch(e) { showToast("Delete failed: " + e.message, true); }
+}
+
+if ($("addConnectorBtn")) {
+  $("addConnectorBtn").addEventListener("click", () => {
+    $("connectorFormCard").style.display = "block";
+    $("connName").focus();
+  });
+}
+if ($("cancelConnectorBtn")) {
+  $("cancelConnectorBtn").addEventListener("click", () => {
+    $("connectorFormCard").style.display = "none";
+  });
+}
+if ($("saveConnectorBtn")) {
+  $("saveConnectorBtn").addEventListener("click", async () => {
+    const name = $("connName").value.trim();
+    const type = $("connType").value;
+    const credRaw = $("connCredentials").value.trim();
+    const cfgRaw = $("connConfig").value.trim();
+    if (!name) { showToast("Name is required", true); return; }
+    let credentials = null, config = null;
+    try { if (credRaw) credentials = JSON.parse(credRaw); } catch { showToast("Credentials must be valid JSON", true); return; }
+    try { if (cfgRaw) config = JSON.parse(cfgRaw); } catch { showToast("Config must be valid JSON", true); return; }
+    try {
+      const data = await adminApi("/api/admin/connectors", {
+        method: "POST",
+        body: JSON.stringify({ name, type, credentials, config })
+      });
+      $("connectorSaveMsg").textContent = `✓ Created (${data.id})`;
+      setTimeout(() => { $("connectorFormCard").style.display = "none"; $("connectorSaveMsg").textContent = ""; }, 2000);
+      loadConnectors();
+    } catch(e) { showToast("Error: " + e.message, true); }
+  });
+}
+
+// Load connectors when tab is clicked
+document.querySelectorAll(".nav-item[data-tab='connectors']").forEach(btn =>
+  btn.addEventListener("click", loadConnectors));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SSO PROVIDERS MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function loadSsoAdminProviders() {
+  const list = $("ssoProviderList");
+  if (!list) return;
+  try {
+    const data = await adminApi("/api/auth/sso/admin/providers");
+    const providers = data.providers || [];
+    if (!providers.length) {
+      list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted1);">No SSO providers configured. Click "+ Add Provider" to set up Google OAuth, OIDC, or SAML.</div>';
+      return;
+    }
+    list.innerHTML = `<table class="data-table" style="width:100%;">
+      <thead><tr><th>Name</th><th>Type</th><th>Client ID</th><th>Enabled</th><th>Actions</th></tr></thead>
+      <tbody>${providers.map(p => `<tr>
+        <td>${esc(p.name)}</td>
+        <td><span style="font-family:var(--font-mono);font-size:12px;">${esc(p.type)}</span></td>
+        <td style="font-family:var(--font-mono);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${esc(p.client_id||'—')}</td>
+        <td><span class="log-${p.enabled?'ok':'warn'}">${p.enabled?'Yes':'No'}</span></td>
+        <td style="display:flex;gap:6px;">
+          <button class="ap-btn" onclick="toggleSsoProvider('${esc(p.id)}',${!p.enabled})" style="padding:4px 10px;font-size:11px;">${p.enabled?'Disable':'Enable'}</button>
+          <button class="ap-btn" onclick="deleteSsoProvider('${esc(p.id)}','${esc(p.name)}')" style="padding:4px 10px;font-size:11px;color:var(--danger);">Delete</button>
+        </td>
+      </tr>`).join("")}</tbody>
+    </table>`;
+  } catch(e) {
+    list.innerHTML = `<div style="color:var(--danger);padding:12px;">Error loading SSO providers: ${esc(e.message)}</div>`;
+  }
+}
+
+async function toggleSsoProvider(id, enabled) {
+  try {
+    await adminApi(`/api/auth/sso/admin/providers/${id}`, { method: "PATCH", body: JSON.stringify({ enabled }) });
+    loadSsoAdminProviders();
+  } catch(e) { showToast("Error: " + e.message, true); }
+}
+
+async function deleteSsoProvider(id, name) {
+  if (!confirm(`Delete SSO provider "${name}"?`)) return;
+  try {
+    await adminApi(`/api/auth/sso/admin/providers/${id}`, { method: "DELETE" });
+    showToast("SSO provider deleted");
+    loadSsoAdminProviders();
+  } catch(e) { showToast("Error: " + e.message, true); }
+}
+
+if ($("addSsoBtn")) $("addSsoBtn").addEventListener("click", () => { $("ssoFormCard").style.display = "block"; $("ssoName").focus(); });
+if ($("cancelSsoBtn")) $("cancelSsoBtn").addEventListener("click", () => { $("ssoFormCard").style.display = "none"; });
+if ($("saveSsoBtn")) {
+  $("saveSsoBtn").addEventListener("click", async () => {
+    const name = $("ssoName").value.trim();
+    const type = $("ssoType").value;
+    const clientId = $("ssoClientId").value.trim();
+    const clientSecret = $("ssoClientSecret").value.trim();
+    const cfgRaw = $("ssoConfig").value.trim();
+    if (!name || !clientId) { showToast("Name and Client ID are required", true); return; }
+    let config = null;
+    try { if (cfgRaw) config = JSON.parse(cfgRaw); } catch { showToast("Config must be valid JSON", true); return; }
+    try {
+      await adminApi("/api/auth/sso/admin/providers", { method: "POST", body: JSON.stringify({ name, type, clientId, clientSecret, config }) });
+      $("ssoSaveMsg").textContent = "✓ Provider created";
+      setTimeout(() => { $("ssoFormCard").style.display = "none"; $("ssoSaveMsg").textContent = ""; }, 2000);
+      loadSsoAdminProviders();
+    } catch(e) { showToast("Error: " + e.message, true); }
+  });
+}
+
+document.querySelectorAll(".nav-item[data-tab='sso']").forEach(btn =>
+  btn.addEventListener("click", loadSsoAdminProviders));
+
+// Helper: show toast notification
+function showToast(msg, isError) {
+  let toast = document.getElementById("adminToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "adminToast";
+    toast.style.cssText = "position:fixed;bottom:24px;right:24px;background:var(--body-text);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none;";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.background = isError ? "var(--danger)" : "var(--body-text)";
+  toast.style.opacity = "1";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.opacity = "0"; }, 3000);
+}
