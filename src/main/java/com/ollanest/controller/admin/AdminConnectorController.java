@@ -16,41 +16,99 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Admin REST API for managing connector integrations.
+ * Admin REST API for managing external connector integrations.
  *
- * <p>All endpoints require admin role.
+ * <h3>Why this class exists</h3>
+ * <p>Olla Nest supports pluggable data connectors (e.g. Confluence, Jira,
+ * SharePoint) that periodically sync external documents into the workspace
+ * knowledge base. This controller provides the admin UI with full CRUD over
+ * connector configurations, on-demand sync triggering, credential testing,
+ * and per-connector sync history.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ *   <li>Credentials are encrypted at rest via AES-256-GCM
+ *       ({@link CryptoService}) and are <em>never</em> included in any API
+ *       response — only the derived metadata is returned.</li>
+ *   <li>Syncs run in a Java virtual thread so they do not block the HTTP
+ *       thread. The endpoint returns immediately with a {@code 200 OK /
+ *       "Sync started in background"} acknowledgement.</li>
+ *   <li>The {@link ConnectorRegistry} is the single source of truth for
+ *       which connector types are available at runtime; the {@code /types}
+ *       endpoint simply delegates to it.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ *   <li>v2026.1.0 — initial Java Spring Boot migration</li>
+ * </ul>
  *
  * <pre>
- *   GET    /api/admin/connectors                 — list all connectors
- *   GET    /api/admin/connectors/types           — list registered connector types
- *   POST   /api/admin/connectors                 — create connector
- *   PATCH  /api/admin/connectors/{id}            — update connector config/enable
- *   DELETE /api/admin/connectors/{id}            — delete connector
- *   POST   /api/admin/connectors/{id}/sync       — trigger manual sync
- *   POST   /api/admin/connectors/{id}/test       — test credentials
- *   GET    /api/admin/connectors/{id}/logs       — recent sync logs
+ *   GET    /api/admin/connectors              — list all connector configs
+ *   GET    /api/admin/connectors/types        — list registered connector types
+ *   POST   /api/admin/connectors              — create a new connector
+ *   PATCH  /api/admin/connectors/{id}         — update config / enable flag
+ *   DELETE /api/admin/connectors/{id}         — delete a connector
+ *   POST   /api/admin/connectors/{id}/sync    — trigger a manual sync (async)
+ *   POST   /api/admin/connectors/{id}/test    — test connector credentials
+ *   GET    /api/admin/connectors/{id}/logs    — fetch recent sync log entries
  * </pre>
+ *
+ * @author  Ashok Ram
+ * @since   v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/admin/connectors")
 public class AdminConnectorController extends BaseController {
 
+    /** JDBC template used for all connector config and sync-log queries. */
     private final JdbcTemplate db;
+
+    /** Registry of all runtime-available connector implementations. */
     private final ConnectorRegistry registry;
+
+    /** Scheduler that owns scheduled sync jobs (unused directly here but wired for DI). */
     private final ConnectorSyncScheduler scheduler;
+
+    /** AES-256-GCM service used to encrypt and decrypt connector credentials. */
     private final CryptoService cryptoService;
+
+    /** Shared JSON mapper for serialising/deserialising config and credential maps. */
     private final ObjectMapper mapper;
 
+    /**
+     * Constructor-injects all required dependencies.
+     *
+     * @param  db            the JDBC template
+     * @param  registry      the connector type registry
+     * @param  scheduler     the background sync scheduler
+     * @param  cryptoService the credential encryption service
+     * @param  mapper        the shared JSON object mapper
+     * @since   v2026.1.0
+     */
     public AdminConnectorController(JdbcTemplate db, ConnectorRegistry registry,
-                                     ConnectorSyncScheduler scheduler,
-                                     CryptoService cryptoService, ObjectMapper mapper) {
-        this.db          = db;
-        this.registry    = registry;
-        this.scheduler   = scheduler;
+                                    ConnectorSyncScheduler scheduler,
+                                    CryptoService cryptoService, ObjectMapper mapper) {
+        this.db            = db;
+        this.registry      = registry;
+        this.scheduler     = scheduler;
         this.cryptoService = cryptoService;
-        this.mapper      = mapper;
+        this.mapper        = mapper;
     }
 
+    /**
+     * Lists all connector configurations. Credentials are never included.
+     *
+     * <p>HTTP: {@code GET /api/admin/connectors} — admin-only.
+     *
+     * @param  req  the current HTTP request (for admin auth check)
+     * @return      200 OK with {@code {ok: true, connectors: [connector]}}; each
+     *              row contains id, name, type, enabled, auth_type, config_json,
+     *              last_synced_at, sync_status, sync_error, docs_total, created_at;
+     *              or 401/403 if not an admin
+     * @since   v2026.1.0
+     */
     @GetMapping
     public ResponseEntity<Map<String, Object>> list(HttpServletRequest req) {
         ResponseEntity<Map<String, Object>> err = requireAdmin(req);
@@ -62,6 +120,15 @@ public class AdminConnectorController extends BaseController {
         return ResponseEntity.ok(Map.of("ok", true, "connectors", rows));
     }
 
+    /**
+     * Returns the list of connector types registered in the {@link ConnectorRegistry}.
+     *
+     * <p>HTTP: {@code GET /api/admin/connectors/types} — admin-only.
+     *
+     * @param  req  the current HTTP request (for admin auth check)
+     * @return      200 OK with {@code {ok: true, types: [typeString]}}; or 401/403
+     * @since   v2026.1.0
+     */
     @GetMapping("/types")
     public ResponseEntity<Map<String, Object>> types(HttpServletRequest req) {
         ResponseEntity<Map<String, Object>> err = requireAdmin(req);
@@ -69,6 +136,29 @@ public class AdminConnectorController extends BaseController {
         return ResponseEntity.ok(Map.of("ok", true, "types", registry.types()));
     }
 
+    /**
+     * Creates a new connector configuration.
+     *
+     * <p>HTTP: {@code POST /api/admin/connectors} — admin-only.
+     *
+     * <p>The connector is created in {@code enabled} state with sync status
+     * {@code "idle"}. If {@code credentials} is provided (as an object or JSON
+     * string) it is encrypted before storage. The generated ID has the form
+     * {@code conn-<type>-<base36timestamp>}.
+     *
+     * @param  body  request body with fields:
+     *               <ul>
+     *                 <li>{@code name} (required) — human-readable label</li>
+     *                 <li>{@code type} (required) — must match a registered type</li>
+     *                 <li>{@code credentials} (optional) — object or JSON string with auth data</li>
+     *                 <li>{@code config} (optional) — connector-specific config object</li>
+     *                 <li>{@code authType} (optional, default {@code "api_key"})</li>
+     *               </ul>
+     * @param  req   the current HTTP request (for admin auth check)
+     * @return       200 OK with {@code {ok: true, id: newId}}; or 400 if credentials
+     *               cannot be serialised; or 401/403 if not an admin
+     * @since   v2026.1.0
+     */
     @PostMapping
     public ResponseEntity<Map<String, Object>> create(
             @RequestBody Map<String, Object> body, HttpServletRequest req) {
@@ -103,6 +193,22 @@ public class AdminConnectorController extends BaseController {
         return ResponseEntity.ok(Map.of("ok", true, "id", id));
     }
 
+    /**
+     * Updates a connector's name, enabled flag, config, or credentials.
+     *
+     * <p>HTTP: {@code PATCH /api/admin/connectors/{id}} — admin-only.
+     *
+     * <p>Only fields present in the request body are updated. Credentials, if
+     * supplied, are re-encrypted before saving.
+     *
+     * @param  id    the connector ID to update
+     * @param  body  request body with any combination of:
+     *               {@code enabled} (boolean), {@code name} (string),
+     *               {@code config} (object), {@code credentials} (object or string)
+     * @param  req   the current HTTP request (for admin auth check)
+     * @return       200 OK with {@code {ok: true}}; or 401/403 if not an admin
+     * @since   v2026.1.0
+     */
     @PatchMapping("/{id}")
     public ResponseEntity<Map<String, Object>> update(
             @PathVariable String id, @RequestBody Map<String, Object> body, HttpServletRequest req) {
@@ -130,6 +236,16 @@ public class AdminConnectorController extends BaseController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
+    /**
+     * Permanently deletes a connector configuration.
+     *
+     * <p>HTTP: {@code DELETE /api/admin/connectors/{id}} — admin-only.
+     *
+     * @param  id   the connector ID to delete
+     * @param  req  the current HTTP request (for admin auth check)
+     * @return      200 OK with {@code {ok: true}}; or 401/403 if not an admin
+     * @since   v2026.1.0
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, Object>> delete(
             @PathVariable String id, HttpServletRequest req) {
@@ -139,6 +255,24 @@ public class AdminConnectorController extends BaseController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
+    /**
+     * Triggers an asynchronous document sync for a connector.
+     *
+     * <p>HTTP: {@code POST /api/admin/connectors/{id}/sync} — admin-only.
+     *
+     * <p>The sync runs on a Java virtual thread so this endpoint returns
+     * immediately. A log row is created in {@code connector_sync_log} before
+     * the thread starts. On completion (success or error) both the config row
+     * and the log row are updated.
+     *
+     * @param  id   the connector ID to sync
+     * @param  req  the current HTTP request (for admin auth check)
+     * @return      200 OK with {@code {ok: true, message: "Sync started in background"}};
+     *              or 404 if the connector does not exist;
+     *              or 400 if no {@link BaseConnector} is registered for the connector's type;
+     *              or 401/403 if not an admin
+     * @since   v2026.1.0
+     */
     @PostMapping("/{id}/sync")
     public ResponseEntity<Map<String, Object>> sync(
             @PathVariable String id, HttpServletRequest req) {
@@ -178,6 +312,23 @@ public class AdminConnectorController extends BaseController {
         return ResponseEntity.ok(Map.of("ok", true, "message", "Sync started in background"));
     }
 
+    /**
+     * Tests a connector's stored credentials synchronously.
+     *
+     * <p>HTTP: {@code POST /api/admin/connectors/{id}/test} — admin-only.
+     *
+     * <p>Decrypts the stored credentials and delegates to
+     * {@link BaseConnector#testConnection(Map, String)}. Any exception is caught
+     * and returned as {@code ok: false} rather than propagating a 500.
+     *
+     * @param  id   the connector ID to test
+     * @param  req  the current HTTP request (for admin auth check)
+     * @return      200 OK with {@code {ok: boolean, message: string}};
+     *              or 404 if the connector does not exist;
+     *              or 400 if no connector implementation is registered for the type;
+     *              or 401/403 if not an admin
+     * @since   v2026.1.0
+     */
     @PostMapping("/{id}/test")
     public ResponseEntity<Map<String, Object>> test(
             @PathVariable String id, HttpServletRequest req) {
@@ -201,6 +352,19 @@ public class AdminConnectorController extends BaseController {
         }
     }
 
+    /**
+     * Returns the 20 most recent sync log entries for a connector.
+     *
+     * <p>HTTP: {@code GET /api/admin/connectors/{id}/logs} — admin-only.
+     *
+     * <p>Results are ordered newest-first. Each row includes started_at,
+     * finished_at, status, docs_synced, and error (if any).
+     *
+     * @param  id   the connector ID
+     * @param  req  the current HTTP request (for admin auth check)
+     * @return      200 OK with {@code {ok: true, logs: [logEntry]}}; or 401/403
+     * @since   v2026.1.0
+     */
     @GetMapping("/{id}/logs")
     public ResponseEntity<Map<String, Object>> logs(
             @PathVariable String id, HttpServletRequest req) {
