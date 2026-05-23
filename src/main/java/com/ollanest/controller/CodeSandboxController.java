@@ -57,11 +57,11 @@ public class CodeSandboxController extends BaseController {
         String code     = (String) body.getOrDefault("code", "");
 
         if (language.isBlank())
-            return ResponseEntity.badRequest().body(Map.of("error", "language is required"));
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "language is required"));
         if (code.isBlank())
-            return ResponseEntity.badRequest().body(Map.of("error", "code is required"));
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "code is required"));
         if (code.length() > 50_000)
-            return ResponseEntity.badRequest().body(Map.of("error", "code too large (max 50 KB)"));
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "code too large (max 50 KB)"));
 
         CodeSandboxService.RunResult result = sandboxService.run(language, code);
 

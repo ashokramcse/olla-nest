@@ -74,7 +74,7 @@ public abstract class BaseController {
     protected ResponseEntity<Map<String, Object>> requireAuth(HttpServletRequest req) {
         if (getUser(req) == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Login required"));
+                    .body(Map.of("ok", false, "error", "Login required"));
         }
         return null;
     }
@@ -98,16 +98,16 @@ public abstract class BaseController {
         User user = getUser(req);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Login required"));
+                    .body(Map.of("ok", false, "error", "Login required"));
         }
         if (!"admin".equals(user.role)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Admin access required"));
+                    .body(Map.of("ok", false, "error", "Admin access required"));
         }
         // CSRF guard on state-changing requests
         if (!"GET".equals(req.getMethod()) && req.getHeader("x-requested-with") == null) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Forbidden: missing CSRF header"));
+                    .body(Map.of("ok", false, "error", "Forbidden: missing CSRF header"));
         }
         return null;
     }
@@ -127,11 +127,11 @@ public abstract class BaseController {
         User user = getUser(req);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Login required"));
+                    .body(Map.of("ok", false, "error", "Login required"));
         }
         if (!"GET".equals(req.getMethod()) && req.getHeader("x-requested-with") == null) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Forbidden: missing CSRF header"));
+                    .body(Map.of("ok", false, "error", "Forbidden: missing CSRF header"));
         }
         return null;
     }

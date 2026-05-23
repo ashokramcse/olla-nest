@@ -109,10 +109,10 @@ public class DocumentController extends BaseController {
         User user = getUser(req);
 
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "File is empty"));
         }
         if (file.getSize() > 10 * 1024 * 1024) {
-            return ResponseEntity.badRequest().body(Map.of("error", "File too large (max 10 MB)"));
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "File too large (max 10 MB)"));
         }
 
         String name = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
@@ -125,7 +125,7 @@ public class DocumentController extends BaseController {
                     docId, name, type, file.getSize(), file.getInputStream(), user.name, scope);
             return ResponseEntity.ok(Map.of("ok", true, "document", result));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Upload failed: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("ok", false, "error", "Upload failed: " + e.getMessage()));
         }
     }
 
@@ -147,7 +147,7 @@ public class DocumentController extends BaseController {
         List<Map<String, Object>> docs = db.queryForList(
                 "SELECT id FROM rag_documents WHERE id = ?", id);
         if (docs.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of("error", "Document not found"));
+            return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Document not found"));
         }
         ragService.deleteDocument(id);
         return ResponseEntity.ok(Map.of("ok", true));

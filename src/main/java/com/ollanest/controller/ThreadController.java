@@ -113,7 +113,7 @@ public class ThreadController extends BaseController {
         User user = getUser(req);
         List<Map<String, Object>> sessions = db.queryForList(
                 "SELECT id FROM chat_sessions WHERE id = ? AND user_id = ?", id, user.id);
-        if (sessions.isEmpty()) return ResponseEntity.status(404).body(Map.of("error", "Thread not found"));
+        if (sessions.isEmpty()) return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Thread not found"));
         db.update("DELETE FROM chat_messages WHERE session_id = ?", id);
         db.update("DELETE FROM chat_sessions WHERE id = ? AND user_id = ?", id, user.id);
         return ResponseEntity.ok(Map.of("ok", true));
@@ -140,7 +140,7 @@ public class ThreadController extends BaseController {
         User user = getUser(req);
         List<Map<String, Object>> sessions = db.queryForList(
                 "SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?", id, user.id);
-        if (sessions.isEmpty()) return ResponseEntity.status(404).body(Map.of("error", "Thread not found"));
+        if (sessions.isEmpty()) return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Thread not found"));
         String now = Instant.now().toString();
         if (body.containsKey("title")) {
             db.update("UPDATE chat_sessions SET title = ? WHERE id = ?", body.get("title"), id);
@@ -181,7 +181,7 @@ public class ThreadController extends BaseController {
         User user = getUser(req);
         List<Map<String, Object>> sessions = db.queryForList(
                 "SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?", id, user.id);
-        if (sessions.isEmpty()) return ResponseEntity.status(404).body(Map.of("error", "Thread not found"));
+        if (sessions.isEmpty()) return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Thread not found"));
         chatService.archiveCurrentChat(user.id);
         db.update("UPDATE chat_sessions SET is_active = 1, unread = 0, updated_at = ? WHERE id = ?",
                 Instant.now().toString(), id);
@@ -207,7 +207,7 @@ public class ThreadController extends BaseController {
         User user = getUser(req);
         List<Map<String, Object>> sessions = db.queryForList(
                 "SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?", id, user.id);
-        if (sessions.isEmpty()) return ResponseEntity.status(404).body(Map.of("error", "Thread not found"));
+        if (sessions.isEmpty()) return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Thread not found"));
         Map<String, Object> src = sessions.get(0);
         chatService.archiveCurrentChat(user.id);
         String now = Instant.now().toString();

@@ -113,7 +113,7 @@ public class WorkspaceController extends BaseController {
         boolean hasBuildRight = "admin".equals(browseUser.role)
                 || (browseUser.rights != null && browseUser.rights.contains("workspace:build"));
         if (!hasBuildRight) {
-            return ResponseEntity.status(403).body(Map.of("error", "workspace:build right required"));
+            return ResponseEntity.status(403).body(Map.of("ok", false, "error", "workspace:build right required"));
         }
 
         String userHome = System.getProperty("user.home");
@@ -169,7 +169,7 @@ public class WorkspaceController extends BaseController {
             result.put("hostHome", userHome);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(400).body(Map.of("ok", false, "error", e.getMessage()));
         }
     }
 
@@ -211,14 +211,14 @@ public class WorkspaceController extends BaseController {
         String absDataDir2 = new File(dataDir).getAbsolutePath();
         if (!nextRoot.startsWith(userHome2) && !nextRoot.startsWith(absDataDir2)) {
             return ResponseEntity.status(400).body(
-                    Map.of("error", "Workspace path must be within your home directory"));
+                    Map.of("ok", false, "error", "Workspace path must be within your home directory"));
         }
 
         try {
             new File(nextRoot).mkdirs();
         } catch (Exception e) {
             return ResponseEntity.status(400).body(
-                    Map.of("error", "Cannot create folder: " + e.getMessage()));
+                    Map.of("ok", false, "error", "Cannot create folder: " + e.getMessage()));
         }
 
         db.update("INSERT OR REPLACE INTO workspace_prefs "

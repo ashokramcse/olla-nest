@@ -38,17 +38,17 @@ public class VoiceController extends BaseController {
         if (err != null) return err;
 
         if (file.isEmpty())
-            return ResponseEntity.badRequest().body(Map.of("error", "No audio file provided"));
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "No audio file provided"));
 
         // Max 25 MB (Whisper limit)
         if (file.getSize() > 25 * 1024 * 1024)
-            return ResponseEntity.badRequest().body(Map.of("error", "Audio file too large (max 25 MB)"));
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "Audio file too large (max 25 MB)"));
 
         try {
             String text = voiceService.transcribe(file.getBytes(), file.getOriginalFilename());
             return ResponseEntity.ok(Map.of("ok", true, "text", text));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("ok", false, "error", e.getMessage()));
         }
     }
 
@@ -67,7 +67,7 @@ public class VoiceController extends BaseController {
         String voice = (String) body.getOrDefault("voice", "alloy");
 
         if (text.isBlank())
-            return ResponseEntity.badRequest().body(Map.of("error", "text is required"));
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "text is required"));
         if (text.length() > 4096)
             text = text.substring(0, 4096); // TTS limit
 
@@ -78,7 +78,7 @@ public class VoiceController extends BaseController {
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"speech.mp3\"")
                     .body(mp3);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("ok", false, "error", e.getMessage()));
         }
     }
 }

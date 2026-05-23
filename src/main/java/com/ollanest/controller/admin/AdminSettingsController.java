@@ -166,31 +166,40 @@ public class AdminSettingsController extends BaseController {
             String nextUrl = ollamaService.cleanBaseUrl(body.get("ollamaUrl").toString());
             if (!nextUrl.matches("^https?://[^ \"]+$")) {
                 return ResponseEntity.status(400).body(
-                        Map.of("error", "Ollama URL must start with http:// or https://"));
+                        Map.of("ok", false, "error", "Ollama URL must start with http:// or https://"));
             }
             if (!UrlValidator.isSafeUrl(nextUrl)) {
                 return ResponseEntity.status(400).body(
-                        Map.of("error", "Ollama URL resolves to a disallowed address"));
+                        Map.of("ok", false, "error", "Ollama URL resolves to a disallowed address"));
             }
             databaseService.setSetting("ollamaUrl", nextUrl);
         }
-        // searchBaseUrl for SearXNG self-hosted instance
+        // searchBaseUrl for SearXNG — self-hosted, allow localhost/private IPs
         if (body.containsKey("searchBaseUrl")) {
             String urlVal = body.get("searchBaseUrl").toString().trim();
-            if (!urlVal.isEmpty() && !UrlValidator.isSafeUrl(urlVal)) {
+            if (!urlVal.isEmpty() && !urlVal.matches("^https?://[^ \"]+$")) {
                 return ResponseEntity.status(400).body(
-                        Map.of("error", "searchBaseUrl resolves to a disallowed address"));
+                        Map.of("ok", false, "error", "searchBaseUrl must start with http:// or https://"));
             }
             databaseService.setSetting("searchBaseUrl", urlVal);
         }
+        // sdBaseUrl for Stable Diffusion — self-hosted, allow localhost/private IPs
+        if (body.containsKey("sdBaseUrl")) {
+            String urlVal = body.get("sdBaseUrl").toString().trim();
+            if (!urlVal.isEmpty() && !urlVal.matches("^https?://[^ \"]+$")) {
+                return ResponseEntity.status(400).body(
+                        Map.of("ok", false, "error", "sdBaseUrl must start with http:// or https://"));
+            }
+            databaseService.setSetting("sdBaseUrl", urlVal);
+        }
 
-        // Validate all base URL fields for SSRF
-        for (String urlKey : Arrays.asList("anthropicBaseUrl", "openaiBaseUrl", "customBaseUrl", "sdBaseUrl")) {
+        // Validate external API base URL fields for SSRF (cloud services must not point to internal hosts)
+        for (String urlKey : Arrays.asList("anthropicBaseUrl", "openaiBaseUrl", "customBaseUrl")) {
             if (body.containsKey(urlKey)) {
                 String urlVal = body.get(urlKey).toString().trim();
                 if (!urlVal.isEmpty() && !UrlValidator.isSafeUrl(urlVal)) {
                     return ResponseEntity.status(400).body(
-                            Map.of("error", urlKey + " resolves to a disallowed address"));
+                            Map.of("ok", false, "error", urlKey + " resolves to a disallowed address"));
                 }
             }
         }

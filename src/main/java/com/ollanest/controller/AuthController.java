@@ -159,7 +159,7 @@ public class AuthController extends BaseController {
         String email = (String) body.get("email");
         String password = (String) body.get("password");
         if (email == null || password == null || email.isBlank() || password.isBlank()) {
-            return ResponseEntity.status(400).body(Map.of("error", "Email and password are required"));
+            return ResponseEntity.status(400).body(Map.of("ok", false, "error", "Email and password are required"));
         }
 
         // Query user row; also enforce access_expires_at (HIGH-2)
@@ -182,7 +182,7 @@ public class AuthController extends BaseController {
             // Increment attempts — same message for all failure modes (prevents user enumeration)
             db.update("INSERT OR REPLACE INTO login_attempts (ip, count, reset_at) VALUES (?, ?, ?)",
                     ip, count + 1, resetAt);
-            return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
+            return ResponseEntity.status(401).body(Map.of("ok", false, "error", "Invalid email or password"));
         }
 
         // Success — clear rate-limit record and issue session
@@ -212,7 +212,7 @@ public class AuthController extends BaseController {
     @PostMapping("/logout")
     public ResponseEntity<Map<String, Object>> logout(HttpServletRequest req, HttpServletResponse res) {
         if (req.getHeader("x-requested-with") == null) {
-            return ResponseEntity.status(403).body(Map.of("error", "Forbidden"));
+            return ResponseEntity.status(403).body(Map.of("ok", false, "error", "Forbidden"));
         }
         String token = authService.getToken(req);
         authService.clearSession(res, token);

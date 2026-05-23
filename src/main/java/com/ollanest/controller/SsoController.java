@@ -205,8 +205,8 @@ public class SsoController {
 
     private ResponseEntity<Map<String, Object>> requireAdmin(HttpServletRequest req) {
         User user = (User) req.getAttribute("authenticatedUser");
-        if (user == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-        if (!"admin".equals(user.role)) return ResponseEntity.status(403).body(Map.of("error", "Forbidden"));
+        if (user == null) return ResponseEntity.status(401).body(Map.of("ok", false, "error", "Unauthorized"));
+        if (!"admin".equals(user.role)) return ResponseEntity.status(403).body(Map.of("ok", false, "error", "Forbidden"));
         return null;
     }
 }

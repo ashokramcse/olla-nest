@@ -39,7 +39,7 @@ public class ImageController extends BaseController {
         String provider = (String) body.getOrDefault("provider", null);
 
         if (prompt.isBlank())
-            return ResponseEntity.badRequest().body(Map.of("error", "prompt is required"));
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "prompt is required"));
 
         String logId = "ig-" + Long.toString(System.currentTimeMillis(), 36);
         try {
@@ -59,7 +59,7 @@ public class ImageController extends BaseController {
         } catch (Exception e) {
             db.update("INSERT INTO image_generation_log (id, user_id, prompt, provider, model, status, error, created_at) VALUES (?,?,?,?,?,?,?,?)",
                     logId, user.id, prompt, provider != null ? provider : "dalle", null, "error", e.getMessage(), Instant.now().toString());
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("ok", false, "error", e.getMessage()));
         }
     }
 }
