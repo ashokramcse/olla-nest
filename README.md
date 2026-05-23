@@ -40,60 +40,66 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 
 <table>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
 **🤖 Intelligence**
-- Auto Router — classifies every request, picks the best model
-- Multi-provider: Ollama, Anthropic, OpenAI, Groq, custom
-- Streaming SSE responses with real-time token output
-- Privacy gate — sensitive content never routed externally
-- Configurable router weights (speed / quality / privacy)
-- Per-mode local-only enforcement (build, fix)
-- RAG / vector store — upload PDFs and documents
-- Deep Research — multi-step plan → search → synthesise
-- Web Search augmentation (Serper / Brave / SearXNG)
-- Function calling (datetime, calculator, RAG search, sysinfo)
+- **Auto Router** — scores every request against all approved models; picks the best automatically
+- **Multi-provider** — Ollama (local), Anthropic Claude, OpenAI, Groq, any custom OpenAI-compatible endpoint
+- **Streaming SSE** — real-time token output with routing → streaming → done phase indicators
+- **Privacy gate** — SSNs, credit cards, API keys, PHI patterns block external routing automatically
+- **Configurable weights** — tune speed vs. quality vs. privacy per workspace
+- **Per-mode local-only** — `build` and `fix` modes never leave your hardware
+- **RAG / Vector Store** — upload PDFs, TXT, MD; chunked, embedded, retrieved per query
+- **Deep Research** — Plan → Search (web + RAG) → Synthesise; fully streamed with progress steps
+- **Web Search** — Serper (Google), Brave Search, or self-hosted SearXNG augmentation
+- **Function calling** — `get_datetime`, `calculate`, `search_knowledge_base`, `get_system_info`
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
 **🔐 Security & Auth**
-- Cookie-based session auth (HttpOnly, SameSite=Lax)
-- AES-256-GCM encrypted API keys, secrets, credentials at rest
-- SSO: Google OAuth 2.0, OIDC (Okta/Azure AD/Auth0), SAML 2.0
-- IP brute-force protection on login
-- SSRF protection on all cloud provider URLs
-- WebSocket terminal requires authentication
-- Content-Security-Policy + HSTS headers
-- BCrypt password hashing (cost 12)
+- **Session tokens** — 256-bit `SecureRandom` hex, HttpOnly cookie, SameSite=Lax
+- **AES-256-GCM** — all API keys, SSO secrets, and connector credentials encrypted at rest
+- **SSO** — Google OAuth 2.0, generic OIDC (Okta / Azure AD / Auth0 / Keycloak), SAML 2.0
+- **Auto-provisioning** — SSO users created on first login, matched by email thereafter
+- **Brute-force protection** — IP-based lockout: 5 attempts / 15 min
+- **SSRF protection** — private and loopback IPs blocked on all cloud provider URLs
+- **Terminal auth** — WebSocket requires authenticated session + `workspace:build` right
+- **Security headers** — `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`
+- **BCrypt** — password hashing at cost factor 12
+- **Session invalidation** — role/permission changes immediately expire all user sessions
 
 </td>
 </tr>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
 **👥 Enterprise**
-- Role-based access control (admin / user)
-- Departments, groups, teams with permission sets
-- Per-user daily token limits and rate limits
-- Model governance (tier, GPU, sensitivity)
-- Full audit log with per-user tracking
-- User access expiry enforcement
-- 20+ data source connectors with hourly sync
-- Admin reports: usage, tokens, latency, departments
+- **RBAC** — admin and user roles with fine-grained per-right permissions
+- **Teams hierarchy** — departments → groups → teams with inherited permission sets
+- **Per-user limits** — daily token cap, request rate limits, model tier access
+- **Model governance** — GPU requirement, sensitivity tier, model-level caps, access expiry
+- **Full audit log** — every request, model used, tokens consumed, timestamp, per-user
+- **Access expiry** — expired accounts blocked at login; admin can revoke instantly
+- **20+ connectors** — GitHub, Slack, Notion, Jira, Google Drive, Salesforce, and 14 more
+- **Hourly connector sync** — SHA-256 dedup; only changed documents are re-ingested
+- **Admin reports** — daily activity, token leaderboard, model usage, latency, department breakdown
+- **Health dashboard** — JVM memory, DB stats, uptime, request / error counters
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
 **🛠 Developer**
-- 8 chat modes: ask, build, fix, review, debug, test, docs, plan
-- Local workspace integration — AI writes files directly
-- Interactive terminal (WebSocket / ProcessBuilder)
-- **Code Sandbox** — execute Python, JS, Ruby, Java, Bash safely
-- Voice input (OpenAI Whisper STT) + TTS readback
-- Image generation (DALL-E 3 or Stable Diffusion)
-- Automated SQLite backups (7-rotation)
-- Flyway schema migrations (V1–V5)
+- **8 chat modes** — ask, build, fix, review, debug, test, docs, plan (each with expert system prompt)
+- **Workspace integration** — AI writes, reads, and browses files in your local workspace
+- **Interactive terminal** — WebSocket + `ProcessBuilder`, authenticated, streamed in real time
+- **Code Sandbox** — execute Python, JS, Ruby, Java, Bash; 10 s kill; stripped env; 4 KB cap
+- **Voice input** — OpenAI Whisper STT; WAV, MP3, WebM, OGG, M4A supported
+- **Voice readback** — OpenAI TTS-1; voices: alloy, echo, fable, onyx, nova, shimmer
+- **Image generation** — DALL-E 3 (CDN URL) or Stable Diffusion Automatic1111 (base64 PNG)
+- **Prompt templates** — per-mode Spring AI `PromptTemplate` with `{variable}` substitution
+- **SQLite backups** — `@Scheduled` daily backup with 7-file rotation; zero-config
+- **Flyway migrations** — V1–V5 schema applied automatically on startup
 
 </td>
 </tr>
