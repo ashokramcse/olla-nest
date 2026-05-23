@@ -119,6 +119,9 @@ async function api(path, opts = {}) {
   return data;
 }
 
+/** Alias used by Connectors and SSO sections — identical to api(). */
+const adminApi = api;
+
 /**
  * Displays a toast notification in the bottom-right corner.
  * Creates the #toastContainer lazily if it doesn't exist yet.
@@ -576,7 +579,7 @@ async function renderEffectiveAccess() {
   const dept = state.departments.find(d => d.id === user.departmentId);
   let access = null;
   try {
-    const result = await api(`/api/admin/${encodeURIComponent(user.id)}/effective-access`);
+    const result = await api(`/api/admin/users/${encodeURIComponent(user.id)}/effective-access`);
     access = result?.effectiveAccess;
   } catch {
     access = null;
@@ -682,12 +685,12 @@ function renderAll() {
  * Fetches full application state from GET /api/state plus all users from the
  * paginated endpoint, then re-renders all tabs.
  * Users are fetched separately because /api/state no longer includes them
- * (they are served via paginated GET /api/admin/).
+ * (they are served via paginated GET /api/admin/users).
  */
 async function loadState() {
   const [stateData, usersData] = await Promise.all([
     api("/api/state"),
-    api("/api/admin/?page=1&limit=200"),
+    api("/api/admin/users?page=1&limit=200"),
   ]);
   if (!stateData) return;
   state = stateData;
@@ -914,7 +917,7 @@ $("createUserForm").addEventListener("submit", async (e) => {
   try {
     const teamSel = $("newUserTeam");
     const teamVal = teamSel ? teamSel.value : "";
-    const result = await api("/api/admin/", {
+    const result = await api("/api/admin/users", {
       method: "POST",
       body: JSON.stringify({
         name: $("newUserName").value.trim(),
@@ -999,7 +1002,7 @@ if ($("saveOverrideBtn")) {
     msg.className = "form-message";
     msg.textContent = "";
     try {
-      await api(`/api/admin/${userId}/overrides`, {
+      await api(`/api/admin/users/${userId}/overrides`, {
         method: "POST",
         body: JSON.stringify({
           permissionKey: $("overridePermission").value,
@@ -1047,7 +1050,7 @@ $("userList").addEventListener("click", async (e) => {
     const rights = Array.from(document.querySelectorAll(`#edit-panel-${saveUserId} input[type=checkbox][name^=right_]:checked`))
       .map(cb => cb.value);
     try {
-      await api(`/api/admin/${saveUserId}`, {
+      await api(`/api/admin/users/${saveUserId}`, {
         method: "PATCH",
         body: JSON.stringify({
           name: $(`eu-name-${saveUserId}`).value.trim(),
@@ -1082,7 +1085,7 @@ $("userList").addEventListener("click", async (e) => {
   const toggleId = btn.dataset.toggle;
   if (toggleId) {
     try {
-      await api(`/api/admin/${toggleId}`, {
+      await api(`/api/admin/users/${toggleId}`, {
         method: "PATCH",
         body: JSON.stringify({ active: btn.dataset.next === "1" }),
       });
@@ -1176,7 +1179,7 @@ $("changePwForm").addEventListener("submit", async (e) => {
   }
 
   try {
-    await api(`/api/admin/${changePwUserId}/reset-password`, {
+    await api(`/api/admin/users/${changePwUserId}/reset-password`, {
       method: "POST",
       body: JSON.stringify({ password: newPw }),
     });
