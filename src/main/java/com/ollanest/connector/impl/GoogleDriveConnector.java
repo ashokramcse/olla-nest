@@ -7,17 +7,83 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * Google Drive connector — syncs Google Docs and uploaded files (PDF, TXT).
- * Credentials JSON: { "accessToken": "ya29..." }   (OAuth access token, refreshed externally or by SSO)
+ * Connector implementation that synchronises content from Google Drive into the Olla knowledge base.
+ *
+ * <h3>Why this class exists</h3>
+ * Google Drive is one of the most widely used cloud document repositories. This connector bridges
+ * Drive content — both native Google Docs and binary uploads (PDF, plain text) — into the Olla
+ * vector store so that the AI assistant can answer questions grounded in those documents.
+ *
+ * <h3>Credential format</h3>
+ * <pre>{@code
+ * {
+ *   "accessToken": "ya29..."   // OAuth 2.0 bearer token; must have drive.readonly scope.
+ *                              // Token refresh is handled externally (SSO or a separate refresh flow).
+ * }
+ * }</pre>
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ *   <li>Google Docs are never stored natively on Drive; they are exported on-the-fly via the
+ *       {@code /export?mimeType=text/plain} endpoint.</li>
+ *   <li>PDF files are downloaded as raw bytes and converted to plain text using Apache PDFBox.</li>
+ *   <li>Plain-text files are downloaded as raw bytes and decoded as UTF-8.</li>
+ *   <li>Failures on individual files are swallowed and logged as warnings so that a single
+ *       corrupt or permission-denied file does not abort the entire sync.</li>
+ *   <li>The list query is capped at 50 files ordered by {@code modifiedTime desc}; pagination
+ *       is not yet implemented.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ *   <li>v2026.1.4 — initial creation</li>
+ * </ul>
+ *
+ * @author  Ashok Ram
+ * @since   v2026.1.4
+ * @version v2026.1.4
+ * @see     com.ollanest.connector.BaseConnector
  */
 @Component
 public class GoogleDriveConnector extends BaseConnector {
 
+    /** Base URL for the Google Drive v3 REST API. */
     private static final String DRIVE_BASE = "https://www.googleapis.com/drive/v3";
+
+    /** Base URL used when constructing per-file export / download URLs. */
     private static final String EXPORT_BASE = "https://www.googleapis.com/drive/v3/files";
 
-    @Override public String getType() { return "gdrive"; }
+    /**
+     * Returns the connector type identifier used to look up this bean at runtime.
+     *
+     * @return {@code "gdrive"}
+     * @since v2026.1.4
+     */
+    @Override
+    public String getType() {
+        return "gdrive";
+    }
 
+    /**
+     * Synchronises Google Drive files into the Olla knowledge base.
+     *
+     * <p>The method lists up to 50 recently modified files whose MIME type is one of:
+     * <ul>
+     *   <li>{@code application/vnd.google-apps.document} — exported as plain text via the Drive
+     *       export endpoint.</li>
+     *   <li>{@code application/pdf} — downloaded as bytes and converted via PDFBox.</li>
+     *   <li>{@code text/plain} — downloaded as bytes and decoded as UTF-8.</li>
+     * </ul>
+     * Each file is passed to {@link BaseConnector#ingestDocument} which handles deduplication,
+     * chunking, and vector-store upsert. Failures on individual files are logged and skipped.
+     *
+     * @param config      connector configuration map; must contain {@code "id"} (connector ID).
+     * @param credentials JSON string of the form {@code {"accessToken":"ya29..."} }.
+     * @return a {@link SyncResult} that is either {@link SyncResult#ok(int, int)} with
+     *         the counts of synced and skipped files, or {@link SyncResult#error(String)} if
+     *         the file listing itself fails.
+     * @since v2026.1.4
+     */
     @Override
     public SyncResult sync(Map<String, Object> config, String credentials) {
         Map<String, Object> creds = parseCredentials(credentials);
@@ -70,18 +136,44 @@ public class GoogleDriveConnector extends BaseConnector {
         }
     }
 
+    /**
+     * Validates that the supplied credentials can successfully call the Drive API.
+     *
+     * <p>The test calls {@code GET /drive/v3/about?fields=user}, which requires a valid OAuth
+     * token with at least the {@code drive.readonly} scope and returns a minimal user object.
+     *
+     * @param config      connector configuration map (not used by this implementation).
+     * @param credentials JSON string containing {@code "accessToken"}.
+     * @return {@code true} if the API call succeeds without throwing; {@code false} otherwise.
+     * @since v2026.1.4
+     */
     @Override
     public boolean testConnection(Map<String, Object> config, String credentials) {
         try {
             Map<String, Object> creds = parseCredentials(credentials);
             httpGet("https://www.googleapis.com/drive/v3/about?fields=user", "Bearer " + credStr(creds, "accessToken"));
             return true;
-        } catch (Exception e) { return false; }
+        } catch (Exception e) {
+            return false;
+        }
     }
 
+    /**
+     * Extracts plain text from a PDF byte array using Apache PDFBox.
+     *
+     * <p>If extraction fails for any reason (corrupt PDF, encrypted document, etc.) an empty
+     * string is returned rather than propagating the exception, ensuring that one bad PDF does
+     * not abort the entire sync.
+     *
+     * @param bytes raw bytes of the PDF file.
+     * @return extracted plain text, or an empty string if extraction fails.
+     * @since v2026.1.4
+     */
     private String extractPdf(byte[] bytes) {
         try (org.apache.pdfbox.pdmodel.PDDocument doc = org.apache.pdfbox.Loader.loadPDF(bytes)) {
             return new org.apache.pdfbox.text.PDFTextStripper().getText(doc);
-        } catch (Exception e) { return ""; }
+        } catch (Exception e) {
+            return "";
+        }
     }
 }
