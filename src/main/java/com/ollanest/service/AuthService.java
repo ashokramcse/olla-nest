@@ -1,7 +1,10 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.model.User;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,52 +17,56 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.model.User;
 
 /**
  * Session management: in-memory cache backed by DB persistence.
  *
- * <p>Manages the full lifecycle of Olla Nest authentication sessions. The
- * session token is a 256-bit (64-hex-char) {@link SecureRandom} value stored in
- * the {@code sessions} table and cached in a {@link ConcurrentHashMap} for fast
- * per-request lookup.
+ * <h3>Why this class exists</h3>
+ * <p>Manages the full lifecycle of Olla Nest authentication sessions. The session
+ *    token is a 256-bit (64-hex-char) {@link SecureRandom} value stored in the
+ *    {@code sessions} table and cached in a {@link ConcurrentHashMap} for fast
+ *    per-request lookup. This class is the single authority for reading, creating,
+ *    and destroying session state — no other class should write to the
+ *    {@code sessions} table directly.
  *
- * <p>Cookie details:
+ * <h3>Design notes</h3>
+ * <p>Cookie configuration:
  * <ul>
  *   <li>Name: {@code olla_nest_session}</li>
  *   <li>Flags: {@code HttpOnly; SameSite=Lax; Path=/}</li>
- *   <li>Duration: 12 hours (43200 seconds)</li>
- *   <li>Optional {@code Secure} flag controlled by {@code app.cookie-secure} property</li>
+ *   <li>Duration: 12 hours (43 200 seconds)</li>
+ *   <li>Optional {@code Secure} flag controlled by the {@code app.cookie-secure} property</li>
  * </ul>
  *
- * <p>Security features included:
+ * <p>Security features:
  * <ul>
- *   <li>IP-based brute-force protection is managed by {@code AuthController} (not here)</li>
- *   <li>Random admin password generation on first boot</li>
- *   <li>Session invalidation on role or status change ({@link #invalidateUserSessions})</li>
- *   <li>Scheduled hourly sweep to remove expired sessions from DB and cache</li>
+ *   <li>IP-based brute-force protection is handled by {@code AuthController} (not here)</li>
+ *   <li>Session rotation on login — the old token is invalidated before a new one is issued</li>
+ *   <li>Force-logout support for immediate revocation after a role or status change</li>
+ *   <li>Scheduled hourly sweep removes expired rows from {@code sessions} and from the cache</li>
  * </ul>
  *
- * <p><b>Design decisions:</b>
+ * <p>The in-memory cache avoids a DB round-trip on every request. On a cache miss
+ *    (e.g., after a server restart) the session is re-loaded from the DB and re-cached.
+ *    Sessions are not renewed on use — they expire at a fixed time from creation, consistent
+ *    with the original Node.js behaviour.
+ *
+ * <h3>Version history</h3>
  * <ul>
- *   <li>The in-memory cache avoids a DB round-trip on every request. On cache miss
- *       (e.g. after a restart) the session is re-loaded from DB and re-cached.</li>
- *   <li>Sessions are not renewed on use — they expire at a fixed time from creation.
- *       This is consistent with the original Node.js behaviour.</li>
+ *   <li><b>v2026.1.0</b> — initial Java Spring Boot migration</li>
+ *   <li><b>v2026.1.4</b> — ok:false error responses standardised across auth paths</li>
  * </ul>
  *
  * @author  Ashok Ram
- * @since   v2026.1.0  — initial Java Spring Boot migration
- * @version v2026.1.0  — security hardening: IP brute-force fix; random admin password on first boot
+ * @since   v2026.1.0
+ * @version v2026.1.4
  */
 @Service
 public class AuthService {
 
+    /** SLF4J logger for this service. */
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     /** Name of the session cookie set on the browser. */
@@ -69,8 +76,9 @@ public class AuthService {
     private static final long SESSION_DURATION_SECONDS = 43200;
 
     /**
-     * Whether to add the {@code Secure} flag to the session cookie. Should be
-     * {@code true} in production behind HTTPS.
+     * Whether to append the {@code Secure} flag to the session cookie.
+     * Should be {@code true} in production behind HTTPS; defaults to {@code false}
+     * so local development works without TLS.
      */
     @Value("${app.cookie-secure:false}")
     private boolean cookieSecure;
@@ -78,22 +86,22 @@ public class AuthService {
     /** In-memory session cache: token → {@link CachedSession}. Thread-safe. */
     private final ConcurrentHashMap<String, CachedSession> sessions = new ConcurrentHashMap<>();
 
-    /** JDBC template for session persistence and expiry sweeps. */
+    /** JDBC template used for session persistence and expiry sweeps. */
     private final JdbcTemplate db;
 
-    /** Used to load the {@link User} object from the DB on cache miss. */
+    /** Loads the {@link User} object from the DB on a cache miss. */
     private final UserService userService;
 
-    /** Injected but not currently used; available for future JWT/claims expansion. */
+    /** Shared JSON mapper; injected for potential future JWT/claims expansion. */
     private final ObjectMapper mapper;
 
     /**
      * Constructor-injects all required dependencies.
      *
-     * @param  db           the JDBC template
-     * @param  userService  the user lookup service
-     * @param  mapper       the shared JSON object mapper
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * @param  db           the JDBC template wired by Spring
+     * @param  userService  the user-lookup service used on session cache misses
+     * @param  mapper       the shared Jackson {@link ObjectMapper}
+     * @since   v2026.1.0
      */
     public AuthService(JdbcTemplate db, UserService userService, ObjectMapper mapper) {
         this.db = db;
@@ -101,25 +109,32 @@ public class AuthService {
         this.mapper = mapper;
     }
 
+    // -------------------------------------------------------------------------
+    // Inner type
+    // -------------------------------------------------------------------------
+
     /**
-     * In-memory session cache entry pairing a {@link User} with its expiry time.
+     * Immutable-ish cache entry that pairs a {@link User} with its session expiry time.
      *
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * <p>Fields are {@code public} so that {@link AuthService} callers (e.g.,
+     * {@code AuthController}) can read the expiry timestamp without an additional method.
+     *
+     * @since   v2026.1.0
      */
     public static class CachedSession {
 
         /** The authenticated user associated with this session. */
         public User user;
 
-        /** Session expiry time as a Unix epoch millisecond value. */
+        /** Session expiry expressed as a Unix epoch millisecond timestamp. */
         public long expiresAtMs;
 
         /**
          * Constructs a new cache entry.
          *
-         * @param  user         the authenticated user
-         * @param  expiresAtMs  the expiry time in milliseconds since epoch
-         * @since   v2026.1.0  — initial Java Spring Boot migration
+         * @param  user         the authenticated user; must not be {@code null}
+         * @param  expiresAtMs  the absolute expiry time in milliseconds since the Unix epoch
+         * @since   v2026.1.0
          */
         CachedSession(User user, long expiresAtMs) {
             this.user = user;
@@ -127,12 +142,20 @@ public class AuthService {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
+
     /**
-     * Extracts the session token from the request cookies.
+     * Extracts the raw session token string from the request cookies.
      *
-     * @param  req  the current HTTP request
-     * @return      the session token string, or {@code null} if absent
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * <p>Iterates the cookie array looking for a cookie whose name equals
+     * {@value #COOKIE_NAME}. Returns {@code null} if the cookie is absent or if the
+     * request carries no cookies at all.
+     *
+     * @param  req  the current HTTP servlet request; must not be {@code null}
+     * @return      the session token string, or {@code null} if not present
+     * @since   v2026.1.0
      */
     public String getToken(HttpServletRequest req) {
         if (req.getCookies() != null) {
@@ -148,14 +171,17 @@ public class AuthService {
     /**
      * Resolves the session cookie to a validated, non-expired {@link User}.
      *
-     * <p>Checks the in-memory cache first. On a cache miss, queries the
-     * {@code sessions} table and re-caches the result. Returns {@code null} if
-     * the token is absent, expired, or the user no longer exists.
+     * <p>Checks the in-memory cache first (fast path). On a cache miss, queries the
+     * {@code sessions} table, re-caches the result, and returns the user. Returns
+     * {@code null} if the token is absent, blank, expired in both the cache and the DB,
+     * or if the associated user record no longer exists.
      *
-     * @param  req  the current HTTP request
-     * @return      the authenticated {@link User}, or {@code null} if the session
-     *              is invalid or expired
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * <p><b>Security:</b> relies on the token being a 256-bit cryptographically random
+     * value — no additional HMAC or signature is verified here.
+     *
+     * @param  req  the current HTTP servlet request; must not be {@code null}
+     * @return      the authenticated {@link User}, or {@code null} for any invalid/expired session
+     * @since   v2026.1.0
      */
     public User getSessionUser(HttpServletRequest req) {
         String token = getToken(req);
@@ -182,7 +208,7 @@ public class AuthService {
             User user = userService.findUserById(userId);
             if (user == null) return null;
 
-            // Re-cache for subsequent requests
+            // Re-cache for subsequent requests in this JVM instance
             long expiresMs = System.currentTimeMillis() + SESSION_DURATION_SECONDS * 1000;
             sessions.put(token, new CachedSession(user, expiresMs));
             return user;
@@ -197,16 +223,20 @@ public class AuthService {
      *
      * <p>If the request already carries a valid session cookie, the old session is
      * invalidated first (session rotation). A 256-bit random token is generated,
-     * persisted to the DB, and added to the in-memory cache. The cookie is set with
-     * {@code HttpOnly}, {@code SameSite=Lax}, and optionally {@code Secure}.
+     * persisted to the {@code sessions} table, and added to the in-memory cache.
+     * The {@code Set-Cookie} header is written manually to include {@code SameSite=Lax}
+     * (not supported by the Servlet API directly) and the optional {@code Secure} flag.
      *
-     * @param  res   the HTTP response on which to set the cookie
-     * @param  req   the current HTTP request (used to detect and invalidate old session)
-     * @param  user  the authenticated user to associate with the new session
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * <p><b>Security:</b> session rotation prevents session fixation attacks. The
+     * {@code HttpOnly} flag prevents JavaScript access to the cookie.
+     *
+     * @param  res   the HTTP servlet response on which to set the cookie; must not be {@code null}
+     * @param  req   the current HTTP servlet request, used to detect and invalidate the old session
+     * @param  user  the authenticated user to associate with the new session; must not be {@code null}
+     * @since   v2026.1.0
      */
     public void setSession(HttpServletResponse res, HttpServletRequest req, User user) {
-        // Session rotation: invalidate any existing session cookie
+        // Session rotation: invalidate any existing session cookie before issuing a new one
         String oldToken = getToken(req);
         if (oldToken != null) {
             removeSession(oldToken);
@@ -223,27 +253,29 @@ public class AuthService {
                 token, user.id, expiresAt);
         sessions.put(token, new CachedSession(user, expiresMs));
 
-        // Set HttpOnly cookie via Servlet API (SameSite not supported by old API)
+        // Set HttpOnly cookie via Servlet API first (for compatibility)
         Cookie cookie = new Cookie(COOKIE_NAME, token);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge((int) SESSION_DURATION_SECONDS);
         res.addCookie(cookie);
-        // Override with full Set-Cookie header to include SameSite=Lax and optional Secure
+
+        // Override with a full Set-Cookie header to include SameSite=Lax and optional Secure
         String secureFlag = cookieSecure ? "; Secure" : "";
         res.addHeader("Set-Cookie", COOKIE_NAME + "=" + token
                 + "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" + SESSION_DURATION_SECONDS + secureFlag);
     }
 
     /**
-     * Invalidates the given session token and clears the browser cookie.
+     * Invalidates a session token and instructs the browser to delete the cookie.
      *
-     * <p>Removes the token from both the in-memory cache and the DB, then sets a
-     * Max-Age=0 cookie header to delete the browser cookie.
+     * <p>Removes the token from both the in-memory cache and the {@code sessions} table,
+     * then emits a {@code Set-Cookie} header with {@code Max-Age=0} to clear the browser
+     * cookie. Safe to call with a {@code null} token (no-op for the DB and cache).
      *
-     * @param  res    the HTTP response on which to clear the cookie
-     * @param  token  the session token to invalidate (may be {@code null})
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * @param  res    the HTTP servlet response on which to clear the cookie; must not be {@code null}
+     * @param  token  the session token to invalidate; may be {@code null}
+     * @since   v2026.1.0
      */
     public void clearSession(HttpServletResponse res, String token) {
         if (token != null) {
@@ -253,10 +285,13 @@ public class AuthService {
     }
 
     /**
-     * Removes a single session token from the cache and from the DB.
+     * Removes a single session token from the in-memory cache and from the DB.
      *
-     * @param  token  the session token to remove
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * <p>DB errors are logged as warnings rather than propagated, so a DB failure does
+     * not prevent the in-memory cache from being updated.
+     *
+     * @param  token  the session token to remove; must not be {@code null}
+     * @since   v2026.1.0
      */
     public void removeSession(String token) {
         sessions.remove(token);
@@ -268,13 +303,14 @@ public class AuthService {
     }
 
     /**
-     * Force-invalidates all sessions for a specific user from cache and DB.
+     * Force-invalidates every active session for a specific user from the cache and the DB.
      *
-     * <p>Called after password reset, role change, or deactivation to ensure the
-     * new permissions take effect immediately.
+     * <p>Intended to be called after a password reset, role change, or account deactivation
+     * to ensure the new permissions (or suspension) take effect immediately without waiting
+     * for session expiry.
      *
-     * @param  userId  the user whose sessions should be terminated
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * @param  userId  the ID of the user whose sessions should be terminated; must not be {@code null}
+     * @since   v2026.1.0
      */
     public void forceLogoutUser(String userId) {
         sessions.entrySet().removeIf(e -> userId.equals(e.getValue().user.id));
@@ -284,20 +320,24 @@ public class AuthService {
     /**
      * Alias for {@link #forceLogoutUser(String)}.
      *
-     * @param  userId  the user whose sessions should be invalidated
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * <p>Provided so callers that think in terms of "invalidating sessions" rather than
+     * "forcing logout" have a semantically clear entry point.
+     *
+     * @param  userId  the ID of the user whose sessions should be invalidated; must not be {@code null}
+     * @since   v2026.1.0
      */
     public void invalidateUserSessions(String userId) {
         forceLogoutUser(userId);
     }
 
     /**
-     * Scheduled task that removes expired sessions from the DB and in-memory cache.
+     * Scheduled task that sweeps expired sessions from the DB and the in-memory cache.
      *
-     * <p>Runs every hour with a 60-second initial delay. Prevents indefinite growth
-     * of the {@code sessions} table and the in-memory map.
+     * <p>Runs every hour with a 60-second initial delay after application startup.
+     * Prevents unbounded growth of the {@code sessions} table and the {@link ConcurrentHashMap}.
+     * DB errors are swallowed to avoid disrupting the scheduler thread.
      *
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * @since   v2026.1.0
      */
     @Scheduled(fixedDelay = 3600000, initialDelay = 60000)
     public void cleanExpiredSessions() {
@@ -309,12 +349,19 @@ public class AuthService {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
     /**
-     * Converts a byte array to a lowercase hex string.
+     * Converts a raw byte array to a lowercase hexadecimal string.
      *
-     * @param  bytes  the byte array to encode
-     * @return        the hex string representation
-     * @since   v2026.1.0  — initial Java Spring Boot migration
+     * <p>Used to encode the 32-byte {@link SecureRandom} token into the 64-character
+     * hex string that is stored in the DB and sent as a cookie value.
+     *
+     * @param  bytes  the byte array to encode; must not be {@code null}
+     * @return        the lowercase hex string representation, always {@code bytes.length * 2} characters long
+     * @since   v2026.1.0
      */
     private String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder(bytes.length * 2);
