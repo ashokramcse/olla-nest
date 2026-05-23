@@ -229,14 +229,37 @@ function renderIdentity() {
  */
 function renderOverview() {
   const localModels = state.models.filter(m => m.provider === "ollama" && m.status === "available");
+  const governedCount = state.models.filter(m => m.governanceTier).length;
+  const rolesCount = state.roles?.length || 0;
+  const permsCount = state.permissions?.length || 0;
+
   $("metricModels").textContent = localModels.length;
   $("metricUsers").textContent = allUsers.length;
   $("metricGroups").textContent = state.groups.length;
   $("metricDepts").textContent = state.departments.length;
-  if ($("metricRoles")) $("metricRoles").textContent = state.roles?.length || 0;
-  if ($("metricPermissions")) $("metricPermissions").textContent = state.permissions?.length || 0;
-  if ($("metricGovernedModels")) $("metricGovernedModels").textContent = state.models.filter(m => m.governanceTier).length;
-  if ($("metricExternalAccess")) $("metricExternalAccess").textContent = state.settings.allowApiModels ? "On" : "Off";
+  if ($("metricRoles"))         $("metricRoles").textContent = rolesCount;
+  if ($("metricPermissions"))   $("metricPermissions").textContent = permsCount;
+  if ($("metricGovernedModels"))$("metricGovernedModels").textContent = governedCount;
+  if ($("metricExternalAccess"))$("metricExternalAccess").textContent = state.settings.allowApiModels ? "On" : "Off";
+
+  // Active Sources metric card
+  const s = state.settings;
+  const activeSourceCount = [s.anthropicEnabled, s.openaiEnabled, s.groqEnabled, s.customEnabled].filter(Boolean).length + 1; // +1 for Ollama
+  if ($("metricActiveSources")) $("metricActiveSources").textContent = activeSourceCount;
+
+  // Access Governance mini-bars
+  const maxRoles = Math.max(rolesCount, 1);
+  if ($("rolesBar"))      $("rolesBar").style.width = Math.min(100, Math.round(rolesCount / maxRoles * 100)) + "%";
+  if ($("barMetricRoles"))$("barMetricRoles").textContent = rolesCount;
+  const maxPerms = Math.max(permsCount, 1);
+  if ($("permsBar"))              $("permsBar").style.width = Math.min(100, Math.round(permsCount / maxPerms * 100)) + "%";
+  if ($("barMetricPermissions"))  $("barMetricPermissions").textContent = permsCount;
+  const maxGov = Math.max(state.models.length, 1);
+  if ($("govBar"))                $("govBar").style.width = Math.min(100, Math.round(governedCount / maxGov * 100)) + "%";
+  if ($("barMetricGovernedModels"))$("barMetricGovernedModels").textContent = governedCount;
+
+  // Active Sources pills (populates the card that shows "Loading…" by default)
+  renderSourcePills();
 }
 
 /**
