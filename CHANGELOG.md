@@ -4,6 +4,80 @@ All notable changes to Olla Nest are documented here.
 
 ---
 
+## v2026.1.4 — 2026-05-23
+
+### 🔧 Quality, JavaDoc & Spring Boot Upgrade
+
+#### Comprehensive JavaDoc
+- **Added** full production-grade JavaDoc to every Java source file (79 files total)
+- Every class: `<h3>Why this class exists</h3>`, `<h3>Design notes</h3>`, `<h3>Version history</h3>`, `@author Ashok Ram`, `@since`, `@version`
+- Every public/protected method: `@param`, `@return`, `@throws`, `@since`
+- Every field/constant: one-liner `/** */` doc
+- Eclipse formatting applied: 4-space indent, 120-char max line, K&R braces
+
+#### Bug Fixes (E2E Testing)
+- **Fixed** all error response bodies now include `"ok": false` consistently — 17 controller files patched
+- **Fixed** `AdminSettingsController` — `sdBaseUrl` and `searchBaseUrl` (self-hosted tools) were incorrectly blocked by the SSRF validator that rejects loopback IPs. Self-hosted service URLs now only require valid `https?://` format; SSRF protection retained for all cloud provider URLs
+- **Fixed** `UrlValidator` — clarified which URL categories bypass private-IP check
+
+#### Spring Boot Upgrade
+- **Upgraded** Spring Boot parent from `3.5.3` → `3.5.14` (latest patch as of May 2026)
+- Resolves Eclipse m2e `BOOT_VERSION_VALIDATION_CODE` warning
+- `mvn clean` removes stale `target/classes/META-INF/MANIFEST.MF` Eclipse marker
+
+#### Documentation
+- **Updated** `README.md` — full documentation of all 5 feature pillars: 20 connectors, SSO, web search, voice + image generation, deep research, code sandbox, RAG, function calling, complete API reference, database schema, project structure
+- **Updated** `CHANGELOG.md` — this entry and corrected v2026.1.3 entry
+- **Updated** `VERSION.md` — Spring Boot version, version history table
+
+---
+
+## v2026.1.3 — 2026-05-23
+
+### ✨ 5 Major Feature Pillars
+
+#### Pillar 1 — 20 Data Source Connectors
+- **Added** `BaseConnector` abstract class — shared HTTP helpers, SHA-256 content-hash deduplication, RAG ingestion wiring
+- **Added** `ConnectorRegistry` — Spring auto-discovery + dependency injection forwarding
+- **Added** `ConnectorSyncScheduler` — `@Scheduled` hourly sync with per-connector try/catch isolation and 30-day log pruning
+- **Added** 20 connector implementations: Airtable, Asana, Bitbucket, Confluence, Discord, Dropbox, Figma, GitHub, GitLab, Gmail, Google Drive, HubSpot, Jira, Linear, Notion, OneDrive, Salesforce, Slack, Teams, Zendesk
+- **Added** `V3__connectors.sql` — `connector_configs`, `connector_sync_log`, `connector_documents` tables
+- **Added** `AdminConnectorController` — full CRUD + manual sync + credential test + sync log endpoints
+- All connector credentials encrypted with AES-256-GCM before storage
+
+#### Pillar 2 — SSO (Google OAuth 2.0 + OIDC + SAML 2.0)
+- **Added** `SsoService` — Google OAuth 2.0 (code exchange + ID token parsing), generic OIDC (discovery document + token endpoint), lightweight SAML 2.0 (XML assertion parsing)
+- **Added** `SsoController` — authorize, callback, SAML ACS, admin CRUD for SSO providers
+- **Added** `V4__sso.sql` — `sso_providers`, `oauth_state` tables
+- Auto-provisioning: first-time SSO users created with role `user`, matched by email on subsequent logins
+- State nonce stored in DB for CSRF protection on OAuth callbacks
+- SSO client secrets encrypted with AES-256-GCM
+
+#### Pillar 3 — Web Search (Serper / Brave / SearXNG)
+- **Added** `WebSearchService` — Serper (Google results), Brave Search, SearXNG self-hosted; graceful empty-list fallback on missing config
+- **Added** `WebSearchService.SearchResult` record
+- **Integrated** into `ChatController` — `enableWebSearch: true` injects up to 5 results into system prompt with `search_status` SSE event
+- **Added** `V5__search_images.sql` — settings columns for `searchProvider`, `searchApiKey`, `searchBaseUrl`
+
+#### Pillar 4 — Voice + Image Generation
+- **Added** `VoiceService` — OpenAI Whisper STT (hand-built multipart/form-data body, 60 s timeout); OpenAI TTS-1 (returns raw MP3 bytes)
+- **Added** `VoiceController` — `POST /api/voice/transcribe`, `POST /api/voice/speak`
+- **Added** `ImageGenerationService` — DALL-E 3 (CDN URL response) + Stable Diffusion Automatic1111 (base64 PNG response); `ImageResult` record
+- **Added** `ImageController` — `POST /api/images/generate`
+- Frontend: microphone button (Web Audio API / MediaRecorder), image generation button, voice playback
+
+#### Pillar 5 — Deep Research
+- **Added** `DeepResearchService` — 3-step pipeline: Plan (LLM decomposes query → 3–5 sub-questions), Search (web + RAG per sub-question), Synthesise (LLM report from all context)
+- **Integrated** into `ChatController` — `deepResearch: true` activates pipeline instead of standard chat
+- Streams `research_step` SSE events for plan/search/synthesise phases
+- Frontend: Research toggle button in composer, progress cards in chat
+
+#### Code Sandbox
+- **Added** `CodeSandboxService` — `ProcessBuilder` isolated execution; Python, JS, Ruby, Java (compile-then-run), Bash; 10-second SIGKILL timeout; stripped environment; 4 096-char output cap
+- **Added** `CodeSandboxController` — `POST /api/sandbox/run`
+
+---
+
 ## v2026.1.2 — 2026-05-22
 
 ### ✨ Spring AI 1.0.0 — RAG, Prompt Templates, Function Calling
