@@ -386,6 +386,35 @@ function showConfirm(message, onConfirm) {
   });
 }
 
+// ─── Branded alert dialog ─────────────────────────────────────────────────────
+
+/**
+ * Show a lightweight branded alert overlay (replaces native browser alert).
+ * @param {string} message - Message to display.
+ * @param {string} [title] - Optional title shown in bold above the message.
+ */
+function showAlert(message, title) {
+  const existing = document.getElementById("alertOverlay");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "alertOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:var(--bubble);border:1px solid var(--border);border-radius:16px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+      ${title ? `<p style="margin:0 0 8px;color:var(--body-text);font-size:15px;font-weight:700;">${esc(title)}</p>` : ""}
+      <p style="margin:0 0 20px;color:var(--body-text);font-size:14px;line-height:1.5;">${esc(message)}</p>
+      <div style="display:flex;justify-content:flex-end;">
+        <button id="alertOk" style="padding:7px 22px;border-radius:8px;border:none;background:var(--accent,#f59e0b);color:#fff;cursor:pointer;font-size:13px;font-weight:600;">OK</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  document.getElementById("alertOk").addEventListener("click", close);
+}
+
 // ─── Chat context menu ────────────────────────────────────────────────────────
 
 let _chatCtxMenu = null;
@@ -725,7 +754,7 @@ function runInTerminal(btn) {
     }, 2000);
     window.termSendCommand(code);
   } else {
-    alert("Terminal not available. Make sure you have workspace:build permission.");
+    showAlert("Terminal not available. Make sure you have workspace:build permission.", "Terminal");
   }
 }
 
@@ -1733,15 +1762,22 @@ if (voiceBtn) {
               method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" }, body: formData
             });
             const data = await res.json();
-            if (data.text) {
+            if (!res.ok) {
+              showAlert(data.error || "Voice transcription failed. Make sure a speech-to-text model is configured in Settings.", "Voice");
+            } else if (data.text) {
               const input = document.getElementById("messageInput");
               if (input) { input.value = (input.value ? input.value + " " : "") + data.text; input.focus(); }
             }
-          } catch {}
+          } catch (err) {
+            showAlert("Voice transcription failed. Check your microphone and try again.", "Voice");
+          }
         };
         mediaRecorder.start();
         voiceBtn.classList.add("recording");
-      } catch {}
+      } catch (err) {
+        voiceBtn.classList.remove("recording");
+        showAlert("Microphone access denied or unavailable. Please allow microphone permission and try again.", "Voice");
+      }
     });
     voiceBtn.addEventListener("mouseup", () => { if (mediaRecorder?.state === "recording") mediaRecorder.stop(); });
     voiceBtn.addEventListener("mouseleave", () => { if (mediaRecorder?.state === "recording") mediaRecorder.stop(); });
@@ -1754,7 +1790,7 @@ if (imageGenBtn) {
   imageGenBtn.addEventListener("click", async () => {
     const input = document.getElementById("messageInput");
     const prompt = input?.value?.trim();
-    if (!prompt) { alert("Enter an image prompt first."); return; }
+    if (!prompt) { showAlert("Enter an image prompt first.", "Image Generation"); return; }
     imageGenBtn.disabled = true;
     const msgs = document.getElementById("messages");
     const pendingId = "img-" + Date.now();
