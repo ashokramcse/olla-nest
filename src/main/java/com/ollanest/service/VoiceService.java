@@ -26,16 +26,24 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Olla Nest's chat composer includes a microphone button that lets users
  * dictate messages instead of typing, and a speaker button that reads AI
  * responses aloud. {@code VoiceService} is the single integration point for
- * both capabilities, delegating to the OpenAI Whisper (STT) and TTS APIs. All
- * HTTP and multipart-form encoding details are contained here so that the
- * {@code VoiceController} remains thin.
+ * both capabilities. STT can be handled by a local Ollama Whisper model
+ * (default, free, private) or by the OpenAI Whisper API (paid, cloud).
+ * TTS always uses the OpenAI TTS-1 API. All HTTP and multipart-form encoding
+ * details are contained here so that the {@code VoiceController} remains thin.
  *
- * <h3>Speech-to-Text (Whisper)</h3>
+ * <h3>Speech-to-Text — provider selection</h3>
  * <p>
- * Calls {@code POST https://api.openai.com/v1/audio/transcriptions} with the
- * raw audio bytes wrapped in a hand-built multipart/form-data body. Whisper
- * accepts WAV, MP3, WebM, OGG, and M4A formats. The transcribed text is
- * returned as a plain string.
+ * The {@code sttProvider} setting controls which backend is used:
+ * <ul>
+ * <li>{@code "ollama"} (default) — calls the local Ollama generate endpoint
+ * with the model named by {@code sttOllamaModel} (default:
+ * {@code "dimavz/whisper-tiny:latest"}). Audio bytes are Base64-encoded and
+ * sent as an image attachment in the Ollama multimodal payload. No API key
+ * or internet access required.</li>
+ * <li>{@code "openai"} — calls
+ * {@code POST https://api.openai.com/v1/audio/transcriptions} using the
+ * {@code openaiApiKey} setting. Requires a paid OpenAI account.</li>
+ * </ul>
  *
  * <h3>Text-to-Speech (TTS)</h3>
  * <p>
@@ -45,25 +53,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *
  * <h3>Design notes</h3>
  * <ul>
- * <li>Both operations require the {@code openaiApiKey} setting. If the key is
- * absent, a {@link RuntimeException} is thrown with a human-readable message —
- * the controller translates this into a 503 response.</li>
+ * <li>The multipart/form-data body for OpenAI Whisper is hand-built because
+ * the JDK HTTP client does not include a built-in multipart encoder.</li>
  * <li>Both calls use a 60-second response timeout because audio transcription
  * and synthesis can take several seconds for long inputs.</li>
- * <li>The multipart/form-data body for Whisper is hand-built because the JDK
- * HTTP client does not include a built-in multipart encoder.</li>
  * </ul>
  *
  * <h3>Version history</h3>
  * <ul>
- * <li><b>v2026.1.4</b> — initial creation; OpenAI Whisper STT and TTS-1
- * integration; multipart form encoding for audio upload; configurable TTS
- * voice.</li>
+ * <li><b>v2026.1.4</b> — initial creation; OpenAI Whisper STT and TTS-1.</li>
+ * <li><b>v2026.1.5</b> — added Ollama Whisper STT provider as default;
+ * {@code sttProvider} and {@code sttOllamaModel} settings.</li>
  * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.4
- * @version v2026.1.4
+ * @version v2026.1.5
  * @see com.ollanest.controller.VoiceController
  */
 @Service
@@ -82,6 +87,12 @@ public class VoiceService {
 
 	/** OpenAI TTS synthesis endpoint. */
 	private static final String TTS_ENDPOINT = "https://api.openai.com/v1/audio/speech";
+
+	/**
+	 * Default Ollama Whisper model. Companies can override via the
+	 * {@code sttOllamaModel} admin setting.
+	 */
+	private static final String DEFAULT_OLLAMA_WHISPER_MODEL = "dimavz/whisper-tiny:latest";
 
 	/** Database service used to read the {@code openaiApiKey} setting. */
 	private final DatabaseService dbService;
@@ -143,6 +154,86 @@ public class VoiceService {
 	 * @since v2026.1.4
 	 */
 	public String transcribe(byte[] audioData, String filename) throws Exception {
+		String provider = dbService.getSetting("sttProvider", "ollama");
+		if ("openai".equalsIgnoreCase(provider)) {
+			return transcribeWithOpenAI(audioData, filename);
+		}
+		// Default: Ollama local Whisper
+		return transcribeWithOllama(audioData, filename);
+	}
+
+	/**
+	 * Transcribes audio using the local Ollama Whisper model
+	 * ({@code sttOllamaModel}, default {@code dimavz/whisper-tiny:latest}).
+	 *
+	 * <p>
+	 * Ollama's multimodal generate API accepts Base64-encoded data in the
+	 * {@code images} array. The audio bytes are encoded and sent alongside a
+	 * transcription prompt. The response {@code response} field contains the
+	 * transcribed text.
+	 *
+	 * @param audioData raw audio bytes
+	 * @param filename  original filename (for logging only)
+	 * @return transcribed text
+	 * @throws Exception on network failure or Ollama error
+	 * @since v2026.1.5
+	 */
+	private String transcribeWithOllama(byte[] audioData, String filename) throws Exception {
+		String ollamaUrl = dbService.getSetting("ollamaUrl", "http://localhost:11434");
+		// Normalise trailing slash
+		if (ollamaUrl.endsWith("/"))
+			ollamaUrl = ollamaUrl.substring(0, ollamaUrl.length() - 1);
+		String model = dbService.getSetting("sttOllamaModel", DEFAULT_OLLAMA_WHISPER_MODEL);
+
+		String audioB64 = java.util.Base64.getEncoder().encodeToString(audioData);
+		String safeName = (filename != null && !filename.isBlank()) ? filename : "audio.webm";
+
+		// Build Ollama generate payload — audio sent as Base64 in the images array
+		Map<String, Object> payload = Map.of(
+				"model", model,
+				"prompt", "Transcribe the following audio to text. Return only the transcription, no commentary.",
+				"images", new String[] { audioB64 },
+				"stream", false);
+		String body = mapper.writeValueAsString(payload);
+
+		log.debug("[voice] Ollama STT → model={} file={}", model, safeName);
+
+		HttpRequest req = HttpRequest.newBuilder()
+				.uri(URI.create(ollamaUrl + "/api/generate"))
+				.header("Content-Type", "application/json")
+				.timeout(Duration.ofSeconds(120))
+				.POST(HttpRequest.BodyPublishers.ofString(body)).build();
+
+		HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+		if (resp.statusCode() != 200) {
+			throw new RuntimeException(
+					"Ollama Whisper error (HTTP " + resp.statusCode() + "): " + resp.body());
+		}
+		JsonNode root = mapper.readTree(resp.body());
+		if (root.has("error")) {
+			throw new RuntimeException("Ollama Whisper error: " + root.path("error").asText());
+		}
+		return root.path("response").asText("").trim();
+	}
+
+	/**
+	 * Transcribes audio using the OpenAI Whisper API (paid, cloud).
+	 *
+	 * <p>
+	 * Constructs a multipart/form-data body containing two parts:
+	 * <ol>
+	 * <li>{@code model} — always {@code "whisper-1"}</li>
+	 * <li>{@code file} — the raw audio bytes with the supplied filename</li>
+	 * </ol>
+	 *
+	 * @param audioData raw audio bytes
+	 * @param filename  original filename including extension
+	 * @return transcribed text
+	 * @throws RuntimeException if {@code openaiApiKey} is not configured
+	 * @throws Exception        on network failure or JSON parse error
+	 * @since v2026.1.4
+	 */
+	private String transcribeWithOpenAI(byte[] audioData, String filename) throws Exception {
 		String apiKey = dbService.getSetting("openaiApiKey", "");
 		if (apiKey.isBlank()) {
 			throw new RuntimeException("OpenAI API key not configured for transcription");
@@ -163,14 +254,15 @@ public class VoiceService {
 		body.write(("--" + boundary + nl).getBytes(StandardCharsets.UTF_8));
 		body.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + safeName + "\"" + nl)
 				.getBytes(StandardCharsets.UTF_8));
-		body.write(("Content-Type: audio/wav" + nl + nl).getBytes(StandardCharsets.UTF_8));
+		body.write(("Content-Type: audio/webm" + nl + nl).getBytes(StandardCharsets.UTF_8));
 		body.write(audioData);
 		body.write(nl.getBytes(StandardCharsets.UTF_8));
 		body.write(("--" + boundary + "--" + nl).getBytes(StandardCharsets.UTF_8));
 
 		HttpRequest req = HttpRequest.newBuilder().uri(URI.create(WHISPER_ENDPOINT))
 				.header("Authorization", "Bearer " + apiKey)
-				.header("Content-Type", "multipart/form-data; boundary=" + boundary).timeout(Duration.ofSeconds(60))
+				.header("Content-Type", "multipart/form-data; boundary=" + boundary)
+				.timeout(Duration.ofSeconds(60))
 				.POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build();
 
 		HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());

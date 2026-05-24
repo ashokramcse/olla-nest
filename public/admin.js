@@ -650,6 +650,12 @@ function renderSettings() {
   $("localPermissionMode").value = s.localPermissionMode || "default";
   $("workspaceRoot").value = s.workspaceRoot || "";
   $("projectKnowledge").value = s.projectKnowledge || "";
+  // Voice STT provider
+  if ($("sttProvider")) $("sttProvider").value = s.sttProvider || "ollama";
+  if ($("sttOllamaModel")) $("sttOllamaModel").value = s.sttOllamaModel || "dimavz/whisper-tiny:latest";
+  // Show/hide the Ollama model row based on current provider
+  const ollamaRow = $("sttOllamaModelRow");
+  if (ollamaRow) ollamaRow.style.display = (s.sttProvider === "openai") ? "none" : "";
   renderSourcePills();
 }
 
@@ -892,6 +898,8 @@ $("saveSettingsBtn").addEventListener("click", async () => {
         localPermissionMode: $("localPermissionMode").value,
         workspaceRoot: $("workspaceRoot").value.trim() || undefined,
         projectKnowledge: $("projectKnowledge").value,
+        sttProvider: $("sttProvider") ? $("sttProvider").value : "ollama",
+        sttOllamaModel: $("sttOllamaModel") ? $("sttOllamaModel").value.trim() : "dimavz/whisper-tiny:latest",
       }),
     });
     msg.className = "form-message success";

@@ -143,8 +143,10 @@ public class AdminSettingsController extends BaseController {
 				"searchProvider", "searchApiKey",
 				// ── Image generation ────────────────────────────────────────
 				"imageProvider", "imageModel", "imageSize", "sdBaseUrl",
-				// ── Voice (STT/TTS via OpenAI Whisper / TTS API) ────────────
-				"voiceEnabled", "ttsVoice");
+				// ── Voice (STT/TTS) ─────────────────────────────────────────
+			// sttProvider: "ollama" (default, free/local) or "openai" (paid/cloud)
+			// sttOllamaModel: Ollama model for STT (default: dimavz/whisper-tiny:latest)
+			"voiceEnabled", "ttsVoice", "sttProvider", "sttOllamaModel");
 		for (String key : simpleKeys) {
 			if (body.containsKey(key))
 				databaseService.setSetting(key, body.get(key).toString());
@@ -328,6 +330,9 @@ public class AdminSettingsController extends BaseController {
 		s.put("localPermissionMode", databaseService.getSetting("localPermissionMode", "default"));
 		s.put("ollamaUrl", ollamaService.ollamaUrl());
 		s.put("routerWeights", safeJson(databaseService.getSetting("routerWeights", null)));
+		// Voice STT provider settings
+		s.put("sttProvider", databaseService.getSetting("sttProvider", "ollama"));
+		s.put("sttOllamaModel", databaseService.getSetting("sttOllamaModel", "dimavz/whisper-tiny:latest"));
 		return s;
 	}
 
