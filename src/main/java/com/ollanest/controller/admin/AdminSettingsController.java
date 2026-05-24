@@ -144,9 +144,9 @@ public class AdminSettingsController extends BaseController {
 				// ── Image generation ────────────────────────────────────────
 				"imageProvider", "imageModel", "imageSize", "sdBaseUrl",
 				// ── Voice (STT/TTS) ─────────────────────────────────────────
-			// sttProvider: "ollama" (default, free/local) or "openai" (paid/cloud)
-			// sttOllamaModel: Ollama model for STT (default: dimavz/whisper-tiny:latest)
-			"voiceEnabled", "ttsVoice", "sttProvider", "sttOllamaModel");
+			// sttProvider: "local" (default, free/local faster-whisper) or "openai" (paid/cloud)
+			// sttLocalUrl: URL of the local faster-whisper server endpoint
+			"voiceEnabled", "ttsVoice", "sttProvider", "sttLocalUrl");
 		for (String key : simpleKeys) {
 			if (body.containsKey(key))
 				databaseService.setSetting(key, body.get(key).toString());
@@ -331,8 +331,9 @@ public class AdminSettingsController extends BaseController {
 		s.put("ollamaUrl", ollamaService.ollamaUrl());
 		s.put("routerWeights", safeJson(databaseService.getSetting("routerWeights", null)));
 		// Voice STT provider settings
-		s.put("sttProvider", databaseService.getSetting("sttProvider", "ollama"));
-		s.put("sttOllamaModel", databaseService.getSetting("sttOllamaModel", "dimavz/whisper-tiny:latest"));
+		s.put("sttProvider", databaseService.getSetting("sttProvider", "local"));
+		s.put("sttLocalUrl", databaseService.getSetting("sttLocalUrl",
+				"http://localhost:8000/v1/audio/transcriptions"));
 		return s;
 	}
 

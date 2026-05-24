@@ -977,22 +977,24 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
             <div>
               <label class="label">STT Provider</label>
               <select class="input input-sm" id="sttProvider" onchange="
-                const m = document.getElementById('sttOllamaModelRow');
-                if (m) m.style.display = this.value === 'openai' ? 'none' : '';
+                const localRow = document.getElementById('sttLocalUrlRow');
+                if (localRow) localRow.style.display = this.value === 'openai' ? 'none' : '';
               ">
-                <option value="ollama">🦙 Ollama — Local / Free (default)</option>
+                <option value="local">🖥 Local Whisper Server — Free / Private (default)</option>
                 <option value="openai">☁ OpenAI Whisper — Cloud / Paid</option>
               </select>
               <div style="font-size:11px;color:var(--muted1);margin-top:4px;">
                 OpenAI requires a valid API key configured in Providers → OpenAI.
               </div>
             </div>
-            <div id="sttOllamaModelRow">
-              <label class="label">Ollama Whisper Model</label>
-              <input class="input input-sm" id="sttOllamaModel" placeholder="dimavz/whisper-tiny:latest" />
-              <div style="font-size:11px;color:var(--muted1);margin-top:4px;">
-                Must be pulled in Ollama first:
-                <code style="background:var(--div);padding:2px 5px;border-radius:4px;">ollama pull dimavz/whisper-tiny</code>
+            <div id="sttLocalUrlRow">
+              <label class="label">Local Whisper Server URL</label>
+              <input class="input input-sm" id="sttLocalUrl" placeholder="http://localhost:8000/v1/audio/transcriptions" />
+              <div style="font-size:11px;color:var(--muted1);margin-top:6px;">
+                Run a local <strong>faster-whisper</strong> server (one-time setup):<br/>
+                <code style="background:var(--div);padding:3px 6px;border-radius:4px;display:inline-block;margin-top:4px;">pip install faster-whisper</code>
+                then start the server from the project root:<br/>
+                <code style="background:var(--div);padding:3px 6px;border-radius:4px;display:inline-block;margin-top:4px;">python scripts/whisper_server.py</code>
               </div>
             </div>
           </div>

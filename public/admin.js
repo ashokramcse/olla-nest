@@ -651,11 +651,11 @@ function renderSettings() {
   $("workspaceRoot").value = s.workspaceRoot || "";
   $("projectKnowledge").value = s.projectKnowledge || "";
   // Voice STT provider
-  if ($("sttProvider")) $("sttProvider").value = s.sttProvider || "ollama";
-  if ($("sttOllamaModel")) $("sttOllamaModel").value = s.sttOllamaModel || "dimavz/whisper-tiny:latest";
-  // Show/hide the Ollama model row based on current provider
-  const ollamaRow = $("sttOllamaModelRow");
-  if (ollamaRow) ollamaRow.style.display = (s.sttProvider === "openai") ? "none" : "";
+  if ($("sttProvider")) $("sttProvider").value = s.sttProvider || "local";
+  if ($("sttLocalUrl")) $("sttLocalUrl").value = s.sttLocalUrl || "http://localhost:8000/v1/audio/transcriptions";
+  // Show/hide the local URL row based on current provider
+  const localRow = $("sttLocalUrlRow");
+  if (localRow) localRow.style.display = (s.sttProvider === "openai") ? "none" : "";
   renderSourcePills();
 }
 
@@ -898,8 +898,8 @@ $("saveSettingsBtn").addEventListener("click", async () => {
         localPermissionMode: $("localPermissionMode").value,
         workspaceRoot: $("workspaceRoot").value.trim() || undefined,
         projectKnowledge: $("projectKnowledge").value,
-        sttProvider: $("sttProvider") ? $("sttProvider").value : "ollama",
-        sttOllamaModel: $("sttOllamaModel") ? $("sttOllamaModel").value.trim() : "dimavz/whisper-tiny:latest",
+        sttProvider: $("sttProvider") ? $("sttProvider").value : "local",
+        sttLocalUrl: $("sttLocalUrl") ? $("sttLocalUrl").value.trim() : "http://localhost:8000/v1/audio/transcriptions",
       }),
     });
     msg.className = "form-message success";

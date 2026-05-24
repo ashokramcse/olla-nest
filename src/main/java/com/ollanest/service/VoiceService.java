@@ -35,11 +35,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <p>
  * The {@code sttProvider} setting controls which backend is used:
  * <ul>
- * <li>{@code "ollama"} (default) — calls the local Ollama generate endpoint
- * with the model named by {@code sttOllamaModel} (default:
- * {@code "dimavz/whisper-tiny:latest"}). Audio bytes are Base64-encoded and
- * sent as an image attachment in the Ollama multimodal payload. No API key
- * or internet access required.</li>
+ * <li>{@code "local"} (default) — calls a local faster-whisper HTTP server
+ * at the URL stored in {@code sttLocalUrl} (default:
+ * {@code http://localhost:8000/v1/audio/transcriptions}). Uses the same
+ * multipart/form-data format as OpenAI. Free, private, no API key.</li>
  * <li>{@code "openai"} — calls
  * {@code POST https://api.openai.com/v1/audio/transcriptions} using the
  * {@code openaiApiKey} setting. Requires a paid OpenAI account.</li>
@@ -62,8 +61,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <h3>Version history</h3>
  * <ul>
  * <li><b>v2026.1.4</b> — initial creation; OpenAI Whisper STT and TTS-1.</li>
- * <li><b>v2026.1.5</b> — added Ollama Whisper STT provider as default;
- * {@code sttProvider} and {@code sttOllamaModel} settings.</li>
+ * <li><b>v2026.1.5</b> — added local faster-whisper STT as default;
+ * {@code sttProvider} (local/openai) and {@code sttLocalUrl} settings;
+ * removed non-functional Ollama audio route (Ollama does not support
+ * audio inference).</li>
  * </ul>
  *
  * @author Ashok Ram
@@ -89,10 +90,10 @@ public class VoiceService {
 	private static final String TTS_ENDPOINT = "https://api.openai.com/v1/audio/speech";
 
 	/**
-	 * Default Ollama Whisper model. Companies can override via the
-	 * {@code sttOllamaModel} admin setting.
+	 * Default local faster-whisper server URL. OpenAI-compatible endpoint.
+	 * Start with: {@code pip install faster-whisper uvicorn} then run the server.
 	 */
-	private static final String DEFAULT_OLLAMA_WHISPER_MODEL = "dimavz/whisper-tiny:latest";
+	private static final String DEFAULT_LOCAL_WHISPER_URL = "http://localhost:8000/v1/audio/transcriptions";
 
 	/** Database service used to read the {@code openaiApiKey} setting. */
 	private final DatabaseService dbService;
@@ -154,77 +155,45 @@ public class VoiceService {
 	 * @since v2026.1.4
 	 */
 	public String transcribe(byte[] audioData, String filename) throws Exception {
-		String provider = dbService.getSetting("sttProvider", "ollama");
+		String provider = dbService.getSetting("sttProvider", "local");
 		if ("openai".equalsIgnoreCase(provider)) {
 			return transcribeWithOpenAI(audioData, filename);
 		}
-		// Default: Ollama local Whisper
-		return transcribeWithOllama(audioData, filename);
+		// Default: local faster-whisper server (OpenAI-compatible)
+		return transcribeWithLocalWhisper(audioData, filename);
 	}
 
 	/**
-	 * Transcribes audio using the local Ollama Whisper model
-	 * ({@code sttOllamaModel}, default {@code dimavz/whisper-tiny:latest}).
+	 * Transcribes audio using a local faster-whisper HTTP server.
 	 *
 	 * <p>
-	 * Ollama's multimodal generate API accepts Base64-encoded data in the
-	 * {@code images} array. The audio bytes are encoded and sent alongside a
-	 * transcription prompt. The response {@code response} field contains the
-	 * transcribed text.
+	 * The server must expose an OpenAI-compatible
+	 * {@code POST /v1/audio/transcriptions} endpoint. The URL is read from
+	 * {@code sttLocalUrl} (default: {@code http://localhost:8000/v1/audio/transcriptions}).
+	 *
+	 * <p>
+	 * Setup (one-time):
+	 * <pre>
+	 *   pip install faster-whisper
+	 *   # then start with the provided server script, or use:
+	 *   # https://github.com/nirnaim/faster-whisper-server
+	 * </pre>
 	 *
 	 * @param audioData raw audio bytes
-	 * @param filename  original filename (for logging only)
+	 * @param filename  original filename including extension
 	 * @return transcribed text
-	 * @throws Exception on network failure or Ollama error
+	 * @throws RuntimeException if the server returns an error or is unreachable
+	 * @throws Exception        on network failure
 	 * @since v2026.1.5
 	 */
-	private String transcribeWithOllama(byte[] audioData, String filename) throws Exception {
-		String ollamaUrl = dbService.getSetting("ollamaUrl", "http://localhost:11434");
-		// Normalise trailing slash
-		if (ollamaUrl.endsWith("/"))
-			ollamaUrl = ollamaUrl.substring(0, ollamaUrl.length() - 1);
-		String model = dbService.getSetting("sttOllamaModel", DEFAULT_OLLAMA_WHISPER_MODEL);
-
-		String audioB64 = java.util.Base64.getEncoder().encodeToString(audioData);
-		String safeName = (filename != null && !filename.isBlank()) ? filename : "audio.webm";
-
-		// Build Ollama generate payload — audio sent as Base64 in the images array
-		Map<String, Object> payload = Map.of(
-				"model", model,
-				"prompt", "Transcribe the following audio to text. Return only the transcription, no commentary.",
-				"images", new String[] { audioB64 },
-				"stream", false);
-		String body = mapper.writeValueAsString(payload);
-
-		log.debug("[voice] Ollama STT → model={} file={}", model, safeName);
-
-		HttpRequest req = HttpRequest.newBuilder()
-				.uri(URI.create(ollamaUrl + "/api/generate"))
-				.header("Content-Type", "application/json")
-				.timeout(Duration.ofSeconds(120))
-				.POST(HttpRequest.BodyPublishers.ofString(body)).build();
-
-		HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-		if (resp.statusCode() != 200) {
-			throw new RuntimeException(
-					"Ollama Whisper error (HTTP " + resp.statusCode() + "): " + resp.body());
-		}
-		JsonNode root = mapper.readTree(resp.body());
-		if (root.has("error")) {
-			throw new RuntimeException("Ollama Whisper error: " + root.path("error").asText());
-		}
-		return root.path("response").asText("").trim();
+	private String transcribeWithLocalWhisper(byte[] audioData, String filename) throws Exception {
+		String url = dbService.getSetting("sttLocalUrl", DEFAULT_LOCAL_WHISPER_URL);
+		log.debug("[voice] Local Whisper STT → url={}", url);
+		return sendWhisperMultipart(url, null, audioData, filename);
 	}
 
 	/**
 	 * Transcribes audio using the OpenAI Whisper API (paid, cloud).
-	 *
-	 * <p>
-	 * Constructs a multipart/form-data body containing two parts:
-	 * <ol>
-	 * <li>{@code model} — always {@code "whisper-1"}</li>
-	 * <li>{@code file} — the raw audio bytes with the supplied filename</li>
-	 * </ol>
 	 *
 	 * @param audioData raw audio bytes
 	 * @param filename  original filename including extension
@@ -238,19 +207,34 @@ public class VoiceService {
 		if (apiKey.isBlank()) {
 			throw new RuntimeException("OpenAI API key not configured for transcription");
 		}
-		// Build multipart/form-data body manually — JDK HTTP client has no built-in
-		// encoder
+		return sendWhisperMultipart(WHISPER_ENDPOINT, apiKey, audioData, filename);
+	}
+
+	/**
+	 * Sends a multipart/form-data audio transcription request to any
+	 * OpenAI-compatible Whisper endpoint (local or cloud).
+	 *
+	 * @param endpoint  the full URL of the transcription endpoint
+	 * @param apiKey    Bearer token, or {@code null} for local servers
+	 * @param audioData raw audio bytes
+	 * @param filename  original filename including extension
+	 * @return transcribed text
+	 * @throws Exception on network failure or JSON parse error
+	 * @since v2026.1.5
+	 */
+	private String sendWhisperMultipart(String endpoint, String apiKey, byte[] audioData, String filename)
+			throws Exception {
 		String boundary = BOUNDARY_PREFIX + UUID.randomUUID().toString().replace("-", "");
 		String nl = "\r\n";
 		ByteArrayOutputStream body = new ByteArrayOutputStream();
 
-		// Part 1: model
+		// Part 1: model name (whisper-1 for OpenAI; ignored by faster-whisper server)
 		body.write(("--" + boundary + nl).getBytes(StandardCharsets.UTF_8));
 		body.write(("Content-Disposition: form-data; name=\"model\"" + nl + nl + "whisper-1" + nl)
 				.getBytes(StandardCharsets.UTF_8));
 
 		// Part 2: audio file
-		String safeName = (filename != null && !filename.isBlank()) ? filename : "audio.wav";
+		String safeName = (filename != null && !filename.isBlank()) ? filename : "audio.webm";
 		body.write(("--" + boundary + nl).getBytes(StandardCharsets.UTF_8));
 		body.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + safeName + "\"" + nl)
 				.getBytes(StandardCharsets.UTF_8));
@@ -259,13 +243,19 @@ public class VoiceService {
 		body.write(nl.getBytes(StandardCharsets.UTF_8));
 		body.write(("--" + boundary + "--" + nl).getBytes(StandardCharsets.UTF_8));
 
-		HttpRequest req = HttpRequest.newBuilder().uri(URI.create(WHISPER_ENDPOINT))
-				.header("Authorization", "Bearer " + apiKey)
+		HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
+				.uri(URI.create(endpoint))
 				.header("Content-Type", "multipart/form-data; boundary=" + boundary)
-				.timeout(Duration.ofSeconds(60))
-				.POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build();
+				.timeout(Duration.ofSeconds(120))
+				.POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()));
+		if (apiKey != null && !apiKey.isBlank()) {
+			reqBuilder.header("Authorization", "Bearer " + apiKey);
+		}
 
-		HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+		HttpResponse<String> resp = http.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
+		if (resp.statusCode() != 200) {
+			throw new RuntimeException("Whisper server error (HTTP " + resp.statusCode() + "): " + resp.body());
+		}
 		JsonNode root = mapper.readTree(resp.body());
 		if (root.has("error")) {
 			throw new RuntimeException("Whisper error: " + root.path("error").path("message").asText());
