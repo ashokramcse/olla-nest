@@ -37,7 +37,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <ul>
  * <li>{@code "local"} (default) — calls a local faster-whisper HTTP server
  * at the URL stored in {@code sttLocalUrl} (default:
- * {@code http://localhost:8000/v1/audio/transcriptions}). Uses the same
+ * {@code http://localhost:8765/v1/audio/transcriptions}). Uses the same
  * multipart/form-data format as OpenAI. Free, private, no API key.</li>
  * <li>{@code "openai"} — calls
  * {@code POST https://api.openai.com/v1/audio/transcriptions} using the
@@ -93,7 +93,7 @@ public class VoiceService {
 	 * Default local faster-whisper server URL. OpenAI-compatible endpoint.
 	 * Start with: {@code pip install faster-whisper uvicorn} then run the server.
 	 */
-	private static final String DEFAULT_LOCAL_WHISPER_URL = "http://localhost:8000/v1/audio/transcriptions";
+	private static final String DEFAULT_LOCAL_WHISPER_URL = "http://localhost:8765/v1/audio/transcriptions";
 
 	/** Database service used to read the {@code openaiApiKey} setting. */
 	private final DatabaseService dbService;
@@ -169,7 +169,7 @@ public class VoiceService {
 	 * <p>
 	 * The server must expose an OpenAI-compatible
 	 * {@code POST /v1/audio/transcriptions} endpoint. The URL is read from
-	 * {@code sttLocalUrl} (default: {@code http://localhost:8000/v1/audio/transcriptions}).
+	 * {@code sttLocalUrl} (default: {@code http://localhost:8765/v1/audio/transcriptions}).
 	 *
 	 * <p>
 	 * Setup (one-time):

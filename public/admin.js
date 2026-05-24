@@ -652,7 +652,7 @@ function renderSettings() {
   $("projectKnowledge").value = s.projectKnowledge || "";
   // Voice STT provider
   if ($("sttProvider")) $("sttProvider").value = s.sttProvider || "local";
-  if ($("sttLocalUrl")) $("sttLocalUrl").value = s.sttLocalUrl || "http://localhost:8000/v1/audio/transcriptions";
+  if ($("sttLocalUrl")) $("sttLocalUrl").value = s.sttLocalUrl || "http://localhost:8765/v1/audio/transcriptions";
   // Show/hide the local URL row based on current provider
   const localRow = $("sttLocalUrlRow");
   if (localRow) localRow.style.display = (s.sttProvider === "openai") ? "none" : "";
@@ -899,7 +899,7 @@ $("saveSettingsBtn").addEventListener("click", async () => {
         workspaceRoot: $("workspaceRoot").value.trim() || undefined,
         projectKnowledge: $("projectKnowledge").value,
         sttProvider: $("sttProvider") ? $("sttProvider").value : "local",
-        sttLocalUrl: $("sttLocalUrl") ? $("sttLocalUrl").value.trim() : "http://localhost:8000/v1/audio/transcriptions",
+        sttLocalUrl: $("sttLocalUrl") ? $("sttLocalUrl").value.trim() : "http://localhost:8765/v1/audio/transcriptions",
       }),
     });
     msg.className = "form-message success";

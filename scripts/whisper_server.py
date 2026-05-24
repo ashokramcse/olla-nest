@@ -2,34 +2,27 @@
 """
 Olla Nest — Local Whisper Transcription Server
 ================================================
-A lightweight OpenAI-compatible speech-to-text server powered by faster-whisper.
-Exposes POST /v1/audio/transcriptions — the same endpoint format as OpenAI Whisper API.
+OpenAI-compatible speech-to-text server powered by faster-whisper.
+Exposes: POST /v1/audio/transcriptions
 
-Usage
------
-  # First time only — create venv and install:
+Setup (first time only):
+  brew install pkg-config ffmpeg
   python3 -m venv scripts/venv
   source scripts/venv/bin/activate
-  pip install faster-whisper
+  pip install faster-whisper python-multipart
 
-  # Every time — start the server:
-  source scripts/venv/bin/activate && python scripts/whisper_server.py
+Start (every time):
+  bash scripts/start_whisper.sh
 
-  # Optional: choose model size (tiny/base/small/medium/large-v3)
-  WHISPER_MODEL=small python scripts/whisper_server.py
+  Or set port:  WHISPER_PORT=8765 python scripts/whisper_server.py
+  Or set model: WHISPER_MODEL=small python scripts/whisper_server.py
 
-  # Optional: change port (default 8000)
-  WHISPER_PORT=9000 python scripts/whisper_server.py
-
-Model sizes (tradeoff: speed vs accuracy)
-  tiny   — fastest, ~39 MB,  good for clear speech
-  base   — fast,    ~74 MB,  recommended default
-  small  — medium,  ~244 MB, better accuracy
-  medium — slower,  ~769 MB, near-OpenAI quality
-  large-v3 — slowest, ~1.5 GB, matches OpenAI quality
-
-Admin Settings → STT Provider: Local Whisper Server
-URL: http://localhost:8000/v1/audio/transcriptions
+Model sizes (speed vs accuracy):
+  tiny   — ~39 MB,  fastest
+  base   — ~74 MB,  recommended default
+  small  — ~244 MB, better accuracy
+  medium — ~769 MB, near-OpenAI quality
+  large-v3 — ~1.5 GB, matches OpenAI quality
 """
 
 import os
@@ -37,44 +30,51 @@ import sys
 import tempfile
 import http.server
 import json
-import cgi
 
-# ---------------------------------------------------------------------------
-# Dependency check
-# ---------------------------------------------------------------------------
-try:
-    from faster_whisper import WhisperModel
-except ImportError:
-    print("ERROR: faster-whisper is not installed.")
-    print("Run: pip install faster-whisper")
-    sys.exit(1)
+# ── Dependency check ─────────────────────────────────────────────────────────
+def _check(module, pkg):
+    try:
+        __import__(module)
+    except ImportError:
+        print(f"ERROR: '{pkg}' is not installed.")
+        print(f"Run: pip install {pkg}")
+        sys.exit(1)
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
+_check("faster_whisper", "faster-whisper")
+_check("multipart",      "python-multipart")
+
+from faster_whisper import WhisperModel
+from multipart.multipart import parse_options_header
+import multipart as mp
+
+# ── Config ───────────────────────────────────────────────────────────────────
 MODEL_SIZE = os.environ.get("WHISPER_MODEL", "base")
-PORT       = int(os.environ.get("WHISPER_PORT", "8000"))
+PORT       = int(os.environ.get("WHISPER_PORT", "8765"))
 DEVICE     = "cpu"   # change to "cuda" if you have an NVIDIA GPU
 
-print(f"[whisper-server] Loading model '{MODEL_SIZE}' on {DEVICE}…")
+print(f"[whisper] Loading model '{MODEL_SIZE}' on {DEVICE}…")
 model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type="int8")
-print(f"[whisper-server] Model ready. Listening on http://localhost:{PORT}")
+print(f"[whisper] Model ready. Listening on http://0.0.0.0:{PORT}")
+print(f"[whisper] Endpoint: POST http://localhost:{PORT}/v1/audio/transcriptions")
 
 
-# ---------------------------------------------------------------------------
-# HTTP handler
-# ---------------------------------------------------------------------------
+# ── HTTP handler ─────────────────────────────────────────────────────────────
 class WhisperHandler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
-        print(f"[whisper-server] {self.address_string()} {fmt % args}")
+        print(f"[whisper] {self.address_string()} — {fmt % args}")
+
+    def do_GET(self):
+        if self.path == "/health":
+            self._send_json({"status": "ok", "model": MODEL_SIZE})
+        else:
+            self._send_json({"error": "Not found"}, 404)
 
     def do_POST(self):
         if self.path != "/v1/audio/transcriptions":
             self._send_json({"error": "Not found"}, 404)
             return
 
-        # Parse multipart form-data
         content_type = self.headers.get("Content-Type", "")
         if "multipart/form-data" not in content_type:
             self._send_json({"error": "Expected multipart/form-data"}, 400)
@@ -83,56 +83,58 @@ class WhisperHandler(http.server.BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         body   = self.rfile.read(length)
 
-        # Write body to a temp file so cgi.FieldStorage can parse it
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".bin") as tmp:
-            tmp.write(body)
-            tmp_path = tmp.name
+        # Parse multipart using python-multipart (works on Python 3.13+)
+        audio_bytes = None
+        audio_name  = "audio.webm"
+
+        content_type_bytes = content_type.encode("utf-8")
+        _, params = parse_options_header(content_type_bytes)
+        boundary = params.get(b"boundary")
+        if boundary is None:
+            self._send_json({"error": "Missing boundary in Content-Type"}, 400)
+            return
+
+        parts = {}
+
+        def on_field(field):
+            parts[field.field_name.decode()] = field.value.decode()
+
+        def on_file(file):
+            file.file_object.seek(0)
+            parts["_file_data"] = file.file_object.read()
+            parts["_file_name"] = file.file_name.decode() if file.file_name else "audio.webm"
+
+        mp.create_form_parser(
+            {"Content-Type": content_type},
+            on_field,
+            on_file,
+        )
+
+        # Fallback: manual boundary split if python-multipart API differs
+        if "_file_data" not in parts:
+            audio_bytes, audio_name = _manual_parse(body, boundary if isinstance(boundary, bytes) else boundary.encode())
+        else:
+            audio_bytes = parts["_file_data"]
+            audio_name  = parts.get("_file_name", "audio.webm")
+
+        if not audio_bytes:
+            self._send_json({"error": "Could not parse audio from request"}, 400)
+            return
 
         try:
-            import io
-            environ = {
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE":   content_type,
-                "CONTENT_LENGTH": str(length),
-            }
-            form = cgi.FieldStorage(
-                fp=io.BytesIO(body),
-                environ=environ,
-                keep_blank_values=True,
-            )
-
-            audio_field = form.getvalue("file")
-            if audio_field is None:
-                self._send_json({"error": "Missing 'file' field"}, 400)
-                return
-
-            audio_bytes = audio_field if isinstance(audio_field, bytes) else audio_field.encode()
-
-            # Write audio to a temp file
-            suffix = ".webm"
-            if "file" in form and hasattr(form["file"], "filename"):
-                fname = form["file"].filename or "audio.webm"
-                suffix = os.path.splitext(fname)[1] or ".webm"
-
+            suffix = os.path.splitext(audio_name)[1] or ".webm"
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as af:
                 af.write(audio_bytes)
                 audio_path = af.name
 
-            # Transcribe
-            segments, info = model.transcribe(audio_path, beam_size=5)
+            segments, _ = model.transcribe(audio_path, beam_size=5)
             text = " ".join(seg.text for seg in segments).strip()
             os.unlink(audio_path)
-
             self._send_json({"text": text})
 
         except Exception as e:
-            print(f"[whisper-server] ERROR: {e}")
+            print(f"[whisper] Transcription ERROR: {e}")
             self._send_json({"error": str(e)}, 500)
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
 
     def _send_json(self, data, status=200):
         body = json.dumps(data).encode()
@@ -143,13 +145,36 @@ class WhisperHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-# ---------------------------------------------------------------------------
-# Start server
-# ---------------------------------------------------------------------------
+def _manual_parse(body: bytes, boundary: bytes):
+    """Minimal multipart parser — fallback when python-multipart API varies."""
+    delimiter = b"--" + boundary
+    parts = body.split(delimiter)
+    for part in parts:
+        if b'name="file"' in part or b"name=file" in part:
+            # Split headers from body on double CRLF
+            if b"\r\n\r\n" in part:
+                headers_raw, content = part.split(b"\r\n\r\n", 1)
+            elif b"\n\n" in part:
+                headers_raw, content = part.split(b"\n\n", 1)
+            else:
+                continue
+            # Strip trailing boundary delimiter
+            content = content.rstrip(b"\r\n-")
+            # Extract filename
+            fname = "audio.webm"
+            for tok in headers_raw.split(b";"):
+                tok = tok.strip()
+                if tok.startswith(b"filename="):
+                    fname = tok[9:].strip(b'"').decode(errors="replace")
+            return content, fname
+    return None, "audio.webm"
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     server = http.server.HTTPServer(("0.0.0.0", PORT), WhisperHandler)
-    print(f"[whisper-server] Serving on http://0.0.0.0:{PORT}  (Ctrl+C to stop)")
+    print(f"[whisper] Ready. Press Ctrl+C to stop.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n[whisper-server] Stopped.")
+        print("\n[whisper] Stopped.")

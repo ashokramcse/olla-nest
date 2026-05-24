@@ -333,7 +333,7 @@ public class AdminSettingsController extends BaseController {
 		// Voice STT provider settings
 		s.put("sttProvider", databaseService.getSetting("sttProvider", "local"));
 		s.put("sttLocalUrl", databaseService.getSetting("sttLocalUrl",
-				"http://localhost:8000/v1/audio/transcriptions"));
+				"http://localhost:8765/v1/audio/transcriptions"));
 		return s;
 	}
 
