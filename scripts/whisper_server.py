@@ -3,140 +3,194 @@
 Olla Nest — Local Whisper Transcription Server
 ================================================
 OpenAI-compatible speech-to-text server powered by faster-whisper.
-Exposes: POST /v1/audio/transcriptions
+Supports: macOS, Linux (Ubuntu/Debian/RHEL/CentOS/Alpine), Windows, Windows Server
 
-Setup (first time only):
-  brew install pkg-config ffmpeg
-  python3 -m venv scripts/venv
-  source scripts/venv/bin/activate
-  pip install faster-whisper python-multipart
+Exposes:
+  POST /v1/audio/transcriptions   — transcribe audio (OpenAI-compatible)
+  GET  /health                    — health check (returns {"status":"ok"})
 
-Start (every time):
-  bash scripts/start_whisper.sh
+First-time setup
+----------------
+  macOS / Linux:
+    bash scripts/start_whisper.sh
 
-  Or set port:  WHISPER_PORT=8765 python scripts/whisper_server.py
-  Or set model: WHISPER_MODEL=small python scripts/whisper_server.py
+  Windows / Windows Server:
+    scripts\\start_whisper.bat
+    -- or --
+    .\\scripts\\start_whisper.ps1
 
-Model sizes (speed vs accuracy):
-  tiny   — ~39 MB,  fastest
-  base   — ~74 MB,  recommended default
-  small  — ~244 MB, better accuracy
-  medium — ~769 MB, near-OpenAI quality
-  large-v3 — ~1.5 GB, matches OpenAI quality
+Environment variables
+---------------------
+  WHISPER_MODEL   tiny | base (default) | small | medium | large-v3
+  WHISPER_PORT    port number (default: 8765)
+
+Model sizes
+-----------
+  tiny     ~39 MB   fastest, good for clear speech
+  base     ~74 MB   recommended (default)
+  small    ~244 MB  better accuracy
+  medium   ~769 MB  near-OpenAI quality
+  large-v3 ~1.5 GB  matches OpenAI quality
 """
 
 import os
 import sys
+import json
 import tempfile
 import http.server
-import json
+import email.parser
+import email.policy
+from pathlib import Path
 
 # ── Dependency check ─────────────────────────────────────────────────────────
-def _check(module, pkg):
+def _require(module, package):
     try:
         __import__(module)
     except ImportError:
-        print(f"ERROR: '{pkg}' is not installed.")
-        print(f"Run: pip install {pkg}")
+        print(f"[whisper] ERROR: '{package}' is not installed.")
+        print(f"[whisper]   Run the setup script for your platform:")
+        if sys.platform == "win32":
+            print(f"[whisper]   scripts\\start_whisper.bat")
+        else:
+            print(f"[whisper]   bash scripts/start_whisper.sh")
         sys.exit(1)
 
-_check("faster_whisper", "faster-whisper")
-_check("multipart",      "python-multipart")
+_require("faster_whisper", "faster-whisper")
 
 from faster_whisper import WhisperModel
-from multipart.multipart import parse_options_header
-import multipart as mp
 
 # ── Config ───────────────────────────────────────────────────────────────────
-MODEL_SIZE = os.environ.get("WHISPER_MODEL", "base")
-PORT       = int(os.environ.get("WHISPER_PORT", "8765"))
-DEVICE     = "cpu"   # change to "cuda" if you have an NVIDIA GPU
+MODEL_SIZE  = os.environ.get("WHISPER_MODEL", "base")
+PORT        = int(os.environ.get("WHISPER_PORT", "8765"))
+DEVICE      = "cpu"      # change to "cuda" for NVIDIA GPU
+COMPUTE     = "int8"     # int8 = fastest on CPU; float16 for GPU
 
-print(f"[whisper] Loading model '{MODEL_SIZE}' on {DEVICE}…")
-model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type="int8")
-print(f"[whisper] Model ready. Listening on http://0.0.0.0:{PORT}")
-print(f"[whisper] Endpoint: POST http://localhost:{PORT}/v1/audio/transcriptions")
+print(f"[whisper] Platform : {sys.platform}")
+print(f"[whisper] Loading model '{MODEL_SIZE}' on {DEVICE} ({COMPUTE})…")
+model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE)
+print(f"[whisper] Model ready.")
+print(f"[whisper] Listening on http://0.0.0.0:{PORT}")
+print(f"[whisper] Endpoint : POST http://localhost:{PORT}/v1/audio/transcriptions")
+
+
+# ── Multipart parser (no external deps — works Python 3.9 → 3.14+) ──────────
+
+def parse_multipart(body: bytes, content_type: str):
+    """
+    Parse a multipart/form-data body and return the 'file' field as
+    (audio_bytes, filename).  Uses stdlib email.parser — no cgi/multipart needed.
+    Works identically on macOS, Linux, and Windows.
+    """
+    # email.parser needs a MIME message with headers
+    mime_header = f"Content-Type: {content_type}\r\n\r\n"
+    raw = mime_header.encode() + body
+
+    msg = email.parser.BytesParser(policy=email.policy.compat32).parsebytes(raw)
+
+    if not msg.is_multipart():
+        return None, "audio.webm"
+
+    for part in msg.walk():
+        disposition = part.get("Content-Disposition", "")
+        if 'name="file"' in disposition or "name=file" in disposition:
+            filename = "audio.webm"
+            # Extract filename from Content-Disposition
+            for token in disposition.split(";"):
+                token = token.strip()
+                if token.lower().startswith("filename="):
+                    filename = token[9:].strip().strip('"')
+            payload = part.get_payload(decode=True)
+            if payload:
+                return payload, filename
+
+    # Fallback: manual boundary split (handles edge-case encodings)
+    return _manual_split(body, content_type)
+
+
+def _manual_split(body: bytes, content_type: str):
+    """Minimal boundary splitter used when email.parser finds no file part."""
+    boundary = None
+    for token in content_type.split(";"):
+        token = token.strip()
+        if token.lower().startswith("boundary="):
+            boundary = token[9:].strip().strip('"').encode()
+    if not boundary:
+        return None, "audio.webm"
+
+    delimiter = b"--" + boundary
+    for part in body.split(delimiter):
+        if b'name="file"' in part or b"name=file" in part:
+            sep = b"\r\n\r\n" if b"\r\n\r\n" in part else b"\n\n"
+            if sep in part:
+                header_raw, content = part.split(sep, 1)
+                content = content.rstrip(b"\r\n-")
+                fname = "audio.webm"
+                for tok in header_raw.split(b";"):
+                    tok = tok.strip()
+                    if tok.lower().startswith(b"filename="):
+                        fname = tok[9:].strip(b'"').decode(errors="replace")
+                return content, fname
+    return None, "audio.webm"
 
 
 # ── HTTP handler ─────────────────────────────────────────────────────────────
+
 class WhisperHandler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
-        print(f"[whisper] {self.address_string()} — {fmt % args}")
+        print(f"[whisper] {self.address_string()} — {fmt % args}", flush=True)
 
+    # ── GET /health ───────────────────────────────────────────────────────────
     def do_GET(self):
         if self.path == "/health":
-            self._send_json({"status": "ok", "model": MODEL_SIZE})
+            self._json({"status": "ok", "model": MODEL_SIZE, "port": PORT})
         else:
-            self._send_json({"error": "Not found"}, 404)
+            self._json({"error": "Not found"}, 404)
 
+    # ── POST /v1/audio/transcriptions ─────────────────────────────────────────
     def do_POST(self):
         if self.path != "/v1/audio/transcriptions":
-            self._send_json({"error": "Not found"}, 404)
+            self._json({"error": "Not found"}, 404)
             return
 
         content_type = self.headers.get("Content-Type", "")
         if "multipart/form-data" not in content_type:
-            self._send_json({"error": "Expected multipart/form-data"}, 400)
+            self._json({"error": "Expected multipart/form-data"}, 400)
             return
 
         length = int(self.headers.get("Content-Length", 0))
         body   = self.rfile.read(length)
 
-        # Parse multipart using python-multipart (works on Python 3.13+)
-        audio_bytes = None
-        audio_name  = "audio.webm"
-
-        content_type_bytes = content_type.encode("utf-8")
-        _, params = parse_options_header(content_type_bytes)
-        boundary = params.get(b"boundary")
-        if boundary is None:
-            self._send_json({"error": "Missing boundary in Content-Type"}, 400)
-            return
-
-        parts = {}
-
-        def on_field(field):
-            parts[field.field_name.decode()] = field.value.decode()
-
-        def on_file(file):
-            file.file_object.seek(0)
-            parts["_file_data"] = file.file_object.read()
-            parts["_file_name"] = file.file_name.decode() if file.file_name else "audio.webm"
-
-        mp.create_form_parser(
-            {"Content-Type": content_type},
-            on_field,
-            on_file,
-        )
-
-        # Fallback: manual boundary split if python-multipart API differs
-        if "_file_data" not in parts:
-            audio_bytes, audio_name = _manual_parse(body, boundary if isinstance(boundary, bytes) else boundary.encode())
-        else:
-            audio_bytes = parts["_file_data"]
-            audio_name  = parts.get("_file_name", "audio.webm")
+        audio_bytes, audio_name = parse_multipart(body, content_type)
 
         if not audio_bytes:
-            self._send_json({"error": "Could not parse audio from request"}, 400)
+            self._json({"error": "Could not parse 'file' field from multipart body"}, 400)
             return
 
+        # Write audio to a platform-safe temp file
+        suffix = Path(audio_name).suffix or ".webm"
+        tmp_path = None
         try:
-            suffix = os.path.splitext(audio_name)[1] or ".webm"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as af:
-                af.write(audio_bytes)
-                audio_path = af.name
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(audio_bytes)
+                tmp_path = tmp.name
 
-            segments, _ = model.transcribe(audio_path, beam_size=5)
+            segments, info = model.transcribe(tmp_path, beam_size=5)
             text = " ".join(seg.text for seg in segments).strip()
-            os.unlink(audio_path)
-            self._send_json({"text": text})
+            print(f"[whisper] Transcribed {len(audio_bytes):,} bytes → {len(text)} chars", flush=True)
+            self._json({"text": text})
 
-        except Exception as e:
-            print(f"[whisper] Transcription ERROR: {e}")
-            self._send_json({"error": str(e)}, 500)
+        except Exception as exc:
+            print(f"[whisper] Transcription error: {exc}", flush=True)
+            self._json({"error": str(exc)}, 500)
+        finally:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
-    def _send_json(self, data, status=200):
+    def _json(self, data, status=200):
         body = json.dumps(data).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -145,35 +199,11 @@ class WhisperHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-def _manual_parse(body: bytes, boundary: bytes):
-    """Minimal multipart parser — fallback when python-multipart API varies."""
-    delimiter = b"--" + boundary
-    parts = body.split(delimiter)
-    for part in parts:
-        if b'name="file"' in part or b"name=file" in part:
-            # Split headers from body on double CRLF
-            if b"\r\n\r\n" in part:
-                headers_raw, content = part.split(b"\r\n\r\n", 1)
-            elif b"\n\n" in part:
-                headers_raw, content = part.split(b"\n\n", 1)
-            else:
-                continue
-            # Strip trailing boundary delimiter
-            content = content.rstrip(b"\r\n-")
-            # Extract filename
-            fname = "audio.webm"
-            for tok in headers_raw.split(b";"):
-                tok = tok.strip()
-                if tok.startswith(b"filename="):
-                    fname = tok[9:].strip(b'"').decode(errors="replace")
-            return content, fname
-    return None, "audio.webm"
-
-
 # ── Entry point ───────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     server = http.server.HTTPServer(("0.0.0.0", PORT), WhisperHandler)
-    print(f"[whisper] Ready. Press Ctrl+C to stop.")
+    print(f"[whisper] Ready. Press Ctrl+C to stop.", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

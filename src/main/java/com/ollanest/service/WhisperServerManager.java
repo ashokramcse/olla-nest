@@ -24,35 +24,47 @@ import java.nio.file.Paths;
  * {@code scripts/whisper_server.py} automatically when Olla Nest starts and
  * shuts it down cleanly when the application stops.
  *
+ * <h3>Cross-platform support</h3>
+ * <p>
+ * Supports macOS, Linux (Ubuntu/Debian/RHEL/CentOS/Alpine), Windows, and
+ * Windows Server. The virtual-environment Python binary path differs by OS:
+ * <ul>
+ * <li>macOS / Linux — {@code scripts/venv/bin/python}</li>
+ * <li>Windows / Windows Server — {@code scripts\venv\Scripts\python.exe}</li>
+ * </ul>
+ *
  * <h3>Startup behaviour</h3>
  * <ul>
  * <li>Locates the project root by walking up from the running JAR / class
  * directory until it finds {@code scripts/whisper_server.py}.</li>
- * <li>Resolves the virtual-environment Python interpreter at
- * {@code scripts/venv/bin/python}. If the venv is absent the server is not
- * started and a clear warning is logged.</li>
+ * <li>Resolves the virtual-environment Python interpreter for the current OS.
+ * If the venv is absent the server is not started and a clear warning with
+ * platform-specific setup instructions is logged.</li>
  * <li>Skips startup if a server is already listening on the configured port
  * ({@code WHISPER_PORT}, default {@code 8765}).</li>
- * <li>Streams the Python process stdout/stderr to the application log at
- * {@code INFO} level so operators can see Whisper model-load progress.</li>
+ * <li>Streams the Python process stdout/stderr to the application log so
+ * operators can see Whisper model-load progress.</li>
  * </ul>
  *
  * <h3>Shutdown behaviour</h3>
  * <p>
  * {@link #stop()} is annotated with {@link PreDestroy} so Spring calls it
  * automatically on graceful shutdown. The process receives {@code SIGTERM} via
- * {@link Process#destroy()}; if it has not exited within 3 seconds it is
+ * {@link Process#destroy()}; if it has not exited within 5 seconds it is
  * force-killed.
  *
  * <h3>Version history</h3>
  * <ul>
  * <li><b>v2026.1.5</b> — initial creation; auto-start local Whisper STT
  * server on port 8765 as part of application startup.</li>
+ * <li><b>v2026.1.6</b> — full cross-platform support: macOS, Linux VPS,
+ * Windows, Windows Server; OS-specific Python venv path resolution;
+ * platform-specific setup instructions in warning messages.</li>
  * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.5
- * @version v2026.1.5
+ * @version v2026.1.6
  */
 @Component
 public class WhisperServerManager {
@@ -62,11 +74,20 @@ public class WhisperServerManager {
 	/** Port the local Whisper server listens on. */
 	private static final int WHISPER_PORT = 8765;
 
-	/** Relative path from project root to the server script. */
+	/** Relative path from project root to the server script (forward slashes — Java resolves on all OS). */
 	private static final String SCRIPT_RELATIVE = "scripts/whisper_server.py";
 
-	/** Relative path from project root to the venv Python binary. */
-	private static final String PYTHON_RELATIVE = "scripts/venv/bin/python";
+	/** {@code true} when running on any Windows variant. */
+	private static final boolean IS_WINDOWS =
+			System.getProperty("os.name", "").toLowerCase().contains("win");
+
+	/**
+	 * Venv Python binary path, relative to project root.
+	 * Windows uses {@code Scripts\python.exe}; Unix uses {@code bin/python}.
+	 */
+	private static final String PYTHON_RELATIVE = IS_WINDOWS
+			? "scripts/venv/Scripts/python.exe"
+			: "scripts/venv/bin/python";
 
 	private Process whisperProcess;
 
@@ -109,8 +130,18 @@ public class WhisperServerManager {
 			Path scriptPath = projectRoot.resolve(SCRIPT_RELATIVE);
 
 			if (!Files.exists(pythonPath)) {
-				log.warn("[whisper] Virtual environment not found at {} — run setup first:", pythonPath);
-				log.warn("[whisper]   bash {}/scripts/start_whisper.sh", projectRoot);
+				log.warn("[whisper] Virtual environment not found at {} — voice STT will be unavailable.", pythonPath);
+				log.warn("[whisper] Run the one-time setup for your platform:");
+				if (IS_WINDOWS) {
+					log.warn("[whisper]   Windows / Windows Server:");
+					log.warn("[whisper]     scripts\\start_whisper.bat");
+				} else if (System.getProperty("os.name", "").toLowerCase().contains("mac")) {
+					log.warn("[whisper]   macOS:");
+					log.warn("[whisper]     bash scripts/start_whisper.sh");
+				} else {
+					log.warn("[whisper]   Linux (Ubuntu/Debian/RHEL/CentOS/Alpine):");
+					log.warn("[whisper]     bash scripts/start_whisper.sh");
+				}
 				return;
 			}
 
@@ -158,7 +189,7 @@ public class WhisperServerManager {
 			log.info("[whisper] Stopping local Whisper server…");
 			whisperProcess.destroy();
 			try {
-				if (!whisperProcess.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)) {
+				if (!whisperProcess.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
 					whisperProcess.destroyForcibly();
 				}
 			} catch (InterruptedException e) {
