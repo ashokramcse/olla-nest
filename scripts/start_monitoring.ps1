@@ -31,8 +31,9 @@ $GrafanaVersion = "11.4.0"
 $LokiPort       = 3100
 $GrafanaPort    = 3200
 
-$LokiBin        = Join-Path $LokiDir    "loki.exe"
-$GrafanaBin     = Join-Path $GrafanaDir "bin\grafana.exe"
+$LokiBin         = Join-Path $LokiDir    "loki.exe"
+$GrafanaBin      = Join-Path $GrafanaDir "bin\grafana.exe"
+$GrafanaPassFile = Join-Path $MonitoringDir ".grafana-password"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,20 @@ function Loki-Ready {
         $r = Invoke-WebRequest -Uri "http://localhost:$LokiPort/ready" -UseBasicParsing -TimeoutSec 2
         return $r.Content -match "^ready"
     } catch { return $false }
+}
+
+function Get-GrafanaPassword {
+    if (Test-Path $GrafanaPassFile) {
+        return (Get-Content $GrafanaPassFile -Raw).Trim()
+    } else {
+        # Generate a 24-char random password
+        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#%^&*-_+='
+        $pass  = -join ((1..24) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+        if (-not (Test-Path $MonitoringDir)) { New-Item -ItemType Directory -Path $MonitoringDir -Force | Out-Null }
+        $pass | Out-File $GrafanaPassFile -Encoding utf8 -NoNewline
+        Log "Grafana password generated → $GrafanaPassFile"
+        return $pass
+    }
 }
 
 function Grafana-Ready {
@@ -104,7 +119,7 @@ function Show-Status {
         Write-Host "  ○ Loki     stopped" -ForegroundColor Gray
     }
     if (Grafana-Ready) {
-        Write-Host "  ● Grafana  RUNNING  →  http://localhost:$GrafanaPort  (admin / CHANGE_ME_ON_FIRST_BOOT)" -ForegroundColor Green
+        Write-Host "  ● Grafana  RUNNING  →  http://localhost:$GrafanaPort  (admin / see .grafana-password)" -ForegroundColor Green
     } elseif (Port-InUse $GrafanaPort) {
         Write-Host "  ◑ Grafana  STARTING →  http://localhost:$GrafanaPort (warming up)" -ForegroundColor Yellow
     } else {
@@ -116,8 +131,10 @@ function Show-Status {
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if ($Stop)    { Stop-All;    exit 0 }
-if ($Status)  { Show-Status; exit 0 }
+if ($Status)  { $GrafanaPass = Get-GrafanaPassword; Show-Status; exit 0 }
 if ($Restart) { Stop-All; Start-Sleep 2 }
+
+$GrafanaPass = Get-GrafanaPassword
 
 # ── Directory setup ───────────────────────────────────────────────────────────
 
@@ -210,7 +227,7 @@ if (Port-InUse $GrafanaPort) {
         "cfg:server.http_port=$GrafanaPort",
         "cfg:server.domain=localhost",
         "cfg:security.admin_user=admin",
-        "cfg:security.admin_password=CHANGE_ME_ON_FIRST_BOOT",
+        "cfg:security.admin_password=$GrafanaPass",
         "cfg:analytics.reporting_enabled=false",
         "cfg:paths.provisioning=`"$ProvDst`""
     )
@@ -237,7 +254,7 @@ Write-Host "  +-----------------------------------------------------------------
 Write-Host "  |           Olla Nest Monitoring — Ready                           |" -ForegroundColor Cyan
 Write-Host "  +------------------------------------------------------------------+" -ForegroundColor Cyan
 Write-Host "  |  Loki API    ->  http://localhost:$LokiPort" -ForegroundColor White
-Write-Host "  |  Grafana UI  ->  http://localhost:$GrafanaPort  (admin / CHANGE_ME_ON_FIRST_BOOT)" -ForegroundColor White
+Write-Host "  |  Grafana UI  ->  http://localhost:$GrafanaPort  (admin / password in .grafana-password)" -ForegroundColor White
 Write-Host "  |  Dashboard   ->  Olla Nest - Logs (auto-provisioned)" -ForegroundColor White
 Write-Host "  +------------------------------------------------------------------+" -ForegroundColor Cyan
 Write-Host "  |  Stop:     .\scripts\start_monitoring.ps1 -Stop" -ForegroundColor Gray

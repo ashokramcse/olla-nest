@@ -31,6 +31,17 @@ set GRAFANA_PORT=3200
 
 set LOKI_BIN=%LOKI_DIR%\loki.exe
 set GRAFANA_BIN=%GRAFANA_DIR%\bin\grafana.exe
+set GRAFANA_PASS_FILE=%MONITORING_DIR%\.grafana-password
+
+REM ── Load or generate Grafana admin password ───────────────────────────────
+if exist "%GRAFANA_PASS_FILE%" (
+    set /p GRAFANA_PASS=<"%GRAFANA_PASS_FILE%"
+) else (
+    REM Generate random password via PowerShell
+    for /f "tokens=*" %%p in ('powershell -Command "[System.Web.Security.Membership]::GeneratePassword(24,4) -replace \"[^A-Za-z0-9@#%%^&*\-_+=]\",\"x\"" 2^>nul || powershell -Command "-join ((65..90)+(97..122)+(48..57) | Get-Random -Count 20 | %%{[char]$_})"') do set GRAFANA_PASS=%%p
+    echo !GRAFANA_PASS!>"%GRAFANA_PASS_FILE%"
+    echo [monitoring] Grafana password generated: %GRAFANA_PASS_FILE%
+)
 
 :: ── Argument handling ────────────────────────────────────────────────────────
 
@@ -135,7 +146,7 @@ if not errorlevel 1 (
     cfg:server.http_port=%GRAFANA_PORT% ^
     cfg:server.domain=localhost ^
     cfg:security.admin_user=admin ^
-    "cfg:security.admin_password=CHANGE_ME_ON_FIRST_BOOT" ^
+    "cfg:security.admin_password=!GRAFANA_PASS!" ^
     cfg:analytics.reporting_enabled=false ^
     "cfg:paths.provisioning=%PROV_DST%" ^
     >> "%MONITORING_DIR%\grafana.log" 2>&1
@@ -155,7 +166,7 @@ echo   ^|           Olla Nest Monitoring — Ready                           ^|
 echo   +------------------------------------------------------------------+
 echo   ^|  Loki API    -^>  http://localhost:%LOKI_PORT%                       ^|
 echo   ^|  Grafana UI  -^>  http://localhost:%GRAFANA_PORT%                       ^|
-echo   ^|  Login       -^>  admin  /  CHANGE_ME_ON_FIRST_BOOT                         ^|
+echo   ^|  Login       -^>  admin  /  see scripts\monitoring\.grafana-password ^|
 echo   ^|  Dashboard   -^>  Olla Nest - Logs  (auto-provisioned)            ^|
 echo   +------------------------------------------------------------------+
 echo   ^|  Stop:   scripts\start_monitoring.bat --stop                     ^|

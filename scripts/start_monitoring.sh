@@ -37,6 +37,24 @@ GRAFANA_VERSION="11.4.0"
 LOKI_PORT=3100
 GRAFANA_PORT=3200
 
+# ── Grafana admin password ────────────────────────────────────────────────────
+# Generated once on first run, stored locally — never committed to git.
+GRAFANA_PASS_FILE="$MONITORING_DIR/.grafana-password"
+
+load_or_create_grafana_password() {
+  if [[ -f "$GRAFANA_PASS_FILE" ]]; then
+    GRAFANA_PASS=$(cat "$GRAFANA_PASS_FILE")
+  else
+    # Generate a 24-char random password (alphanumeric + symbols, no shell-special chars)
+    GRAFANA_PASS=$(LC_ALL=C tr -dc 'A-Za-z0-9@#%^&*-_+=' </dev/urandom 2>/dev/null | head -c 24 || \
+                   python3 -c "import secrets,string; print(secrets.token_urlsafe(18))")
+    mkdir -p "$MONITORING_DIR"
+    echo "$GRAFANA_PASS" > "$GRAFANA_PASS_FILE"
+    chmod 600 "$GRAFANA_PASS_FILE"
+    log "Grafana admin password generated and saved to $GRAFANA_PASS_FILE"
+  fi
+}
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 log()  { echo "[monitoring] $*"; }
@@ -140,7 +158,7 @@ show_status() {
     echo "  ○ Loki     stopped"
   fi
   if grafana_ready; then
-    echo "  ● Grafana  RUNNING  →  http://localhost:$GRAFANA_PORT  (admin / CHANGE_ME_ON_FIRST_BOOT)"
+    echo "  ● Grafana  RUNNING  →  http://localhost:$GRAFANA_PORT  (admin / see .grafana-password)"
   elif port_in_use $GRAFANA_PORT; then
     echo "  ◑ Grafana  STARTING →  http://localhost:$GRAFANA_PORT (warming up)"
   else
@@ -153,8 +171,10 @@ show_status() {
 
 ARG="${1:-}"
 [[ "$ARG" == "--stop"    ]] && { stop_all;    exit 0; }
-[[ "$ARG" == "--status"  ]] && { show_status; exit 0; }
+[[ "$ARG" == "--status"  ]] && { load_or_create_grafana_password; show_status; exit 0; }
 [[ "$ARG" == "--restart" ]] && { stop_all; sleep 1; }
+
+load_or_create_grafana_password
 
 # ── Directory setup ───────────────────────────────────────────────────────────
 
@@ -259,7 +279,7 @@ else
     cfg:server.http_port=$GRAFANA_PORT \
     cfg:server.domain=localhost \
     cfg:security.admin_user=admin \
-    "cfg:security.admin_password=CHANGE_ME_ON_FIRST_BOOT" \
+    "cfg:security.admin_password=$GRAFANA_PASS" \
     cfg:analytics.reporting_enabled=false \
     cfg:analytics.check_for_updates=false \
     "cfg:paths.provisioning=$PROV_DST" \
@@ -288,7 +308,8 @@ echo "  │              Olla Nest Monitoring — Ready                         
 echo "  ├──────────────────────────────────────────────────────────────────┤"
 echo "  │  Loki API     →  http://localhost:$LOKI_PORT                          │"
 echo "  │  Grafana UI   →  http://localhost:$GRAFANA_PORT                          │"
-echo "  │  Login        →  admin  /  CHANGE_ME_ON_FIRST_BOOT                          │"
+echo "  │  Login        →  admin  /  $(cat "$GRAFANA_PASS_FILE")                    │"
+echo "  │  (password saved in scripts/monitoring/.grafana-password)         │"
 echo "  │  Dashboard    →  Olla Nest — Logs  (auto-provisioned)             │"
 echo "  ├──────────────────────────────────────────────────────────────────┤"
 echo "  │  Stop:        bash scripts/start_monitoring.sh --stop             │"
