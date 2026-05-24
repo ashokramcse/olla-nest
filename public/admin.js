@@ -883,10 +883,32 @@ async function autoSaveModelTier(selectEl, modelId) {
 }
 
 // Save router/model settings
+/**
+ * Updates the status badge inside the Voice STT card header.
+ * Mirrors the "● Connected" style used on the Ollama provider card.
+ * @param {"idle"|"saved"|"error"} state
+ * @param {string} [errMsg] optional error text for error state
+ */
+function _showSttStatus(state, errMsg) {
+  const badge = $("sttStatusBadge");
+  if (!badge) return;
+  if (state === "idle") {
+    badge.style.display = "none";
+    badge.innerHTML = "";
+    return;
+  }
+  const styles = state === "saved"
+    ? "background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;"
+    : "background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;";
+  const dot = state === "saved"
+    ? `<span style="width:7px;height:7px;border-radius:50%;background:#10b981;display:inline-block;"></span>`
+    : `<span style="width:7px;height:7px;border-radius:50%;background:#ef4444;display:inline-block;"></span>`;
+  const label = state === "saved" ? "Saved" : (errMsg || "Error");
+  badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;${styles}border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${dot}${esc(label)}</span>`;
+  badge.style.display = "block";
+}
+
 $("saveSettingsBtn").addEventListener("click", async () => {
-  const msg = $("settingsMsg");
-  msg.innerHTML = "";
-  msg.style.cssText = "";
   const btn = $("saveSettingsBtn");
   btn.disabled = true;
   btn.textContent = "Saving…";
@@ -905,21 +927,15 @@ $("saveSettingsBtn").addEventListener("click", async () => {
         sttLocalUrl: $("sttLocalUrl") ? $("sttLocalUrl").value.trim() : "http://localhost:8765/v1/audio/transcriptions",
       }),
     });
-    // Green status pill inside the card — auto-fades after 3 s
-    msg.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;">
-      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-      Settings saved successfully
-    </span>`;
-    msg.style.cssText = "margin-top:12px;display:flex;justify-content:flex-end;";
-    setTimeout(() => { msg.innerHTML = ""; msg.style.cssText = ""; }, 3000);
+    // Status badge inside the Voice card header (top-right) — like Ollama "Connected"
+    _showSttStatus("saved");
+    setTimeout(() => _showSttStatus("idle"), 3000);
     btn.textContent = "✓ Saved";
     setTimeout(() => { btn.textContent = "💾 Save Settings"; btn.disabled = false; }, 2000);
     await loadState();
   } catch (err) {
-    msg.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;">
-      ✕ ${esc(err.message)}
-    </span>`;
-    msg.style.cssText = "margin-top:12px;display:flex;justify-content:flex-end;";
+    _showSttStatus("error", err.message);
+    setTimeout(() => _showSttStatus("idle"), 5000);
     btn.textContent = "💾 Save Settings";
     btn.disabled = false;
   }
