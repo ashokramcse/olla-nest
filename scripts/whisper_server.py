@@ -7,8 +7,13 @@ Exposes POST /v1/audio/transcriptions — the same endpoint format as OpenAI Whi
 
 Usage
 -----
+  # First time only — create venv and install:
+  python3 -m venv scripts/venv
+  source scripts/venv/bin/activate
   pip install faster-whisper
-  python scripts/whisper_server.py
+
+  # Every time — start the server:
+  source scripts/venv/bin/activate && python scripts/whisper_server.py
 
   # Optional: choose model size (tiny/base/small/medium/large-v3)
   WHISPER_MODEL=small python scripts/whisper_server.py
