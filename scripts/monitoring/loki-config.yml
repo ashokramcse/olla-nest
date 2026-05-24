@@ -1,6 +1,6 @@
 # Grafana Loki — Configuration for Olla Nest
 # Single-process mode (no Kubernetes / microservices needed)
-# Data stored in: scripts/monitoring/loki-data/
+# LOKI_DATA_DIR is set by start_monitoring.sh before launching Loki.
 
 auth_enabled: false
 
@@ -11,11 +11,11 @@ server:
 
 common:
   instance_addr: 127.0.0.1
-  path_prefix: ./scripts/monitoring/loki-data
+  path_prefix: ${LOKI_DATA_DIR}
   storage:
     filesystem:
-      chunks_directory: ./scripts/monitoring/loki-data/chunks
-      rules_directory:  ./scripts/monitoring/loki-data/rules
+      chunks_directory: ${LOKI_DATA_DIR}/chunks
+      rules_directory:  ${LOKI_DATA_DIR}/rules
   replication_factor: 1
   ring:
     kvstore:
@@ -43,16 +43,17 @@ ruler:
 
 # Retention: keep 30 days of logs
 limits_config:
-  retention_period: 720h       # 30 days
+  retention_period: 720h
   ingestion_rate_mb: 16
   ingestion_burst_size_mb: 32
   max_query_series: 5000
   max_query_lookback: 720h
 
 compactor:
-  working_directory: ./scripts/monitoring/loki-data/compactor
+  working_directory: ${LOKI_DATA_DIR}/compactor
   retention_enabled: true
   retention_delete_delay: 2h
+  delete_request_store: filesystem
 
 analytics:
   reporting_enabled: false

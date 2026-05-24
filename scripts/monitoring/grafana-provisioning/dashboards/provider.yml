@@ -8,5 +8,5 @@ providers:
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
-      path: /opt/olla-nest-grafana/provisioning/dashboards
+      path: provisioning/dashboards
       foldersFromFilesStructure: false

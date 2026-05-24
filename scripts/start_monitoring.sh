@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MONITORING_DIR="$SCRIPT_DIR/monitoring"
 LOKI_DIR="$MONITORING_DIR/loki-bin"
 LOKI_DATA="$MONITORING_DIR/loki-data"
-GRAFANA_DIR="${GRAFANA_DIR:-/opt/olla-nest-grafana}"
+GRAFANA_DIR="${GRAFANA_DIR:-$MONITORING_DIR/grafana}"
 PIDS_DIR="$MONITORING_DIR/pids"
 
 LOKI_VERSION="3.3.2"
@@ -171,10 +171,12 @@ fi
 PROV_SRC="$MONITORING_DIR/grafana-provisioning"
 PROV_DST="$GRAFANA_DIR/provisioning"
 
+# Always sync provisioning so dashboard changes are picked up on restart
+rm -rf "$PROV_DST/datasources" "$PROV_DST/dashboards"
 cp -r "$PROV_SRC/datasources" "$PROV_DST/"
 cp -r "$PROV_SRC/dashboards"  "$PROV_DST/"
 
-log "Grafana provisioning files installed."
+log "Grafana provisioning files installed → $PROV_DST"
 
 # ── Start Loki ────────────────────────────────────────────────────────────────
 
@@ -182,18 +184,25 @@ if port_in_use $LOKI_PORT; then
   log "Loki already running on port $LOKI_PORT — skipping."
 else
   log "Starting Loki on port $LOKI_PORT..."
+  export LOKI_DATA_DIR="$LOKI_DATA"
   "$LOKI_BIN" \
     -config.file="$MONITORING_DIR/loki-config.yml" \
     -config.expand-env=true \
     >> "$MONITORING_DIR/loki.log" 2>&1 &
   LOKI_PID=$!
   echo $LOKI_PID > "$PIDS_DIR/loki.pid"
-  sleep 2
-  if port_in_use $LOKI_PORT; then
-    log "Loki started (PID $LOKI_PID)  →  http://localhost:$LOKI_PORT"
-  else
-    warn "Loki may not have started — check $MONITORING_DIR/loki.log"
-  fi
+  # Loki ingester warms up for ~15s — poll /ready instead of just checking the port
+  log "Waiting for Loki to become ready (up to 30s)..."
+  for i in $(seq 1 15); do
+    sleep 2
+    if curl -s "http://localhost:$LOKI_PORT/ready" 2>/dev/null | grep -q "ready"; then
+      log "Loki started (PID $LOKI_PID)  →  http://localhost:$LOKI_PORT"
+      break
+    fi
+    if [[ $i -eq 15 ]]; then
+      warn "Loki may not have started — check $MONITORING_DIR/loki.log"
+    fi
+  done
 fi
 
 # ── Start Grafana ─────────────────────────────────────────────────────────────
@@ -202,19 +211,25 @@ if port_in_use $GRAFANA_PORT; then
   log "Grafana already running on port $GRAFANA_PORT — skipping."
 else
   log "Starting Grafana on port $GRAFANA_PORT..."
-  "$GRAFANA_DIR/bin/grafana" server \
-    --config="$GRAFANA_DIR/conf/defaults.ini" \
+  GF_BIN="$GRAFANA_DIR/bin/grafana"
+  # Newer Grafana releases use "grafana" binary with "server" subcommand;
+  # older releases use "grafana-server" directly.
+  if [[ ! -f "$GF_BIN" ]] && [[ -f "$GRAFANA_DIR/bin/grafana-server" ]]; then
+    GF_BIN="$GRAFANA_DIR/bin/grafana-server"
+  fi
+  "$GF_BIN" server \
     --homepath="$GRAFANA_DIR" \
     cfg:server.http_port=$GRAFANA_PORT \
     cfg:server.domain=localhost \
     cfg:security.admin_user=admin \
-    cfg:security.admin_password="CHANGE_ME_ON_FIRST_BOOT" \
+    "cfg:security.admin_password=CHANGE_ME_ON_FIRST_BOOT" \
     cfg:analytics.reporting_enabled=false \
     cfg:analytics.check_for_updates=false \
+    cfg:paths.provisioning="$PROV_DST" \
     >> "$MONITORING_DIR/grafana.log" 2>&1 &
   GRAFANA_PID=$!
   echo $GRAFANA_PID > "$PIDS_DIR/grafana.pid"
-  sleep 3
+  sleep 4
   if port_in_use $GRAFANA_PORT; then
     log "Grafana started (PID $GRAFANA_PID)  →  http://localhost:$GRAFANA_PORT"
   else
