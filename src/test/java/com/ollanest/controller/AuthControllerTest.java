@@ -41,7 +41,7 @@ class AuthControllerTest {
 	private static final String LOGOUT_URL = "/api/auth/logout";
 
 	private static final String ADMIN_EMAIL = "admin@ollanest.local";
-	private static final String ADMIN_PASS  = "CHANGE_ME_ON_FIRST_BOOT";
+	private static final String ADMIN_PASS  = "junit-integration-test-only";
 
 	// ── Login ─────────────────────────────────────────────────────────────────
 

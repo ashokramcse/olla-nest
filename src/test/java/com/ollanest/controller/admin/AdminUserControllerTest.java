@@ -42,7 +42,7 @@ class AdminUserControllerTest {
 	private static final String USERS_URL = "/api/admin/users";
 
 	private static final String ADMIN_EMAIL = "admin@ollanest.local";
-	private static final String ADMIN_PASS  = "CHANGE_ME_ON_FIRST_BOOT";
+	private static final String ADMIN_PASS  = "junit-integration-test-only";
 
 	/** Cookies from a successful admin login, re-used across tests in the class. */
 	private Cookie[] adminCookies;
