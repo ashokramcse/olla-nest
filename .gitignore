@@ -39,3 +39,4 @@ scripts/monitoring/grafana.log
 
 # Grafana admin password (generated locally — never commit)
 scripts/monitoring/.grafana-password
+scripts/e2e-test.sh
