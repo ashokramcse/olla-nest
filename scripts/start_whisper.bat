@@ -19,15 +19,34 @@ if not defined WHISPER_MODEL set WHISPER_MODEL=base
 echo [whisper] Platform: Windows
 echo [whisper] Script dir: %SCRIPT_DIR%
 
-REM ── Locate Python ────────────────────────────────────────────────────────────
+REM ── Locate Python 3.11 or 3.12 (faster-whisper needs <= 3.12) ───────────────
+REM  faster-whisper's 'av' dependency has no wheels for Python 3.13+.
 set PYTHON_BIN=
-where python >nul 2>&1 && set PYTHON_BIN=python
-where python3 >nul 2>&1 && set PYTHON_BIN=python3
+for %%c in (py python3.11 python3.12 python3.10 python3 python) do (
+    if "%PYTHON_BIN%"=="" (
+        where %%c >nul 2>&1
+        if not errorlevel 1 (
+            REM Check version is 3.9–3.12
+            for /f "tokens=2 delims=." %%m in ('%%c --version 2^>^&1') do (
+                if "%%m"=="9"  set PYTHON_BIN=%%c
+                if "%%m"=="10" set PYTHON_BIN=%%c
+                if "%%m"=="11" set PYTHON_BIN=%%c
+                if "%%m"=="12" set PYTHON_BIN=%%c
+            )
+        )
+    )
+)
 
 if "%PYTHON_BIN%"=="" (
-    echo [whisper] ERROR: Python not found in PATH.
-    echo [whisper] Download Python 3.9+ from https://www.python.org/downloads/
-    echo [whisper] Make sure to tick "Add Python to PATH" during install.
+    echo [whisper] Python 3.9-3.12 not found. Trying winget to install Python 3.11...
+    winget install --id Python.Python.3.11 -e --silent
+    set PYTHON_BIN=python3.11
+)
+
+if "%PYTHON_BIN%"=="" (
+    echo [whisper] ERROR: Python 3.11 or 3.12 required.
+    echo [whisper] Download from https://www.python.org/downloads/release/python-3119/
+    echo [whisper] Tick "Add Python to PATH" during install, then re-run.
     pause
     exit /b 1
 )

@@ -83,7 +83,13 @@ public class WhisperServerManager {
 
 	/**
 	 * Venv Python binary path, relative to project root.
-	 * Windows uses {@code Scripts\python.exe}; Unix uses {@code bin/python}.
+	 * <ul>
+	 * <li>Windows — {@code scripts/venv/Scripts/python.exe}</li>
+	 * <li>macOS / Linux — {@code scripts/venv/bin/python}</li>
+	 * </ul>
+	 * The venv must be created by {@code start_whisper.sh} (or {@code .bat} /
+	 * {@code .ps1} on Windows) which enforces Python 3.11 so that all
+	 * faster-whisper binary wheels are available.
 	 */
 	private static final String PYTHON_RELATIVE = IS_WINDOWS
 			? "scripts/venv/Scripts/python.exe"
