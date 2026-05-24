@@ -1743,6 +1743,22 @@ if (voiceBtn) {
 
   voiceBtn.title = "Click to record voice";
 
+  // Inline recording status shown below the mic button
+  let _voiceStatusEl = null;
+  function _setVoiceStatus(text, color) {
+    if (!_voiceStatusEl) {
+      _voiceStatusEl = document.createElement("div");
+      _voiceStatusEl.style.cssText = "font-size:11px;text-align:center;margin-top:4px;transition:opacity .3s;";
+      voiceBtn.parentNode.insertBefore(_voiceStatusEl, voiceBtn.nextSibling);
+    }
+    _voiceStatusEl.textContent = text;
+    _voiceStatusEl.style.color = color || "var(--muted1)";
+    _voiceStatusEl.style.opacity = text ? "1" : "0";
+    if (text) { clearTimeout(_voiceStatusEl._t); _voiceStatusEl._t = setTimeout(() => _setVoiceStatus(""), 3500); }
+  }
+
+  let _recordingStartMs = 0;
+
   async function startRecording() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       showAlert("Your browser does not support microphone access on this page.\n\nTry opening the app over HTTPS, or use Chrome/Edge.", "Voice Not Available");
@@ -1751,6 +1767,7 @@ if (voiceBtn) {
     try {
       voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
+      _recordingStartMs = Date.now();
 
       const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/ogg", ""]
         .find(t => t === "" || MediaRecorder.isTypeSupported(t));
@@ -1761,9 +1778,16 @@ if (voiceBtn) {
       mediaRecorder.onstop = async () => {
         if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
         setVoiceRecordingUI(false);
-        if (!audioChunks.length) { setVoiceTranscribingUI(false); return; }
+
+        const durationMs = Date.now() - _recordingStartMs;
+        if (!audioChunks.length || durationMs < 600) {
+          _setVoiceStatus("Too short — hold longer", "#f59e0b");
+          setVoiceTranscribingUI(false);
+          return;
+        }
 
         setVoiceTranscribingUI(true);
+        _setVoiceStatus("Transcribing…", "var(--muted1)");
         const usedMime = mediaRecorder.mimeType || "audio/webm";
         const ext  = usedMime.includes("ogg") ? "voice.ogg" : "voice.webm";
         const blob = new Blob(audioChunks, { type: usedMime });
@@ -1775,12 +1799,17 @@ if (voiceBtn) {
           });
           const data = await res.json();
           if (!res.ok) {
+            _setVoiceStatus("Transcription failed", "#ef4444");
             showAlert(data.error || "Voice transcription failed. Check Admin → Settings → STT Provider.", "Voice");
-          } else if (data.text) {
+          } else if (data.text && data.text.trim()) {
             const inp = document.getElementById("messageInput");
-            if (inp) { inp.value = (inp.value ? inp.value + " " : "") + data.text; inp.focus(); }
+            if (inp) { inp.value = (inp.value ? inp.value + " " : "") + data.text.trim(); inp.focus(); }
+            _setVoiceStatus("✓ Transcribed", "#10b981");
+          } else {
+            _setVoiceStatus("No speech detected — try speaking louder", "#f59e0b");
           }
         } catch (err) {
+          _setVoiceStatus("Server unreachable", "#ef4444");
           showAlert("Could not reach the transcription server. Is the Whisper server running on port 8765?", "Voice");
         } finally {
           setVoiceTranscribingUI(false);
@@ -1789,12 +1818,14 @@ if (voiceBtn) {
 
       mediaRecorder.start(250); // collect chunks every 250ms
       setVoiceRecordingUI(true);
+      _setVoiceStatus("🔴 Recording… click to stop", "#ef4444");
     } catch (err) {
       if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
       setVoiceRecordingUI(false);
       const msg = err.name === "NotAllowedError"
         ? "Microphone permission denied.\n\nClick the 🔒 icon in the address bar and allow microphone access, then try again."
         : "Could not access microphone: " + err.message;
+      _setVoiceStatus("Mic access denied", "#ef4444");
       showAlert(msg, "Voice");
     }
   }

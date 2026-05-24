@@ -167,7 +167,8 @@ public class WhisperServerManager {
 						new InputStreamReader(proc.getInputStream()))) {
 					String line;
 					while ((line = br.readLine()) != null) {
-						log.info("[whisper] {}", line);
+						// Python script already prefixes lines with [whisper] — log as-is
+						log.info("{}", line);
 					}
 				} catch (Exception ignored) {
 				}
