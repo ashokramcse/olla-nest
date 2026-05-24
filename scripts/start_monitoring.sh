@@ -131,10 +131,14 @@ if [[ ! -f "$LOKI_BIN" ]]; then
   fi
 
   unzip -q "$TMP_ZIP" -d "$LOKI_DIR"
-  # Loki zip contains "loki-<os>-<arch>" — rename to "loki"
-  find "$LOKI_DIR" -maxdepth 1 -name "loki-*" -not -name "*.zip" | head -1 | xargs -I{} mv {} "$LOKI_BIN"
-  chmod +x "$LOKI_BIN"
   rm -f "$TMP_ZIP"
+  # Loki zip contains "loki-<os>-<arch>" binary — rename it to "loki"
+  LOKI_EXTRACTED=$(find "$LOKI_DIR" -maxdepth 1 -name "loki-*" ! -name "*.zip" | head -1)
+  if [[ -z "$LOKI_EXTRACTED" ]]; then
+    err "Could not find extracted Loki binary in $LOKI_DIR"
+  fi
+  mv "$LOKI_EXTRACTED" "$LOKI_BIN"
+  chmod +x "$LOKI_BIN"
   log "Loki downloaded → $LOKI_BIN"
 fi
 
