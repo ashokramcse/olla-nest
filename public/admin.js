@@ -885,8 +885,11 @@ async function autoSaveModelTier(selectEl, modelId) {
 // Save router/model settings
 $("saveSettingsBtn").addEventListener("click", async () => {
   const msg = $("settingsMsg");
-  msg.className = "form-message";
-  msg.textContent = "";
+  msg.innerHTML = "";
+  msg.style.cssText = "";
+  const btn = $("saveSettingsBtn");
+  btn.disabled = true;
+  btn.textContent = "Saving…";
   try {
     await api("/api/admin/settings", {
       method: "POST",
@@ -902,12 +905,23 @@ $("saveSettingsBtn").addEventListener("click", async () => {
         sttLocalUrl: $("sttLocalUrl") ? $("sttLocalUrl").value.trim() : "http://localhost:8765/v1/audio/transcriptions",
       }),
     });
-    msg.className = "form-message success";
-    msg.textContent = "Settings saved.";
+    // Green status pill inside the card — auto-fades after 3 s
+    msg.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;">
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+      Settings saved successfully
+    </span>`;
+    msg.style.cssText = "margin-top:12px;display:flex;justify-content:flex-end;";
+    setTimeout(() => { msg.innerHTML = ""; msg.style.cssText = ""; }, 3000);
+    btn.textContent = "✓ Saved";
+    setTimeout(() => { btn.textContent = "💾 Save Settings"; btn.disabled = false; }, 2000);
     await loadState();
   } catch (err) {
-    msg.className = "form-message error";
-    msg.textContent = err.message;
+    msg.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;">
+      ✕ ${esc(err.message)}
+    </span>`;
+    msg.style.cssText = "margin-top:12px;display:flex;justify-content:flex-end;";
+    btn.textContent = "💾 Save Settings";
+    btn.disabled = false;
   }
 });
 

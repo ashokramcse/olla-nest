@@ -1725,63 +1725,81 @@ let mediaRecorder = null;
 let audioChunks = [];
 
 if (voiceBtn) {
-  // Prefer browser Web Speech API if available (no API key needed)
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (SpeechRecognition) {
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      const input = document.getElementById("messageInput");
-      if (input) { input.value = (input.value ? input.value + " " : "") + transcript; input.focus(); }
-      voiceBtn.classList.remove("recording");
-    };
-    recognition.onerror = () => voiceBtn.classList.remove("recording");
-    recognition.onend = () => voiceBtn.classList.remove("recording");
-    voiceBtn.addEventListener("click", () => {
-      voiceBtn.classList.add("recording");
-      recognition.start();
-    });
-  } else {
-    // Fallback: MediaRecorder → OpenAI Whisper API
-    voiceBtn.addEventListener("mousedown", async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = async () => {
-          stream.getTracks().forEach(t => t.stop());
-          voiceBtn.classList.remove("recording");
-          const blob = new Blob(audioChunks, { type: "audio/webm" });
-          const formData = new FormData();
-          formData.append("audio", blob, "voice.webm");
-          try {
-            const res = await fetch("/api/voice/transcribe", {
-              method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" }, body: formData
-            });
-            const data = await res.json();
-            if (!res.ok) {
-              showAlert(data.error || "Voice transcription failed. Make sure a speech-to-text model is configured in Settings.", "Voice");
-            } else if (data.text) {
-              const input = document.getElementById("messageInput");
-              if (input) { input.value = (input.value ? input.value + " " : "") + data.text; input.focus(); }
-            }
-          } catch (err) {
-            showAlert("Voice transcription failed. Check your microphone and try again.", "Voice");
-          }
-        };
-        mediaRecorder.start();
-        voiceBtn.classList.add("recording");
-      } catch (err) {
-        voiceBtn.classList.remove("recording");
-        showAlert("Microphone access denied or unavailable. Please allow microphone permission and try again.", "Voice");
-      }
-    });
-    voiceBtn.addEventListener("mouseup", () => { if (mediaRecorder?.state === "recording") mediaRecorder.stop(); });
-    voiceBtn.addEventListener("mouseleave", () => { if (mediaRecorder?.state === "recording") mediaRecorder.stop(); });
+  // Always use MediaRecorder → local Whisper server (or OpenAI fallback).
+  // Browser Web Speech API is unreliable across Firefox/Safari and leaks
+  // audio to third-party servers — we own the transcription pipeline.
+
+  /** Show a subtle recording indicator below the mic button */
+  function setVoiceRecordingUI(on) {
+    voiceBtn.classList.toggle("recording", on);
+    voiceBtn.title = on ? "Release to transcribe…" : "Hold to record voice";
   }
+
+  /** Show a small transcribing spinner on the button */
+  function setVoiceTranscribingUI(on) {
+    voiceBtn.disabled = on;
+    voiceBtn.title = on ? "Transcribing…" : "Hold to record voice";
+  }
+
+  voiceBtn.title = "Hold to record voice";
+
+  voiceBtn.addEventListener("mousedown", async (e) => {
+    e.preventDefault();
+    if (mediaRecorder?.state === "recording") return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      // Prefer audio/webm; fall back to audio/ogg (Firefox) or default
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm")  ? "audio/webm"
+                     : MediaRecorder.isTypeSupported("audio/ogg")   ? "audio/ogg"
+                     : "";
+      mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        setVoiceRecordingUI(false);
+        if (!audioChunks.length) return;
+
+        setVoiceTranscribingUI(true);
+        const ext  = (mediaRecorder.mimeType || "audio/webm").includes("ogg") ? "voice.ogg" : "voice.webm";
+        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        const formData = new FormData();
+        formData.append("audio", blob, ext);
+        try {
+          const res  = await fetch("/api/voice/transcribe", {
+            method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" }, body: formData
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            showAlert(data.error || "Voice transcription failed. Check Admin → Settings → STT Provider.", "Voice");
+          } else if (data.text) {
+            const input = document.getElementById("messageInput");
+            if (input) { input.value = (input.value ? input.value + " " : "") + data.text; input.focus(); }
+          }
+        } catch (err) {
+          showAlert("Voice transcription failed — is the Whisper server running on port 8765?", "Voice");
+        } finally {
+          setVoiceTranscribingUI(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setVoiceRecordingUI(true);
+    } catch (err) {
+      setVoiceRecordingUI(false);
+      showAlert("Microphone access denied or unavailable. Allow microphone permission and try again.", "Voice");
+    }
+  });
+
+  // Stop recording on mouse-up or pointer leaving the button
+  const stopRecording = () => { if (mediaRecorder?.state === "recording") mediaRecorder.stop(); };
+  voiceBtn.addEventListener("mouseup",    stopRecording);
+  voiceBtn.addEventListener("mouseleave", stopRecording);
+  // Touch support (mobile)
+  voiceBtn.addEventListener("touchstart", e => { e.preventDefault(); voiceBtn.dispatchEvent(new MouseEvent("mousedown")); });
+  voiceBtn.addEventListener("touchend",   e => { e.preventDefault(); stopRecording(); });
 }
 
 // ─── Image generation ─────────────────────────────────────────────────────────
