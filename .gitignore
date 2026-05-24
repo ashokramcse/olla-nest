@@ -28,3 +28,11 @@ data/
 
 # Local business docs
 PROJECT_BUSINESS_OVERVIEW.txt
+
+# Monitoring binaries & runtime data (downloaded by start_monitoring.sh)
+scripts/monitoring/loki-bin/
+scripts/monitoring/grafana/
+scripts/monitoring/loki-data/
+scripts/monitoring/pids/
+scripts/monitoring/loki.log
+scripts/monitoring/grafana.log

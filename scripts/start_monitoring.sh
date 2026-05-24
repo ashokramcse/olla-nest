@@ -1,26 +1,35 @@
 #!/bin/bash
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 # Olla Nest — Grafana + Loki Monitoring Stack
-# ─────────────────────────────────────────────────────────────────────────────
-# Installs and starts:
-#   • Loki  3.3.2  — log aggregation server (http://localhost:3100)
-#   • Grafana 11.4.0 — dashboards UI (http://localhost:3200)
+# =============================================================================
+# Supports: macOS (Intel + Apple Silicon)
+#           Linux — Ubuntu/Debian, RHEL/CentOS/Rocky, Alpine, Arch, Amazon Linux
+#
+# Installs (once) and starts:
+#   • Loki    3.3.2   — log aggregation   → http://localhost:3100
+#   • Grafana 11.4.0  — dashboards UI     → http://localhost:3200
 #
 # Usage:
-#   bash scripts/start_monitoring.sh          # start both
-#   bash scripts/start_monitoring.sh --stop   # stop both
-#   bash scripts/start_monitoring.sh --status # show status
+#   bash scripts/start_monitoring.sh            # install (once) + start
+#   bash scripts/start_monitoring.sh --stop     # stop both services
+#   bash scripts/start_monitoring.sh --status   # show running status
+#   bash scripts/start_monitoring.sh --restart  # stop then start
 #
-# Data persisted in:  scripts/monitoring/loki-data/
-# Grafana data in:    /opt/olla-nest-grafana/   (configurable via GRAFANA_DIR)
-# ─────────────────────────────────────────────────────────────────────────────
+# All data stored inside the project — no sudo required:
+#   scripts/monitoring/loki-bin/      ← Loki binary
+#   scripts/monitoring/grafana/       ← Grafana installation
+#   scripts/monitoring/loki-data/     ← Loki log storage (30-day retention)
+#   scripts/monitoring/pids/          ← PID files
+#   scripts/monitoring/loki.log       ← Loki stdout
+#   scripts/monitoring/grafana.log    ← Grafana stdout
+# =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MONITORING_DIR="$SCRIPT_DIR/monitoring"
 LOKI_DIR="$MONITORING_DIR/loki-bin"
 LOKI_DATA="$MONITORING_DIR/loki-data"
-GRAFANA_DIR="${GRAFANA_DIR:-$MONITORING_DIR/grafana}"
+GRAFANA_DIR="$MONITORING_DIR/grafana"
 PIDS_DIR="$MONITORING_DIR/pids"
 
 LOKI_VERSION="3.3.2"
@@ -28,155 +37,189 @@ GRAFANA_VERSION="11.4.0"
 LOKI_PORT=3100
 GRAFANA_PORT=3200
 
-OS="$(uname -s)"
-ARCH="$(uname -m)"
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 log()  { echo "[monitoring] $*"; }
 warn() { echo "[monitoring] WARNING: $*" >&2; }
 err()  { echo "[monitoring] ERROR: $*" >&2; exit 1; }
 
-port_in_use() { lsof -ti :"$1" &>/dev/null; }
+port_in_use() {
+  if command -v lsof &>/dev/null; then
+    lsof -ti :"$1" &>/dev/null
+  else
+    # Alpine/minimal Linux may not have lsof — use /proc or ss
+    ss -tlnp 2>/dev/null | grep -q ":$1 " || \
+    cat /proc/net/tcp6 /proc/net/tcp 2>/dev/null | \
+      awk '{print $2}' | grep -qi "$(printf '%04X' "$1")$"
+  fi
+}
 
-# ── Stop ─────────────────────────────────────────────────────────────────────
+download() {
+  local url="$1" dest="$2"
+  if command -v curl &>/dev/null; then
+    curl -fsSL --progress-bar "$url" -o "$dest"
+  elif command -v wget &>/dev/null; then
+    wget -q --show-progress "$url" -O "$dest"
+  else
+    err "Neither curl nor wget found. Install one and retry."
+  fi
+}
+
+loki_ready() {
+  curl -s "http://localhost:$LOKI_PORT/ready" 2>/dev/null | grep -q "^ready"
+}
+
+grafana_ready() {
+  curl -s -o /dev/null -w "%{http_code}" "http://localhost:$GRAFANA_PORT/api/health" 2>/dev/null | grep -q "200"
+}
+
+# ── OS / Architecture detection ───────────────────────────────────────────────
+
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+case "$OS" in
+  Darwin)
+    LOKI_OS="darwin"; GRAFANA_OS="darwin"
+    GRAFANA_PKG="darwin"
+    [[ "$ARCH" == "arm64" ]] && { LOKI_ARCH="arm64"; GRAFANA_ARCH="arm64"; } \
+                              || { LOKI_ARCH="amd64"; GRAFANA_ARCH="amd64"; }
+    ;;
+  Linux)
+    LOKI_OS="linux"; GRAFANA_OS="linux"
+    GRAFANA_PKG="linux"
+    case "$ARCH" in
+      aarch64|arm64) LOKI_ARCH="arm64"; GRAFANA_ARCH="arm64" ;;
+      armv7l|armhf)  LOKI_ARCH="arm";   GRAFANA_ARCH="armv7"  ;;
+      *)             LOKI_ARCH="amd64"; GRAFANA_ARCH="amd64"  ;;
+    esac
+    ;;
+  *)
+    err "Unsupported OS: $OS. Use start_monitoring.bat (Windows CMD) or start_monitoring.ps1 (PowerShell)."
+    ;;
+esac
+
+# ── --stop ────────────────────────────────────────────────────────────────────
 
 stop_all() {
   log "Stopping Loki and Grafana..."
-  for pidfile in "$PIDS_DIR"/loki.pid "$PIDS_DIR"/grafana.pid; do
+  local stopped=0
+  for svc in loki grafana; do
+    local pidfile="$PIDS_DIR/$svc.pid"
     if [[ -f "$pidfile" ]]; then
-      pid=$(cat "$pidfile")
+      local pid; pid=$(cat "$pidfile")
       if kill -0 "$pid" 2>/dev/null; then
-        kill "$pid" && log "Stopped PID $pid ($(basename "$pidfile" .pid))"
+        kill "$pid"
+        log "  Stopped $svc (PID $pid)"
+        stopped=$((stopped+1))
       fi
       rm -f "$pidfile"
     fi
   done
-  log "Done."
-  exit 0
+  # Also kill any stray processes by port
+  for port in $LOKI_PORT $GRAFANA_PORT; do
+    if command -v lsof &>/dev/null; then
+      lsof -ti :"$port" | xargs kill -9 2>/dev/null || true
+    fi
+  done
+  [[ $stopped -eq 0 ]] && log "No running services found." || log "Done."
 }
 
-# ── Status ───────────────────────────────────────────────────────────────────
+# ── --status ──────────────────────────────────────────────────────────────────
 
 show_status() {
   echo ""
-  echo "  ┌─────────────────────────────────────────────────┐"
-  echo "  │         Olla Nest — Monitoring Status            │"
-  echo "  └─────────────────────────────────────────────────┘"
-
-  if port_in_use $LOKI_PORT; then
-    echo "  ● Loki     — RUNNING  http://localhost:$LOKI_PORT"
+  echo "  ┌──────────────────────────────────────────────────────┐"
+  echo "  │         Olla Nest — Monitoring Status                 │"
+  echo "  └──────────────────────────────────────────────────────┘"
+  if loki_ready; then
+    echo "  ● Loki     RUNNING  →  http://localhost:$LOKI_PORT"
+  elif port_in_use $LOKI_PORT; then
+    echo "  ◑ Loki     STARTING →  http://localhost:$LOKI_PORT (warming up)"
   else
-    echo "  ○ Loki     — stopped"
+    echo "  ○ Loki     stopped"
   fi
-
-  if port_in_use $GRAFANA_PORT; then
-    echo "  ● Grafana  — RUNNING  http://localhost:$GRAFANA_PORT"
-    echo "              Login: admin / CHANGE_ME_ON_FIRST_BOOT"
+  if grafana_ready; then
+    echo "  ● Grafana  RUNNING  →  http://localhost:$GRAFANA_PORT  (admin / CHANGE_ME_ON_FIRST_BOOT)"
+  elif port_in_use $GRAFANA_PORT; then
+    echo "  ◑ Grafana  STARTING →  http://localhost:$GRAFANA_PORT (warming up)"
   else
-    echo "  ○ Grafana  — stopped"
+    echo "  ○ Grafana  stopped"
   fi
   echo ""
-  exit 0
 }
 
 # ── Argument handling ─────────────────────────────────────────────────────────
 
-[[ "${1:-}" == "--stop"   ]] && stop_all
-[[ "${1:-}" == "--status" ]] && show_status
-
-# ── OS / Arch detection ───────────────────────────────────────────────────────
-
-case "$OS" in
-  Darwin)
-    LOKI_OS="darwin"
-    GRAFANA_OS="darwin"
-    case "$ARCH" in
-      arm64)  LOKI_ARCH="arm64"; GRAFANA_ARCH="arm64" ;;
-      *)      LOKI_ARCH="amd64"; GRAFANA_ARCH="amd64" ;;
-    esac
-    ;;
-  Linux)
-    LOKI_OS="linux"
-    GRAFANA_OS="linux"
-    case "$ARCH" in
-      aarch64|arm64) LOKI_ARCH="arm64"; GRAFANA_ARCH="arm64" ;;
-      *)             LOKI_ARCH="amd64"; GRAFANA_ARCH="amd64" ;;
-    esac
-    ;;
-  *)
-    err "Unsupported OS: $OS. Run Loki and Grafana manually — see docs/DEPLOYMENT.md"
-    ;;
-esac
+ARG="${1:-}"
+[[ "$ARG" == "--stop"    ]] && { stop_all;    exit 0; }
+[[ "$ARG" == "--status"  ]] && { show_status; exit 0; }
+[[ "$ARG" == "--restart" ]] && { stop_all; sleep 1; }
 
 # ── Directory setup ───────────────────────────────────────────────────────────
 
-mkdir -p "$LOKI_DIR" "$LOKI_DATA/chunks" "$LOKI_DATA/rules" "$LOKI_DATA/compactor" "$PIDS_DIR"
+mkdir -p "$LOKI_DIR" \
+         "$LOKI_DATA/chunks" "$LOKI_DATA/rules" "$LOKI_DATA/compactor" \
+         "$PIDS_DIR"
 
 # ── Install Loki ─────────────────────────────────────────────────────────────
 
 LOKI_BIN="$LOKI_DIR/loki"
 
 if [[ ! -f "$LOKI_BIN" ]]; then
-  log "Downloading Loki v$LOKI_VERSION ($LOKI_OS/$LOKI_ARCH)..."
-  LOKI_URL="https://github.com/grafana/loki/releases/download/v${LOKI_VERSION}/loki-${LOKI_OS}-${LOKI_ARCH}.zip"
+  log "Installing Loki v$LOKI_VERSION ($LOKI_OS/$LOKI_ARCH)..."
   TMP_ZIP="$LOKI_DIR/loki.zip"
-
-  if command -v curl &>/dev/null; then
-    curl -fsSL "$LOKI_URL" -o "$TMP_ZIP"
-  elif command -v wget &>/dev/null; then
-    wget -q "$LOKI_URL" -O "$TMP_ZIP"
-  else
-    err "curl or wget required to download Loki."
-  fi
-
+  LOKI_URL="https://github.com/grafana/loki/releases/download/v${LOKI_VERSION}/loki-${LOKI_OS}-${LOKI_ARCH}.zip"
+  download "$LOKI_URL" "$TMP_ZIP"
   unzip -q "$TMP_ZIP" -d "$LOKI_DIR"
   rm -f "$TMP_ZIP"
-  # Loki zip contains "loki-<os>-<arch>" binary — rename it to "loki"
-  LOKI_EXTRACTED=$(find "$LOKI_DIR" -maxdepth 1 -name "loki-*" ! -name "*.zip" | head -1)
-  if [[ -z "$LOKI_EXTRACTED" ]]; then
-    err "Could not find extracted Loki binary in $LOKI_DIR"
+  # Binary inside zip is named "loki-<os>-<arch>" — normalise to "loki"
+  LOKI_EXTRACTED="$(find "$LOKI_DIR" -maxdepth 1 -name "loki-*" ! -name "*.zip" ! -name "loki" | head -1)"
+  if [[ -n "$LOKI_EXTRACTED" ]]; then
+    mv "$LOKI_EXTRACTED" "$LOKI_BIN"
   fi
-  mv "$LOKI_EXTRACTED" "$LOKI_BIN"
   chmod +x "$LOKI_BIN"
-  log "Loki downloaded → $LOKI_BIN"
+  log "Loki installed → $LOKI_BIN"
+else
+  log "Loki already installed (skip download)"
 fi
 
 # ── Install Grafana ───────────────────────────────────────────────────────────
 
-GRAFANA_BIN="$GRAFANA_DIR/bin/grafana"
-GRAFANA_SERVER_BIN="$GRAFANA_DIR/bin/grafana-server"
+GRAFANA_SERVER_BIN="$GRAFANA_DIR/bin/grafana"
+[[ ! -f "$GRAFANA_SERVER_BIN" ]] && GRAFANA_SERVER_BIN="$GRAFANA_DIR/bin/grafana-server"
 
-if [[ ! -f "$GRAFANA_SERVER_BIN" ]]; then
-  log "Downloading Grafana v$GRAFANA_VERSION ($GRAFANA_OS/$GRAFANA_ARCH)..."
-
-  # macOS: .tar.gz; Linux: .tar.gz
-  GRAFANA_URL="https://dl.grafana.com/oss/release/grafana-${GRAFANA_VERSION}.${GRAFANA_OS}-${GRAFANA_ARCH}.tar.gz"
-  TMP_TGZ="/tmp/grafana.tar.gz"
-
-  if command -v curl &>/dev/null; then
-    curl -fsSL "$GRAFANA_URL" -o "$TMP_TGZ"
-  else
-    wget -q "$GRAFANA_URL" -O "$TMP_TGZ"
-  fi
-
+if [[ ! -f "$GRAFANA_DIR/bin/grafana" && ! -f "$GRAFANA_DIR/bin/grafana-server" ]]; then
+  log "Installing Grafana v$GRAFANA_VERSION ($GRAFANA_PKG/$GRAFANA_ARCH)..."
+  TMP_TGZ="/tmp/olla-nest-grafana.tar.gz"
+  GRAFANA_URL="https://dl.grafana.com/oss/release/grafana-${GRAFANA_VERSION}.${GRAFANA_PKG}-${GRAFANA_ARCH}.tar.gz"
+  download "$GRAFANA_URL" "$TMP_TGZ"
   mkdir -p "$GRAFANA_DIR"
   tar -xzf "$TMP_TGZ" -C "$GRAFANA_DIR" --strip-components=1
   rm -f "$TMP_TGZ"
-  log "Grafana downloaded → $GRAFANA_DIR"
+  log "Grafana installed → $GRAFANA_DIR"
+else
+  log "Grafana already installed (skip download)"
 fi
 
-# ── Copy provisioning files into Grafana ──────────────────────────────────────
+# Detect correct Grafana binary (v10+ uses "grafana server", older uses "grafana-server")
+if [[ -f "$GRAFANA_DIR/bin/grafana" ]]; then
+  GRAFANA_SERVER_BIN="$GRAFANA_DIR/bin/grafana"
+  GRAFANA_CMD=("$GRAFANA_SERVER_BIN" server)
+else
+  GRAFANA_SERVER_BIN="$GRAFANA_DIR/bin/grafana-server"
+  GRAFANA_CMD=("$GRAFANA_SERVER_BIN")
+fi
+
+# ── Sync provisioning files ───────────────────────────────────────────────────
 
 PROV_SRC="$MONITORING_DIR/grafana-provisioning"
 PROV_DST="$GRAFANA_DIR/provisioning"
 
-# Always sync provisioning so dashboard changes are picked up on restart
 rm -rf "$PROV_DST/datasources" "$PROV_DST/dashboards"
 cp -r "$PROV_SRC/datasources" "$PROV_DST/"
 cp -r "$PROV_SRC/dashboards"  "$PROV_DST/"
-
-log "Grafana provisioning files installed → $PROV_DST"
+log "Grafana provisioning synced → $PROV_DST"
 
 # ── Start Loki ────────────────────────────────────────────────────────────────
 
@@ -189,18 +232,18 @@ else
     -config.file="$MONITORING_DIR/loki-config.yml" \
     -config.expand-env=true \
     >> "$MONITORING_DIR/loki.log" 2>&1 &
-  LOKI_PID=$!
-  echo $LOKI_PID > "$PIDS_DIR/loki.pid"
-  # Loki ingester warms up for ~15s — poll /ready instead of just checking the port
-  log "Waiting for Loki to become ready (up to 30s)..."
-  for i in $(seq 1 15); do
+  echo $! > "$PIDS_DIR/loki.pid"
+
+  log "Waiting for Loki ingester to become ready (up to 35s)..."
+  for i in $(seq 1 18); do
     sleep 2
-    if curl -s "http://localhost:$LOKI_PORT/ready" 2>/dev/null | grep -q "ready"; then
-      log "Loki started (PID $LOKI_PID)  →  http://localhost:$LOKI_PORT"
+    if loki_ready; then
+      log "Loki ready (PID $(cat "$PIDS_DIR/loki.pid"))  →  http://localhost:$LOKI_PORT"
       break
     fi
-    if [[ $i -eq 15 ]]; then
-      warn "Loki may not have started — check $MONITORING_DIR/loki.log"
+    if [[ $i -eq 18 ]]; then
+      warn "Loki did not report ready — check $MONITORING_DIR/loki.log"
+      tail -5 "$MONITORING_DIR/loki.log" >&2
     fi
   done
 fi
@@ -211,13 +254,7 @@ if port_in_use $GRAFANA_PORT; then
   log "Grafana already running on port $GRAFANA_PORT — skipping."
 else
   log "Starting Grafana on port $GRAFANA_PORT..."
-  GF_BIN="$GRAFANA_DIR/bin/grafana"
-  # Newer Grafana releases use "grafana" binary with "server" subcommand;
-  # older releases use "grafana-server" directly.
-  if [[ ! -f "$GF_BIN" ]] && [[ -f "$GRAFANA_DIR/bin/grafana-server" ]]; then
-    GF_BIN="$GRAFANA_DIR/bin/grafana-server"
-  fi
-  "$GF_BIN" server \
+  "${GRAFANA_CMD[@]}" \
     --homepath="$GRAFANA_DIR" \
     cfg:server.http_port=$GRAFANA_PORT \
     cfg:server.domain=localhost \
@@ -225,30 +262,37 @@ else
     "cfg:security.admin_password=CHANGE_ME_ON_FIRST_BOOT" \
     cfg:analytics.reporting_enabled=false \
     cfg:analytics.check_for_updates=false \
-    cfg:paths.provisioning="$PROV_DST" \
+    "cfg:paths.provisioning=$PROV_DST" \
     >> "$MONITORING_DIR/grafana.log" 2>&1 &
-  GRAFANA_PID=$!
-  echo $GRAFANA_PID > "$PIDS_DIR/grafana.pid"
-  sleep 4
-  if port_in_use $GRAFANA_PORT; then
-    log "Grafana started (PID $GRAFANA_PID)  →  http://localhost:$GRAFANA_PORT"
-  else
-    warn "Grafana may not have started — check $MONITORING_DIR/grafana.log"
-  fi
+  echo $! > "$PIDS_DIR/grafana.pid"
+
+  log "Waiting for Grafana to become ready (up to 20s)..."
+  for i in $(seq 1 10); do
+    sleep 2
+    if grafana_ready; then
+      log "Grafana ready (PID $(cat "$PIDS_DIR/grafana.pid"))  →  http://localhost:$GRAFANA_PORT"
+      break
+    fi
+    if [[ $i -eq 10 ]]; then
+      warn "Grafana did not report ready — check $MONITORING_DIR/grafana.log"
+      tail -5 "$MONITORING_DIR/grafana.log" >&2
+    fi
+  done
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 echo ""
-echo "  ┌─────────────────────────────────────────────────────────────────┐"
-echo "  │              Olla Nest Monitoring — Ready                        │"
-echo "  ├─────────────────────────────────────────────────────────────────┤"
-echo "  │  Loki API     →  http://localhost:$LOKI_PORT                         │"
-echo "  │  Grafana UI   →  http://localhost:$GRAFANA_PORT                         │"
-echo "  │  Login        →  admin  /  CHANGE_ME_ON_FIRST_BOOT                        │"
-echo "  │  Dashboard    →  Olla Nest — Logs  (auto-provisioned)           │"
-echo "  ├─────────────────────────────────────────────────────────────────┤"
-echo "  │  Stop:        bash scripts/start_monitoring.sh --stop           │"
-echo "  │  Status:      bash scripts/start_monitoring.sh --status         │"
-echo "  └─────────────────────────────────────────────────────────────────┘"
+echo "  ┌──────────────────────────────────────────────────────────────────┐"
+echo "  │              Olla Nest Monitoring — Ready                         │"
+echo "  ├──────────────────────────────────────────────────────────────────┤"
+echo "  │  Loki API     →  http://localhost:$LOKI_PORT                          │"
+echo "  │  Grafana UI   →  http://localhost:$GRAFANA_PORT                          │"
+echo "  │  Login        →  admin  /  CHANGE_ME_ON_FIRST_BOOT                          │"
+echo "  │  Dashboard    →  Olla Nest — Logs  (auto-provisioned)             │"
+echo "  ├──────────────────────────────────────────────────────────────────┤"
+echo "  │  Stop:        bash scripts/start_monitoring.sh --stop             │"
+echo "  │  Restart:     bash scripts/start_monitoring.sh --restart          │"
+echo "  │  Status:      bash scripts/start_monitoring.sh --status           │"
+echo "  └──────────────────────────────────────────────────────────────────┘"
 echo ""
