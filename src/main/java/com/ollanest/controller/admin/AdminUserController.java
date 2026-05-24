@@ -1,6 +1,7 @@
 package com.ollanest.controller.admin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.config.AppConfig;
 import com.ollanest.controller.BaseController;
 import com.ollanest.model.User;
 import com.ollanest.service.AuthService;
@@ -89,8 +90,8 @@ public class AdminUserController extends BaseController {
 	/** Shared JSON mapper for serialising rights lists to DB storage. */
 	private final ObjectMapper mapper;
 
-	/** Default password assigned to new users when none is specified. */
-	private static final String DEFAULT_USER_PASSWORD = "CHANGE_ME_ON_FIRST_BOOT";
+	/** Application configuration — provides the default user password from env. */
+	private final AppConfig appConfig;
 
 	/**
 	 * Constructor-injects all required dependencies.
@@ -100,15 +101,17 @@ public class AdminUserController extends BaseController {
 	 * @param chatService the audit log helper
 	 * @param authService the session management service
 	 * @param mapper      the shared JSON object mapper
+	 * @param appConfig   the application configuration bean
 	 * @since v2026.1.0 — initial Java Spring Boot migration
 	 */
 	public AdminUserController(JdbcTemplate db, UserService userService, ChatService chatService,
-			AuthService authService, ObjectMapper mapper) {
+			AuthService authService, ObjectMapper mapper, AppConfig appConfig) {
 		this.db = db;
 		this.userService = userService;
 		this.chatService = chatService;
 		this.authService = authService;
 		this.mapper = mapper;
+		this.appConfig = appConfig;
 	}
 
 	/**
@@ -249,7 +252,7 @@ public class AdminUserController extends BaseController {
 		}
 
 		String id = uid("u");
-		String password = body.get("password") != null ? body.get("password").toString() : DEFAULT_USER_PASSWORD;
+		String password = body.get("password") != null ? body.get("password").toString() : appConfig.getDefaultUserPassword();
 		String hash = BCrypt.hashpw(password, BCrypt.gensalt(12));
 		String role = (String) body.getOrDefault("role", "user");
 		String deptId = (String) body.getOrDefault("departmentId", "dept-general");
@@ -442,7 +445,7 @@ public class AdminUserController extends BaseController {
 		if (err != null)
 			return err;
 		User admin = getUser(req);
-		String newPassword = body.get("password") != null ? body.get("password").toString() : DEFAULT_USER_PASSWORD;
+		String newPassword = body.get("password") != null ? body.get("password").toString() : appConfig.getDefaultUserPassword();
 		if (newPassword.length() < 12) {
 			return ResponseEntity.status(400).body(Map.of("error", "Password must be at least 12 characters"));
 		}

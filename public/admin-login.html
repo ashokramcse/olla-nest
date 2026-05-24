@@ -524,25 +524,33 @@
   init();
 
   // Dev panel
+  // Dev panel — credentials fetched from server, never hardcoded in source.
   const isLocal = ["localhost","127.0.0.1","::1"].includes(location.hostname);
   if (!isLocal) return;
-  document.getElementById("devPanel").style.display = "block";
-  const btn = document.getElementById("devAdminBtn");
-  btn.onclick = async () => {
-    const email = "admin@ollanest.local", password = "CHANGE_ME_ON_FIRST_BOOT";
-    document.getElementById("email").value = email;
-    document.getElementById("password").value = password;
-    btn.textContent = "Signing in…"; btn.disabled = true;
-    try {
-      const r = await fetch("/api/auth/login", {
-        method: "POST", credentials: "include", headers: CSRF,
-        body: JSON.stringify({ email, password }),
-      });
-      const d = await r.json();
-      if (d.ok) location.href = d.redirectTo || "/admin";
-      else { btn.textContent = "Admin"; btn.disabled = false; }
-    } catch { btn.textContent = "Admin"; btn.disabled = false; }
-  };
+
+  fetch("/api/dev/hints", { headers: { "X-Requested-With": "XMLHttpRequest" } })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      const admin = data && data.accounts && data.accounts.find(a => a.label === "Admin");
+      if (!admin) return;
+      document.getElementById("devPanel").style.display = "block";
+      const btn = document.getElementById("devAdminBtn");
+      btn.onclick = async () => {
+        document.getElementById("email").value = admin.email;
+        document.getElementById("password").value = admin.password;
+        btn.textContent = "Signing in…"; btn.disabled = true;
+        try {
+          const r = await fetch("/api/auth/login", {
+            method: "POST", credentials: "include", headers: CSRF,
+            body: JSON.stringify({ email: admin.email, password: admin.password }),
+          });
+          const d = await r.json();
+          if (d.ok) location.href = d.redirectTo || "/admin";
+          else { btn.textContent = "Admin"; btn.disabled = false; }
+        } catch { btn.textContent = "Admin"; btn.disabled = false; }
+      };
+    })
+    .catch(() => {});
 })();
 </script>
 </body>

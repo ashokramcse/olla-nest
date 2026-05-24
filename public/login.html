@@ -504,38 +504,41 @@
 (function() {
   const isLocal = ["localhost","127.0.0.1","::1"].includes(location.hostname);
   if (!isLocal) return;
-  const accounts = [
-    { label: "Admin",    email: "admin@ollanest.local",    password: "CHANGE_ME_ON_FIRST_BOOT", color: "#F5C800" },
-    { label: "Employee", email: "employee@ollanest.local", password: "CHANGE_ME_ON_FIRST_BOOT", color: "#4ade80" },
-    { label: "Builder",  email: "builder@ollanest.local",  password: "CHANGE_ME_ON_FIRST_BOOT", color: "#60a5fa" },
-    { label: "Support",  email: "support@ollanest.local",  password: "CHANGE_ME_ON_FIRST_BOOT", color: "#c084fc" },
-  ];
+  // Dev panel: fetch account hints from the server — no credentials in source code.
+  // The /api/dev/hints endpoint is only active when the server detects localhost.
   const panel = document.getElementById("devPanel");
   const container = document.getElementById("devAccounts");
-  panel.style.display = "block";
-  accounts.forEach(({ label, email, password, color }) => {
-    const btn = document.createElement("button");
-    btn.textContent = label;
-    btn.className = "dev-account-btn";
-    btn.style.setProperty("--dev-btn-color", color);
-    btn.onclick = async () => {
-      document.getElementById("email").value = email;
-      document.getElementById("password").value = password;
-      btn.textContent = "Signing in…";
-      btn.disabled = true;
-      try {
-        const r = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({ email, password }),
-        });
-        const d = await r.json();
-        if (d.ok) location.href = d.redirectTo || "/app";
-        else { btn.textContent = label; btn.disabled = false; }
-      } catch { btn.textContent = label; btn.disabled = false; }
-    };
-    container.appendChild(btn);
-  });
+
+  fetch("/api/dev/hints", { headers: { "X-Requested-With": "XMLHttpRequest" } })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data || !data.accounts) return;
+      panel.style.display = "block";
+      data.accounts.forEach(({ label, email, password, color }) => {
+        const btn = document.createElement("button");
+        btn.textContent = label;
+        btn.className = "dev-account-btn";
+        btn.style.setProperty("--dev-btn-color", color || "#888");
+        btn.onclick = async () => {
+          document.getElementById("email").value = email;
+          document.getElementById("password").value = password;
+          btn.textContent = "Signing in…";
+          btn.disabled = true;
+          try {
+            const r = await fetch("/api/auth/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+              body: JSON.stringify({ email, password }),
+            });
+            const d = await r.json();
+            if (d.ok) location.href = d.redirectTo || "/app";
+            else { btn.textContent = label; btn.disabled = false; }
+          } catch { btn.textContent = label; btn.disabled = false; }
+        };
+        container.appendChild(btn);
+      });
+    })
+    .catch(() => {});
 })();
 </script>
 </body>
