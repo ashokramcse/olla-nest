@@ -151,6 +151,13 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<!-- SQLite JDBC uses System.load() for its native binary.
+					     Java 21+ requires explicit native-access permission for
+					     unnamed modules or it prints a WARNING on every boot.
+					     Java 24+ will block it entirely without this flag. -->
+					<jvmArguments>--enable-native-access=ALL-UNNAMED</jvmArguments>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

@@ -69,14 +69,18 @@ All configuration is done via environment variables or a `.env` file. Copy `.env
 ```bash
 ENCRYPTION_KEY=your-secret-key \
 OLLAMA_URL=http://localhost:11434 \
-java -jar target/olla-nest-*.jar
+java --enable-native-access=ALL-UNNAMED -jar target/olla-nest-*.jar
 ```
+
+> **`--enable-native-access=ALL-UNNAMED`** — SQLite JDBC loads its native binary via `System.load()`. Java 21+ prints a WARNING without this flag; Java 24+ will block it entirely. The flag silences the warning cleanly.
 
 ### Option 2 — Maven (development)
 
 ```bash
 mvn spring-boot:run
 ```
+
+> The `<jvmArguments>` in `pom.xml` already passes `--enable-native-access=ALL-UNNAMED` automatically for `mvn spring-boot:run` and IntelliJ "Run" via Maven.
 
 ### Option 3 — Eclipse IDE
 
@@ -157,7 +161,7 @@ After=network.target
 Type=simple
 User=ollanest
 WorkingDirectory=/opt/olla-nest
-ExecStart=/usr/bin/java -jar /opt/olla-nest/olla-nest-2026.1.0.jar
+ExecStart=/usr/bin/java --enable-native-access=ALL-UNNAMED -jar /opt/olla-nest/olla-nest-2026.1.0.jar
 Environment=ENCRYPTION_KEY=your-secret-key
 Environment=OLLAMA_URL=http://localhost:11434
 Environment=DATA_DIR=/opt/olla-nest/data

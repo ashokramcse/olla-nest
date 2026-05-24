@@ -146,13 +146,13 @@ mvn clean package -DskipTests
 ### 3 — Run
 
 ```bash
-java -jar target/olla-nest-*.jar
+java --enable-native-access=ALL-UNNAMED -jar target/olla-nest-*.jar
 ```
 
 Or with explicit env vars:
 
 ```bash
-ENCRYPTION_KEY=my-secret OLLAMA_URL=http://localhost:11434 java -jar target/olla-nest-*.jar
+ENCRYPTION_KEY=my-secret OLLAMA_URL=http://localhost:11434 java --enable-native-access=ALL-UNNAMED -jar target/olla-nest-*.jar
 ```
 
 Open **http://localhost:3000** — the login page will appear.
