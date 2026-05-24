@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Olla Nest — Logback configuration
+  ─────────────────────────────────
+  Two appenders:
+    1. CONSOLE — coloured, human-readable (development / always on)
+    2. LOKI    — structured JSON pushed to Grafana Loki (active when loki.enabled=true)
+
+  MDC keys set by MdcLoggingFilter on every HTTP request:
+    requestId  — UUID per request
+    userId     — authenticated user ID (or "anon")
+    userEmail  — authenticated user e-mail (or "anon")
+    userRole   — "admin" / "user" / "anon"
+    method     — HTTP method
+    path       — request URI
+    ip         — client IP (X-Forwarded-For aware)
+-->
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- ── Properties ─────────────────────────────────────────────────── -->
+    <springProperty name="APP_NAME"      source="spring.application.name" defaultValue="olla-nest"/>
+    <springProperty name="LOKI_URL"      source="loki.url"                defaultValue="http://localhost:3100/loki/api/v1/push"/>
+    <springProperty name="LOKI_ENABLED"  source="loki.enabled"            defaultValue="true"/>
+
+    <!-- ── Console appender ───────────────────────────────────────────── -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) %cyan([%15.15t]) %yellow(%-40.40logger{39}) : %msg%n%ex</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ── Loki appender ──────────────────────────────────────────────── -->
+    <!--
+        Labels are indexed by Loki and used for fast filtering in Grafana.
+        Keep labels low-cardinality (level, method, role) — high-cardinality
+        values (userId, requestId, path) go into the log line itself.
+    -->
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>${LOKI_URL}</url>
+            <!-- Buffer up to 1 000 log entries or flush every 1 s, whichever comes first -->
+            <batchMaxItems>1000</batchMaxItems>
+            <batchTimeoutMs>1000</batchTimeoutMs>
+            <!-- Do not block the application thread if Loki is down -->
+            <dropOnQueueFull>true</dropOnQueueFull>
+        </http>
+        <format>
+            <label>
+                <!--
+                  Low-cardinality labels — Loki indexes these for fast stream matching.
+                  High-cardinality values (userId, path, requestId) are in the message.
+                -->
+                <pattern>app=${APP_NAME},level=%level,method=%X{method},role=%X{userRole}</pattern>
+                <sortByKey>true</sortByKey>
+            </label>
+            <message>
+                <!--
+                  Structured log line — every field queryable with LogQL in Grafana.
+                  Format:  level=INFO  requestId=abc  userId=42  email=joe@co  path=/api/chat  ip=1.2.3.4  logger=ChatController  msg=...
+                -->
+                <pattern>level=%level requestId=%X{requestId} userId=%X{userId} email=%X{userEmail} role=%X{userRole} method=%X{method} path=%X{path} ip=%X{ip} logger=%logger{30} thread=%thread msg=%msg%n%ex{5}</pattern>
+            </message>
+            <sortByTime>true</sortByTime>
+        </format>
+    </appender>
+
+    <!-- ── Async wrapper for Loki (non-blocking) ──────────────────────── -->
+    <appender name="LOKI_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="LOKI"/>
+        <queueSize>10000</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <!-- ── Noise reduction — third-party frameworks ───────────────────── -->
+    <logger name="org.flywaydb"                    level="WARN"/>
+    <logger name="org.springframework.security"    level="WARN"/>
+    <logger name="org.springframework.web"         level="WARN"/>
+    <logger name="com.zaxxer.hikari"               level="WARN"/>
+    <logger name="org.apache.catalina"             level="WARN"/>
+    <logger name="org.apache.tomcat"               level="WARN"/>
+
+    <!-- ── Application logger — verbose for our own code ─────────────── -->
+    <logger name="com.ollanest" level="INFO"/>
+
+    <!-- ── Root: always console; Loki only when enabled ──────────────── -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <if condition='property("LOKI_ENABLED").equalsIgnoreCase("true")'>
+            <then>
+                <appender-ref ref="LOKI_ASYNC"/>
+            </then>
+        </if>
+    </root>
+
+</configuration>
