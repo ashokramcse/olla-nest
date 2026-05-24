@@ -1,8 +1,8 @@
 # Version
 
-**Current version:** v2026.1.4
+**Current version:** v2026.1.8
 
-**Release date:** 2026-05-23
+**Release date:** 2026-05-24
 
 **Runtime:** Oracle Java 26 + Spring Boot 3.5.14 (latest stable patch)
 
@@ -35,6 +35,10 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| v2026.1.8 | 2026-05-24 | Voice status feedback UX; log prefix dedup; Java formatter |
+| v2026.1.7 | 2026-05-24 | Firefox voice fix: click-to-toggle MediaRecorder; 600ms guard; inline status |
+| v2026.1.6 | 2026-05-24 | Branded alert overlays; STT admin UI; cross-platform Whisper setup |
+| v2026.1.5 | 2026-05-24 | Local faster-whisper STT server; WhisperServerManager auto-start; OpenAI STT fallback |
 | v2026.1.4 | 2026-05-23 | Spring Boot 3.5.14; comprehensive JavaDoc (79 files); `ok:false` consistency fix; SSRF fix for self-hosted tools |
 | v2026.1.3 | 2026-05-23 | 20 connectors, SSO (Google/OIDC/SAML), web search, voice/image gen, deep research, code sandbox |
 | v2026.1.2 | 2026-05-22 | Spring AI 1.0.0 GA: RAG/vector store, prompt templates, function calling |
@@ -66,7 +70,10 @@
 | SSO — Generic OIDC | v2026.1.3 |
 | SSO — SAML 2.0 | v2026.1.3 |
 | Web Search (Serper / Brave / SearXNG) | v2026.1.3 |
-| Voice input (OpenAI Whisper STT) | v2026.1.3 |
+| Voice input — local faster-whisper (free, default) | v2026.1.5 |
+| Voice input — OpenAI Whisper STT (paid, optional) | v2026.1.3 |
+| WhisperServerManager auto-start on port 8765 | v2026.1.5 |
+| Cross-platform Whisper setup scripts (Mac/Linux/Windows) | v2026.1.6 |
 | Voice readback (OpenAI TTS-1) | v2026.1.3 |
 | Image generation (DALL-E 3 + Stable Diffusion) | v2026.1.3 |
 | Deep Research (Plan → Search → Synthesise) | v2026.1.3 |

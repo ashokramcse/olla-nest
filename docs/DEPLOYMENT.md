@@ -208,6 +208,79 @@ cp data/backups/olla-nest-2026-05-21T02-00-00.sqlite data/olla-nest.sqlite
 
 ---
 
+## Voice STT — Local Whisper Server Setup
+
+Olla Nest auto-starts a local `faster-whisper` HTTP server on port 8765 when it launches. You only need to run the setup script **once** to create the Python virtual environment.
+
+> **Why one-time?** The setup script installs Python packages into `scripts/venv/`. After that, `WhisperServerManager` (a Spring `@Component`) starts `scripts/whisper_server.py` automatically using the venv Python on every boot.
+
+### macOS
+
+```bash
+bash scripts/start_whisper.sh
+```
+
+Requires Homebrew. The script installs `python@3.11` and `ffmpeg` via `brew` if missing.
+
+### Linux (Ubuntu / Debian)
+
+```bash
+bash scripts/start_whisper.sh
+```
+
+Installs `python3.11`, `python3.11-venv`, `ffmpeg`, and `pkg-config` via `apt-get`.
+
+### Linux (RHEL 8+ / Rocky / AlmaLinux)
+
+```bash
+bash scripts/start_whisper.sh
+```
+
+Uses `dnf` to install dependencies.
+
+### Linux (Alpine)
+
+```bash
+bash scripts/start_whisper.sh
+```
+
+Uses `apk`.
+
+### Windows (CMD)
+
+```cmd
+scripts\start_whisper.bat
+```
+
+Installs Python 3.11 and ffmpeg via `winget` if missing.
+
+### Windows (PowerShell / Windows Server)
+
+```powershell
+.\scripts\start_whisper.ps1
+```
+
+### Verify it's running
+
+```bash
+curl http://localhost:8765/health
+# → {"status":"ok","model":"base","port":8765}
+```
+
+Or look for `[whisper] Process started (PID …)` in the Olla Nest startup log.
+
+### Python version constraint
+
+`faster-whisper` depends on `av` (PyAV), which has no binary wheels for Python 3.13 or 3.14. The setup scripts enforce Python 3.9–3.12 and prefer 3.11 (all wheels available). If you have Python 3.13/3.14 as your system default, the script will auto-install Python 3.11 via your package manager.
+
+### Choosing the STT provider
+
+Go to **Admin → Settings → Voice STT Provider**:
+- **Local** (default) — free, uses the on-device faster-whisper server
+- **OpenAI** — paid ($0.006/min); enter your OpenAI API key in the OpenAI section
+
+---
+
 ## Ollama Connectivity
 
 | Scenario | OLLAMA_URL |

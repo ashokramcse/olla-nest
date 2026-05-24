@@ -9,7 +9,7 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-v2026.1.4-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
+[![Version](https://img.shields.io/badge/version-v2026.1.8-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-26-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.14-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
@@ -94,7 +94,8 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - **Workspace integration** — AI writes, reads, and browses files in your local workspace
 - **Interactive terminal** — WebSocket + `ProcessBuilder`, authenticated, streamed in real time
 - **Code Sandbox** — execute Python, JS, Ruby, Java, Bash; 10 s kill; stripped env; 4 KB cap
-- **Voice input** — OpenAI Whisper STT; WAV, MP3, WebM, OGG, M4A supported
+- **Voice input (local, free)** — `faster-whisper` runs on your server; auto-started by Spring Boot on port 8765; WAV, MP3, WebM, OGG, M4A supported
+- **Voice input (cloud, optional)** — OpenAI Whisper API as a paid fallback; selectable per deployment in Admin → Settings
 - **Voice readback** — OpenAI TTS-1; voices: alloy, echo, fable, onyx, nova, shimmer
 - **Image generation** — DALL-E 3 (CDN URL) or Stable Diffusion Automatic1111 (base64 PNG)
 - **Prompt templates** — per-mode Spring AI `PromptTemplate` with `{variable}` substitution
@@ -282,7 +283,38 @@ Configure via **Admin → Settings → Web Search** (`searchProvider`, `searchAp
 
 ### Voice Input (Speech-to-Text)
 
-The microphone button records audio and transcribes it via **OpenAI Whisper**:
+Olla Nest supports two STT providers — selectable in **Admin → Settings → Voice STT Provider**:
+
+| Provider | Cost | Default | Setup required |
+|----------|------|---------|----------------|
+| **Local** (`faster-whisper`) | Free | ✅ Yes | Run `bash scripts/start_whisper.sh` once |
+| **OpenAI Whisper API** | $0.006/min | No | Set `openaiApiKey` in Settings |
+
+#### Local STT — One-time Setup
+
+`WhisperServerManager` auto-starts the local Whisper HTTP server on port 8765 when Olla Nest launches. You only need to run the setup script once to create the Python virtual environment:
+
+**macOS / Linux:**
+```bash
+bash scripts/start_whisper.sh
+```
+
+**Windows:**
+```cmd
+scripts\start_whisper.bat
+```
+
+**Windows PowerShell / Windows Server:**
+```powershell
+.\scripts\start_whisper.ps1
+```
+
+> **Requirements:** Python 3.9–3.12 (NOT 3.13/3.14 — `av` wheels are unavailable), ffmpeg.  
+> The script auto-installs both via Homebrew (macOS), apt/dnf/apk (Linux), or winget (Windows).
+
+After setup, Olla Nest automatically starts the Whisper server in the background on every boot — no manual step needed. Check logs for `[whisper] Process started (PID …)`.
+
+#### API
 
 ```http
 POST /api/voice/transcribe
@@ -291,7 +323,7 @@ Body: audio file (WAV, MP3, WebM, OGG, M4A)
 → { "text": "transcribed speech" }
 ```
 
-Supported formats: WAV, MP3, WebM, OGG, M4A, FLAC. Requires `openaiApiKey`.
+Supported formats: WAV, MP3, WebM, OGG, M4A, FLAC.
 
 ### Voice Readback (Text-to-Speech)
 

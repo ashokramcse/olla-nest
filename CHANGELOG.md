@@ -4,6 +4,96 @@ All notable changes to Olla Nest are documented here.
 
 ---
 
+## v2026.1.8 — 2026-05-24
+
+### 🎨 Voice UX Polish & Code Quality
+
+#### Voice Status Feedback
+- **Fixed** inline status label now shows correct states: "🔴 Recording…", "Transcribing…", "✓ Transcribed", "No speech detected — try speaking louder", "Too short — hold longer"
+- **Fixed** duplicate `[whisper] [whisper]` prefix in Spring logs — `WhisperServerManager` log listener now forwards the Python process line verbatim (Python already prefixes with `[whisper]`)
+- **Fixed** minimum recording duration guard (600ms) — recordings shorter than 600ms are rejected client-side with user-visible feedback rather than silently sending an empty blob
+
+#### Java Formatter
+- **Applied** Eclipse Java formatter to all source files: 4-space indent, 120-char line width, K&R braces
+- No behaviour changes — formatting only
+
+#### Documentation
+- **Updated** `CHANGELOG.md`, `VERSION.md`, `README.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md` to reflect v2026.1.5–v2026.1.8
+
+---
+
+## v2026.1.7 — 2026-05-24
+
+### 🎙️ Voice Recording Reliability (Firefox + All Browsers)
+
+#### Click-to-Toggle MediaRecorder
+- **Fixed** voice input broken silently in Firefox — `webkitSpeechRecognition` exists in Firefox but produces no output; removed Web Speech API path entirely
+- **Fixed** hold-to-speak (`mousedown`/`mouseup`) broken because `getUserMedia` is async — `mouseup` would fire before the Promise resolved, resulting in 0 audio chunks recorded
+- **Changed** voice input to click-once-to-start / click-again-to-stop pattern (universal, works in all browsers)
+- **Added** touch support: `touchstart` / `touchend` events mapped to start/stop recording
+
+#### MIME Type Detection
+- Audio format selected by browser capability: `audio/webm;codecs=opus` → `audio/webm` → `audio/ogg;codecs=opus` → `audio/ogg`
+- `mediaRecorder.start(250)` — 250ms timeslice so chunks arrive incrementally rather than all at end
+
+---
+
+## v2026.1.6 — 2026-05-24
+
+### ✨ Branded Alerts, STT Admin UI & Cross-Platform Setup
+
+#### Branded Alert Overlays
+- **Replaced** all native browser `alert()` calls with `showAlert(message, title)` — a branded Olla Nest modal overlay (dark backdrop, rounded card, blue OK button)
+- Applies to: image generation prompt modal, voice error messages, form validation
+
+#### STT Admin UI
+- **Added** Voice STT Provider card in Admin → Settings:
+  - Provider dropdown: `local` (default, free) / `openai` (paid)
+  - `sttLocalUrl` input field — pre-filled `http://localhost:8765/v1/audio/transcriptions` — visible only when `local` is selected
+  - Green `●` status badge inside the card header (top-right), mirrors the Ollama "Connected" style
+- **Moved** Save Settings button to the bottom of all settings sections (was above the Voice card)
+- **Fixed** `adminApi is not defined` error on Connectors and SSO tabs — added `adminApi = api` alias
+- **Fixed** all user management API paths from `/api/admin/` → `/api/admin/users`
+- **Added** `"sttProvider"` and `"sttLocalUrl"` to `AdminSettingsController` settings keys and default values
+
+#### Cross-Platform Whisper Setup Scripts
+- **Added** `scripts/start_whisper.bat` — Windows CMD: finds Python 3.9–3.12, installs ffmpeg via `winget`, creates venv, installs faster-whisper
+- **Added** `scripts/start_whisper.ps1` — Windows PowerShell equivalent (preferred for Windows Server)
+- **Expanded** `scripts/start_whisper.sh` — full multi-distro Linux support: `apt-get` (Ubuntu/Debian), `dnf` (RHEL 8+), `yum` (RHEL 7 / CentOS), `apk` (Alpine), `pacman` (Arch); auto-rebuilds venv if created with Python 3.13+
+- **Expanded** `WhisperServerManager` — platform-specific setup instructions in warning messages when venv is absent (separate instructions for macOS, Linux, Windows)
+
+---
+
+## v2026.1.5 — 2026-05-24
+
+### 🆓 Local Whisper STT — Free, Self-Hosted Voice Transcription
+
+#### faster-whisper HTTP Server
+- **Added** `scripts/whisper_server.py` — OpenAI-compatible STT HTTP server powered by `faster-whisper`:
+  - `GET /health` — returns `{"status":"ok","model":"base","port":8765}`
+  - `POST /v1/audio/transcriptions` — accepts multipart audio; returns `{"text":"..."}`
+  - Multipart parsing via `email.parser` (stdlib only, no `python-multipart`; compatible with Python 3.9–3.14+)
+  - Configured via `WHISPER_MODEL` (default `base`) and `WHISPER_PORT` (default `8765`) env vars
+- **Added** `scripts/start_whisper.sh` — one-time setup + launch for macOS and Linux: installs system deps (Python 3.11, ffmpeg, pkg-config), creates venv, installs `faster-whisper`
+- Python 3.9–3.12 enforced — `av` (PyAV, faster-whisper dependency) has no binary wheels for Python 3.13/3.14
+
+#### WhisperServerManager
+- **Added** `src/main/java/com/ollanest/service/WhisperServerManager.java` — Spring `@Component` that auto-starts the local Whisper server as part of application startup:
+  - Starts in a daemon background thread — does not block Spring context initialisation
+  - Checks `http://localhost:8765/health` before launching — skips if already running
+  - Walks up the directory tree to find project root (works from JAR or IDE)
+  - Cross-platform Python venv path: `scripts/venv/Scripts/python.exe` (Windows) or `scripts/venv/bin/python` (Unix)
+  - Streams Python stdout/stderr to the Spring application log
+  - `@PreDestroy stop()` — 5s graceful shutdown then force-kill
+
+#### VoiceService STT Routing
+- **Changed** `VoiceService.transcribe()` to route by `sttProvider` setting:
+  - `"local"` (default) → local faster-whisper at `sttLocalUrl` (default `http://localhost:8765/v1/audio/transcriptions`) — **free**
+  - `"openai"` → OpenAI Whisper API (`$0.006/min`) — requires OpenAI API key in settings
+- Shared `sendWhisperMultipart()` helper used by both paths — identical wire format (OpenAI-compatible multipart)
+
+---
+
 ## v2026.1.4 — 2026-05-23
 
 ### 🔧 Quality, JavaDoc & Spring Boot Upgrade
