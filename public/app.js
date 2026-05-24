@@ -1725,46 +1725,48 @@ let mediaRecorder = null;
 let audioChunks = [];
 
 if (voiceBtn) {
-  // Always use MediaRecorder → local Whisper server (or OpenAI fallback).
-  // Browser Web Speech API is unreliable across Firefox/Safari and leaks
-  // audio to third-party servers — we own the transcription pipeline.
+  // Click-to-toggle recording: click once to start, click again to stop & transcribe.
+  // Works on Firefox, Safari, Chrome, Edge — both http://localhost and https://.
 
-  /** Show a subtle recording indicator below the mic button */
+  let voiceStream = null;
+
   function setVoiceRecordingUI(on) {
     voiceBtn.classList.toggle("recording", on);
-    voiceBtn.title = on ? "Release to transcribe…" : "Hold to record voice";
+    voiceBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    voiceBtn.title = on ? "Click to stop & transcribe" : "Click to record voice";
   }
 
-  /** Show a small transcribing spinner on the button */
   function setVoiceTranscribingUI(on) {
     voiceBtn.disabled = on;
-    voiceBtn.title = on ? "Transcribing…" : "Hold to record voice";
+    voiceBtn.title = on ? "Transcribing…" : "Click to record voice";
   }
 
-  voiceBtn.title = "Hold to record voice";
+  voiceBtn.title = "Click to record voice";
 
-  voiceBtn.addEventListener("mousedown", async (e) => {
-    e.preventDefault();
-    if (mediaRecorder?.state === "recording") return;
+  async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showAlert("Your browser does not support microphone access on this page.\n\nTry opening the app over HTTPS, or use Chrome/Edge.", "Voice Not Available");
+      return;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
-      // Prefer audio/webm; fall back to audio/ogg (Firefox) or default
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm")  ? "audio/webm"
-                     : MediaRecorder.isTypeSupported("audio/ogg")   ? "audio/ogg"
-                     : "";
-      mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
 
-      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/ogg", ""]
+        .find(t => t === "" || MediaRecorder.isTypeSupported(t));
+      mediaRecorder = mimeType ? new MediaRecorder(voiceStream, { mimeType }) : new MediaRecorder(voiceStream);
+
+      mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
+        if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
         setVoiceRecordingUI(false);
-        if (!audioChunks.length) return;
+        if (!audioChunks.length) { setVoiceTranscribingUI(false); return; }
 
         setVoiceTranscribingUI(true);
-        const ext  = (mediaRecorder.mimeType || "audio/webm").includes("ogg") ? "voice.ogg" : "voice.webm";
-        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        const usedMime = mediaRecorder.mimeType || "audio/webm";
+        const ext  = usedMime.includes("ogg") ? "voice.ogg" : "voice.webm";
+        const blob = new Blob(audioChunks, { type: usedMime });
         const formData = new FormData();
         formData.append("audio", blob, ext);
         try {
@@ -1775,31 +1777,41 @@ if (voiceBtn) {
           if (!res.ok) {
             showAlert(data.error || "Voice transcription failed. Check Admin → Settings → STT Provider.", "Voice");
           } else if (data.text) {
-            const input = document.getElementById("messageInput");
-            if (input) { input.value = (input.value ? input.value + " " : "") + data.text; input.focus(); }
+            const inp = document.getElementById("messageInput");
+            if (inp) { inp.value = (inp.value ? inp.value + " " : "") + data.text; inp.focus(); }
           }
         } catch (err) {
-          showAlert("Voice transcription failed — is the Whisper server running on port 8765?", "Voice");
+          showAlert("Could not reach the transcription server. Is the Whisper server running on port 8765?", "Voice");
         } finally {
           setVoiceTranscribingUI(false);
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(250); // collect chunks every 250ms
       setVoiceRecordingUI(true);
     } catch (err) {
+      if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
       setVoiceRecordingUI(false);
-      showAlert("Microphone access denied or unavailable. Allow microphone permission and try again.", "Voice");
+      const msg = err.name === "NotAllowedError"
+        ? "Microphone permission denied.\n\nClick the 🔒 icon in the address bar and allow microphone access, then try again."
+        : "Could not access microphone: " + err.message;
+      showAlert(msg, "Voice");
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
+  }
+
+  voiceBtn.addEventListener("click", () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      stopRecording();
+    } else {
+      startRecording();
     }
   });
-
-  // Stop recording on mouse-up or pointer leaving the button
-  const stopRecording = () => { if (mediaRecorder?.state === "recording") mediaRecorder.stop(); };
-  voiceBtn.addEventListener("mouseup",    stopRecording);
-  voiceBtn.addEventListener("mouseleave", stopRecording);
-  // Touch support (mobile)
-  voiceBtn.addEventListener("touchstart", e => { e.preventDefault(); voiceBtn.dispatchEvent(new MouseEvent("mousedown")); });
-  voiceBtn.addEventListener("touchend",   e => { e.preventDefault(); stopRecording(); });
 }
 
 // ─── Image generation ─────────────────────────────────────────────────────────
