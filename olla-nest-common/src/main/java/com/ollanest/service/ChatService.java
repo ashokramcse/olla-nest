@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
+import org.springframework.scheduling.annotation.Scheduled;
 
 /**
  * Core chat service: session lifecycle management, context-window budgeting,
@@ -536,6 +537,36 @@ public class ChatService {
 			return entry;
 		});
 		return result[0] == 1;
+	}
+
+	/**
+	 * Scheduled cleanup that evicts stale rate-limit entries whose window has
+	 * expired by more than 5 minutes.
+	 *
+	 * <p>
+	 * Without this sweep the map would accumulate one entry per unique userId
+	 * forever, leaking memory in long-running deployments. Runs every 10 minutes
+	 * with a 5-minute initial delay to avoid startup noise.
+	 *
+	 * @since v2026.1.9
+	 */
+	@Scheduled(fixedDelay = 600_000, initialDelay = 300_000)
+	public void cleanStaleRateLimitEntries() {
+		long staleThreshold = System.currentTimeMillis() - 5 * 60_000L; // 5 min after window expiry
+		int removed = 0;
+		for (java.util.Iterator<java.util.Map.Entry<String,
+				java.util.concurrent.atomic.AtomicLong[]>> it =
+				rateLimitMap.entrySet().iterator(); it.hasNext();) {
+			java.util.Map.Entry<String, java.util.concurrent.atomic.AtomicLong[]> e = it.next();
+			// entry[1] = windowStartMs; if it expired more than 5 min ago, evict
+			if (e.getValue()[1].get() < staleThreshold) {
+				it.remove();
+				removed++;
+			}
+		}
+		if (removed > 0) {
+			log.debug("[ratelimit] Evicted {} stale rate-limit entries", removed);
+		}
 	}
 
 	/**

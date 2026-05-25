@@ -178,11 +178,16 @@ public class TerminalService extends AbstractWebSocketHandler {
 	@Override
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus) throws Exception {
 		String id = session.getId();
+		// Close stdin BEFORE destroyForcibly — prevents broken-pipe fd leaks on some
+		// JVM/OS combinations where the stream is not released until closed explicitly.
+		OutputStream stdin = stdinMap.remove(id);
+		if (stdin != null) {
+			try { stdin.close(); } catch (IOException ignored) { /* broken pipe is expected */ }
+		}
 		Process process = processes.remove(id);
 		if (process != null) {
 			process.destroyForcibly();
 		}
-		stdinMap.remove(id);
 		log.info("[terminal] Session closed: {}", id);
 	}
 

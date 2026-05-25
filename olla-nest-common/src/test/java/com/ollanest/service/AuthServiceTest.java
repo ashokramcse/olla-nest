@@ -340,4 +340,140 @@ class AuthServiceTest {
 			assertThatCode(() -> authService.cleanExpiredSessions()).doesNotThrowAnyException();
 		}
 	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Token format guard (security hardening v2026.1.9)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	@Nested
+	@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+	@DisplayName("getSessionUser() — token format guard")
+	class TokenFormatGuard {
+
+		private void stubCookie(String value) {
+			when(req.getCookies()).thenReturn(new Cookie[]{new Cookie(COOKIE_NAME, value)});
+		}
+
+		@Test
+		@DisplayName("token shorter than 64 hex chars rejected before DB hit")
+		void shortTokenRejectedWithoutDbHit() {
+			stubCookie("abc123");
+			assertThat(authService.getSessionUser(req)).isNull();
+			verifyNoInteractions(db);
+		}
+
+		@Test
+		@DisplayName("token longer than 64 hex chars rejected before DB hit")
+		void longTokenRejectedWithoutDbHit() {
+			stubCookie("a".repeat(65));
+			assertThat(authService.getSessionUser(req)).isNull();
+			verifyNoInteractions(db);
+		}
+
+		@Test
+		@DisplayName("uppercase hex token rejected (must be lowercase) without DB hit")
+		void uppercaseTokenRejected() {
+			stubCookie("A".repeat(64));
+			assertThat(authService.getSessionUser(req)).isNull();
+			verifyNoInteractions(db);
+		}
+
+		@Test
+		@DisplayName("SQL injection payload in cookie rejected before DB hit")
+		void sqlInjectionRejectedBeforeDb() {
+			stubCookie("' OR '1'='1"); // too short and contains non-hex chars
+			assertThat(authService.getSessionUser(req)).isNull();
+			verifyNoInteractions(db);
+		}
+
+		@Test
+		@DisplayName("CRLF injection in token rejected before DB hit")
+		void crlfInjectionRejected() {
+			stubCookie("a".repeat(60) + "\r\nX-Injected: evil");
+			assertThat(authService.getSessionUser(req)).isNull();
+			verifyNoInteractions(db);
+		}
+
+		@Test
+		@DisplayName("token with semicolon (potential header injection) rejected before DB hit")
+		void semicolonInjectionRejected() {
+			stubCookie("a".repeat(63) + ";");
+			assertThat(authService.getSessionUser(req)).isNull();
+			verifyNoInteractions(db);
+		}
+
+		@Test
+		@DisplayName("exactly 64 lowercase hex chars passes format check and hits DB")
+		void validTokenHitsDb() {
+			stubCookie(TOKEN); // TOKEN = "a".repeat(64)
+			when(db.queryForList(anyString(), eq(TOKEN))).thenReturn(java.util.Collections.emptyList());
+			authService.getSessionUser(req);
+			// DB was queried (token passed format guard)
+			verify(db).queryForList(anyString(), eq(TOKEN));
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// CachedSession immutability (security hardening v2026.1.9)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	@Nested
+	@DisplayName("CachedSession immutability")
+	class CachedSessionImmutability {
+
+		@Test
+		@DisplayName("user field is final — prevents external mutation of cached session")
+		void userFieldIsFinal() throws Exception {
+			java.lang.reflect.Field f = AuthService.CachedSession.class.getField("user");
+			assertThat(java.lang.reflect.Modifier.isFinal(f.getModifiers()))
+					.as("CachedSession.user must be final to prevent external mutation")
+					.isTrue();
+		}
+
+		@Test
+		@DisplayName("expiresAtMs field is final")
+		void expiresAtMsFieldIsFinal() throws Exception {
+			java.lang.reflect.Field f = AuthService.CachedSession.class.getField("expiresAtMs");
+			assertThat(java.lang.reflect.Modifier.isFinal(f.getModifiers()))
+					.as("CachedSession.expiresAtMs must be final")
+					.isTrue();
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// SecureRandom reuse (performance + security hardening v2026.1.9)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	@Nested
+	@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+	@DisplayName("setSession() — SecureRandom reuse")
+	class SecureRandomReuse {
+
+		@Test
+		@DisplayName("SECURE_RANDOM static field exists — no per-call SecureRandom instantiation")
+		void staticSecureRandomFieldExists() throws Exception {
+			java.lang.reflect.Field f = AuthService.class.getDeclaredField("SECURE_RANDOM");
+			assertThat(java.lang.reflect.Modifier.isStatic(f.getModifiers()))
+					.as("SECURE_RANDOM must be a static field")
+					.isTrue();
+		}
+
+		@Test
+		@DisplayName("100 consecutive setSession calls produce 100 unique 64-hex tokens")
+		void hundredSessionsProduceUniqueTokens() {
+			User admin = UserFactory.admin();
+			when(req.getCookies()).thenReturn(null);
+
+			java.util.Set<String> tokens = new java.util.HashSet<>();
+			for (int i = 0; i < 100; i++) {
+				authService.setSession(res, req, admin);
+			}
+
+			// Capture all tokens written to INSERT INTO sessions
+			org.mockito.ArgumentCaptor<Object[]> cap = org.mockito.ArgumentCaptor.forClass(Object[].class);
+			verify(db, times(100)).update(contains("INSERT INTO sessions"), cap.capture());
+			cap.getAllValues().forEach(args -> tokens.add(args[0].toString()));
+			assertThat(tokens).hasSize(100);
+		}
+	}
 }

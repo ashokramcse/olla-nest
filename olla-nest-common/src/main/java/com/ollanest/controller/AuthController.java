@@ -80,6 +80,16 @@ public class AuthController extends BaseController {
 	/** Maximum number of failed login attempts per IP within the window. */
 	private static final int LOGIN_MAX_ATTEMPTS = 10;
 
+	/**
+	 * Dummy BCrypt hash used for constant-time comparison when the email is not
+	 * found.  Without this, an attacker can enumerate valid emails by timing how
+	 * long the login endpoint takes: a missing-user response returns immediately
+	 * (no BCrypt), while a wrong-password response takes ~100 ms (BCrypt work).
+	 * By always calling {@code BCrypt.checkpw} against this sentinel hash we
+	 * equalise response times for both failure modes.
+	 */
+	private static final String DUMMY_HASH = BCrypt.hashpw("dummy-constant-time-sentinel", BCrypt.gensalt(10));
+
 	/** Rate-limit window duration in milliseconds (15 minutes). */
 	private static final long LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
@@ -188,7 +198,14 @@ public class AuthController extends BaseController {
 		Map<String, Object> row = rows.isEmpty() ? null : rows.get(0);
 		String storedHash = row != null ? (String) row.get("password_hash") : null;
 
-		if (row == null || storedHash == null || !BCrypt.checkpw(password, storedHash)) {
+		// Always invoke BCrypt — even when the user is not found — to ensure response
+		// time is constant regardless of whether the email exists. Without this,
+		// an attacker can enumerate valid accounts via timing differences (user-missing
+		// returns immediately; wrong-password takes ~100 ms for BCrypt work).
+		String hashToCheck = (storedHash != null) ? storedHash : DUMMY_HASH;
+		boolean passwordMatch = BCrypt.checkpw(password, hashToCheck);
+
+		if (row == null || storedHash == null || !passwordMatch) {
 			// Increment attempts — same message for all failure modes (prevents user
 			// enumeration)
 			db.update("INSERT OR REPLACE INTO login_attempts (ip, count, reset_at) VALUES (?, ?, ?)", ip, count + 1,

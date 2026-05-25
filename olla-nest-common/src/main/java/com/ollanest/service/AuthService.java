@@ -81,6 +81,23 @@ public class AuthService {
 	/** Name of the session cookie set on the browser. */
 	private static final String COOKIE_NAME = "olla_nest_session";
 
+	/**
+	 * Shared SecureRandom instance — reused across all {@link #setSession} calls.
+	 * Constructing a new SecureRandom per call is expensive (seeds from OS entropy)
+	 * and unnecessarily drains the entropy pool. SecureRandom is thread-safe.
+	 */
+	private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+	/**
+	 * Expected length (in hex characters) of a valid session token.
+	 * 32 random bytes → 64 lowercase hex characters.
+	 */
+	private static final int TOKEN_HEX_LENGTH = 64;
+
+	/** Pre-compiled pattern for validating that a token is exactly 64 lowercase hex chars. */
+	private static final java.util.regex.Pattern TOKEN_PATTERN =
+			java.util.regex.Pattern.compile("^[0-9a-f]{64}$");
+
 	/** Session lifetime in seconds (12 hours). */
 	private static final long SESSION_DURATION_SECONDS = 43200;
 
@@ -130,11 +147,15 @@ public class AuthService {
 	 */
 	public static class CachedSession {
 
-		/** The authenticated user associated with this session. */
-		public User user;
+		/**
+		 * The authenticated user associated with this session.
+		 * Declared {@code final} to prevent external code from replacing the user
+		 * reference on a live cached session (immutability defence).
+		 */
+		public final User user;
 
 		/** Session expiry expressed as a Unix epoch millisecond timestamp. */
-		public long expiresAtMs;
+		public final long expiresAtMs;
 
 		/**
 		 * Constructs a new cache entry.
@@ -198,6 +219,12 @@ public class AuthService {
 	public User getSessionUser(HttpServletRequest req) {
 		String token = getToken(req);
 		if (token == null || token.isBlank())
+			return null;
+
+		// Reject tokens that don't match the exact 64-hex-char format.
+		// This prevents excessively-long or malformed tokens from reaching the DB
+		// and acts as a first-line defence against cookie-injection attacks.
+		if (!TOKEN_PATTERN.matcher(token).matches())
 			return null;
 
 		// Fast path: check in-memory cache
@@ -264,7 +291,7 @@ public class AuthService {
 		}
 
 		byte[] bytes = new byte[32];
-		new SecureRandom().nextBytes(bytes);
+		SECURE_RANDOM.nextBytes(bytes);
 		String token = bytesToHex(bytes);
 		long expiresMs = System.currentTimeMillis() + SESSION_DURATION_SECONDS * 1000;
 		String expiresAt = Instant.ofEpochMilli(expiresMs).toString().replace("T", " ").replace("Z", "");

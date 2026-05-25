@@ -71,6 +71,13 @@ public class CryptoService {
 	private static final int GCM_TAG_BITS = 128;
 
 	/**
+	 * Shared SecureRandom for IV generation — instantiating a new SecureRandom per
+	 * {@link #encryptKey} call is expensive and drains the OS entropy pool
+	 * unnecessarily. SecureRandom is thread-safe and safe as a static field.
+	 */
+	private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+	/**
 	 * GCM IV length in bytes (96 bits is the recommended NIST value for AES-GCM).
 	 */
 	private static final int GCM_IV_BYTES = 12;
@@ -138,7 +145,7 @@ public class CryptoService {
 	public String encryptKey(String plaintext) {
 		try {
 			byte[] iv = new byte[GCM_IV_BYTES];
-			new SecureRandom().nextBytes(iv);
+			SECURE_RANDOM.nextBytes(iv);
 			SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
 			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 			cipher.init(Cipher.ENCRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_BITS, iv));
