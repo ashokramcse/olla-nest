@@ -102,6 +102,7 @@ public class RouterService {
 		 *
 		 * @param isSensitive {@code true} when sensitive content was detected
 		 * @param reasons     list of matched category labels (may be empty)
+		 * @since v2026.1.0
 		 */
 		public SensitivityResult(boolean isSensitive, List<String> reasons) {
 			this.isSensitive = isSensitive;
@@ -111,6 +112,8 @@ public class RouterService {
 
 	/**
 	 * Carries the full result of a {@link #routeModel(User, String, String)} call.
+	 *
+	 * @since v2026.1.0
 	 */
 	public static class RouteResult {
 

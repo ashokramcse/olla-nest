@@ -122,6 +122,8 @@ public class ProviderService {
 	 * Tool-call responses (when the model returns structured function invocations
 	 * instead of plain text) are surfaced via the {@link #toolCalls} field; it is
 	 * {@code null} for ordinary text completions.
+	 *
+	 * @since v2026.1.0
 	 */
 	public static class ProviderResult {
 

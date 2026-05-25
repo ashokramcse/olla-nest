@@ -273,6 +273,8 @@ public class WorkspaceService {
 
 	/**
 	 * Value object representing a single code artifact extracted from model output.
+	 *
+	 * @since v2026.1.0
 	 */
 	public static class Artifact {
 		/** Resolved artifact filename (including extension). */

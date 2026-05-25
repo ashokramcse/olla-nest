@@ -35,8 +35,15 @@ import java.util.Set;
 @RequestMapping("/api/sandbox")
 public class CodeSandboxController extends BaseController {
 
+	/** Service that compiles and runs code snippets in isolated subprocesses. */
 	private final CodeSandboxService sandboxService;
 
+	/**
+	 * Constructor-injects the code sandbox service.
+	 *
+	 * @param sandboxService the service responsible for executing code snippets
+	 * @since v2026.1.4
+	 */
 	public CodeSandboxController(CodeSandboxService sandboxService) {
 		this.sandboxService = sandboxService;
 	}
@@ -79,8 +86,15 @@ public class CodeSandboxController extends BaseController {
 	}
 
 	/**
-	 * Returns the language keys the sandbox accepts (for frontend "Run" button
-	 * logic).
+	 * Returns the set of language keys the sandbox accepts.
+	 *
+	 * <p>
+	 * Used by the frontend "Run" button to determine which languages are available
+	 * without hard-coding the list in the client.
+	 *
+	 * @param req the current HTTP request (authentication required)
+	 * @return 200 with {@code { ok: true, languages: [...] }}
+	 * @since v2026.1.4
 	 */
 	@GetMapping("/languages")
 	public ResponseEntity<Map<String, Object>> languages(HttpServletRequest req) {

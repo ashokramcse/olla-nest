@@ -56,9 +56,18 @@ public class DevHintsController {
 
 	private static final Logger log = LoggerFactory.getLogger(DevHintsController.class);
 
+	/** Application configuration; provides seeded demo account credentials. */
 	private final AppConfig   appConfig;
+	/** JDBC template for checking whether demo accounts exist in the database. */
 	private final JdbcTemplate db;
 
+	/**
+	 * Constructor-injects the application config and JDBC template.
+	 *
+	 * @param appConfig the application configuration containing seed credentials
+	 * @param db        the JDBC template for {@code users} table lookups
+	 * @since v2026.1.9
+	 */
 	public DevHintsController(AppConfig appConfig, JdbcTemplate db) {
 		this.appConfig = appConfig;
 		this.db = db;
@@ -103,7 +112,17 @@ public class DevHintsController {
 		return ResponseEntity.ok(Map.of("accounts", accounts));
 	}
 
-	/** Adds an entry only when the email exists in the active users table. */
+	/**
+	 * Conditionally adds a login hint to the list only when the account exists and
+	 * the password is not the default placeholder value.
+	 *
+	 * @param list     the accumulating list of hint entries
+	 * @param label    display label for the account (e.g. {@code "Admin"})
+	 * @param email    email address used as the login identifier
+	 * @param password plain-text password to include in the hint
+	 * @param color    hex colour string for the UI badge
+	 * @since v2026.1.9
+	 */
 	private void addIfExists(List<Map<String, Object>> list,
 			String label, String email, String password, String color) {
 		// Skip placeholder passwords — no point offering a hint that won't work

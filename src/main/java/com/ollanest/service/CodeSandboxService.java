@@ -361,25 +361,70 @@ public class CodeSandboxService {
 	private record LangSpec(String extension, List<String> commands) {
 	}
 
-	/** Result of a sandbox execution. */
-	public record RunResult(boolean ok, String output, int exitCode, long elapsedMs, String phase, // "run" | "compile"
-																									// | "timeout" |
-																									// "unsupported" |
-																									// "error"
-			String error) {
+	/**
+	 * Immutable result of a single sandbox code execution.
+	 *
+	 * <p>
+	 * The {@code phase} component describes which stage produced the result:
+	 * {@code "run"} for a successful execution, {@code "compile"} for a compilation
+	 * failure, {@code "timeout"} when the wall-clock limit was exceeded,
+	 * {@code "unsupported"} for an unknown language key, or {@code "error"} for any
+	 * other internal failure.
+	 *
+	 * @param ok        {@code true} if the process exited with code 0
+	 * @param output    merged stdout + stderr from the subprocess
+	 * @param exitCode  process exit code, or {@code -1} on timeout/error
+	 * @param elapsedMs wall-clock time consumed by the execution in milliseconds
+	 * @param phase     lifecycle stage that produced this result
+	 * @param error     human-readable error message; {@code null} on success
+	 * @since v2026.1.4
+	 */
+	public record RunResult(boolean ok, String output, int exitCode, long elapsedMs, String phase, String error) {
+
+		/**
+		 * Creates a {@link RunResult} from a completed subprocess.
+		 *
+		 * @param output     merged stdout + stderr text
+		 * @param exitCode   process exit code
+		 * @param elapsedMs  wall-clock execution time in milliseconds
+		 * @param phase      the execution phase ({@code "run"} or {@code "compile"})
+		 * @return a result whose {@code ok} flag reflects whether {@code exitCode} is 0
+		 * @since v2026.1.4
+		 */
 		static RunResult of(String output, int exitCode, long elapsedMs, String phase) {
 			return new RunResult(exitCode == 0, output, exitCode, elapsedMs, phase, null);
 		}
 
+		/**
+		 * Creates an error {@link RunResult} for internal sandbox failures.
+		 *
+		 * @param msg human-readable description of the error
+		 * @return a failed result with phase {@code "error"}
+		 * @since v2026.1.4
+		 */
 		static RunResult error(String msg) {
 			return new RunResult(false, "", -1, 0, "error", msg);
 		}
 
+		/**
+		 * Creates a timeout {@link RunResult} when the wall-clock limit was exceeded.
+		 *
+		 * @param seconds the timeout limit that was exceeded
+		 * @return a failed result with phase {@code "timeout"}
+		 * @since v2026.1.4
+		 */
 		static RunResult timeout(int seconds) {
 			return new RunResult(false, "", -1, (long) seconds * 1000, "timeout",
 					"Execution timed out after " + seconds + " seconds");
 		}
 
+		/**
+		 * Creates an unsupported-language {@link RunResult}.
+		 *
+		 * @param lang the language key that was not recognised
+		 * @return a failed result with phase {@code "unsupported"}
+		 * @since v2026.1.4
+		 */
 		static RunResult unsupported(String lang) {
 			return new RunResult(false, "", -1, 0, "unsupported",
 					"Language '" + lang + "' is not supported. Supported: python, javascript, ruby, bash, java");

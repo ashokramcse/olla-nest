@@ -111,23 +111,6 @@ public class AdminSettingsController extends BaseController {
 	}
 
 	/**
-	 * Saves one or more application settings in a single request.
-	 *
-	 * <p>
-	 * Simple string/boolean settings are saved directly. JSON-complex settings
-	 * ({@code routerWeights}, {@code sensitivePatterns}, {@code localOnlyModes})
-	 * are serialised before storage. URL settings are validated with
-	 * {@link UrlValidator} before saving.
-	 *
-	 * @param body request body with any combination of settings keys
-	 * @param req  the current HTTP request (for admin auth check)
-	 * @return 200 OK with the updated settings state, or 400 on URL validation
-	 *         error
-	 * @since v2026.1.0 — initial Java Spring Boot migration
-	 * @version v2026.1.0 — security hardening: SSRF protection on URL fields,
-	 *          workspace root guard
-	 */
-	/**
 	 * Returns the current application settings state.
 	 *
 	 * <p>
@@ -147,6 +130,21 @@ public class AdminSettingsController extends BaseController {
 		return ResponseEntity.ok(Map.of("ok", true, "settings", buildSettingsState()));
 	}
 
+	/**
+	 * Saves one or more application settings in a single request.
+	 *
+	 * <p>
+	 * Simple string/boolean settings are saved directly. JSON-complex settings
+	 * ({@code routerWeights}, {@code sensitivePatterns}, {@code localOnlyModes})
+	 * are serialised before storage. URL settings are validated with
+	 * {@link UrlValidator} before saving. The workspace root is blocked from
+	 * pointing to system paths to prevent path-traversal exploits (HIGH-5).
+	 *
+	 * @param body request body with any combination of settings keys
+	 * @param req  the current HTTP request (for admin auth check)
+	 * @return 200 OK with the updated settings state, or 400 on URL validation error
+	 * @since v2026.1.0 — initial Java Spring Boot migration
+	 */
 	@PostMapping("/settings")
 	public ResponseEntity<Map<String, Object>> saveSettings(@RequestBody Map<String, Object> body,
 			HttpServletRequest req) {
