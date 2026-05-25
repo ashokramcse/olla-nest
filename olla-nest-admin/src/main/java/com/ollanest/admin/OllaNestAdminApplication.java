@@ -31,7 +31,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 	basePackages = "com.ollanest",
 	excludeFilters = @ComponentScan.Filter(
 		type = FilterType.REGEX,
-		pattern = "com\\.ollanest\\.controller\\.(Chat|Thread|Document|Workspace|Voice|CodeSandbox|Image|State|Account|Sso|DevHints|Bootstrap|User).*Controller.*"
+		// State is in common (needed by admin for /api/state + /api/ollama/models)
+		pattern = "com\\.ollanest\\.controller\\.(Chat|Thread|Document|Workspace|Voice|CodeSandbox|Image|Account|Sso|DevHints|Bootstrap|User).*Controller.*"
 	)
 )
 public class OllaNestAdminApplication {
