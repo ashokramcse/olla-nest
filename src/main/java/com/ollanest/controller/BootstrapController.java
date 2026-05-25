@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Provides the minimal data the frontend needs before the user has logged in.
@@ -54,6 +56,15 @@ public class BootstrapController {
 	private final AppConfig appConfig;
 
 	/**
+	 * Cached first-boot result. BCrypt.checkpw takes ~250ms at cost 12; caching
+	 * eliminates that latency on all subsequent bootstrap calls. The cache is
+	 * invalidated after 60 seconds to detect a password change without a restart.
+	 */
+	private final AtomicBoolean cachedFirstBoot = new AtomicBoolean(false);
+	private final AtomicLong cacheExpiry = new AtomicLong(0);
+	private static final long CACHE_TTL_MS = 60_000L;
+
+	/**
 	 * Constructor-injects the JDBC template and application configuration.
 	 *
 	 * @param db        the JDBC template for DB queries
@@ -85,13 +96,35 @@ public class BootstrapController {
 	 */
 	@GetMapping
 	public ResponseEntity<Map<String, Object>> bootstrap() {
+		boolean firstBoot = computeFirstBoot();
+		return ResponseEntity.ok(Map.of("ready", true, "firstBoot", firstBoot));
+	}
+
+	/**
+	 * Computes the first-boot flag with a 60-second TTL cache to avoid running
+	 * BCrypt.checkpw (≈250ms) on every page load.
+	 *
+	 * <p>
+	 * Thread safety: multiple concurrent callers may all compute the value on
+	 * cache miss; this is acceptable since BCrypt is idempotent and the result is
+	 * consistent. The cache is intentionally not locked to keep the hot path fast.
+	 *
+	 * @return {@code true} if the admin password is still the factory default
+	 * @since v2026.1.9 — performance fix: cache BCrypt check (PERF-1)
+	 */
+	private boolean computeFirstBoot() {
+		long now = System.currentTimeMillis();
+		if (now < cacheExpiry.get()) {
+			return cachedFirstBoot.get();
+		}
 		List<Map<String, Object>> rows = db.queryForList("SELECT password_hash FROM users WHERE id = 'u-admin'");
+		boolean result = false;
 		if (!rows.isEmpty()) {
 			String hash = (String) rows.get(0).get("password_hash");
-			if (hash != null && BCrypt.checkpw(appConfig.getDefaultAdminPassword(), hash)) {
-				return ResponseEntity.ok(Map.of("ready", true, "firstBoot", true));
-			}
+			result = hash != null && BCrypt.checkpw(appConfig.getDefaultAdminPassword(), hash);
 		}
-		return ResponseEntity.ok(Map.of("ready", true, "firstBoot", false));
+		cachedFirstBoot.set(result);
+		cacheExpiry.set(now + CACHE_TTL_MS);
+		return result;
 	}
 }

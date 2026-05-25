@@ -40,3 +40,8 @@ scripts/monitoring/grafana.log
 # Grafana admin password (generated locally — never commit)
 scripts/monitoring/.grafana-password
 scripts/e2e-test.sh
+
+# Python virtualenv created by dev scripts
+scripts/venv/
+venv/
+.venv/

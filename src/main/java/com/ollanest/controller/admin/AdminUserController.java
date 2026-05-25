@@ -245,8 +245,8 @@ public class AdminUserController extends BaseController {
 		if (err != null)
 			return err;
 		User admin = getUser(req);
-		String name = (String) body.get("name");
-		String email = (String) body.get("email");
+		String name = sanitizeText((String) body.get("name"));
+		String email = sanitizeText((String) body.get("email"));
 		if (name == null || email == null || name.isBlank() || email.isBlank()) {
 			return ResponseEntity.status(400).body(Map.of("error", "Name and email are required"));
 		}
@@ -341,10 +341,10 @@ public class AdminUserController extends BaseController {
 		}
 
 		if (body.containsKey("name")) {
-			db.update("UPDATE users SET name = ? WHERE id = ?", body.get("name"), id);
+			db.update("UPDATE users SET name = ? WHERE id = ?", sanitizeText((String) body.get("name")), id);
 		}
 		if (body.containsKey("email")) {
-			db.update("UPDATE users SET email = ? WHERE id = ?", body.get("email"), id);
+			db.update("UPDATE users SET email = ? WHERE id = ?", sanitizeText((String) body.get("email")), id);
 		}
 		if (body.containsKey("role")) {
 			String newRole = (String) body.get("role");

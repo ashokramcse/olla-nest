@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.util.HtmlUtils;
 
 import java.util.Map;
 
@@ -159,5 +160,23 @@ public abstract class BaseController {
 	 */
 	protected boolean isCsrfOk(HttpServletRequest req) {
 		return "GET".equals(req.getMethod()) || req.getHeader("x-requested-with") != null;
+	}
+
+	/**
+	 * Strips HTML entities from user-supplied text to prevent stored XSS.
+	 *
+	 * <p>
+	 * Uses Spring's {@link HtmlUtils#htmlEscape} to convert {@code <}, {@code >},
+	 * {@code &}, {@code "} and {@code '} into their safe HTML entity equivalents
+	 * before the value is persisted. Returns {@code null} if the input is
+	 * {@code null}.
+	 *
+	 * @param input the raw user-supplied string, may be {@code null}
+	 * @return HTML-escaped string, or {@code null} if input was {@code null}
+	 * @since v2026.1.9 — XSS hardening (CRIT-2)
+	 */
+	protected static String sanitizeText(String input) {
+		if (input == null) return null;
+		return HtmlUtils.htmlEscape(input.strip());
 	}
 }

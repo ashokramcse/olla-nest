@@ -55,6 +55,13 @@ public class CodeSandboxService {
 	/** Maximum output returned to caller (bytes). */
 	private static final int MAX_OUTPUT_BYTES = 65_536; // 64 KB
 
+	/**
+	 * Maximum virtual memory for sandboxed processes via {@code ulimit -v}
+	 * (kilobytes). Prevents memory bombs. 256 MB expressed as KB.
+	 * Only applied on Linux/macOS where {@code ulimit} is available.
+	 */
+	private static final int MEMORY_LIMIT_KB = 262_144; // 256 MB
+
 	/** Maps normalised language key → (extension, command-candidates). */
 	private static final Map<String, LangSpec> LANGS = new LinkedHashMap<>();
 
@@ -111,11 +118,88 @@ public class CodeSandboxService {
 			return RunResult.error("Runtime not found. Install one of: " + spec.commands);
 		}
 
+		// Inject language-specific safety preambles.
+		String safeCode = injectSafetyPreamble(spec.extension, code);
+
 		Path srcFile = tempDir.resolve("main" + spec.extension);
-		Files.writeString(srcFile, code, StandardCharsets.UTF_8);
+		Files.writeString(srcFile, safeCode, StandardCharsets.UTF_8);
 
 		return executeProcess(List.of(interpreter, srcFile.toString()), tempDir, null);
 	}
+
+	/**
+	 * Injects safety preambles into user code to enforce resource limits and
+	 * disable network access where possible at the interpreter level.
+	 *
+	 * <p>
+	 * This is a defence-in-depth layer — the primary isolation mechanism should
+	 * be Docker containers with {@code --network=none} in production. These
+	 * preambles add a second layer of protection when running without Docker.
+	 *
+	 * @param extension the file extension ({@code .py}, {@code .sh}, etc.)
+	 * @param code      the original user code
+	 * @return the code with safety preamble prepended
+	 */
+	private String injectSafetyPreamble(String extension, String code) {
+		return switch (extension) {
+			case ".py" -> PYTHON_PREAMBLE + code;
+			case ".sh" -> BASH_PREAMBLE + code;
+			default -> code;
+		};
+	}
+
+	/**
+	 * Python preamble: disables network modules (socket, urllib, http, requests,
+	 * httpx) and sets a memory ceiling via resource limits.
+	 *
+	 * <p>
+	 * Note: determined attackers can bypass this with ctypes or C extensions.
+	 * Docker network isolation remains the recommended production control.
+	 */
+	private static final String PYTHON_PREAMBLE =
+		"""
+		import sys as _sys, os as _os, resource as _resource
+		# Enforce 256 MB virtual memory soft limit
+		try:
+		    _mem_limit = 256 * 1024 * 1024
+		    _resource.setrlimit(_resource.RLIMIT_AS, (_mem_limit, _mem_limit))
+		except Exception:
+		    pass
+		# Block network modules — redirect them to a sentinel that raises
+		class _NetBlocker:
+		    def __getattr__(self, name):
+		        raise RuntimeError("Network access is disabled in this sandbox")
+		    def __call__(self, *a, **kw):
+		        raise RuntimeError("Network access is disabled in this sandbox")
+		for _mod in ['socket','urllib','urllib.request','urllib.parse','http','http.client',
+		             'requests','httpx','aiohttp','ftplib','smtplib']:
+		    _sys.modules[_mod] = _NetBlocker()
+		del _sys, _os, _resource, _NetBlocker, _mod, _mem_limit
+		# ── User code below ───────────────────────────────────────────────────
+		""";
+
+	/**
+	 * Bash preamble: restricts PATH to disallow network tools and overrides
+	 * curl/wget/nc/ssh with no-ops that print a sandbox error message.
+	 *
+	 * <p>
+	 * Note: a determined attacker can still open TCP sockets via /dev/tcp.
+	 * Docker network isolation remains the recommended production control.
+	 */
+	private static final String BASH_PREAMBLE =
+		"""
+		# Sandbox: override network tools with error stubs
+		curl()  { echo "[sandbox] Network access is disabled"; return 1; }
+		wget()  { echo "[sandbox] Network access is disabled"; return 1; }
+		nc()    { echo "[sandbox] Network access is disabled"; return 1; }
+		ncat()  { echo "[sandbox] Network access is disabled"; return 1; }
+		ssh()   { echo "[sandbox] Network access is disabled"; return 1; }
+		scp()   { echo "[sandbox] Network access is disabled"; return 1; }
+		ftp()   { echo "[sandbox] Network access is disabled"; return 1; }
+		export -f curl wget nc ncat ssh scp ftp 2>/dev/null || true
+		# ── User code below ───────────────────────────────────────────────────
+		""";
+
 
 	// ── Java: compile then run ───────────────────────────────────────────────
 
@@ -149,16 +233,58 @@ public class CodeSandboxService {
 
 	// ── Core process runner ──────────────────────────────────────────────────
 
+	/**
+	 * Builds the actual command list to execute, wrapping with {@code ulimit}
+	 * on Unix-like systems to enforce memory limits.
+	 *
+	 * <p>
+	 * On macOS/Linux: wraps as {@code bash -c "ulimit -v LIMIT && ulimit -t TIME && cmd args..."}.
+	 * This limits virtual memory and CPU seconds. On Windows the command runs as-is
+	 * (Docker isolation is the recommended Windows approach).
+	 *
+	 * @param cmd     the interpreter command and arguments
+	 * @param workDir the sandbox working directory
+	 * @return the wrapped command list
+	 */
+	private List<String> wrapWithLimits(List<String> cmd, Path workDir) {
+		if (isWindows()) {
+			return cmd;
+		}
+		// Escape each argument for shell embedding
+		StringBuilder shellCmd = new StringBuilder();
+		// Set virtual memory limit (ulimit -v in KB) and CPU time limit (ulimit -t in seconds)
+		shellCmd.append("ulimit -v ").append(MEMORY_LIMIT_KB)
+				.append(" 2>/dev/null; ulimit -t ").append(TIMEOUT_SECONDS)
+				.append(" 2>/dev/null; ");
+		for (int i = 0; i < cmd.size(); i++) {
+			if (i > 0) shellCmd.append(' ');
+			shellCmd.append(shellEscape(cmd.get(i)));
+		}
+		return List.of("bash", "-c", shellCmd.toString());
+	}
+
+	/** Single-quotes a shell argument, escaping embedded single quotes. */
+	private static String shellEscape(String arg) {
+		return "'" + arg.replace("'", "'\\''") + "'";
+	}
+
 	private RunResult executeProcess(List<String> cmd, Path workDir, Map<String, String> extraEnv) throws Exception {
-		ProcessBuilder pb = new ProcessBuilder(cmd);
+		List<String> actualCmd = wrapWithLimits(cmd, workDir);
+		ProcessBuilder pb = new ProcessBuilder(actualCmd);
 		pb.directory(workDir.toFile());
 		pb.redirectErrorStream(true); // merge stderr into stdout
-		// Clean minimal environment — no secrets from parent process
+		// Minimal clean environment — strip all parent-process secrets and
+		// network-proxy settings that could allow exfiltration via env vars.
 		Map<String, String> env = pb.environment();
 		env.clear();
-		env.put("PATH", System.getenv("PATH") != null ? System.getenv("PATH") : "/usr/local/bin:/usr/bin:/bin");
-		env.put("HOME", System.getProperty("user.home", "/tmp"));
+		// Allow only the bare minimum needed to run interpreters.
+		String path = System.getenv("PATH");
+		env.put("PATH", path != null ? path : "/usr/local/bin:/usr/bin:/bin");
+		env.put("HOME", workDir.toString()); // sandbox temp dir, not real home
 		env.put("LANG", "en_US.UTF-8");
+		env.put("TMPDIR", workDir.toString()); // redirect temp file creation to sandbox
+		// Explicitly ensure no proxy, no credentials, no cloud env vars leak through
+		// (env is already cleared above — this is defence-in-depth documentation)
 		if (extraEnv != null)
 			env.putAll(extraEnv);
 

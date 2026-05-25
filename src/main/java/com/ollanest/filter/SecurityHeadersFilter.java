@@ -77,16 +77,27 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 			throws ServletException, IOException {
 		response.setHeader("X-Content-Type-Options", "nosniff");
-		response.setHeader("X-Frame-Options", "SAMEORIGIN");
+		// DENY is stricter than SAMEORIGIN — the app never needs to iframe itself.
+		response.setHeader("X-Frame-Options", "DENY");
 		response.setHeader("X-XSS-Protection", "1; mode=block");
 		response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+		// Disable browser features the app never uses (hardening MED-3).
+		response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
 		response.setHeader("Content-Security-Policy",
-				"default-src 'self'; script-src 'self' 'unsafe-inline'; "
+				"default-src 'self'; "
+						+ "script-src 'self' 'unsafe-inline'; "
 						+ "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-						+ "img-src 'self' data: blob:; connect-src 'self' ws: wss:; "
+						+ "img-src 'self' data: blob:; "
+						+ "connect-src 'self' ws: wss:; "
 						+ "font-src 'self' data: https://fonts.gstatic.com; "
-						+ "frame-ancestors 'none'");
-		response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+						+ "frame-ancestors 'none'; "
+						+ "base-uri 'self'; "
+						+ "form-action 'self'");
+		// HSTS only when the connection is already over HTTPS — setting it on
+		// plain HTTP would poison the browser's HSTS cache for dev environments.
+		if (request.isSecure()) {
+			response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+		}
 		filterChain.doFilter(request, response);
 	}
 }

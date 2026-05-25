@@ -127,6 +127,26 @@ public class AdminSettingsController extends BaseController {
 	 * @version v2026.1.0 — security hardening: SSRF protection on URL fields,
 	 *          workspace root guard
 	 */
+	/**
+	 * Returns the current application settings state.
+	 *
+	 * <p>
+	 * Reads all persisted settings from the database and returns them as a
+	 * structured map. This is the GET counterpart to the POST save endpoint and is
+	 * required so the admin UI can hydrate the settings panel on load.
+	 *
+	 * @param req the current HTTP request (for admin auth check)
+	 * @return 200 OK with the full settings state map
+	 * @since v2026.1.9 — added missing GET endpoint (UX fix HIGH-1)
+	 */
+	@GetMapping("/settings")
+	public ResponseEntity<Map<String, Object>> getSettings(HttpServletRequest req) {
+		ResponseEntity<Map<String, Object>> err = requireAdmin(req);
+		if (err != null)
+			return err;
+		return ResponseEntity.ok(Map.of("ok", true, "settings", buildSettingsState()));
+	}
+
 	@PostMapping("/settings")
 	public ResponseEntity<Map<String, Object>> saveSettings(@RequestBody Map<String, Object> body,
 			HttpServletRequest req) {
