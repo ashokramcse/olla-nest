@@ -83,10 +83,10 @@ public class BackupService {
 	 * Any exception thrown by {@link #runBackup()} is caught and logged at
 	 * {@code ERROR} level so the scheduler does not suppress future executions.
 	 *
+	 * @author Ashok Ram
 	 * @since v2026.1.0
 	 */
-	// Run daily at 3 AM
-	@Scheduled(cron = "0 0 3 * * *")
+	@Scheduled(cron = "0 0 3 * * *") // Run daily at 3 AM
 	public void scheduledBackup() {
 		try {
 			runBackup();

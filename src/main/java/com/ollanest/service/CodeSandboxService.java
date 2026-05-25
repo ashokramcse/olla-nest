@@ -112,6 +112,24 @@ public class CodeSandboxService {
 
 	// ── Interpreted languages (python, node, ruby, bash) ────────────────────
 
+	/**
+	 * Executes a code snippet using an OS interpreter (Python, Node.js, Ruby,
+	 * Bash, etc.).
+	 *
+	 * <p>
+	 * Locates the first available interpreter from {@link LangSpec#commands()},
+	 * injects the language-specific safety preamble, writes the combined source to
+	 * a temp file inside the sandbox directory, and delegates to
+	 * {@link #executeProcess}.
+	 *
+	 * @param code    the raw source code submitted by the user
+	 * @param spec    the language specification (file extension + interpreter candidates)
+	 * @param tempDir the isolated temporary directory for this execution
+	 * @return the execution result including output, exit code and elapsed time
+	 * @throws Exception if file I/O or process creation fails
+	 * @author Ashok Ram
+	 * @since v2026.1.4
+	 */
 	private RunResult runInterpreted(String code, LangSpec spec, Path tempDir) throws Exception {
 		String interpreter = findInterpreter(spec.commands);
 		if (interpreter == null) {
@@ -203,6 +221,25 @@ public class CodeSandboxService {
 
 	// ── Java: compile then run ───────────────────────────────────────────────
 
+	/**
+	 * Compiles and executes a Java source file submitted by the user.
+	 *
+	 * <p>
+	 * Extracts the {@code public class} name from the source via regex (falls back
+	 * to {@code "Main"} if not found), writes the source to a matching
+	 * {@code .java} file, compiles it with {@code javac}, and — if compilation
+	 * succeeds — runs the resulting class with {@code java -cp}.  Compilation
+	 * errors are returned as a {@link RunResult} with phase {@code "compile"} so
+	 * the UI can display them distinctly from runtime errors.
+	 *
+	 * @param code    the Java source code submitted by the user
+	 * @param tempDir the isolated temporary directory for this execution
+	 * @return the execution result; phase is {@code "compile"} on compile error,
+	 *         {@code "run"} on success or runtime failure
+	 * @throws Exception if file I/O or process creation fails
+	 * @author Ashok Ram
+	 * @since v2026.1.4
+	 */
 	private RunResult runJava(String code, Path tempDir) throws Exception {
 		// Extract public class name (fall back to "Main")
 		String className = "Main";
@@ -268,6 +305,34 @@ public class CodeSandboxService {
 		return "'" + arg.replace("'", "'\\''") + "'";
 	}
 
+	/**
+	 * Launches a subprocess, streams its combined stdout+stderr, enforces the
+	 * wall-clock timeout, and returns the captured output as a {@link RunResult}.
+	 *
+	 * <p>
+	 * The command is first wrapped via {@link #wrapWithLimits} which prepends
+	 * {@code ulimit} memory and CPU constraints on Unix-like systems.  The
+	 * subprocess environment is cleared and rebuilt from a minimal safe set
+	 * ({@code PATH}, {@code HOME}, {@code TMPDIR}, {@code LANG}) so that no
+	 * parent-process secrets, API keys, or proxy settings are inherited.
+	 *
+	 * <p>
+	 * Output is drained in a virtual thread to avoid blocking the carrier thread
+	 * while the process runs.  If the process does not finish within
+	 * {@link #TIMEOUT_SECONDS} it is force-killed via {@link Process#destroyForcibly()}.
+	 *
+	 * @param cmd       the interpreter command and its arguments (not yet wrapped)
+	 * @param workDir   the sandbox working directory; used as {@code HOME} and
+	 *                  {@code TMPDIR} for the subprocess
+	 * @param extraEnv  optional additional environment variables to set after the
+	 *                  minimal safe set; may be {@code null}
+	 * @return the execution result with output, exit code, elapsed time and phase
+	 * @throws Exception if process creation or I/O draining fails unexpectedly
+	 * @author Ashok Ram
+	 * @since v2026.1.4
+	 * @version v2026.1.9 — security hardening: cleared env, TMPDIR/HOME redirect,
+	 *          ulimit wrapping
+	 */
 	private RunResult executeProcess(List<String> cmd, Path workDir, Map<String, String> extraEnv) throws Exception {
 		List<String> actualCmd = wrapWithLimits(cmd, workDir);
 		ProcessBuilder pb = new ProcessBuilder(actualCmd);
@@ -340,10 +405,35 @@ public class CodeSandboxService {
 		return null;
 	}
 
+	/**
+	 * Returns {@code true} when the current JVM is running on a Windows host.
+	 *
+	 * <p>
+	 * Used to decide whether {@code ulimit} wrapping and Unix-specific sandbox
+	 * controls should be applied.
+	 *
+	 * @return {@code true} if {@code os.name} contains {@code "win"} (case-insensitive)
+	 * @author Ashok Ram
+	 * @since v2026.1.4
+	 */
 	private static boolean isWindows() {
 		return System.getProperty("os.name", "").toLowerCase().contains("win");
 	}
 
+	/**
+	 * Recursively deletes a directory tree, silently ignoring individual deletion
+	 * failures.
+	 *
+	 * <p>
+	 * Called in the {@code finally} block of {@link #run} to clean up the per-run
+	 * sandbox temp directory regardless of whether execution succeeded or failed.
+	 * Entries are deleted in reverse file-system order (deepest first) so parent
+	 * directories are only removed after their children.
+	 *
+	 * @param dir the root directory to delete; must not be {@code null}
+	 * @author Ashok Ram
+	 * @since v2026.1.4
+	 */
 	private static void deleteDir(Path dir) {
 		try {
 			Files.walk(dir).sorted(Comparator.reverseOrder()).forEach(p -> {

@@ -116,6 +116,34 @@ public class WhisperServerManager {
 
 	// ── Startup ──────────────────────────────────────────────────────────────
 
+	/**
+	 * Locates and launches the local Whisper STT server subprocess.
+	 *
+	 * <p>
+	 * Runs on a daemon thread so it does not block Spring context startup.
+	 * The method performs the following steps in order:
+	 * <ol>
+	 * <li>Sleeps 500 ms to allow Spring to finish wiring beans before logging.</li>
+	 * <li>Checks whether a Whisper server is already listening on
+	 *     {@link #WHISPER_PORT}; skips launch if so.</li>
+	 * <li>Walks parent directories from the working directory to find the
+	 *     project root (identified by {@code scripts/whisper_server.py}).</li>
+	 * <li>Verifies that the Python virtual environment exists at
+	 *     {@code scripts/venv/}; logs a platform-specific setup hint and returns
+	 *     if it is missing.</li>
+	 * <li>Starts the Python subprocess via {@link ProcessBuilder}, streams its
+	 *     stdout to the application log on a second daemon thread, and stores
+	 *     a reference to the {@link Process} so {@link #stop()} can terminate
+	 *     it cleanly on shutdown.</li>
+	 * </ol>
+	 *
+	 * <p>
+	 * Any exception is caught and logged at {@code WARN} level so that a missing
+	 * Whisper installation never prevents the main application from starting.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.5
+	 */
 	private void start() {
 		try {
 			// Give Spring a moment to finish context wiring before logging

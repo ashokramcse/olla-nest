@@ -196,6 +196,12 @@ public class WorkspaceService {
 			Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
 				int depth = 0;
 
+				/**
+				 * Skips hidden directories, {@code node_modules}, and any subtree deeper
+				 * than 4 levels or after 50 files have already been collected.
+				 *
+				 * {@inheritDoc}
+				 */
 				@Override
 				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
 					if (depth > 4 || files.size() >= 50)
@@ -211,6 +217,12 @@ public class WorkspaceService {
 					return FileVisitResult.CONTINUE;
 				}
 
+				/**
+				 * Adds the file's path (relative to the workspace root) to the results list,
+				 * terminating the walk once 50 files have been collected.
+				 *
+				 * {@inheritDoc}
+				 */
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
 					if (files.size() >= 50)
@@ -219,6 +231,12 @@ public class WorkspaceService {
 					return FileVisitResult.CONTINUE;
 				}
 
+				/**
+				 * Decrements the depth counter after leaving a directory so that sibling
+				 * branches are permitted to proceed.
+				 *
+				 * {@inheritDoc}
+				 */
 				@Override
 				public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
 					depth--;
