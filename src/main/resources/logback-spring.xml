@@ -10,6 +10,13 @@
   MDC keys injected by MdcLoggingFilter on every HTTP request:
     requestId, userId, userEmail, userRole, method, path, ip
 
+  status="OFF" on <configuration>:
+    Suppresses logback's internal StatusManager output (the "|-ERROR in ..."
+    lines). loki4j reports Loki-unreachable errors via StatusManager, not via
+    SLF4J loggers, so <logger level="WARN"> has no effect on them. OFF silences
+    all internal logback diagnostics; real config errors surface as startup
+    failures rather than status lines, which is acceptable for production.
+
   Property names for loki4j 1.5.x AbstractHttpSender:
     connectionTimeoutMs  (NOT connectTimeoutMs — that was the pre-1.5 name)
     requestTimeoutMs
@@ -17,7 +24,7 @@
   commons-logging is excluded from pdfbox in pom.xml so spring-jcl
   handles JCL routing without classpath conflicts.
 -->
-<configuration>
+<configuration status="OFF">
 
     <!-- ── Properties ──────────────────────────────────────────────── -->
     <springProperty name="APP_NAME" source="spring.application.name" defaultValue="olla-nest"/>
