@@ -114,6 +114,11 @@ public class DatabaseService {
 	 * @since v2026.1.0
 	 */
 	private int tableCount(String table) {
+		// Table name cannot be parameterised in JDBC — validate against a known-safe
+		// allow-list so this internal helper can never be misused as an injection vector.
+		if (!table.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+			throw new IllegalArgumentException("Invalid table name: " + table);
+		}
 		Integer count = db.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
 		return count != null ? count : 0;
 	}
@@ -180,7 +185,10 @@ public class DatabaseService {
 	 * @since v2026.1.0
 	 */
 	public void setSetting(String key, String value) {
-		db.update("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", key, value);
+		// settings.value has a NOT NULL constraint — coerce null to empty string so the
+		// column invariant is never violated while preserving the "key is set" semantics.
+		db.update("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+				key, value != null ? value : "");
 	}
 
 	/**

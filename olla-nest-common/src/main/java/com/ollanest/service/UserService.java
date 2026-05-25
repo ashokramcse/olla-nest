@@ -291,10 +291,14 @@ public class UserService {
 					String.class, user.departmentId));
 		}
 
-		// Explicit access_grants: by group membership
-		for (String gid : groupIds) {
-			ids.addAll(db.queryForList("SELECT model_id FROM access_grants "
-					+ "WHERE subject_type = 'group' AND subject_id = ? AND can_use = 1", String.class, gid));
+		// Explicit access_grants: by group membership — single IN query, not N+1
+		if (!groupIds.isEmpty()) {
+			String placeholders = groupIds.stream().map(g -> "?").collect(java.util.stream.Collectors.joining(","));
+			Object[] params = groupIds.toArray();
+			ids.addAll(db.queryForList(
+					"SELECT model_id FROM access_grants WHERE subject_type = 'group' "
+							+ "AND subject_id IN (" + placeholders + ") AND can_use = 1",
+					String.class, params));
 		}
 
 		// Implicit grants from effective rights

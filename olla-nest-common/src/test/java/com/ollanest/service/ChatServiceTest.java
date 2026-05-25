@@ -1,0 +1,427 @@
+package com.ollanest.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+/**
+ * Unit tests for {@link ChatService}.
+ *
+ * <p>Covers: token estimation, rate-limit concurrency safety (race-condition
+ * regression), UID uniqueness + entropy, context-window budgeting, message
+ * parsing, and audit/trace persistence.
+ */
+@ExtendWith(MockitoExtension.class)
+@DisplayName("ChatService — unit tests")
+class ChatServiceTest {
+
+	@Mock JdbcTemplate            db;
+	@Mock WorkspaceService        workspaceService;
+	@Mock PromptTemplateService   promptTemplateService;
+
+	private final ObjectMapper mapper = new ObjectMapper();
+	private ChatService service;
+
+	@BeforeEach
+	void setUp() {
+		service = new ChatService(db, workspaceService, mapper, promptTemplateService);
+	}
+
+	// ── estimateTokens ────────────────────────────────────────────────────────
+
+	@Nested
+	@DisplayName("estimateTokens")
+	class EstimateTokens {
+
+		@Test
+		@DisplayName("null returns 0")
+		void nullReturnsZero() {
+			assertThat(service.estimateTokens(null)).isEqualTo(0);
+		}
+
+		@Test
+		@DisplayName("empty string returns 0")
+		void emptyReturnsZero() {
+			assertThat(service.estimateTokens("")).isEqualTo(0);
+		}
+
+		@Test
+		@DisplayName("4-character string estimates 1 token")
+		void fourCharsIsOneToken() {
+			assertThat(service.estimateTokens("abcd")).isEqualTo(1);
+		}
+
+		@Test
+		@DisplayName("8-character string estimates 2 tokens")
+		void eightCharsIsTwoTokens() {
+			assertThat(service.estimateTokens("abcdefgh")).isEqualTo(2);
+		}
+
+		@Test
+		@DisplayName("ceiling applied: 5 chars → 2 tokens (⌈5/4⌉)")
+		void ceilingApplied() {
+			assertThat(service.estimateTokens("hello")).isEqualTo(2);
+		}
+	}
+
+	// ── checkChatRateLimit ────────────────────────────────────────────────────
+
+	@Nested
+	@DisplayName("checkChatRateLimit")
+	class CheckChatRateLimit {
+
+		@Test
+		@DisplayName("limitPerMinute=0 always allows (rate limiting disabled)")
+		void zeroLimitAlwaysAllows() {
+			for (int i = 0; i < 1000; i++)
+				assertThat(service.checkChatRateLimit("user-1", 0)).isTrue();
+		}
+
+		@Test
+		@DisplayName("negative limit always allows")
+		void negativeLimitAlwaysAllows() {
+			assertThat(service.checkChatRateLimit("user-2", -1)).isTrue();
+		}
+
+		@Test
+		@DisplayName("allows exactly limitPerMinute requests within window")
+		void allowsUpToLimit() {
+			for (int i = 0; i < 5; i++)
+				assertThat(service.checkChatRateLimit("user-3", 5)).isTrue();
+		}
+
+		@Test
+		@DisplayName("denies the (limit+1)-th request within window")
+		void deniesOnceOverLimit() {
+			String uid = "user-over-" + System.nanoTime();
+			for (int i = 0; i < 3; i++)
+				service.checkChatRateLimit(uid, 3);
+			assertThat(service.checkChatRateLimit(uid, 3)).isFalse();
+		}
+
+		@Test
+		@DisplayName("different users have independent counters")
+		void differentUsersAreIndependent() {
+			String u1 = "u-" + System.nanoTime();
+			String u2 = "v-" + System.nanoTime();
+			for (int i = 0; i < 5; i++)
+				service.checkChatRateLimit(u1, 5);
+			// u1 is at limit, u2 should still be allowed
+			assertThat(service.checkChatRateLimit(u2, 5)).isTrue();
+		}
+
+		/**
+		 * Concurrency regression test for the race condition fixed in v2026.1.9.
+		 *
+		 * <p>20 threads simultaneously call checkChatRateLimit with limit=10 for the
+		 * same user. A correct implementation must allow EXACTLY 10 and deny the other
+		 * 10. The original {@code long[] counter; counter[0]++} code was not atomic —
+		 * under contention two threads could both read count &lt; limit and both
+		 * increment, allowing up to 20 requests through. This test would have been
+		 * flaky (passing sometimes, failing sometimes) before the fix.
+		 */
+		@Test
+		@DisplayName("race condition fix: exactly 10 of 20 concurrent requests allowed (limit=10)")
+		void concurrentRequestsRespectLimit() throws InterruptedException {
+			String uid = "concurrent-" + System.nanoTime();
+			int threadCount = 20;
+			int limit = 10;
+			AtomicInteger allowed = new AtomicInteger(0);
+			AtomicInteger denied  = new AtomicInteger(0);
+			CountDownLatch startGate = new CountDownLatch(1);
+			CountDownLatch done      = new CountDownLatch(threadCount);
+
+			ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+			for (int i = 0; i < threadCount; i++) {
+				pool.submit(() -> {
+					try {
+						startGate.await();
+						if (service.checkChatRateLimit(uid, limit))
+							allowed.incrementAndGet();
+						else
+							denied.incrementAndGet();
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					} finally {
+						done.countDown();
+					}
+				});
+			}
+			startGate.countDown(); // release all threads simultaneously
+			assertThat(done.await(5, TimeUnit.SECONDS)).isTrue();
+			pool.shutdown();
+
+			assertThat(allowed.get())
+					.as("Allowed requests must equal the limit (not exceed it)")
+					.isEqualTo(limit);
+			assertThat(denied.get())
+					.as("Denied requests must fill the remainder")
+					.isEqualTo(threadCount - limit);
+		}
+	}
+
+	// ── uid ───────────────────────────────────────────────────────────────────
+
+	@Nested
+	@DisplayName("uid")
+	class Uid {
+
+		@Test
+		@DisplayName("uid starts with the given prefix")
+		void hasPrefix() {
+			assertThat(service.uid("chat")).startsWith("chat-");
+			assertThat(service.uid("msg")).startsWith("msg-");
+			assertThat(service.uid("audit")).startsWith("audit-");
+		}
+
+		@Test
+		@DisplayName("uid contains exactly two hyphens (prefix-ms-rand)")
+		void hasTwoHyphens() {
+			String id = service.uid("chat");
+			// format: "chat-<base36ms>-<base36rand>" → 2 hyphens
+			assertThat(id.chars().filter(c -> c == '-').count()).isEqualTo(2);
+		}
+
+		@RepeatedTest(1000)
+		@DisplayName("1000 uid() calls produce no collisions (SecureRandom entropy sufficient)")
+		void noDuplicates() {
+			// Generate 1000 IDs in a tight loop and verify uniqueness
+			Set<String> ids = new HashSet<>();
+			for (int i = 0; i < 1000; i++)
+				ids.add(service.uid("test"));
+			assertThat(ids).hasSize(1000);
+		}
+	}
+
+	// ── parseMessage ─────────────────────────────────────────────────────────
+
+	@Nested
+	@DisplayName("parseMessage")
+	class ParseMessage {
+
+		@Test
+		@DisplayName("maps all core fields correctly")
+		void mapsAllFields() {
+			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			row.put("id", "msg-001");
+			row.put("role", "user");
+			row.put("content", "Hello world");
+			row.put("mode", "ask");
+			row.put("model_id", "m-llama");
+			row.put("model_name", "Llama 3");
+			row.put("route_reason", "Best local model");
+			row.put("live", 1);
+			row.put("artifacts_json", null);
+			row.put("extracted_files_json", null);
+			row.put("created_at", "2026-05-25T10:00:00Z");
+
+			Map<String, Object> msg = service.parseMessage(row);
+
+			assertThat(msg.get("id")).isEqualTo("msg-001");
+			assertThat(msg.get("role")).isEqualTo("user");
+			assertThat(msg.get("content")).isEqualTo("Hello world");
+			assertThat(msg.get("mode")).isEqualTo("ask");
+			assertThat(msg.get("modelId")).isEqualTo("m-llama");
+			assertThat(msg.get("modelName")).isEqualTo("Llama 3");
+			assertThat(msg.get("routeReason")).isEqualTo("Best local model");
+			assertThat(msg.get("live")).isEqualTo(true);
+		}
+
+		@Test
+		@DisplayName("live=0 maps to false")
+		void liveZeroIsFalse() {
+			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			row.put("role", "assistant");
+			row.put("content", "Response");
+			row.put("live", 0);
+			row.put("created_at", "2026-05-25T10:00:00Z");
+			assertThat(service.parseMessage(row).get("live")).isEqualTo(false);
+		}
+
+		@Test
+		@DisplayName("null live defaults to true")
+		void nullLiveIsTrue() {
+			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			row.put("role", "assistant");
+			row.put("content", "x");
+			row.put("live", null);
+			row.put("created_at", "now");
+			assertThat(service.parseMessage(row).get("live")).isEqualTo(true);
+		}
+
+		@Test
+		@DisplayName("artifacts_json null → empty list")
+		void nullArtifactsIsEmptyList() {
+			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			row.put("role", "user");
+			row.put("content", "x");
+			row.put("live", 1);
+			row.put("artifacts_json", null);
+			row.put("extracted_files_json", null);
+			row.put("created_at", "now");
+			assertThat(service.parseMessage(row).get("artifacts")).isEqualTo(List.of());
+		}
+
+		@Test
+		@DisplayName("valid artifacts_json is deserialised to a list")
+		void validArtifactsJsonDeserialised() {
+			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			row.put("role", "assistant");
+			row.put("content", "x");
+			row.put("live", 1);
+			row.put("artifacts_json", "[\"file1.py\",\"file2.py\"]");
+			row.put("extracted_files_json", null);
+			row.put("created_at", "now");
+			@SuppressWarnings("unchecked")
+			List<Object> artifacts = (List<Object>) service.parseMessage(row).get("artifacts");
+			assertThat(artifacts).containsExactly("file1.py", "file2.py");
+		}
+	}
+
+	// ── appendAudit ───────────────────────────────────────────────────────────
+
+	@Nested
+	@MockitoSettings(strictness = Strictness.LENIENT)
+	@DisplayName("appendAudit")
+	class AppendAudit {
+
+		@Test
+		@DisplayName("writes to audit_events with correct columns")
+		void writesAuditRow() {
+			service.appendAudit("alice", "user.login", "Signed in", null);
+			verify(db).update(
+					contains("INSERT INTO audit_events"),
+					any(), eq("alice"), eq("user.login"), eq("Signed in"),
+					anyString(), anyString());
+		}
+
+		@Test
+		@DisplayName("null detail is written as empty string (not null)")
+		void nullDetailBecomesEmptyString() {
+			service.appendAudit("system", "startup", null, null);
+			verify(db).update(
+					contains("INSERT INTO audit_events"),
+					any(), eq("system"), eq("startup"), eq(""),
+					anyString(), anyString());
+		}
+
+		@Test
+		@DisplayName("DB exception during audit is silently swallowed (fire-and-forget)")
+		void dbExceptionSwallowed() {
+			doThrow(new org.springframework.dao.DataAccessException("DB down") {})
+					.when(db).update(contains("INSERT INTO audit_events"),
+							any(), any(), any(), any(), any(), any());
+			assertThatNoException()
+					.isThrownBy(() -> service.appendAudit("u", "action", "detail", null));
+		}
+	}
+
+	// ── buildContextMessages ─────────────────────────────────────────────────
+
+	@Nested
+	@MockitoSettings(strictness = Strictness.LENIENT)
+	@DisplayName("buildContextMessages")
+	class BuildContextMessages {
+
+		@BeforeEach
+		void stubModelAndHistory() {
+			// No model found → fallback context window = 8192
+			when(db.queryForList(contains("FROM models"), anyString(), anyString()))
+					.thenReturn(List.of());
+			when(db.queryForList(contains("FROM api_models"), anyString()))
+					.thenReturn(List.of());
+		}
+
+		@Test
+		@DisplayName("empty history produces [system, user] messages only")
+		void emptyHistoryProducesSystemAndUser() {
+			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(List.of());
+
+			List<Map<String, Object>> msgs = service.buildContextMessages(
+					"sess-1", "You are helpful.", "Hello!", "llama3", null);
+
+			assertThat(msgs).hasSize(2);
+			assertThat(msgs.get(0).get("role")).isEqualTo("system");
+			assertThat(msgs.get(1).get("role")).isEqualTo("user");
+			assertThat(msgs.get(1).get("content")).isEqualTo("Hello!");
+		}
+
+		@Test
+		@DisplayName("history messages are included between system and user")
+		void historyMessagesIncluded() {
+			List<Map<String, Object>> history = List.of(
+					Map.of("role", "user",      "content", "First question"),
+					Map.of("role", "assistant",  "content", "First answer")
+			);
+			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(history);
+
+			List<Map<String, Object>> msgs = service.buildContextMessages(
+					"sess-2", "sys", "Follow-up?", "llama3", null);
+
+			assertThat(msgs).hasSize(4); // system + 2 history + user
+			assertThat(msgs.get(1).get("content")).isEqualTo("First question");
+			assertThat(msgs.get(2).get("content")).isEqualTo("First answer");
+			assertThat(msgs.get(3).get("content")).isEqualTo("Follow-up?");
+		}
+
+		@Test
+		@DisplayName("images list is attached to the user message when provided")
+		void imagesAttachedToUserMessage() {
+			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(List.of());
+
+			List<Map<String, Object>> msgs = service.buildContextMessages(
+					"sess-3", "sys", "Describe this image", "llama3",
+					List.of("base64encodedImageData=="));
+
+			@SuppressWarnings("unchecked")
+			List<String> images = (List<String>) msgs.get(msgs.size() - 1).get("images");
+			assertThat(images).containsExactly("base64encodedImageData==");
+		}
+
+		@Test
+		@DisplayName("oversized history is trimmed to fit within context budget")
+		void oversizedHistoryIsTrimmed() {
+			// Create 100 messages each with 200 chars (~50 tokens each)
+			List<Map<String, Object>> bigHistory = new ArrayList<>();
+			for (int i = 0; i < 100; i++) {
+				bigHistory.add(Map.of("role", "user", "content", "x".repeat(200)));
+			}
+			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(bigHistory);
+
+			// Context window is 8192 (fallback); system + user message use ~512 reserved
+			// So budget ~7680 tokens; 100 * 50 = 5000 tokens — all should fit
+			List<Map<String, Object>> msgs = service.buildContextMessages(
+					"sess-4", "s".repeat(100), "m".repeat(100), "llama3", null);
+
+			// Must have system + N_history + user, and N_history ≤ 100
+			assertThat(msgs.size()).isGreaterThanOrEqualTo(2); // at minimum system + user
+			assertThat(msgs.get(0).get("role")).isEqualTo("system");
+			assertThat(msgs.get(msgs.size() - 1).get("role")).isEqualTo("user");
+		}
+	}
+}

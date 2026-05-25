@@ -12,7 +12,9 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.security.crypto.bcrypt.BCrypt;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -78,6 +80,12 @@ public class AdminUserController extends BaseController {
 	/** JDBC template for all user, session, and override DB queries. */
 	private final JdbcTemplate db;
 
+	/**
+	 * Transaction template used to wrap multi-statement user update operations.
+	 * Ensures partial field updates are never committed on mid-flight failures.
+	 */
+	private final TransactionTemplate txTemplate;
+
 	/** Used to load and build {@link User} objects from DB rows. */
 	private final UserService userService;
 
@@ -107,6 +115,8 @@ public class AdminUserController extends BaseController {
 	public AdminUserController(JdbcTemplate db, UserService userService, ChatService chatService,
 			AuthService authService, ObjectMapper mapper, AppConfig appConfig) {
 		this.db = db;
+		this.txTemplate = new TransactionTemplate(
+				new JdbcTransactionManager(db.getDataSource()));
 		this.userService = userService;
 		this.chatService = chatService;
 		this.authService = authService;
@@ -166,8 +176,9 @@ public class AdminUserController extends BaseController {
 		ResponseEntity<Map<String, Object>> err = requireAdmin(req);
 		if (err != null)
 			return err;
+		// invalidateUserSessions already removes from both in-memory cache AND the DB;
+		// calling db.update here again would be a redundant no-op delete — removed.
 		authService.invalidateUserSessions(userId);
-		db.update("DELETE FROM sessions WHERE user_id = ?", userId);
 		return ResponseEntity.ok(Map.of("ok", true));
 	}
 
@@ -340,56 +351,66 @@ public class AdminUserController extends BaseController {
 			return ResponseEntity.status(400).body(Map.of("error", "Admin accounts cannot be deactivated."));
 		}
 
-		if (body.containsKey("name")) {
-			db.update("UPDATE users SET name = ? WHERE id = ?", sanitizeText((String) body.get("name")), id);
-		}
-		if (body.containsKey("email")) {
-			db.update("UPDATE users SET email = ? WHERE id = ?", sanitizeText((String) body.get("email")), id);
-		}
+		// Validate role before entering the transaction
 		if (body.containsKey("role")) {
 			String newRole = (String) body.get("role");
 			if (!Arrays.asList("admin", "user").contains(newRole)) {
 				return ResponseEntity.status(400).body(Map.of("error", "Invalid role."));
 			}
-			db.update("UPDATE users SET role = ? WHERE id = ?", newRole, id);
-		}
-		if (body.containsKey("departmentId")) {
-			db.update("UPDATE users SET department_id = ? WHERE id = ?", body.get("departmentId"), id);
-		}
-		if (activeVal != null) {
-			db.update("UPDATE users SET active = ? WHERE id = ?", Boolean.TRUE.equals(activeVal) ? 1 : 0, id);
-		}
-		if (body.containsKey("rights") && body.get("rights") instanceof List) {
-			db.update("UPDATE users SET rights = ? WHERE id = ?", toJson(body.get("rights")), id);
 		}
 
-		Map<String, String> fieldMap = new LinkedHashMap<>();
-		fieldMap.put("employeeId", "employee_id");
-		fieldMap.put("designation", "designation");
-		fieldMap.put("team", "team");
-		fieldMap.put("branch", "branch");
-		fieldMap.put("manager", "manager");
-		fieldMap.put("organization", "organization");
-		fieldMap.put("aiAccessTier", "ai_access_tier");
-		fieldMap.put("dailyTokenLimit", "daily_token_limit");
-		fieldMap.put("monthlyTokenLimit", "monthly_token_limit");
-		fieldMap.put("gpuQuotaMinutes", "gpu_quota_minutes");
-		fieldMap.put("vramLimitMb", "vram_limit_mb");
-		fieldMap.put("concurrentModelLimit", "concurrent_model_limit");
-		fieldMap.put("apiRateLimitPerMinute", "api_rate_limit_per_minute");
-		fieldMap.put("maxContextSize", "max_context_size");
-		fieldMap.put("mfaEnabled", "mfa_enabled");
-		fieldMap.put("securityRiskScore", "security_risk_score");
-		fieldMap.put("accessStatus", "access_status");
-		fieldMap.put("accessExpiresAt", "access_expires_at");
+		// Wrap all UPDATE statements in a single transaction so a mid-flight failure
+		// cannot leave the user row in a partially-updated state.
+		final Object activeValFinal = activeVal;
+		txTemplate.executeWithoutResult(tx -> {
+			if (body.containsKey("name")) {
+				db.update("UPDATE users SET name = ? WHERE id = ?", sanitizeText((String) body.get("name")), id);
+			}
+			if (body.containsKey("email")) {
+				db.update("UPDATE users SET email = ? WHERE id = ?", sanitizeText((String) body.get("email")), id);
+			}
+			if (body.containsKey("role")) {
+				db.update("UPDATE users SET role = ? WHERE id = ?", body.get("role"), id);
+			}
+			if (body.containsKey("departmentId")) {
+				db.update("UPDATE users SET department_id = ? WHERE id = ?", body.get("departmentId"), id);
+			}
+			if (activeValFinal != null) {
+				db.update("UPDATE users SET active = ? WHERE id = ?", Boolean.TRUE.equals(activeValFinal) ? 1 : 0, id);
+			}
+			if (body.containsKey("rights") && body.get("rights") instanceof List) {
+				db.update("UPDATE users SET rights = ? WHERE id = ?", toJson(body.get("rights")), id);
+			}
 
-		for (Map.Entry<String, String> e : fieldMap.entrySet()) {
-			if (!body.containsKey(e.getKey()))
-				continue;
-			Object val = "mfaEnabled".equals(e.getKey()) ? (Boolean.TRUE.equals(body.get(e.getKey())) ? 1 : 0)
-					: body.get(e.getKey());
-			db.update("UPDATE users SET " + e.getValue() + " = ? WHERE id = ?", val, id);
-		}
+			Map<String, String> fieldMap = new LinkedHashMap<>();
+			fieldMap.put("employeeId", "employee_id");
+			fieldMap.put("designation", "designation");
+			fieldMap.put("team", "team");
+			fieldMap.put("branch", "branch");
+			fieldMap.put("manager", "manager");
+			fieldMap.put("organization", "organization");
+			fieldMap.put("aiAccessTier", "ai_access_tier");
+			fieldMap.put("dailyTokenLimit", "daily_token_limit");
+			fieldMap.put("monthlyTokenLimit", "monthly_token_limit");
+			fieldMap.put("gpuQuotaMinutes", "gpu_quota_minutes");
+			fieldMap.put("vramLimitMb", "vram_limit_mb");
+			fieldMap.put("concurrentModelLimit", "concurrent_model_limit");
+			fieldMap.put("apiRateLimitPerMinute", "api_rate_limit_per_minute");
+			fieldMap.put("maxContextSize", "max_context_size");
+			fieldMap.put("mfaEnabled", "mfa_enabled");
+			fieldMap.put("securityRiskScore", "security_risk_score");
+			fieldMap.put("accessStatus", "access_status");
+			fieldMap.put("accessExpiresAt", "access_expires_at");
+
+			for (Map.Entry<String, String> e : fieldMap.entrySet()) {
+				if (!body.containsKey(e.getKey()))
+					continue;
+				Object val = "mfaEnabled".equals(e.getKey())
+						? (Boolean.TRUE.equals(body.get(e.getKey())) ? 1 : 0)
+						: body.get(e.getKey());
+				db.update("UPDATE users SET " + e.getValue() + " = ? WHERE id = ?", val, id);
+			}
+		});
 
 		// Invalidate sessions so new role/access takes effect immediately
 		authService.invalidateUserSessions(id);

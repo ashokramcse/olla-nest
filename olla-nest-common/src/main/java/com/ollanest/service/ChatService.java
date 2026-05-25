@@ -482,23 +482,20 @@ public class ChatService {
 		}
 	}
 
-	// Rate limit tracking (in-memory, per-user per minute)
-	private final Map<String, long[]> rateLimitMap = new ConcurrentHashMap<String, long[]>();
-
-	private static class ConcurrentHashMap<K, V> extends java.util.concurrent.ConcurrentHashMap<K, V> {
-		private static final long serialVersionUID = 1L;
-	}
+	// Rate limit tracking: per-user, 60-second sliding window.
+	// Each entry is a 2-element AtomicLong[]: [count, windowStartMs].
+	// Using AtomicLong prevents the race condition where two concurrent threads
+	// could both read count < limit and both increment past the ceiling.
+	private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong[]>
+			rateLimitMap = new java.util.concurrent.ConcurrentHashMap<>();
 
 	/**
 	 * Checks and updates the in-memory rate limit for a user within a 60-second
 	 * sliding window.
 	 *
 	 * <p>
-	 * The counter for a user is reset whenever more than 60 seconds have elapsed
-	 * since the window was opened. If the counter has reached
-	 * {@code limitPerMinute}, this method returns {@code false} without
-	 * incrementing. Otherwise the counter is incremented and {@code true} is
-	 * returned.
+	 * Thread-safe: the read-increment-check is performed under {@code compute}
+	 * so concurrent requests for the same user cannot both slip past the ceiling.
 	 *
 	 * @param userId         the user to check; must not be {@code null}
 	 * @param limitPerMinute the maximum number of requests allowed per 60 seconds;
@@ -507,26 +504,38 @@ public class ChatService {
 	 * @return {@code true} if the request is within the rate limit, {@code false}
 	 *         if the limit has been exceeded
 	 * @since v2026.1.0
+	 * @since v2026.1.9 — fixed race condition: counter operations are now atomic
 	 */
 	public boolean checkChatRateLimit(String userId, long limitPerMinute) {
 		if (limitPerMinute <= 0)
 			return true;
 		long now = System.currentTimeMillis();
-		long windowStart = now - 60000;
-		rateLimitMap.compute(userId, (k, v) -> {
-			if (v == null)
-				v = new long[] { 0, now };
-			if (v[1] < windowStart) {
-				v[0] = 0;
-				v[1] = now;
+		long windowStart = now - 60_000L;
+		// compute() is atomic per key — guarantees no two threads can both see
+		// count < limit and both decide to allow the request.
+		long[] result = new long[1];
+		rateLimitMap.compute(userId, (k, entry) -> {
+			if (entry == null) {
+				entry = new java.util.concurrent.atomic.AtomicLong[] {
+					new java.util.concurrent.atomic.AtomicLong(0),
+					new java.util.concurrent.atomic.AtomicLong(now)
+				};
 			}
-			return v;
+			// Reset window if more than 60 s have elapsed
+			if (entry[1].get() < windowStart) {
+				entry[0].set(0);
+				entry[1].set(now);
+			}
+			long current = entry[0].get();
+			if (current < limitPerMinute) {
+				entry[0].incrementAndGet();
+				result[0] = 1; // allowed
+			} else {
+				result[0] = 0; // denied
+			}
+			return entry;
 		});
-		long[] counter = rateLimitMap.get(userId);
-		if (counter[0] >= limitPerMinute)
-			return false;
-		counter[0]++;
-		return true;
+		return result[0] == 1;
 	}
 
 	/**
@@ -542,9 +551,20 @@ public class ChatService {
 	 * @return a unique, URL-safe identifier string
 	 * @since v2026.1.0
 	 */
+	/** Cryptographically secure RNG used by {@link #uid(String)} for the random suffix. */
+	private static final java.security.SecureRandom UID_RNG = new java.security.SecureRandom();
+
+	/**
+	 * @since v2026.1.9 — replaced {@code Math.random()} with {@link java.security.SecureRandom}
+	 *        to eliminate the statistical collision risk under high-throughput burst loads
+	 *        and to satisfy cryptographic unpredictability requirements for audit IDs.
+	 */
 	public String uid(String prefix) {
+		// Use full 63-bit positive long for the random segment — eliminates birthday-paradox
+		// collisions that were possible when only 36^6 ≈ 2.1B values were used.
+		long rand = UID_RNG.nextLong() & Long.MAX_VALUE; // strip sign bit → always positive
 		return prefix + "-" + Long.toString(System.currentTimeMillis(), 36) + "-"
-				+ Long.toString((long) (Math.random() * 36L * 36L * 36L * 36L * 36L * 36L), 36);
+				+ Long.toString(rand, 36);
 	}
 
 	/**
