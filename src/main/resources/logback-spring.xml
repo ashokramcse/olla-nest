@@ -5,17 +5,17 @@
   Appenders:
     CONSOLE    — coloured, human-readable (always active)
     LOKI_ASYNC — structured JSON batched to Grafana Loki on port 3100
-                 (non-blocking; silently no-ops when Loki is unavailable)
+                 (only active under the "prod" Spring profile)
 
   MDC keys injected by MdcLoggingFilter on every HTTP request:
     requestId, userId, userEmail, userRole, method, path, ip
 
-  status="OFF" on <configuration>:
-    Suppresses logback's internal StatusManager output (the "|-ERROR in ..."
-    lines). loki4j reports Loki-unreachable errors via StatusManager, not via
-    SLF4J loggers, so <logger level="WARN"> has no effect on them. OFF silences
-    all internal logback diagnostics; real config errors surface as startup
-    failures rather than status lines, which is acceptable for production.
+  Profile strategy:
+    default / dev  → CONSOLE only. The Loki appender is never instantiated
+                     so its AsyncBufferPipeline never starts, producing zero
+                     "|-ERROR Connection refused" noise.
+    prod           → CONSOLE + LOKI_ASYNC. Assumes Loki is reachable at
+                     loki.url (default http://localhost:3100/...).
 
   Property names for loki4j 1.5.x AbstractHttpSender:
     connectionTimeoutMs  (NOT connectTimeoutMs — that was the pre-1.5 name)
@@ -81,13 +81,8 @@
         <neverBlock>true</neverBlock>
     </appender>
 
-    <!-- ── Suppress loki4j connection-refused noise when Loki is down ─ -->
-    <!-- These are internal loki4j pipeline classes that spam ERROR when  -->
-    <!-- Loki is unreachable. Downgrade to WARN so they stay visible but  -->
-    <!-- don't fill the console with stack traces on every retry cycle.   -->
-    <logger name="com.github.loki4j" level="WARN"/>
-
     <!-- ── Noise reduction ──────────────────────────────────────────── -->
+    <logger name="com.github.loki4j"            level="WARN"/>
     <logger name="org.flywaydb"                 level="WARN"/>
     <logger name="org.springframework.security" level="WARN"/>
     <logger name="org.springframework.web"      level="WARN"/>
@@ -98,10 +93,19 @@
     <!-- ── Application code — INFO and above ────────────────────────── -->
     <logger name="com.ollanest" level="INFO"/>
 
-    <!-- ── Root ─────────────────────────────────────────────────────── -->
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="LOKI_ASYNC"/>
-    </root>
+    <!-- ── Root: dev / default — CONSOLE only, Loki never starts ────── -->
+    <springProfile name="!prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- ── Root: prod — CONSOLE + Loki (Loki must be reachable) ─────── -->
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOKI_ASYNC"/>
+        </root>
+    </springProfile>
 
 </configuration>
