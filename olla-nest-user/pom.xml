@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.ollanest</groupId>
+		<artifactId>olla-nest-parent</artifactId>
+		<version>2026.1.5</version>
+	</parent>
+
+	<artifactId>olla-nest-user</artifactId>
+	<packaging>jar</packaging>
+	<name>olla-nest-user</name>
+	<description>Olla Nest Employee Workspace — port 8081</description>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.ollanest</groupId>
+			<artifactId>olla-nest-common</artifactId>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<mainClass>com.ollanest.user.OllaNestUserApplication</mainClass>
+					<jvmArguments>--enable-native-access=ALL-UNNAMED</jvmArguments>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

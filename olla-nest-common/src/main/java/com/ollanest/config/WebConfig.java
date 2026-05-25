@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.io.File;
+
 /**
  * Spring MVC static resource handler configuration.
  *
@@ -72,7 +74,11 @@ public class WebConfig implements WebMvcConfigurer {
 		// Serve static files from ./public directory.
 		// Note: API routes take precedence since they are defined in controllers first.
 		// The patterns below are a fallback for assets (CSS, JS, images).
-		registry.addResourceHandler("/assets/**", "/*.js", "/*.css", "/*.ico", "/*.png", "/*.svg")
-				.addResourceLocations("file:" + staticDir + "/");
+		// Resolve to an absolute path so Spring uses FileSystemResource (not
+		// ServletContextResource), which avoids the WarResourceSet lookup that
+		// fails when running as a nested Spring Boot JAR (not a WAR).
+		String absoluteStaticDir = new File(staticDir).getAbsolutePath();
+		registry.addResourceHandler("/assets/**", "/*.js", "/*.css", "/*.ico", "/*.png", "/*.svg", "/*.html")
+				.addResourceLocations("file:" + absoluteStaticDir + "/");
 	}
 }

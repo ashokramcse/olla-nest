@@ -9,6 +9,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
 
@@ -45,10 +46,10 @@ public class GlobalExceptionHandler {
 	 * @param ex the no-handler exception
 	 * @return 404 with {@code {ok: false, error: "Not found"}}
 	 */
-	@ExceptionHandler(NoHandlerFoundException.class)
-	public ResponseEntity<Map<String, Object>> handleNotFound(NoHandlerFoundException ex) {
+	@ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+	public ResponseEntity<Map<String, Object>> handleNotFound(Exception ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
-				.body(Map.of("ok", false, "error", "Not found: " + ex.getRequestURL()));
+				.body(Map.of("ok", false, "error", "Not found"));
 	}
 
 	/**
