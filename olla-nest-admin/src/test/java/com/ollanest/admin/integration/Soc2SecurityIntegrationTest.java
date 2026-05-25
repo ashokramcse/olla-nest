@@ -127,7 +127,7 @@ class Soc2SecurityIntegrationTest {
             mockMvc.perform(post("/api/auth/login")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(mapper.writeValueAsString(Map.of(
-                            "email", ADMIN_EMAIL, "password", "WrongPassword!"))))
+                            "email", ADMIN_EMAIL, "password", "incorrect-credential"))))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.error").value("Invalid email or password"));
         }
@@ -138,12 +138,12 @@ class Soc2SecurityIntegrationTest {
             MvcResult wrongPass = mockMvc.perform(post("/api/auth/login")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(mapper.writeValueAsString(Map.of(
-                            "email", ADMIN_EMAIL, "password", "WrongPass"))))
+                            "email", ADMIN_EMAIL, "password", "incorrect-credential"))))
                     .andReturn();
             MvcResult unknownUser = mockMvc.perform(post("/api/auth/login")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(mapper.writeValueAsString(Map.of(
-                            "email", "nobody@domain.com", "password", "AnyPass"))))
+                            "email", "nobody@domain.com", "password", "incorrect-credential"))))
                     .andReturn();
 
             String msg1 = (String) mapper.readValue(wrongPass.getResponse().getContentAsString(), Map.class).get("error");
@@ -398,7 +398,7 @@ class Soc2SecurityIntegrationTest {
             mockMvc.perform(post("/api/auth/login")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(mapper.writeValueAsString(Map.of(
-                            "email", ADMIN_EMAIL, "password", "WrongPass"))))
+                            "email", ADMIN_EMAIL, "password", "incorrect-credential"))))
                     .andExpect(status().isTooManyRequests());
         }
 
@@ -412,7 +412,7 @@ class Soc2SecurityIntegrationTest {
             mockMvc.perform(post("/api/auth/login")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(mapper.writeValueAsString(Map.of(
-                            "email", ADMIN_EMAIL, "password", "WrongPass"))))
+                            "email", ADMIN_EMAIL, "password", "incorrect-credential"))))
                     .andExpect(status().isUnauthorized());
         }
 
@@ -427,7 +427,7 @@ class Soc2SecurityIntegrationTest {
             mockMvc.perform(post("/api/auth/login")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(mapper.writeValueAsString(Map.of(
-                            "email", ADMIN_EMAIL, "password", "WrongPass"))))
+                            "email", ADMIN_EMAIL, "password", "incorrect-credential"))))
                     .andExpect(status().isUnauthorized()); // Not 429 — window expired
         }
     }
@@ -516,7 +516,7 @@ class Soc2SecurityIntegrationTest {
             mockMvc.perform(post("/api/auth/login")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(mapper.writeValueAsString(Map.of(
-                            "email", ADMIN_EMAIL, "password", "WrongPassword!"))))
+                            "email", ADMIN_EMAIL, "password", "incorrect-credential"))))
                     .andExpect(status().isUnauthorized());
 
             List<Map<String, Object>> events = db.queryForList(

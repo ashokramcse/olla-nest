@@ -245,7 +245,7 @@ class Soc2AuditTest {
 
             // Even though count=15, the window is expired so it should NOT return 429
             ResponseEntity<Map<String, Object>> resp =
-                    controller.login(Map.of("email", "x@y.com", "password", "WrongPass!"), req, res);
+                    controller.login(Map.of("email", "x@y.com", "password", "incorrect-credential"), req, res);
 
             assertThat(resp.getStatusCode().value()).isNotEqualTo(429);
         }
@@ -274,9 +274,9 @@ class Soc2AuditTest {
             when(req.getRemoteAddr()).thenReturn("1.2.3.4");
 
             ResponseEntity<Map<String, Object>> unknownResp =
-                    controller.login(Map.of("email", unknownEmail, "password", "WrongPass"), req, res);
+                    controller.login(Map.of("email", unknownEmail, "password", "incorrect-credential"), req, res);
             ResponseEntity<Map<String, Object>> wrongPassResp =
-                    controller.login(Map.of("email", existingEmail, "password", "WrongPass"), req, res);
+                    controller.login(Map.of("email", existingEmail, "password", "incorrect-credential"), req, res);
 
             // Both must return 401 with identical error message
             assertThat(unknownResp.getStatusCode().value()).isEqualTo(401);
@@ -300,7 +300,7 @@ class Soc2AuditTest {
             when(req.getRemoteAddr()).thenReturn("1.2.3.4");
 
             ResponseEntity<Map<String, Object>> resp =
-                    controller.login(Map.of("password", "pass123"), req, res);
+                    controller.login(Map.of("password", "missing-email-field"), req, res);
             assertThat(resp.getStatusCode().value()).isEqualTo(400);
         }
 
