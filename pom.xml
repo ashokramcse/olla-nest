@@ -126,6 +126,15 @@
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
 			<version>${pdfbox.version}</version>
+			<exclusions>
+				<!-- pdfbox pulls commons-logging:1.3.5 which conflicts with spring-jcl.
+				     Excluding it lets spring-jcl handle all JCL routing without classpath
+				     conflicts and silences the "Standard Commons Logging discovery" warning. -->
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- ── SSO: JWT / OIDC id_token validation ─────────────────────── -->
