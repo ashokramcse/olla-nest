@@ -765,6 +765,7 @@ const tabTitles = {
   settings: "System Settings",
   providers: "API Providers",
   audit: "Audit Trail",
+  logs: "Application Logs",
 };
 
 /**
@@ -785,6 +786,7 @@ function switchTab(tab) {
   const titleEl = $("tabTitle");
   if (titleEl) titleEl.textContent = tabTitles[tab] || tab;
   if (tab === "providers") loadProviders();
+  if (tab === "logs") loadLogs();
 }
 
 $all(".nav-item[data-tab]").forEach(btn => {
@@ -2281,6 +2283,116 @@ if ($("saveSsoBtn")) {
 
 document.querySelectorAll(".nav-item[data-tab='sso']").forEach(btn =>
   btn.addEventListener("click", loadSsoAdminProviders));
+
+// ── Log viewer ────────────────────────────────────────────────────────────────
+
+let _logAutoTimer = null;
+let _logActiveLevel = "";
+
+function logBadge(level) {
+  const cls = "log-badge log-badge-" + (level || "INFO");
+  return `<span class="${cls}">${level || "INFO"}</span>`;
+}
+
+function logRowClass(level) {
+  const m = { ERROR: "log-row-error", WARN: "log-row-warn", DEBUG: "log-row-debug", TRACE: "log-row-trace" };
+  return m[level] || "";
+}
+
+async function loadLogs() {
+  const lines   = ($("logLines")   || {}).value || "200";
+  const search  = ($("logSearch")  || {}).value || "";
+  const level   = _logActiveLevel;
+  const status  = $("logStatus");
+  const tbody   = $("logTbody");
+
+  if (status) { status.style.display = "block"; status.textContent = "Loading…"; }
+
+  try {
+    const params = new URLSearchParams({ lines, level, search });
+    const data   = await api("/api/admin/logs?" + params.toString());
+
+    if (!data.ok) {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="padding:24px;text-align:center;color:var(--danger);">Error: ${escHtml(data.error || "unknown")}</td></tr>`;
+      if (status) status.textContent = "Error loading logs.";
+      return;
+    }
+
+    const rows = data.lines || [];
+    if (status) {
+      status.textContent = `${rows.length} line${rows.length !== 1 ? "s" : ""} · ${escHtml(data.file || "")}` +
+        (data.message ? " · " + escHtml(data.message) : "");
+    }
+
+    if (!rows.length) {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="padding:24px;text-align:center;color:var(--muted1);">No log lines match the current filters.</td></tr>`;
+      return;
+    }
+
+    const html = rows.map(r => {
+      const ts  = escHtml(r.timestamp || "");
+      const lvl = r.level || "INFO";
+      const log = escHtml(r.logger  || "");
+      const msg = escHtml(r.message || r.raw || "");
+      return `<tr class="${logRowClass(lvl)}">
+        <td style="padding:3px 12px;white-space:nowrap;">${ts}</td>
+        <td style="padding:3px 8px;">${logBadge(lvl)}</td>
+        <td style="padding:3px 8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${log}">${log}</td>
+        <td style="padding:3px 8px;word-break:break-all;">${msg}</td>
+      </tr>`;
+    }).join("");
+    if (tbody) tbody.innerHTML = html;
+
+    // Scroll to bottom
+    const wrap = $("logTableWrap");
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+
+  } catch(e) {
+    if (status) status.textContent = "Failed: " + e.message;
+  }
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// Wire up log controls once DOM ready
+(function initLogViewer() {
+  const refreshBtn = $("logRefreshBtn");
+  if (refreshBtn) refreshBtn.addEventListener("click", loadLogs);
+
+  const searchEl = $("logSearch");
+  if (searchEl) {
+    let debounce;
+    searchEl.addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(loadLogs, 350); });
+  }
+
+  const linesEl = $("logLines");
+  if (linesEl) linesEl.addEventListener("change", loadLogs);
+
+  // Level filter pills
+  const levelBtns = document.querySelectorAll(".log-level-btn");
+  levelBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      levelBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      _logActiveLevel = btn.dataset.level;
+      loadLogs();
+    });
+  });
+
+  // Auto-refresh
+  const autoEl = $("logAutoRefresh");
+  if (autoEl) {
+    autoEl.addEventListener("change", () => {
+      clearInterval(_logAutoTimer);
+      if (autoEl.checked) {
+        _logAutoTimer = setInterval(loadLogs, 5000);
+        loadLogs();
+      }
+    });
+  }
+})();
 
 // Helper: show toast notification
 function showToast(msg, isError) {
