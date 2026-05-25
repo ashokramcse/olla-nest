@@ -1,5 +1,6 @@
 package com.ollanest.connector.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ollanest.connector.BaseConnector;
 import org.springframework.stereotype.Component;
@@ -74,7 +75,7 @@ public class LinearConnector extends BaseConnector {
 		try {
 			String query = "{\"query\":\"{issues(first:100,orderBy:updatedAt){nodes{id title description url state{name}team{name}}}}\"}";
 			JsonNode resp = httpPost("https://api.linear.app/graphql", "Bearer " + key,
-					mapper.readValue(query, Map.class));
+					mapper.readValue(query, new TypeReference<Map<String, Object>>() {}));
 			for (JsonNode issue : resp.path("data").path("issues").path("nodes")) {
 				String id = issue.path("id").asText();
 				String title = issue.path("title").asText();

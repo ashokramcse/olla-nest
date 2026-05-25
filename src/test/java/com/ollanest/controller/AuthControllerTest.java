@@ -79,6 +79,16 @@ class AuthControllerTest {
 				.andExpect(jsonPath("$.ok").value(false));
 	}
 
+	// ── Logout ────────────────────────────────────────────────────────────────
+
+	@Test
+	@DisplayName("POST /api/auth/logout — unauthenticated call still returns 200")
+	void logoutWithoutSession() throws Exception {
+		mvc.perform(post(LOGOUT_URL)
+						.header("X-Requested-With", "XMLHttpRequest"))
+				.andExpect(status().isOk());
+	}
+
 	// ── /me — unauthenticated ─────────────────────────────────────────────────
 
 	@Test

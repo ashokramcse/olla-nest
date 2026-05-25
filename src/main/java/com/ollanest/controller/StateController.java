@@ -311,7 +311,6 @@ public class StateController extends BaseController {
 	 * @return the parsed object, or an empty {@link Map} on failure
 	 * @since v2026.1.0 — initial Java Spring Boot migration
 	 */
-	@SuppressWarnings("unchecked")
 	private Object safeJson(String json) {
 		try {
 			if (json == null || json.isBlank())

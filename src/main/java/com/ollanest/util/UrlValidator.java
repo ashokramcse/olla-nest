@@ -1,6 +1,7 @@
 package com.ollanest.util;
 
 import java.net.InetAddress;
+import java.net.URI;
 import java.net.URL;
 
 /**
@@ -70,7 +71,7 @@ public class UrlValidator {
 		if (urlStr == null || urlStr.isBlank())
 			return false;
 		try {
-			URL url = new URL(urlStr);
+			URL url = URI.create(urlStr).toURL();
 			String scheme = url.getProtocol();
 			if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))
 				return false;

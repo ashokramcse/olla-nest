@@ -3,7 +3,6 @@ package com.ollanest.controller;
 import com.ollanest.model.User;
 import com.ollanest.service.AuthService;
 import com.ollanest.service.ChatService;
-import com.ollanest.service.DatabaseService;
 import com.ollanest.service.UserService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -72,9 +71,6 @@ public class AuthController extends BaseController {
 	/** Used to build the public {@link User} object from a DB row. */
 	private final UserService userService;
 
-	/** Used to invalidate sessions when role or status changes. */
-	private final DatabaseService databaseService;
-
 	/** Used to write audit log entries for login and logout events. */
 	private final ChatService chatService;
 
@@ -98,18 +94,16 @@ public class AuthController extends BaseController {
 	/**
 	 * Constructor-injects all required dependencies.
 	 *
-	 * @param authService     the authentication and session service
-	 * @param userService     the user lookup service
-	 * @param databaseService the database service for session invalidation
-	 * @param chatService     the audit log helper
-	 * @param db              the JDBC template for rate-limit queries
+	 * @param authService the authentication and session service
+	 * @param userService the user lookup service
+	 * @param chatService the audit log helper
+	 * @param db          the JDBC template for rate-limit queries
 	 * @since v2026.1.0 — initial Java Spring Boot migration
 	 */
-	public AuthController(AuthService authService, UserService userService, DatabaseService databaseService,
+	public AuthController(AuthService authService, UserService userService,
 			ChatService chatService, JdbcTemplate db) {
 		this.authService = authService;
 		this.userService = userService;
-		this.databaseService = databaseService;
 		this.chatService = chatService;
 		this.db = db;
 	}

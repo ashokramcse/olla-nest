@@ -113,7 +113,7 @@ public class AirtableConnector extends BaseConnector {
 				StringBuilder sb = new StringBuilder("# Table: " + tableName + "\n\n");
 				for (JsonNode r : records.path("records")) {
 					sb.append("---\n");
-					r.path("fields").fields().forEachRemaining(e -> sb.append("**").append(e.getKey()).append(":** ")
+					r.path("fields").properties().forEach(e -> sb.append("**").append(e.getKey()).append(":** ")
 							.append(e.getValue().asText()).append("\n"));
 				}
 				if (ingestDocument(connId, baseId + "/" + tableId, tableName, "https://airtable.com/" + baseId,

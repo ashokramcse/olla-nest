@@ -3,9 +3,7 @@ package com.ollanest.controller.admin;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.connector.BaseConnector;
 import com.ollanest.connector.ConnectorRegistry;
-import com.ollanest.connector.ConnectorSyncScheduler;
 import com.ollanest.controller.BaseController;
-import com.ollanest.model.User;
 import com.ollanest.service.CryptoService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -69,12 +67,6 @@ public class AdminConnectorController extends BaseController {
 	/** Registry of all runtime-available connector implementations. */
 	private final ConnectorRegistry registry;
 
-	/**
-	 * Scheduler that owns scheduled sync jobs (unused directly here but wired for
-	 * DI).
-	 */
-	private final ConnectorSyncScheduler scheduler;
-
 	/** AES-256-GCM service used to encrypt and decrypt connector credentials. */
 	private final CryptoService cryptoService;
 
@@ -88,16 +80,14 @@ public class AdminConnectorController extends BaseController {
 	 *
 	 * @param db            the JDBC template
 	 * @param registry      the connector type registry
-	 * @param scheduler     the background sync scheduler
 	 * @param cryptoService the credential encryption service
 	 * @param mapper        the shared JSON object mapper
 	 * @since v2026.1.0
 	 */
-	public AdminConnectorController(JdbcTemplate db, ConnectorRegistry registry, ConnectorSyncScheduler scheduler,
+	public AdminConnectorController(JdbcTemplate db, ConnectorRegistry registry,
 			CryptoService cryptoService, ObjectMapper mapper) {
 		this.db = db;
 		this.registry = registry;
-		this.scheduler = scheduler;
 		this.cryptoService = cryptoService;
 		this.mapper = mapper;
 	}
@@ -177,7 +167,6 @@ public class AdminConnectorController extends BaseController {
 		ResponseEntity<Map<String, Object>> err = requireAdmin(req);
 		if (err != null)
 			return err;
-		User admin = getUser(req);
 
 		String id = "conn-" + body.get("type") + "-" + Long.toString(System.currentTimeMillis(), 36);
 		String credEnc = "";

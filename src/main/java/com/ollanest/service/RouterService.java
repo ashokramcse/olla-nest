@@ -465,7 +465,6 @@ public class RouterService {
 	 * @return the deserialised map, or an empty {@link LinkedHashMap} on any error
 	 * @since v2026.1.0
 	 */
-	@SuppressWarnings("unchecked")
 	private Map<String, Object> safeJsonMap(String json) {
 		try {
 			if (json == null || json.isBlank())

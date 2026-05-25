@@ -85,22 +85,17 @@ public class RagService {
 	/** Service that computes and compares vector embeddings. */
 	private final EmbeddingService embeddingService;
 
-	/** Jackson mapper (retained for potential future serialisation). */
-	private final ObjectMapper mapper;
-
 	/**
 	 * Constructs the service with its required collaborators.
 	 *
 	 * @param db               Spring JDBC template bound to the application's data
 	 *                         source
 	 * @param embeddingService embedding computation and similarity service
-	 * @param mapper           shared Jackson {@link ObjectMapper}
 	 * @since v2026.1.0
 	 */
-	public RagService(JdbcTemplate db, EmbeddingService embeddingService, ObjectMapper mapper) {
+	public RagService(JdbcTemplate db, EmbeddingService embeddingService) {
 		this.db = db;
 		this.embeddingService = embeddingService;
-		this.mapper = mapper;
 	}
 
 	/**

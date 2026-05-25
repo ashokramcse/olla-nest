@@ -1,15 +1,12 @@
 package com.ollanest.controller;
 
 import com.ollanest.model.User;
-import com.ollanest.service.AuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
-
-import java.io.File;
 
 /**
  * MVC controller that serves the frontend HTML pages for browser navigation.
@@ -40,22 +37,9 @@ import java.io.File;
 @Controller
 public class PageController extends BaseController {
 
-	/** Used to check whether the current request carries a valid session. */
-	private final AuthService authService;
-
 	/** Path to the directory containing the compiled frontend HTML files. */
 	@Value("${app.static-dir:./public}")
 	private String staticDir;
-
-	/**
-	 * Constructor-injects the authentication service.
-	 *
-	 * @param authService the service used to read session state
-	 * @since v2026.1.0 — initial Java Spring Boot migration
-	 */
-	public PageController(AuthService authService) {
-		this.authService = authService;
-	}
 
 	/**
 	 * Redirects the root URL {@code /} to {@code /login}.

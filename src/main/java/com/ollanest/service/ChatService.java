@@ -2,7 +2,6 @@ package com.ollanest.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -66,9 +65,6 @@ public class ChatService {
 	/** Provides workspace root and file-listing for system-prompt assembly. */
 	private final WorkspaceService workspaceService;
 
-	/** Provides global settings such as {@code localWritesEnabled}. */
-	private final DatabaseService databaseService;
-
 	/**
 	 * Jackson mapper used for serialising/deserialising JSON fields stored in
 	 * SQLite.
@@ -83,16 +79,14 @@ public class ChatService {
 	 *
 	 * @param db                    the JDBC template for SQLite access
 	 * @param workspaceService      workspace root and file listing helper
-	 * @param databaseService       global settings accessor
 	 * @param mapper                Jackson {@link ObjectMapper} for JSON fields
 	 * @param promptTemplateService system-prompt builder
 	 * @since v2026.1.0
 	 */
-	public ChatService(JdbcTemplate db, WorkspaceService workspaceService, DatabaseService databaseService,
+	public ChatService(JdbcTemplate db, WorkspaceService workspaceService,
 			ObjectMapper mapper, PromptTemplateService promptTemplateService) {
 		this.db = db;
 		this.workspaceService = workspaceService;
-		this.databaseService = databaseService;
 		this.mapper = mapper;
 		this.promptTemplateService = promptTemplateService;
 	}
@@ -492,6 +486,7 @@ public class ChatService {
 	private final Map<String, long[]> rateLimitMap = new ConcurrentHashMap<String, long[]>();
 
 	private static class ConcurrentHashMap<K, V> extends java.util.concurrent.ConcurrentHashMap<K, V> {
+		private static final long serialVersionUID = 1L;
 	}
 
 	/**
@@ -559,7 +554,6 @@ public class ChatService {
 	 * @param json a JSON array string; may be {@code null} or blank
 	 * @return the parsed list, or an empty list if parsing fails
 	 */
-	@SuppressWarnings("unchecked")
 	private List<Object> safeJsonList(String json) {
 		try {
 			if (json == null || json.isBlank())

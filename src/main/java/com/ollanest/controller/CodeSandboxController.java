@@ -1,6 +1,5 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
 import com.ollanest.service.CodeSandboxService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;

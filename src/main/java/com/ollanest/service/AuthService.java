@@ -102,21 +102,16 @@ public class AuthService {
 	/** Loads the {@link User} object from the DB on a cache miss. */
 	private final UserService userService;
 
-	/** Shared JSON mapper; injected for potential future JWT/claims expansion. */
-	private final ObjectMapper mapper;
-
 	/**
 	 * Constructor-injects all required dependencies.
 	 *
 	 * @param db          the JDBC template wired by Spring
 	 * @param userService the user-lookup service used on session cache misses
-	 * @param mapper      the shared Jackson {@link ObjectMapper}
 	 * @since v2026.1.0
 	 */
-	public AuthService(JdbcTemplate db, UserService userService, ObjectMapper mapper) {
+	public AuthService(JdbcTemplate db, UserService userService) {
 		this.db = db;
 		this.userService = userService;
-		this.mapper = mapper;
 	}
 
 	// -------------------------------------------------------------------------

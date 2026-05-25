@@ -124,7 +124,6 @@ public class GitHubConnector extends BaseConnector {
 
 			for (JsonNode r : repos) {
 				String rName = r.path("full_name").asText();
-				String rDesc = r.path("description").asText("");
 				String rUrl = r.path("html_url").asText();
 
 				// README

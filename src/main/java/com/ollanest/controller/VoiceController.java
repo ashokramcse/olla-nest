@@ -1,6 +1,5 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
 import com.ollanest.service.VoiceService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;

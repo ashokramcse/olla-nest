@@ -65,9 +65,6 @@ public class OllamaService {
 	/** Service for reading persisted settings (e.g. {@code ollamaUrl}). */
 	private final DatabaseService databaseService;
 
-	/** Service for encrypting/decrypting API keys stored at rest. */
-	private final CryptoService cryptoService;
-
 	/**
 	 * Jackson mapper used for serialising request bodies and parsing Ollama JSON
 	 * responses.
@@ -86,15 +83,12 @@ public class OllamaService {
 	 *
 	 * @param db              Spring JDBC template for the application database
 	 * @param databaseService service for reading persisted key-value settings
-	 * @param cryptoService   service for AES key encryption/decryption
 	 * @param mapper          shared Jackson {@link ObjectMapper}
 	 * @since v2026.1.0
 	 */
-	public OllamaService(JdbcTemplate db, DatabaseService databaseService, CryptoService cryptoService,
-			ObjectMapper mapper) {
+	public OllamaService(JdbcTemplate db, DatabaseService databaseService, ObjectMapper mapper) {
 		this.db = db;
 		this.databaseService = databaseService;
-		this.cryptoService = cryptoService;
 		this.mapper = mapper;
 		this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 	}
@@ -322,9 +316,7 @@ public class OllamaService {
 			JsonNode data = mapper.readTree(resp.body());
 			JsonNode modelinfo = data.get("modelinfo");
 			if (modelinfo != null) {
-				Iterator<Map.Entry<String, JsonNode>> fields = modelinfo.fields();
-				while (fields.hasNext()) {
-					Map.Entry<String, JsonNode> entry = fields.next();
+				for (var entry : modelinfo.properties()) {
 					if (entry.getKey().endsWith(".context_length")) {
 						long val = entry.getValue().asLong(0);
 						if (val > 0)

@@ -59,22 +59,17 @@ public class DatabaseService {
 	/** Application configuration (admin credentials, data directory, etc.). */
 	private final AppConfig appConfig;
 
-	/** Jackson mapper (retained for potential future serialisation needs). */
-	private final ObjectMapper mapper;
-
 	/**
 	 * Constructs the service with its required collaborators.
 	 *
 	 * @param db        Spring JDBC template bound to the application's SQLite data
 	 *                  source
 	 * @param appConfig application-level configuration properties
-	 * @param mapper    shared Jackson {@link ObjectMapper}
 	 * @since v2026.1.0
 	 */
-	public DatabaseService(JdbcTemplate db, AppConfig appConfig, ObjectMapper mapper) {
+	public DatabaseService(JdbcTemplate db, AppConfig appConfig) {
 		this.db = db;
 		this.appConfig = appConfig;
-		this.mapper = mapper;
 	}
 
 	/**

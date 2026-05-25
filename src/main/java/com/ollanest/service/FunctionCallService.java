@@ -174,7 +174,7 @@ public class FunctionCallService {
 			Map<String, Object> args = new LinkedHashMap<>();
 			if (argsNode != null) {
 				if (argsNode.isObject()) {
-					argsNode.fields().forEachRemaining(e -> args.put(e.getKey(), e.getValue().asText()));
+					argsNode.properties().forEach(e -> args.put(e.getKey(), e.getValue().asText()));
 				} else if (argsNode.isTextual()) {
 					try {
 						JsonNode parsed = mapper.readTree(argsNode.asText());

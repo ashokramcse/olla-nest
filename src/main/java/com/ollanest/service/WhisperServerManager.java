@@ -6,10 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -243,7 +242,7 @@ public class WhisperServerManager {
 	private boolean isAlreadyRunning() {
 		try {
 			HttpURLConnection conn = (HttpURLConnection)
-					new URL("http://localhost:" + WHISPER_PORT + "/health").openConnection();
+					URI.create("http://localhost:" + WHISPER_PORT + "/health").toURL().openConnection();
 			conn.setConnectTimeout(800);
 			conn.setReadTimeout(800);
 			conn.setRequestMethod("GET");

@@ -90,9 +90,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class SsoService {
 
-	/** SLF4J logger for SSO flow diagnostics and error reporting. */
-	private static final Logger log = LoggerFactory.getLogger(SsoService.class);
-
 	/** Google OAuth 2.0 token exchange endpoint. */
 	private static final String GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 

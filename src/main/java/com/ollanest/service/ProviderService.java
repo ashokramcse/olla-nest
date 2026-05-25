@@ -3,8 +3,6 @@ package com.ollanest.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.model.ModelRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -58,9 +56,6 @@ import java.util.function.Consumer;
  */
 @Service
 public class ProviderService {
-
-	/** SLF4J logger for this class. */
-	private static final Logger log = LoggerFactory.getLogger(ProviderService.class);
 
 	/** Spring JDBC template for reading provider rows from the database. */
 	private final JdbcTemplate db;
