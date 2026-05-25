@@ -333,7 +333,15 @@ public class ChatController extends BaseController {
 		}
 		db.update("UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?", title, now, chatId);
 
-		Map<String, Object> updatedSession = db.queryForList("SELECT * FROM chat_sessions WHERE id = ?", chatId).get(0);
+		// Guard: session may be deleted concurrently; avoid IndexOutOfBoundsException
+		// in this hot streaming path by checking the list before indexing into it.
+		List<Map<String, Object>> sessionRows =
+				db.queryForList("SELECT * FROM chat_sessions WHERE id = ?", chatId);
+		if (sessionRows.isEmpty()) {
+			log.warn("[chat] Session {} vanished after update — returning partial result", chatId);
+			sessionRows = java.util.Collections.singletonList(java.util.Map.of("id", chatId));
+		}
+		Map<String, Object> updatedSession = sessionRows.get(0);
 		Map<String, Object> updatedChat = chatService.buildChatObject(updatedSession);
 		chatService.appendTrace(user.id, chatId, message, mode, route.selected.id, route.tags, route.candidates, live);
 		chatService.appendAudit(user.name, "chat.request", mode.toUpperCase() + " routed to " + route.selected.name,

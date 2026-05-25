@@ -171,8 +171,13 @@ public class ThreadController extends BaseController {
 					Boolean.TRUE.equals(body.get("unread")) ? 1 : 0, id);
 		}
 		db.update("UPDATE chat_sessions SET updated_at = ? WHERE id = ?", now, id);
-		Map<String, Object> updated = db.queryForList("SELECT * FROM chat_sessions WHERE id = ?", id).get(0);
-		return ResponseEntity.ok(Map.of("ok", true, "thread", chatService.buildChatObject(updated)));
+		// Guard against IndexOutOfBoundsException — the session could be deleted
+		// between the ownership check above and this re-fetch (e.g. concurrent delete).
+		List<Map<String, Object>> reloaded =
+				db.queryForList("SELECT * FROM chat_sessions WHERE id = ?", id);
+		if (reloaded.isEmpty())
+			return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Thread not found"));
+		return ResponseEntity.ok(Map.of("ok", true, "thread", chatService.buildChatObject(reloaded.get(0))));
 	}
 
 	/**

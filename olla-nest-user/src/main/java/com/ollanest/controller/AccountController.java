@@ -150,14 +150,34 @@ public class AccountController extends BaseController {
 		if (!isEnterprise)
 			allowed.addAll(Arrays.asList("designation", "team", "branch"));
 
+		// Per-field maximum lengths — prevents unbounded string storage and protects
+		// downstream systems that may truncate or choke on excessively long values.
+		Map<String, Integer> maxLengths = new java.util.HashMap<>();
+		maxLengths.put("name",            150);
+		maxLengths.put("phone",            30);
+		maxLengths.put("avatar_initials",   4);
+		maxLengths.put("designation",     100);
+		maxLengths.put("team",            100);
+		maxLengths.put("branch",          100);
+
 		List<String> setClauses = new ArrayList<>();
 		List<Object> values = new ArrayList<>();
 		for (String field : allowed) {
 			String camel = snakeToCamel(field);
-			if (body.containsKey(camel)) {
-				setClauses.add(field + " = ?");
-				values.add(String.valueOf(body.get(camel)));
+			if (!body.containsKey(camel)) continue;
+			// Sanitize and validate each user-supplied string value.
+			// sanitizeText() strips HTML/XSS characters; length guard prevents
+			// oversized payloads from reaching the DB.
+			String raw = String.valueOf(body.get(camel));
+			String sanitized = sanitizeText(raw);
+			if (sanitized == null) sanitized = "";
+			int maxLen = maxLengths.getOrDefault(field, 255);
+			if (sanitized.length() > maxLen) {
+				return ResponseEntity.status(400).body(Map.of("error",
+						"Field '" + camel + "' exceeds maximum length of " + maxLen + " characters"));
 			}
+			setClauses.add(field + " = ?");
+			values.add(sanitized);
 		}
 		if (setClauses.isEmpty()) {
 			return ResponseEntity.status(400).body(Map.of("error", "No updatable fields provided"));

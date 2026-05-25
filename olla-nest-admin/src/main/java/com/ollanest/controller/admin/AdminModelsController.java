@@ -12,6 +12,8 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,9 +28,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Admin model management endpoints.
@@ -73,6 +77,20 @@ public class AdminModelsController extends BaseController {
 	private final ChatService chatService;
 
 	/**
+	 * Transaction template used to wrap multi-column governance UPDATEs atomically.
+	 * Without a transaction, a mid-loop failure would leave the model row in a
+	 * partially-updated state.
+	 */
+	private final TransactionTemplate txTemplate;
+
+	/**
+	 * Allowed values for the {@code status} column.
+	 * Any other value is rejected with 400 to prevent garbage data entering the DB.
+	 */
+	private static final Set<String> ALLOWED_STATUSES =
+			Set.of("available", "disabled", "configured", "offline", "missing");
+
+	/**
 	 * Constructor-injects all required dependencies.
 	 *
 	 * @param db            the JDBC template
@@ -87,6 +105,8 @@ public class AdminModelsController extends BaseController {
 		this.modelService = modelService;
 		this.ollamaService = ollamaService;
 		this.chatService = chatService;
+		this.txTemplate = new TransactionTemplate(
+				new DataSourceTransactionManager(db.getDataSource()));
 	}
 
 	/**
@@ -165,27 +185,54 @@ public class AdminModelsController extends BaseController {
 		if (models.isEmpty())
 			return ResponseEntity.status(404).body(Map.of("error", "Model not found"));
 
+		// Enum guard: status must be one of the allowed lifecycle values.
+		// Rejecting invalid values before touching the DB prevents garbage data
+		// that would confuse the router and model-availability logic.
+		if (body.containsKey("status")) {
+			String newStatus = String.valueOf(body.get("status"));
+			if (!ALLOWED_STATUSES.contains(newStatus)) {
+				return ResponseEntity.status(400).body(Map.of("error",
+						"Invalid status '" + newStatus + "'. Allowed: " + ALLOWED_STATUSES));
+			}
+		}
+
+		// Build a single compound UPDATE inside a transaction.
+		// Previous implementation issued one db.update() per column — if the loop
+		// failed mid-way the model row would be left in a partially-updated state.
+		// A single SQL statement is both atomic and a single DB round-trip.
 		Map<String, String> fieldMap = new LinkedHashMap<>();
-		fieldMap.put("status", "status");
-		fieldMap.put("governanceTier", "governance_tier");
-		fieldMap.put("resourceTier", "resource_tier");
-		fieldMap.put("gpuRequired", "gpu_required");
-		fieldMap.put("maxConcurrency", "max_concurrency");
-		fieldMap.put("maxContextSize", "max_context_size");
+		fieldMap.put("status",           "status");
+		fieldMap.put("governanceTier",   "governance_tier");
+		fieldMap.put("resourceTier",     "resource_tier");
+		fieldMap.put("gpuRequired",      "gpu_required");
+		fieldMap.put("maxConcurrency",   "max_concurrency");
+		fieldMap.put("maxContextSize",   "max_context_size");
 		fieldMap.put("externalCostTier", "external_cost_tier");
 		fieldMap.put("sensitiveAllowed", "sensitive_allowed");
 
+		List<String> setClauses = new ArrayList<>();
+		List<Object> params     = new ArrayList<>();
+
 		for (Map.Entry<String, String> e : fieldMap.entrySet()) {
-			if (!body.containsKey(e.getKey()))
-				continue;
+			if (!body.containsKey(e.getKey())) continue;
 			Object val;
 			if ("gpuRequired".equals(e.getKey()) || "sensitiveAllowed".equals(e.getKey())) {
 				val = Boolean.TRUE.equals(body.get(e.getKey())) ? 1 : 0;
 			} else {
 				val = body.get(e.getKey());
 			}
-			db.update("UPDATE models SET " + e.getValue() + " = ? WHERE id = ?", val, id);
+			setClauses.add(e.getValue() + " = ?");
+			params.add(val);
 		}
+
+		if (!setClauses.isEmpty()) {
+			params.add(id); // WHERE id = ?
+			final String sql = "UPDATE models SET " + String.join(", ", setClauses) + " WHERE id = ?";
+			final Object[] sqlParams = params.toArray();
+			// Execute inside a transaction so all columns update atomically or not at all.
+			txTemplate.executeWithoutResult(tx -> db.update(sql, sqlParams));
+		}
+
 		chatService.appendAudit(admin.name, "admin.model.governance", "Updated governance for " + id, null);
 		List<Map<String, Object>> updated = db.queryForList("SELECT * FROM models WHERE id = ?", id);
 		return ResponseEntity.ok(

@@ -136,8 +136,11 @@ public class StateController extends BaseController {
 
 		List<Object> chats;
 		if ("admin".equals(user.role)) {
+			// LIMIT 200 is a production safety guard — without it, an admin dashboard
+			// request on a large deployment could trigger a full-table scan and return
+			// millions of session rows, causing OOM and request timeouts.
 			List<Map<String, Object>> sessions = db
-					.queryForList("SELECT * FROM chat_sessions WHERE is_active = 1 ORDER BY updated_at DESC");
+					.queryForList("SELECT * FROM chat_sessions WHERE is_active = 1 ORDER BY updated_at DESC LIMIT 200");
 			chats = new ArrayList<>();
 			for (Map<String, Object> s : sessions) {
 				Map<String, Object> c = new LinkedHashMap<>();
