@@ -354,18 +354,6 @@
       flex-shrink: 0;
     }
 
-    /* Dev quick-login buttons — color set via --dev-btn-color CSS var */
-    .dev-account-btn {
-      background: color-mix(in srgb, var(--dev-btn-color) 13%, transparent);
-      border: 1px solid color-mix(in srgb, var(--dev-btn-color) 33%, transparent);
-      color: var(--dev-btn-color);
-      border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 600;
-      cursor: pointer; text-align: left; font-family: inherit;
-      transition: background .15s; width: 100%;
-    }
-    .dev-account-btn:hover {
-      background: color-mix(in srgb, var(--dev-btn-color) 26%, transparent);
-    }
 
     @media (max-width: 840px) {
       .login-brand { display: none; }
@@ -493,53 +481,6 @@
 
 </div>
 
-<!-- Dev quick-login panel — localhost only -->
-<div id="devPanel" style="display:none;position:fixed;bottom:20px;right:20px;background:var(--bubble);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-width:220px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.12);">
-  <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted2);text-transform:uppercase;margin-bottom:10px;">⚡ Dev Quick Login</div>
-  <div id="devAccounts" style="display:flex;flex-direction:column;gap:6px;"></div>
-</div>
-
 <script src="/login.js"></script>
-<script>
-(function() {
-  const isLocal = ["localhost","127.0.0.1","::1"].includes(location.hostname);
-  if (!isLocal) return;
-  // Dev panel: fetch account hints from the server — no credentials in source code.
-  // The /api/dev/hints endpoint is only active when the server detects localhost.
-  const panel = document.getElementById("devPanel");
-  const container = document.getElementById("devAccounts");
-
-  fetch("/api/dev/hints", { headers: { "X-Requested-With": "XMLHttpRequest" } })
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      if (!data || !data.accounts) return;
-      panel.style.display = "block";
-      data.accounts.forEach(({ label, email, password, color }) => {
-        const btn = document.createElement("button");
-        btn.textContent = label;
-        btn.className = "dev-account-btn";
-        btn.style.setProperty("--dev-btn-color", color || "#888");
-        btn.onclick = async () => {
-          document.getElementById("email").value = email;
-          document.getElementById("password").value = password;
-          btn.textContent = "Signing in…";
-          btn.disabled = true;
-          try {
-            const r = await fetch("/api/auth/login", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-              body: JSON.stringify({ email, password }),
-            });
-            const d = await r.json();
-            if (d.ok) location.href = d.redirectTo || "/app";
-            else { btn.textContent = label; btn.disabled = false; }
-          } catch { btn.textContent = label; btn.disabled = false; }
-        };
-        container.appendChild(btn);
-      });
-    })
-    .catch(() => {});
-})();
-</script>
 </body>
 </html>
