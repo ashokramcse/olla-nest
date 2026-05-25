@@ -186,6 +186,8 @@ public class RouterService {
 	 * @since v2026.1.0
 	 */
 	public SensitivityResult detectSensitiveContent(String text) {
+		if (text == null)
+			return new SensitivityResult(false, new ArrayList<>());
 		List<String> reasons = new ArrayList<>();
 		if (SSN_PAT.matcher(text).find())
 			reasons.add("SSN");
@@ -238,6 +240,8 @@ public class RouterService {
 	public List<String> classifyRequest(String message, String mode) {
 		if (mode == null)
 			mode = "ask";
+		if (message == null)
+			return new ArrayList<>(Arrays.asList("general", "ask"));
 		String text = message.toLowerCase();
 		Set<String> tags = new LinkedHashSet<>();
 

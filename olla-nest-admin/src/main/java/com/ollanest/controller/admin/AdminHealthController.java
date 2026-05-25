@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -92,9 +91,10 @@ public class AdminHealthController extends BaseController {
 		Map<String, Object> snapshot = monitorService.getSnapshot();
 
 		Integer userCount = db.queryForObject("SELECT COUNT(*) FROM users WHERE active = 1", Integer.class);
-		Integer modelCount = db.queryForObject("SELECT COUNT(*) FROM models WHERE status = 'active'", Integer.class);
-		Integer sessionCount = db.queryForObject("SELECT COUNT(*) FROM sessions WHERE expires_at > ?", Integer.class,
-				Instant.now().toString());
+		Integer modelCount = db.queryForObject(
+				"SELECT COUNT(*) FROM models WHERE status IN ('available','configured')", Integer.class);
+		Integer sessionCount = db.queryForObject(
+				"SELECT COUNT(*) FROM sessions WHERE expires_at > datetime('now')", Integer.class);
 		Integer chatCount = db.queryForObject("SELECT COUNT(*) FROM chat_sessions", Integer.class);
 		Integer providerCount = db.queryForObject("SELECT COUNT(*) FROM api_providers WHERE enabled = 1",
 				Integer.class);
