@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -63,6 +64,18 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
 				.body(Map.of("ok", false, "error",
 						"Method " + ex.getMethod() + " not allowed. Supported: " + ex.getSupportedHttpMethods()));
+	}
+
+	/**
+	 * Handles 415 Unsupported Media Type — e.g. text/plain sent to a JSON endpoint.
+	 *
+	 * @param ex the unsupported media type exception
+	 * @return 415 with {@code {ok: false, error: "Unsupported media type"}}
+	 */
+	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+	public ResponseEntity<Map<String, Object>> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
+		return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+				.body(Map.of("ok", false, "error", "Unsupported media type: " + ex.getContentType()));
 	}
 
 	/**

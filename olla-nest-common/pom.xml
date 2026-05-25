@@ -100,6 +100,21 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- ── WireMock (HTTP stub server for external API simulation) -->
+		<dependency>
+			<groupId>org.wiremock</groupId>
+			<artifactId>wiremock-standalone</artifactId>
+			<version>3.9.1</version>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- ── Awaitility (async / concurrency assertions) -->
+		<dependency>
+			<groupId>org.awaitility</groupId>
+			<artifactId>awaitility</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 	</dependencies>
 
 </project>
