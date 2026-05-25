@@ -182,6 +182,12 @@ public class AuthController extends BaseController {
 		if (email == null || password == null || email.isBlank() || password.isBlank()) {
 			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "Email and password are required"));
 		}
+		// Guard against BCrypt DoS: BCrypt is O(n) on password length; a 72-byte
+		// limit is the effective max anyway (bcryptjs / OpenBSD truncate silently).
+		// Email max 320 chars per RFC 5321.
+		if (email.length() > 320 || password.length() > 1024) {
+			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "Email and password are required"));
+		}
 
 		// Query user row; also enforce access_expires_at (HIGH-2)
 		List<Map<String, Object>> rows = db
@@ -192,6 +198,7 @@ public class AuthController extends BaseController {
 						+ "mfa_enabled, security_risk_score, access_status, access_expires_at, "
 						+ "last_active_at, auth_provider, phone, avatar_initials, password_hash "
 						+ "FROM users WHERE email = ? AND active = 1 "
+						+ "AND auth_provider = 'local' "
 						+ "AND (access_expires_at IS NULL OR access_expires_at = '' "
 						+ "OR access_expires_at > datetime('now'))", email);
 
@@ -210,6 +217,10 @@ public class AuthController extends BaseController {
 			// enumeration)
 			db.update("INSERT OR REPLACE INTO login_attempts (ip, count, reset_at) VALUES (?, ?, ?)", ip, count + 1,
 					resetAt);
+			// SOC 2: log security event for failed login (audit trail) — no user PII in
+			// the message since the email may not correspond to any real account.
+			chatService.appendAudit("system", "auth.login.failed",
+					"Failed login attempt from " + ip, Map.of("ip", ip));
 			return ResponseEntity.status(401).body(Map.of("ok", false, "error", "Invalid email or password"));
 		}
 
@@ -217,7 +228,9 @@ public class AuthController extends BaseController {
 		db.update("DELETE FROM login_attempts WHERE ip = ?", ip);
 		User user = userService.publicUser(row);
 		authService.setSession(res, req, user);
-		chatService.appendAudit(user.name, "auth.login", "User signed in", null);
+		// Include IP in audit log for SOC 2 traceability
+		chatService.appendAudit(user.name, "auth.login", "User signed in from " + ip,
+				Map.of("ip", ip, "role", user.role));
 
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("ok", true);

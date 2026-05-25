@@ -175,7 +175,7 @@ public abstract class BaseController {
 	 * @return HTML-escaped string, or {@code null} if input was {@code null}
 	 * @since v2026.1.9 — XSS hardening (CRIT-2)
 	 */
-	protected static String sanitizeText(String input) {
+	public static String sanitizeText(String input) {
 		if (input == null) return null;
 		return HtmlUtils.htmlEscape(input.strip());
 	}

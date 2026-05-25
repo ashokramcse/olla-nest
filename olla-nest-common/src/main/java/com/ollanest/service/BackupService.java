@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Scheduled SQLite backup service using the {@code VACUUM INTO} statement.
@@ -57,6 +58,29 @@ public class BackupService {
 
 	/** JDBC template bound to the application's SQLite data source. */
 	private final JdbcTemplate db;
+
+	/**
+	 * Guard preventing concurrent backup execution.
+	 *
+	 * <p>
+	 * {@code VACUUM INTO} holds a shared read lock on the database for its
+	 * duration. Running two concurrent backups would produce conflicting
+	 * filenames (same second timestamp) and could exhaust disk space with
+	 * two simultaneous full-copy writes. Using a CAS flag ensures only one
+	 * backup runs at a time; additional requests are rejected immediately.
+	 */
+	private final AtomicBoolean backupInProgress = new AtomicBoolean(false);
+
+	/**
+	 * Returns {@code true} if a backup is currently running.
+	 * Exposed for monitoring and testing.
+	 *
+	 * @return {@code true} if backup is in progress
+	 * @since v2026.1.0 — SOC 2 hardening
+	 */
+	public boolean isBackupInProgress() {
+		return backupInProgress.get();
+	}
 
 	/**
 	 * Root data directory; resolved from the {@code app.data-dir} property or the
@@ -115,6 +139,12 @@ public class BackupService {
 	 * @since v2026.1.4
 	 */
 	public java.util.Map<String, Object> runBackup() {
+		// Reject concurrent backup attempts — VACUUM INTO is a heavy full-file copy
+		if (!backupInProgress.compareAndSet(false, true)) {
+			log.warn("[backup] Backup already in progress — rejecting concurrent request");
+			return java.util.Map.of("ok", false, "error", "Backup already in progress");
+		}
+
 		File backupDir = new File(dataDir, "backups");
 		if (!backupDir.exists())
 			backupDir.mkdirs();
@@ -138,6 +168,8 @@ public class BackupService {
 		} catch (Exception e) {
 			log.error("[backup] Backup failed: {}", e.getMessage());
 			return java.util.Map.of("ok", false, "error", e.getMessage());
+		} finally {
+			backupInProgress.set(false);
 		}
 	}
 }

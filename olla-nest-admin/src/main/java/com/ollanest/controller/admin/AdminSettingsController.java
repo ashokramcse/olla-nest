@@ -189,9 +189,23 @@ public class AdminSettingsController extends BaseController {
 			}
 		}
 		if (body.containsKey("workspaceRoot")) {
-			String nextRoot = Paths.get(body.get("workspaceRoot").toString()).toAbsolutePath().toString();
+			String nextRoot = Paths.get(body.get("workspaceRoot").toString())
+					.toAbsolutePath().normalize().toString();
+			// SOC 2 path safety: block system directories from being used as workspace root.
+			// This prevents an admin from inadvertently exposing /etc, /root, or OS paths
+			// to the model's system prompt (which lists workspace files).
+			for (String blocked : new String[]{"/etc", "/bin", "/sbin", "/usr/bin", "/usr/sbin",
+					"/boot", "/proc", "/sys", "/dev", "/root",
+					"C:\\Windows", "C:\\System32"}) {
+				if (nextRoot.startsWith(blocked)) {
+					return ResponseEntity.status(400).body(Map.of("ok", false, "error",
+							"workspaceRoot must not point to a system directory"));
+				}
+			}
 			databaseService.setSetting("workspaceRoot", nextRoot);
-			new File(nextRoot).mkdirs();
+			try {
+				new File(nextRoot).mkdirs();
+			} catch (Exception ignored) { /* permission denied is non-fatal */ }
 		}
 		if (body.containsKey("ollamaUrl")) {
 			String nextUrl = ollamaService.cleanBaseUrl(body.get("ollamaUrl").toString());
@@ -289,12 +303,14 @@ public class AdminSettingsController extends BaseController {
 	@PatchMapping("/departments/{id}/rights")
 	public ResponseEntity<Map<String, Object>> updateDepartmentRights(@PathVariable String id,
 			@RequestBody Map<String, Object> body, HttpServletRequest req) {
-		if (req.getHeader("x-requested-with") == null) {
-			return ResponseEntity.status(403).body(Map.of("error", "Forbidden: missing CSRF header"));
-		}
+		// Auth check MUST precede CSRF check — returning 403 before 401 leaks endpoint
+		// existence to unauthenticated callers.
 		ResponseEntity<Map<String, Object>> err = requireAdmin(req);
 		if (err != null)
 			return err;
+		if (req.getHeader("x-requested-with") == null) {
+			return ResponseEntity.status(403).body(Map.of("error", "Forbidden: missing CSRF header"));
+		}
 		Object rights = body.get("rights");
 		String deptRightsJson = databaseService.getSetting("deptDefaultRights", "{}");
 		Map<String, Object> deptRights;
