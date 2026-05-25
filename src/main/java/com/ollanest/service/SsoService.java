@@ -120,9 +120,9 @@ public class SsoService {
 	/**
 	 * Base URL of this Olla Nest instance (e.g. {@code https://ai.mycompany.com}).
 	 * Used to construct OAuth redirect URIs. Must match the URI registered in the
-	 * IdP. Defaults to {@code http://localhost:3000} for local development.
+	 * IdP. Defaults to {@code http://localhost:3001} for local development.
 	 */
-	@Value("${app.base-url:http://localhost:3000}")
+	@Value("${app.base-url:http://localhost:3001}")
 	private String appBaseUrl;
 
 	/**
