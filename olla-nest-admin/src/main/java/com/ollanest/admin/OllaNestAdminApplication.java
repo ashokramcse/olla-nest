@@ -31,9 +31,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 	basePackages = "com.ollanest",
 	excludeFilters = @ComponentScan.Filter(
 		type = FilterType.REGEX,
-		// Chat, Thread, State are in common — needed by both services.
-		// Only exclude user-only controllers that are NOT in common.
-		pattern = "com\\.ollanest\\.controller\\.(Document|Workspace|Voice|CodeSandbox|Image|Account|Sso|DevHints|Bootstrap|User).*Controller.*"
+		// Exclude all user-workspace controllers (chat/thread live on user service only).
+		pattern = "com\\.ollanest\\.controller\\.(Chat|Thread|Document|Workspace|Voice|CodeSandbox|Image|Account|Sso|DevHints|Bootstrap|User).*Controller.*"
 	)
 )
 public class OllaNestAdminApplication {

@@ -504,7 +504,6 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
     <!-- Tab bar -->
     <div class="tab-bar">
       <button class="nav-item active" data-tab="overview">Overview</button>
-      <button class="nav-item" data-tab="chat">Chat</button>
       <button class="nav-item" data-tab="models">Models</button>
       <button class="nav-item" data-tab="users">Users</button>
       <button class="nav-item" data-tab="access">Access Control</button>
@@ -575,8 +574,8 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
         </div>
       </div>
 
-      <!-- ── CHAT ── -->
-      <div class="tab-view" id="tab-chat">
+      <!-- Chat removed — chat is a user-service-only feature (:8081) -->
+      <div class="tab-view" id="tab-chat" style="display:none!important;">
         <!-- Context menu (shared, positioned on open) -->
         <div id="threadContextMenu"></div>
 
@@ -3182,14 +3181,7 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
     });
   }
 
-  /* refresh when Chat tab becomes active */
-  var chatTabBtn = document.querySelector('.nav-item[data-tab="chat"]');
-  if (chatTabBtn) chatTabBtn.addEventListener("click", function () {
-    setTimeout(function () {
-      renderMessages(); populateModels();
-      /* folder handle is client-side only — no reload needed */
-    }, 80);
-  });
+  /* Chat tab removed — chat is user-service-only (:8081) */
 
   /* public refresh hook (called by admin.js after loadState) */
   window.adminChatRefresh = function () {
