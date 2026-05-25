@@ -1,12 +1,16 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.stereotype.Service;
-
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Defines AI-callable tool specifications and executes tool calls dispatched by
@@ -178,7 +182,7 @@ public class FunctionCallService {
 				} else if (argsNode.isTextual()) {
 					try {
 						JsonNode parsed = mapper.readTree(argsNode.asText());
-						parsed.fields().forEachRemaining(e -> args.put(e.getKey(), e.getValue().asText()));
+						parsed.properties().forEach(e -> args.put(e.getKey(), e.getValue().asText()));
 					} catch (Exception ignored) {
 					}
 				}

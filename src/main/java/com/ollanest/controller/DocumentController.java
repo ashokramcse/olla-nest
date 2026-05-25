@@ -107,8 +107,8 @@ public class DocumentController extends BaseController {
 	 * @since v2026.1.2 — introduced with Spring AI 1.0.0 integration
 	 */
 	@PostMapping("/upload")
-	public ResponseEntity<Map<String, Object>> upload(@RequestParam("file") MultipartFile file,
-			@RequestParam(value = "scope", defaultValue = "global") String scope, HttpServletRequest req) {
+	public ResponseEntity<Map<String, Object>> upload(@RequestParam MultipartFile file,
+			@RequestParam(defaultValue = "global") String scope, HttpServletRequest req) {
 		ResponseEntity<Map<String, Object>> err = requireAuthWithCsrf(req);
 		if (err != null)
 			return err;

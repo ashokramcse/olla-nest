@@ -1,16 +1,18 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.config.AppConfig;
+import java.security.SecureRandom;
+import java.util.List;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
+import com.ollanest.config.AppConfig;
+
 import jakarta.annotation.PostConstruct;
-import java.security.SecureRandom;
-import java.util.*;
 
 /**
  * Handles schema seeding (default data) after Flyway runs migrations.

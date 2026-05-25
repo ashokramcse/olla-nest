@@ -98,7 +98,7 @@ public class SecurityConfig {
 	 * @since v2026.1.0
 	 */
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http
 				// Disable CSRF — we use X-Requested-With header check manually
 				.csrf(csrf -> csrf.disable())
