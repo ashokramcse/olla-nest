@@ -4,6 +4,37 @@ All notable changes to Olla Nest are documented here.
 
 ---
 
+## v2026.1.9 — 2026-05-25
+
+### 🔒 SQL Hardening, SOC 2 Security Audit & Enterprise Test Coverage
+
+#### SQL Safety & Injection Prevention
+- **Added** `SqlSafetyTest` — 30+ unit tests validating every raw SQL pattern in the codebase: table-name allow-list, `LIMIT` injection guards, `ORDER BY` enum guards, `VACUUM INTO` path escaping, `INSERT OR REPLACE` safety, single-quote escaping, parameterised queries throughout
+- **Added** `SchemaIntegrationTest` — full Flyway V1–V6 migration chain validated against in-memory SQLite: 30 tables, 26 indexes, column presence, FK pragma, settings idempotency, object count floor (58 test methods)
+- **Fixed** `AdminReportsController` — `ORDER BY` direction now validated against `Set.of("asc","desc")` enum guard; `LIMIT` cast to `int` with bounds check (1–500) to prevent SQL injection via query parameters
+- **Fixed** `AdminModelsController` — model status validated against `ALLOWED_STATUSES = Set.of("available","disabled","configured","offline","missing")` allow-list before any DB write
+- **Fixed** `AdminUserController` — `LIMIT` parameter validated before interpolation; `IndexOutOfBoundsException` on empty result set eliminated with null-safe guard
+
+#### SOC 2 Security Hardening — Production Fixes
+- **Fixed** `AuthController` — added `AND auth_provider = 'local'` to login query; SSO-provisioned users can no longer bypass login by submitting a password (SSO bypass prevention — CC6.1)
+- **Fixed** `AuthController` — BCrypt DoS prevention: email > 320 chars or password > 1024 chars rejected with 400 before hash comparison
+- **Fixed** `AuthController` — failed login now writes `auth.login.failed` audit event with actor IP to `audit_events` table (CC7.2 audit trail)
+- **Fixed** `AuthController` — successful login audit event now includes `ip` and `role` in `extra_json` for SOC 2 traceability
+- **Fixed** `BackupService` — added `AtomicBoolean` concurrent execution guard; concurrent `VACUUM INTO` attempts are rejected immediately with `{ok:false, error:"Backup already in progress"}` (A1.2 availability)
+- **Fixed** `AdminSettingsController` — `workspaceRoot` setting now validated against a system path block-list (`/etc`, `/bin`, `/proc`, `/sys`, `/dev`, `C:\Windows`, etc.) before acceptance (CC6.1 access control)
+- **Fixed** `AdminSettingsController` — `updateDepartmentRights` auth check reordered: `requireAdmin` evaluated before CSRF header check
+- **Fixed** `BaseController.sanitizeText()` — changed from `protected static` to `public static` for full testability
+- **Added** `MdcLoggingFilter` — per-request MDC context: `requestId`, `userId`, `userEmail`, `userRole`, `method`, `path`, `ip` injected for every log line (CC7.2 logging)
+
+#### SOC 2 Test Coverage (140 new tests — 1,559 total)
+- **Added** `Soc2AuditTest` — 80+ Mockito unit tests across all 5 SOC 2 trust service criteria: Security (CC6.1, CC6.8), Availability (A1.2), Processing Integrity, Confidentiality (AES-256-GCM), Privacy (CC7.2)
+- **Added** `Soc2SecurityIntegrationTest` — 60+ MockMvc integration tests against full Spring Boot context: login/logout, session cookies, CSRF enforcement, rate limiting, input validation, security headers, API key redaction, audit trail, session fixation prevention, SSO bypass protection
+
+#### GitGuardian Secret Scan Remediation
+- **Fixed** test credential literals `"AnyPass"` and `"pass123"` in test files replaced with scanner-safe `"incorrect-credential"` and `"missing-email-field"` — GitGuardian incidents #33155620 and #33155621 resolved (commit `c23a329`)
+
+---
+
 ## v2026.1.8 — 2026-05-24
 
 ### 🎨 Voice UX Polish & Code Quality

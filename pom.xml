@@ -22,7 +22,7 @@
 
 	<groupId>com.ollanest</groupId>
 	<artifactId>olla-nest-parent</artifactId>
-	<version>2026.1.5</version>
+	<version>2026.1.9</version>
 	<packaging>pom</packaging>
 	<name>olla-nest-parent</name>
 	<description>Olla Nest – Parent POM</description>

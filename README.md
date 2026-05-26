@@ -9,7 +9,7 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-v2026.1.8-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
+[![Version](https://img.shields.io/badge/version-v2026.1.9-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-26-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.14-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
@@ -62,12 +62,19 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - **AES-256-GCM** — all API keys, SSO secrets, and connector credentials encrypted at rest
 - **SSO** — Google OAuth 2.0, generic OIDC (Okta / Azure AD / Auth0 / Keycloak), SAML 2.0
 - **Auto-provisioning** — SSO users created on first login, matched by email thereafter
-- **Brute-force protection** — IP-based lockout: 5 attempts / 15 min
+- **Brute-force protection** — IP-based lockout: 10 attempts / 15 min (DB-persisted, survives restarts)
+- **BCrypt DoS prevention** — email > 320 chars or password > 1024 chars rejected before hashing
+- **Constant-time auth** — dummy BCrypt sentinel prevents user-enumeration via timing
+- **SSO bypass prevention** — `auth_provider='local'` enforced at login; SSO users cannot use password login
+- **SQL injection prevention** — enum guards, LIMIT bounds checks, table-name allow-lists throughout
+- **XSS prevention** — `BaseController.sanitizeText()` with `HtmlUtils.htmlEscape` on all user text
 - **SSRF protection** — private and loopback IPs blocked on all cloud provider URLs
 - **Terminal auth** — WebSocket requires authenticated session + `workspace:build` right
-- **Security headers** — `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`
+- **Security headers** — CSP, `Strict-Transport-Security`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`
+- **MDC structured logging** — `requestId`, `userId`, `userRole`, `ip` on every log line
 - **BCrypt** — password hashing at cost factor 12
 - **Session invalidation** — role/permission changes immediately expire all user sessions
+- **SOC 2 audit trail** — `auth.login`, `auth.login.failed`, `chat.request` events with IP in `audit_events`
 
 </td>
 </tr>
@@ -79,12 +86,13 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - **Teams hierarchy** — departments → groups → teams with inherited permission sets
 - **Per-user limits** — daily token cap, request rate limits, model tier access
 - **Model governance** — GPU requirement, sensitivity tier, model-level caps, access expiry
-- **Full audit log** — every request, model used, tokens consumed, timestamp, per-user
+- **Full audit log** — every request, model used, tokens consumed, timestamp, per-user; SOC 2 compliant
 - **Access expiry** — expired accounts blocked at login; admin can revoke instantly
 - **20+ connectors** — GitHub, Slack, Notion, Jira, Google Drive, Salesforce, and 14 more
 - **Hourly connector sync** — SHA-256 dedup; only changed documents are re-ingested
 - **Admin reports** — daily activity, token leaderboard, model usage, latency, department breakdown
 - **Health dashboard** — JVM memory, DB stats, uptime, request / error counters
+- **1,559 automated tests** — unit, Mockito, MockMvc integration tests; SOC 2 + SQL hardening coverage
 
 </td>
 <td width="50%" valign="top">
@@ -99,8 +107,8 @@ Olla Nest is a **self-hosted company AI workspace** — an admin-controlled laye
 - **Voice readback** — OpenAI TTS-1; voices: alloy, echo, fable, onyx, nova, shimmer
 - **Image generation** — DALL-E 3 (CDN URL) or Stable Diffusion Automatic1111 (base64 PNG)
 - **Prompt templates** — per-mode Spring AI `PromptTemplate` with `{variable}` substitution
-- **SQLite backups** — `@Scheduled` daily backup with 7-file rotation; zero-config
-- **Flyway migrations** — V1–V5 schema applied automatically on startup
+- **SQLite backups** — `@Scheduled` daily backup with 7-file rotation; concurrent-safe `AtomicBoolean` guard; zero-config
+- **Flyway migrations** — V1–V6 schema applied automatically on startup
 
 </td>
 </tr>
@@ -143,26 +151,34 @@ DEFAULT_ADMIN_EMAIL=admin@ollanest.local
 mvn clean package -DskipTests
 ```
 
-### 3 — Run
+### 3 — Run both services
 
 ```bash
-java --enable-native-access=ALL-UNNAMED -jar target/olla-nest-*.jar
+# Admin control panel — http://localhost:8080
+java --enable-native-access=ALL-UNNAMED -jar olla-nest-admin/target/olla-nest-admin-2026.1.9.jar &
+
+# Employee workspace — http://localhost:8081
+java --enable-native-access=ALL-UNNAMED -jar olla-nest-user/target/olla-nest-user-2026.1.9.jar &
 ```
 
-Or with explicit env vars:
+Or run both from Maven:
 
 ```bash
-ENCRYPTION_KEY=my-secret OLLAMA_URL=http://localhost:11434 java --enable-native-access=ALL-UNNAMED -jar target/olla-nest-*.jar
+# From the project root (runs admin on 8080):
+mvn spring-boot:run -pl olla-nest-admin --enable-native-access=ALL-UNNAMED
+
+# In a second terminal (runs user on 8081):
+mvn spring-boot:run -pl olla-nest-user --enable-native-access=ALL-UNNAMED
 ```
 
-Open **http://localhost:3000** — the login page will appear.
+Open **http://localhost:8080** for the Admin panel · **http://localhost:8081** for the Employee workspace.
 
 ### Running from Eclipse
 
 1. **File → Import → Maven → Existing Maven Projects** → select the project folder
-2. Right-click `OllaNestApplication.java` → **Run As → Run Configurations**
-3. Add environment variables in the **Environment** tab
-4. Click **Run**
+2. Right-click `OllaNestAdminApplication.java` → **Run As → Run Configurations**
+3. Add environment variables in the **Environment** tab; click **Run**
+4. Repeat for `OllaNestUserApplication.java`
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment guide.
 
@@ -479,19 +495,29 @@ All API keys are AES-256-GCM encrypted before storage. Keys are never returned t
 | Feature | Implementation |
 |---------|---------------|
 | Session tokens | 256-bit `SecureRandom` hex, HttpOnly cookie, SameSite=Lax |
-| Password hashing | BCrypt cost factor 12 |
+| Password hashing | BCrypt cost factor 12; cost 10 for constant-time dummy sentinel |
+| Constant-time auth | Dummy BCrypt hash always evaluated; prevents user-enumeration via timing |
+| BCrypt DoS prevention | Email > 320 chars or password > 1024 chars rejected before hash (HTTP 400) |
+| SSO bypass prevention | `AND auth_provider = 'local'` enforced on login query; SSO users cannot use password path |
 | API key / secret encryption | AES-256-GCM, random 12-byte IV per value |
 | Connector credential encryption | AES-256-GCM in `connector_configs.credentials_enc` |
 | SSO client secret encryption | AES-256-GCM in `sso_providers.client_secret_enc` |
-| Login protection | IP-based rate limiting (5 attempts / 15 min) |
+| Login rate limiting | IP-based: 10 attempts / 15 min, DB-persisted (`login_attempts` table), survives restarts |
+| SQL injection prevention | `ORDER BY` enum guard, `LIMIT` bounds check (1–500), table-name allow-list, parameterised queries |
+| XSS prevention | `sanitizeText()` via `HtmlUtils.htmlEscape` on all user-supplied text before persistence |
 | SSRF protection | Cloud provider URLs — private/loopback IPs blocked; self-hosted URLs (SD, SearXNG) allow localhost |
+| System path protection | `workspaceRoot` setting blocked from pointing to `/etc`, `/bin`, `/proc`, `/sys`, `/dev`, `C:\Windows` |
 | Path traversal | Workspace browse restricted to user home directory |
 | Terminal auth | WebSocket requires authenticated session + `workspace:build` right |
-| CSP | `Content-Security-Policy` header on all responses |
-| HSTS | `Strict-Transport-Security: max-age=31536000` |
+| Security headers | `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` on all responses |
+| HSTS | `Strict-Transport-Security: max-age=31536000` (HTTPS only) |
+| MDC structured logging | `requestId`, `userId`, `userEmail`, `userRole`, `method`, `path`, `ip` on every log line |
+| Audit trail (SOC 2) | `auth.login`, `auth.login.failed` (with actor IP), `chat.request` written to `audit_events` table |
 | SSO CSRF | State nonce stored in `oauth_state` table, validated on OAuth callback |
+| CSRF protection | `X-Requested-With` header required on all state-changing endpoints |
 | Sensitive content routing | SSN, credit card, API key, PHI regex detection blocks external providers |
 | Admin session invalidation | Changing a user's role or permissions immediately invalidates their sessions |
+| Concurrent backup guard | `AtomicBoolean` CAS — only one `VACUUM INTO` runs at a time; concurrent requests rejected |
 | Sandbox isolation | Subprocess stripped env, temp working dir, 10 s SIGKILL, 4 KB output cap |
 
 ---
@@ -500,16 +526,17 @@ All API keys are AES-256-GCM encrypted before storage. Keys are never returned t
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3000` | HTTP listening port |
+| `ADMIN_PORT` | `8080` | Admin control panel HTTP port |
+| `USER_PORT` | `8081` | Employee workspace HTTP port |
 | `ENCRYPTION_KEY` | *(required)* | AES key for encrypting API keys, SSO secrets, connector credentials |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama server base URL |
 | `DATA_DIR` | `./data` | SQLite database and backup directory |
-| `STATIC_DIR` | `./public` | Static frontend files directory |
 | `DEFAULT_ADMIN_EMAIL` | `admin@ollanest.local` | Admin email seeded on first boot |
-| `DEFAULT_ADMIN_PASSWORD` | *(auto-generated)* | Leave blank for secure auto-generation |
+| `DEFAULT_ADMIN_PASSWORD` | *(auto-generated)* | Leave blank — secure password printed to console on first boot |
+| `DEFAULT_USER_PASSWORD` | `CHANGE_ME_ON_FIRST_BOOT` | Default password for newly created user accounts |
 | `COOKIE_SECURE` | `false` | Set `true` behind HTTPS reverse proxy |
-| `TRUSTED_PROXY` | *(empty)* | Trusted proxy IP for X-Forwarded-For |
-| `APP_BASE_URL` | `http://localhost:3000` | SSO redirect_uri base URL |
+| `TRUSTED_PROXY` | *(empty)* | Trusted proxy IP for `X-Forwarded-For` rate-limit resolution |
+| `APP_BASE_URL` | `http://localhost:8080` | SSO redirect_uri base URL |
 
 ### Runtime Settings (Admin → Settings)
 
@@ -602,6 +629,7 @@ GET    /api/admin/reports/summary
 GET    /api/admin/reports/users
 GET    /api/admin/reports/models
 GET    /api/admin/health
+POST   /api/admin/settings/backup         # trigger immediate VACUUM INTO backup
 GET/POST/DELETE /api/admin/teams/departments
 GET/POST/DELETE /api/admin/teams/groups
 GET/POST/DELETE /api/admin/teams/teams
@@ -611,76 +639,114 @@ GET/POST/DELETE /api/admin/teams/teams
 
 ## Database Schema
 
-SQLite in WAL mode, managed by Flyway — schema applied automatically on startup.
+SQLite in WAL mode (`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000`), managed by Flyway — all 6 migrations applied automatically on startup. 30 tables, 26 indexes.
 
-| Migration | Tables |
-|-----------|--------|
-| `V1__init.sql` | `users`, `sessions`, `settings`, `departments`, `groups`, `teams`, `roles`, `permissions`, `models`, `api_providers`, `chats`, `messages`, `rag_documents`, `rag_chunks`, `audit_log` |
-| `V3__connectors.sql` | `connector_configs`, `connector_sync_log`, `connector_documents` |
-| `V4__sso.sql` | `sso_providers`, `oauth_state` |
-| `V5__search_images.sql` | Settings columns for search / image / voice |
+| Migration | Purpose |
+|-----------|---------|
+| `V1__init.sql` | Core schema: `users`, `sessions`, `settings`, `departments`, `groups`, `teams`, `models`, `api_providers`, `chat_sessions`, `chat_messages`, `audit_events`, `login_attempts`, `router_traces`, `feedback`, and more |
+| `V2__rag.sql` | `rag_documents`, `rag_chunks` — document knowledge base |
+| `V3__connectors.sql` | `connector_configs`, `connector_sync_log`, `connector_documents` — 20 data-source connectors |
+| `V4__sso.sql` | `sso_providers`, `oauth_state` — Google OAuth, OIDC, SAML 2.0 |
+| `V5__search_images.sql` | Settings columns for search / image generation / voice |
+| `V6__performance_indexes.sql` | 17 composite indexes for audit, router trace, RAG, chat, and session queries |
 
 ---
 
 ## Project Structure
 
+Maven multi-module project — three modules built from a single parent POM.
+
 ```
 olla-nest/
-├── pom.xml                                    # Maven — Spring Boot 3.5.14, Spring AI 1.0.0
-├── src/main/java/com/ollanest/
-│   ├── OllaNestApplication.java               # Entry point, virtual thread executor
-│   ├── config/                                # Spring config beans
-│   ├── controller/                            # REST controllers
-│   │   └── admin/                             # Admin-only endpoints
-│   ├── connector/                             # 20 data source connectors
-│   │   ├── BaseConnector.java                 # Abstract base (HTTP, SHA-256 dedup, RAG)
-│   │   ├── ConnectorRegistry.java             # Type → impl dispatch
-│   │   ├── ConnectorSyncScheduler.java        # Hourly @Scheduled sync
-│   │   └── impl/                              # AirtableConnector … ZendeskConnector
-│   ├── filter/                                # SecurityHeadersFilter, SessionAuthFilter
-│   ├── model/                                 # User, ModelRecord POJOs
-│   ├── service/                               # All business logic
-│   │   ├── AuthService.java                   # Sessions, BCrypt
-│   │   ├── BackupService.java                 # @Scheduled daily backup
-│   │   ├── ChatService.java                   # Context assembly, system prompts
-│   │   ├── CodeSandboxService.java            # ProcessBuilder isolated execution
-│   │   ├── CryptoService.java                 # AES-256-GCM
-│   │   ├── DatabaseService.java               # Flyway + seed data
-│   │   ├── DeepResearchService.java           # Plan → Search → Synthesise
-│   │   ├── EmbeddingService.java              # Ollama embeddings + cosine similarity
-│   │   ├── FunctionCallService.java           # 4 built-in AI tools
-│   │   ├── ImageGenerationService.java        # DALL-E 3 + Stable Diffusion
-│   │   ├── ModelService.java                  # Model access control
-│   │   ├── MonitorService.java                # Request/error counters
-│   │   ├── OllamaService.java                 # @Scheduled model sync
-│   │   ├── PromptTemplateService.java         # Per-mode system prompts
-│   │   ├── ProviderService.java               # Multi-provider AI dispatch
-│   │   ├── RagService.java                    # Chunk, embed, retrieve
-│   │   ├── RouterService.java                 # Auto Router scoring + privacy gate
-│   │   ├── SsoService.java                    # Google OAuth, OIDC, SAML 2.0
-│   │   ├── TerminalService.java               # WebSocket terminal
-│   │   ├── UserService.java                   # Permission resolution
-│   │   ├── VoiceService.java                  # Whisper STT + TTS-1
-│   │   ├── WebSearchService.java              # Serper / Brave / SearXNG
-│   │   └── WorkspaceService.java              # File I/O, artifact extraction
-│   └── util/
-│       └── UrlValidator.java                  # SSRF protection
-├── src/main/resources/
-│   ├── application.properties
-│   └── db/migration/
-│       ├── V1__init.sql
-│       ├── V3__connectors.sql
-│       ├── V4__sso.sql
-│       └── V5__search_images.sql
-├── public/                                    # Frontend (HTML / CSS / JS)
-│   ├── app.html / app.js                      # User workspace
-│   ├── admin.html / admin.js                  # Admin dashboard
-│   ├── login.html / login.js                  # Login page
-│   ├── styles.css                             # All styles
-│   └── vendor/                               # marked, highlight.js, DOMPurify, xterm, chart.js
-└── data/                                      # Runtime data (gitignored)
-    ├── olla-nest.sqlite
-    └── backups/                               # 7-rotation daily backups
+├── pom.xml                                         # Parent POM — Spring Boot 3.5.14, Spring AI 1.0.0
+│
+├── olla-nest-common/                               # Shared library (JAR) — all services, models, connectors
+│   └── src/main/java/com/ollanest/
+│       ├── config/                                 # Spring config beans (AppConfig, SecurityConfig, WebSocket)
+│       ├── connector/                              # 20 data-source connectors
+│       │   ├── BaseConnector.java                  # HTTP, SHA-256 dedup, RAG wiring
+│       │   ├── ConnectorRegistry.java              # Type → impl dispatch
+│       │   ├── ConnectorSyncScheduler.java         # Hourly @Scheduled sync
+│       │   └── impl/                               # AirtableConnector … ZendeskConnector
+│       ├── controller/                             # Shared REST controllers (Auth, Bootstrap, Chat, …)
+│       │   └── BaseController.java                 # requireAuth/requireAdmin/sanitizeText helpers
+│       ├── filter/
+│       │   ├── MdcLoggingFilter.java               # Per-request MDC: requestId, userId, role, ip
+│       │   ├── SessionAuthFilter.java              # Reads cookie → attaches User to request
+│       │   └── SecurityHeadersFilter.java          # CSP, HSTS, X-Frame-Options, Referrer-Policy
+│       ├── model/                                  # User, ChatSession, ChatMessage POJOs
+│       ├── service/
+│       │   ├── AuthService.java                    # Sessions (ConcurrentHashMap + DB), BCrypt
+│       │   ├── BackupService.java                  # @Scheduled VACUUM INTO, AtomicBoolean guard
+│       │   ├── ChatService.java                    # Context assembly, system prompts, audit events
+│       │   ├── CodeSandboxService.java             # ProcessBuilder isolated execution
+│       │   ├── CryptoService.java                  # AES-256-GCM
+│       │   ├── DatabaseService.java                # Flyway V1–V6 + seed data
+│       │   ├── DeepResearchService.java            # Plan → Search → Synthesise pipeline
+│       │   ├── EmbeddingService.java               # Ollama embeddings + cosine similarity
+│       │   ├── FunctionCallService.java            # 4 built-in AI tools
+│       │   ├── ImageGenerationService.java         # DALL-E 3 + Stable Diffusion
+│       │   ├── ModelService.java                   # Model access control
+│       │   ├── MonitorService.java                 # Request/error counters
+│       │   ├── OllamaService.java                  # @Scheduled 60-second model sync
+│       │   ├── PromptTemplateService.java          # Per-mode system prompts
+│       │   ├── ProviderService.java                # Multi-provider AI dispatch (Ollama, Claude, OpenAI, Groq)
+│       │   ├── RagService.java                     # Chunk, embed, retrieve
+│       │   ├── RouterService.java                  # Auto Router scoring + privacy gate
+│       │   ├── SsoService.java                     # Google OAuth, OIDC, SAML 2.0
+│       │   ├── UserService.java                    # Permission resolution, publicUser()
+│       │   ├── VoiceService.java                   # Whisper STT (local + OpenAI) + TTS-1
+│       │   ├── WebSearchService.java               # Serper / Brave / SearXNG
+│       │   ├── WhisperServerManager.java           # Auto-starts faster-whisper on port 8765
+│       │   └── WorkspaceService.java               # File I/O, artifact extraction
+│       └── util/
+│           └── UrlValidator.java                   # SSRF protection — blocks private/loopback IPs
+│   └── src/main/resources/db/migration/
+│       ├── V1__init.sql                            # Core schema (30 tables)
+│       ├── V2__rag.sql                             # rag_documents, rag_chunks
+│       ├── V3__connectors.sql                      # connector_configs, sync_log, documents
+│       ├── V4__sso.sql                             # sso_providers, oauth_state
+│       ├── V5__search_images.sql                   # Search / image / voice settings columns
+│       └── V6__performance_indexes.sql             # 17 composite indexes
+│
+├── olla-nest-admin/                                # Admin control panel Spring Boot app (port 8080)
+│   └── src/main/java/com/ollanest/controller/admin/
+│       ├── AdminUserController.java                # User CRUD, sessions, overrides, effective-access
+│       ├── AdminSettingsController.java            # Settings, departments, backup trigger
+│       ├── AdminReportsController.java             # Analytics, feedback
+│       ├── AdminModelsController.java              # Model governance (status allow-list)
+│       ├── AdminProvidersController.java           # Provider CRUD, model approval
+│       ├── AdminConnectorController.java           # Connector CRUD, sync, test, logs
+│       ├── AdminTeamsController.java               # Teams CRUD
+│       └── AdminHealthController.java              # Health check, DB stats, JVM info
+│
+├── olla-nest-user/                                 # Employee workspace Spring Boot app (port 8081)
+│   └── src/main/java/com/ollanest/controller/
+│       ├── ChatController.java                     # POST /api/chat/stream (SSE), /clear, /feedback
+│       ├── ThreadController.java                   # GET/DELETE /api/threads
+│       ├── AccountController.java                  # Profile, usage, password change
+│       ├── DocumentController.java                 # RAG document upload/delete
+│       ├── WorkspaceController.java                # File browse, read, write
+│       ├── VoiceController.java                    # STT transcribe, TTS speak
+│       ├── ImageController.java                    # DALL-E 3 / Stable Diffusion
+│       ├── CodeSandboxController.java              # Code execution sandbox
+│       └── SsoController.java                     # SSO authorize, callback, SAML ACS
+│
+├── public/                                         # Frontend static files (HTML / CSS / JS)
+│   ├── app.html / app.js                           # Employee workspace SPA
+│   ├── admin.html / admin.js                       # Admin dashboard SPA
+│   ├── login.html / login.js / admin-login.*       # Login pages
+│   ├── styles.css                                  # All styles
+│   └── vendor/                                     # marked, highlight.js, DOMPurify, xterm, chart.js
+│
+├── scripts/
+│   ├── whisper_server.py                           # OpenAI-compatible faster-whisper HTTP server (port 8765)
+│   ├── start_whisper.sh / .bat / .ps1             # One-time venv setup (macOS / Linux / Windows)
+│   └── monitoring/                                 # Grafana + Loki stack (optional)
+│
+└── data/                                           # Runtime data (gitignored)
+    ├── olla-nest.sqlite                            # Main SQLite database (WAL mode)
+    └── backups/                                    # 7-rotation daily VACUUM INTO backups
 ```
 
 ---

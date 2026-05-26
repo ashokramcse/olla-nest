@@ -50,7 +50,7 @@ Found a bug? Open an issue with:
 - What you did
 - What you expected
 - What actually happened
-- Your Java version and host OS
+- Your Java version, OS, and which service was affected (`olla-nest-admin` on port 8080 or `olla-nest-user` on port 8081)
 
 **[→ Open a Bug Report](https://github.com/ashokramcse/olla-nest/issues/new?template=bug_report.md)**
 
@@ -59,8 +59,10 @@ Found a bug? Open an issue with:
 ## Security Issues
 
 Do **not** open a public issue for security vulnerabilities.  
-Email directly: **ashokram@ollanest.local** *(replace with real contact)*  
+Email directly: **ashokramcse@gmail.com**  
 We will respond within 48 hours and credit you in the release notes.
+
+> **Secret scanner alerts (GitGuardian, etc.):** If you see a scanner alert for this repository, please check whether the flagged value is in a test file and is clearly a non-credential placeholder before escalating. If in doubt, email us.
 
 ---
 

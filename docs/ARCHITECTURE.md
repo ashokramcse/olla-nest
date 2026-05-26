@@ -2,24 +2,31 @@
 
 ## Overview
 
-Olla Nest is a standalone Java Spring Boot web application. The backend is a modular Spring Boot 3.5.14 server with embedded Tomcat. The frontend is plain HTML, CSS, and JavaScript served as static files — no build step, no framework, no bundler required. No Docker. No Node.js.
+Olla Nest is a **Maven multi-module Spring Boot application** — two independent Spring Boot services sharing a common library module, built from a single parent POM. The frontend is plain HTML, CSS, and JavaScript served as static files. No Docker. No Node.js. No build step for the frontend.
 
 ```
-Standalone Java Process (java -jar olla-nest.jar)
-├── Spring Boot 3.5.14 (embedded Tomcat)  ← HTTP server, REST API, SSE, WebSocket
-│   └── src/main/java/com/ollanest/       ← Controllers, services, filters, config
-├── public/                               ← Static frontend (login, workspace, admin)
-├── scripts/                              ← Python STT server + setup scripts
-│   ├── whisper_server.py                 ← OpenAI-compatible faster-whisper HTTP server (port 8765)
-│   ├── start_whisper.sh                  ← One-time venv setup — macOS + all Linux distros
-│   ├── start_whisper.bat                 ← One-time venv setup — Windows CMD
-│   └── start_whisper.ps1                 ← One-time venv setup — Windows PowerShell / Server
-├── data/olla-nest.sqlite                 ← SQLite database (file, no server)
-└── data/backups/                         ← Automated daily backups
+Maven Multi-Module Build (mvn clean package)
+├── olla-nest-common  (JAR)   ← Shared: all services, models, connectors, filters, config
+├── olla-nest-admin   (JAR)   ← Admin control panel   → port 8080
+└── olla-nest-user    (JAR)   ← Employee workspace    → port 8081
+
+Runtime — two Java processes, one shared SQLite database
+├── java -jar olla-nest-admin-*.jar   (port 8080)
+│   └── Spring Boot 3.5.14 + embedded Tomcat
+├── java -jar olla-nest-user-*.jar    (port 8081)
+│   └── Spring Boot 3.5.14 + embedded Tomcat
+├── public/                           ← Static frontend (login, workspace, admin)
+├── scripts/
+│   ├── whisper_server.py             ← OpenAI-compatible faster-whisper HTTP server (port 8765)
+│   ├── start_whisper.sh              ← One-time venv setup — macOS + all Linux distros
+│   ├── start_whisper.bat             ← One-time venv setup — Windows CMD
+│   └── start_whisper.ps1             ← One-time venv setup — Windows PowerShell / Server
+├── data/olla-nest.sqlite             ← Shared SQLite database (WAL mode, file-based)
+└── data/backups/                     ← Automated daily VACUUM INTO backups (7-file rotation)
 
 Host machine
-├── Ollama                                ← Local LLM inference (http://localhost:11434)
-└── faster-whisper server                 ← Local STT inference (http://localhost:8765, auto-started)
+├── Ollama                            ← Local LLM inference (http://localhost:11434)
+└── faster-whisper server             ← Local STT inference (http://localhost:8765, auto-started)
 ```
 
 ---
@@ -53,81 +60,114 @@ PRAGMA synchronous=NORMAL;
 PRAGMA busy_timeout=5000;
 ```
 
-HikariCP is configured with `maximum-pool-size=1` to respect SQLite's single-writer constraint. All writes are serialised through this single connection.
+HikariCP is configured with `maximum-pool-size=1` to respect SQLite's single-writer constraint. All writes are serialised through this single connection. Both the admin and user services connect to the **same** `data/olla-nest.sqlite` file; WAL mode allows concurrent reads from both processes.
 
 ---
 
 ## Source Layout
 
 ```
-src/main/java/com/ollanest/
-├── OllaNestApplication.java              # Spring Boot entry point
+olla-nest-common/src/main/java/com/ollanest/
 │
 ├── config/
-│   ├── AppConfig.java                    # ObjectMapper, global beans
+│   ├── AppConfig.java                    # ObjectMapper, virtual thread executor
 │   ├── SecurityConfig.java               # Spring Security filter chain (custom, no defaults)
 │   ├── WebConfig.java                    # Static resource handler (serves ./public/**)
 │   ├── WebSocketConfig.java              # WebSocket endpoint + auth interceptor
 │   └── WebSocketAuthInterceptor.java     # Validates session cookie before WebSocket handshake
 │
 ├── controller/
-│   ├── BaseController.java               # requireAuth(), requireAdmin(), currentUser() helpers
-│   ├── AuthController.java               # POST /api/auth/login, /logout; GET /me
+│   ├── BaseController.java               # requireAuth(), requireAdmin(), requireAuthWithCsrf(),
+│   │                                     # sanitizeText() — public static for testability
+│   ├── AuthController.java               # POST /api/auth/login (rate limit, BCrypt DoS guard,
+│   │                                     # SSO bypass prevention, IP audit), /logout, GET /me
 │   ├── BootstrapController.java          # GET /api/bootstrap (first-boot detection)
-│   ├── ChatController.java               # POST /api/chat, /stream (SSE), /clear, /feedback; DELETE /api/chat
-│   ├── ThreadController.java             # GET/DELETE/PATCH /api/threads, /activate, /fork
+│   ├── ChatController.java               # POST /api/chat/stream (SSE), /clear, /feedback
+│   ├── ThreadController.java             # GET/DELETE/PATCH /api/threads
 │   ├── StateController.java              # GET /api/state (full app hydration)
-│   ├── AccountController.java            # POST /api/account/password, PATCH /profile, GET /usage
-│   ├── WorkspaceController.java          # GET /api/workspace/browse, POST /local-settings
-│   ├── PageController.java               # Serves HTML pages (/, /app, /admin, /login)
-│   └── admin/
-│       ├── AdminUserController.java      # User CRUD, sessions, overrides, effective-access
-│       ├── AdminSettingsController.java  # Settings, departments, backup trigger
-│       ├── AdminReportsController.java   # Analytics, feedback
-│       ├── AdminModelsController.java    # Model governance, Ollama ping
-│       ├── AdminProvidersController.java # Provider CRUD, model approval
-│       ├── AdminTeamsController.java     # Teams CRUD
-│       └── AdminHealthController.java    # Health check, DB stats, JVM info
+│   ├── AccountController.java            # Profile, usage, password change
+│   ├── WorkspaceController.java          # File browse, read, write
+│   └── PageController.java              # Serves HTML pages (/, /app, /admin, /login)
 │
 ├── filter/
-│   ├── SessionAuthFilter.java            # Reads cookie, sets authenticated user on request
-│   └── SecurityHeadersFilter.java        # CSP, HSTS, X-Frame-Options, etc.
+│   ├── MdcLoggingFilter.java             # Per-request MDC: requestId, userId, userEmail,
+│   │                                     # userRole, method, path, ip — SOC 2 CC7.2
+│   ├── SessionAuthFilter.java            # Reads olla_nest_session cookie → sets User on request
+│   └── SecurityHeadersFilter.java        # CSP, HSTS (HTTPS only), X-Frame-Options: DENY,
+│                                         # X-Content-Type-Options, Referrer-Policy, Permissions-Policy
 │
 ├── service/
-│   ├── AuthService.java                  # Session map (in-memory + DB), cookie creation
-│   ├── ChatService.java                  # Context building, system prompt, active session management
-│   ├── ProviderService.java              # callProvider() / callProviderStream() for all AI providers
-│   ├── RouterService.java                # routeModel(), classifyRequest(), detectSensitiveContent()
-│   ├── OllamaService.java                # syncOllamaModels() — @Scheduled every 60s
-│   ├── WorkspaceService.java             # File workspace management, artifact extraction
-│   ├── BackupService.java                # Daily SQLite backup with 7-file rotation
-│   ├── CryptoService.java                # AES-256-GCM encrypt/decrypt for API keys
-│   ├── DatabaseService.java              # Schema seeding, settings helpers, first-boot init
-│   ├── ModelService.java                 # Model parsing and allowed-model resolution
+│   ├── AuthService.java                  # ConcurrentHashMap session cache + DB persistence
+│   ├── BackupService.java                # @Scheduled VACUUM INTO + AtomicBoolean concurrent guard
+│   ├── ChatService.java                  # Context assembly, system prompts, appendAudit()
+│   ├── CodeSandboxService.java           # ProcessBuilder: Python/JS/Ruby/Java/Bash; 10s kill
+│   ├── CryptoService.java                # AES-256-GCM, 12-byte random IV
+│   ├── DatabaseService.java              # Flyway V1–V6, seed data, settings helpers
+│   ├── DeepResearchService.java          # Plan → Search → Synthesise pipeline
+│   ├── EmbeddingService.java             # Ollama embeddings + cosine similarity
+│   ├── FunctionCallService.java          # 4 built-in AI tools
+│   ├── ImageGenerationService.java       # DALL-E 3 + Stable Diffusion Automatic1111
+│   ├── ModelService.java                 # Model access control, allowed-model resolution
+│   ├── MonitorService.java               # Atomic request/error counters
+│   ├── OllamaService.java                # @Scheduled every 60s — syncOllamaModels()
+│   ├── PromptTemplateService.java        # Per-mode Spring AI PromptTemplate system prompts
+│   ├── ProviderService.java              # callProvider() / callProviderStream() — Ollama, Claude,
+│   │                                     # OpenAI, Groq, custom
+│   ├── RagService.java                   # Chunk, embed, cosine retrieve (top-5, threshold 0.30)
+│   ├── RouterService.java                # Score all candidates; privacy gate; privacy-aware routing
+│   ├── SsoService.java                   # Google OAuth 2.0, generic OIDC, SAML 2.0
 │   ├── UserService.java                  # publicUser(), effectiveAccess(), hasRight()
-│   ├── MonitorService.java               # Request counters
-│   └── TerminalService.java              # WebSocket shell bridge via ProcessBuilder
+│   ├── VoiceService.java                 # Whisper STT (local + OpenAI) + OpenAI TTS-1
+│   ├── WebSearchService.java             # Serper / Brave / SearXNG
+│   ├── WhisperServerManager.java         # Auto-starts faster-whisper Python server on port 8765
+│   └── WorkspaceService.java             # File I/O, artifact extraction
 │
 ├── model/
-│   ├── User.java                         # User POJO
-│   ├── ChatSession.java                  # Chat session POJO
-│   ├── ChatMessage.java                  # Chat message POJO
-│   └── Model.java                        # AI model POJO
+│   ├── User.java                         # Full user POJO (30+ fields)
+│   ├── ChatSession.java / ChatMessage.java / ModelRecord.java
 │
 └── util/
-    └── UrlValidator.java                 # SSRF protection — validates URLs, blocks private IPs
+    └── UrlValidator.java                 # SSRF protection — DNS resolves, blocks RFC-1918 / loopback
 
-src/main/resources/
-├── application.properties               # All config with env var defaults
+olla-nest-common/src/main/resources/
+├── application.properties               # Shared config — datasource, Flyway, scheduler
+├── logback-spring.xml                   # CONSOLE (dev) / LOKI_ASYNC (prod) — MDC pattern
 └── db/migration/
-    └── V1__init.sql                     # Full SQLite schema (Flyway managed)
+    ├── V1__init.sql                     # 30-table core schema
+    ├── V2__rag.sql                      # rag_documents, rag_chunks
+    ├── V3__connectors.sql               # connector_configs, sync_log, documents
+    ├── V4__sso.sql                      # sso_providers, oauth_state
+    ├── V5__search_images.sql            # Search / image / voice settings columns
+    └── V6__performance_indexes.sql      # 17 composite indexes
 
-public/                                  # Frontend — unchanged, served as static files
-├── app.html / app.js                    # User workspace SPA
+olla-nest-admin/src/main/java/com/ollanest/controller/admin/
+├── AdminUserController.java             # User CRUD, sessions, effective-access, overrides
+├── AdminSettingsController.java         # Settings CRUD; workspaceRoot system-path block-list;
+│                                        # POST /api/admin/settings/backup → BackupService
+├── AdminReportsController.java          # Analytics; ORDER BY enum guard; LIMIT bounds (1–500)
+├── AdminModelsController.java           # Model governance; status allow-list validation
+├── AdminProvidersController.java        # Provider CRUD, model approval, AES key encryption
+├── AdminConnectorController.java        # Connector CRUD, manual sync, test, logs
+├── AdminTeamsController.java            # Departments / groups / teams CRUD
+└── AdminHealthController.java           # JVM memory, DB stats, uptime, Ollama status
+
+olla-nest-user/src/main/java/com/ollanest/controller/
+├── ChatController.java                  # POST /api/chat/stream (SSE), /clear, /feedback
+├── ThreadController.java                # GET/DELETE /api/threads
+├── AccountController.java               # GET /api/account/profile, /usage; PATCH profile
+├── DocumentController.java              # POST /api/documents/upload; GET/DELETE list
+├── WorkspaceController.java             # File browse, read, write
+├── VoiceController.java                 # POST /api/voice/transcribe, /speak
+├── ImageController.java                 # POST /api/images/generate
+├── CodeSandboxController.java           # POST /api/sandbox/run
+├── SsoController.java                   # /api/auth/sso/authorize, /callback, /saml/acs
+└── BootstrapController.java             # GET /api/bootstrap
+
+public/                                  # Frontend — static files served by both apps
+├── app.html / app.js                    # Employee workspace SPA
 ├── admin.html / admin.js                # Admin dashboard SPA
-├── login.html / login.js                # User login
+├── login.html / login.js / admin-login.*
 ├── styles.css                           # All application styles
-├── theme.js / dropdown.js               # UI utilities
 └── vendor/                              # marked, highlight.js, DOMPurify, xterm, chart.js
 ```
 
@@ -196,17 +236,25 @@ Browser → WS /api/terminal
 
 | Layer | Mechanism |
 |---|---|
-| Authentication | HttpOnly `SameSite=Lax` cookie, 256-bit SecureRandom token |
-| Session storage | `ConcurrentHashMap` (primary) + `sessions` DB table (recovery) |
-| Password hashing | BCrypt cost factor 12 |
-| API key encryption | AES-256-GCM, random 12-byte IV, hex-encoded |
-| CSRF protection | `X-Requested-With` header required on all state-changing endpoints |
-| Rate limiting | Per-IP login counter in DB; per-user chat counter in memory |
-| SSRF protection | `UrlValidator` blocks private/loopback IPs on all provider URLs |
+| Authentication | HttpOnly `SameSite=Lax` cookie, 256-bit `SecureRandom` token |
+| Session storage | `ConcurrentHashMap` (primary) + `sessions` DB table (recovery); hourly sweep |
+| Password hashing | BCrypt cost factor 12; dummy sentinel at cost 10 for constant-time response |
+| BCrypt DoS prevention | Email > 320 chars or password > 1024 chars rejected before hash (HTTP 400) |
+| SSO bypass prevention | `AND auth_provider = 'local'` on login query — SSO users cannot use password path |
+| API key encryption | AES-256-GCM, random 12-byte IV per value, hex-encoded |
+| SQL injection | `ORDER BY` enum guard, `LIMIT` int-cast + bounds (1–500), table-name allow-list |
+| XSS prevention | `BaseController.sanitizeText()` via `HtmlUtils.htmlEscape` on all user text |
+| CSRF protection | `X-Requested-With` header required on all non-GET state-changing endpoints |
+| Rate limiting | Per-IP login attempts in `login_attempts` DB table (10 / 15 min); per-user chat rate in memory |
+| SSRF protection | `UrlValidator` blocks private/loopback IPs on all cloud provider URLs |
+| System path protection | `workspaceRoot` blocked from `/etc`, `/bin`, `/proc`, `/sys`, `/dev`, `C:\Windows` |
 | Path safety | Workspace browse + root restricted to `user.home` / `data/` |
 | Terminal auth | WebSocket requires session + `workspace:build` right |
-| Response headers | CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy |
-| Sensitive content | SSN, credit card, API key, PHI patterns block external routing |
+| Response headers | CSP, HSTS (HTTPS only), `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` |
+| MDC logging | `requestId`, `userId`, `userEmail`, `userRole`, `method`, `path`, `ip` on every log line |
+| SOC 2 audit trail | `auth.login` (with IP + role), `auth.login.failed` (with IP), `chat.request` in `audit_events` |
+| Sensitive content | SSN, credit card, API key, PHI regex patterns block external routing automatically |
+| Concurrent backup | `AtomicBoolean` CAS — only one `VACUUM INTO` at a time; concurrent requests rejected |
 
 ---
 
@@ -214,10 +262,11 @@ Browser → WS /api/terminal
 
 | Job | Schedule | Description |
 |---|---|---|
-| Ollama model sync | Every 60 seconds | Calls `/api/tags`, upserts available models |
-| Session cleanup | Every hour | Removes expired sessions from memory + DB |
-| SQLite backup | Daily at 02:00 | `VACUUM INTO` backup, keeps last 7 files |
-| Whisper server start | Once on startup | `WhisperServerManager` launches `scripts/whisper_server.py` in background thread |
+| Ollama model sync | Every 60 seconds | `OllamaService` calls `/api/tags`, upserts available models |
+| Session cleanup | Every hour | `AuthService` removes expired sessions from `ConcurrentHashMap` + `sessions` table |
+| Chat rate-limit sweep | Every 10 minutes | `ChatService` removes stale per-user rate-limit entries from in-memory map |
+| SQLite backup | Daily at 03:00 | `BackupService` — `VACUUM INTO` with `AtomicBoolean` concurrent guard, keeps last 7 files |
+| Whisper server start | Once on startup | `WhisperServerManager` launches `scripts/whisper_server.py` in daemon background thread |
 
 ---
 

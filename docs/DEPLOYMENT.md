@@ -1,6 +1,11 @@
 # Deployment
 
-Olla Nest is a standalone Java Spring Boot application. It runs as a single `java -jar` process — no Docker, no Node.js, no external services beyond Ollama.
+Olla Nest is a **Maven multi-module Spring Boot application** — two independent services built from one parent POM, sharing a common library. They run as separate `java -jar` processes and share a single SQLite database.
+
+| Service | Module | Default port | Purpose |
+|---------|--------|-------------|---------|
+| Admin control panel | `olla-nest-admin` | `8080` (`ADMIN_PORT`) | User management, model governance, settings, reports |
+| Employee workspace | `olla-nest-user` | `8081` (`USER_PORT`) | Chat, RAG, voice, image generation, code sandbox |
 
 ---
 
@@ -30,14 +35,18 @@ cd olla-nest
 cp .env.example .env
 # Edit .env — set ENCRYPTION_KEY and OLLAMA_URL
 
-# 3. Build
+# 3. Build all modules
 mvn clean package -DskipTests
 
-# 4. Run
-java -jar target/olla-nest-*.jar
+# 4. Run both services
+java --enable-native-access=ALL-UNNAMED \
+     -jar olla-nest-admin/target/olla-nest-admin-2026.1.9.jar &
+
+java --enable-native-access=ALL-UNNAMED \
+     -jar olla-nest-user/target/olla-nest-user-2026.1.9.jar &
 ```
 
-Open **http://localhost:3000**
+Open **http://localhost:8080** (Admin) · **http://localhost:8081** (Employee workspace)
 
 ---
 
@@ -48,28 +57,37 @@ All configuration is done via environment variables or a `.env` file. Copy `.env
 | Variable | Default | Required | Description |
 |---|---|---|---|
 | `ENCRYPTION_KEY` | — | **Yes** | Secret key for AES-256-GCM API key encryption |
-| `PORT` | `3000` | No | HTTP port the server listens on |
+| `ADMIN_PORT` | `8080` | No | Admin control panel HTTP port |
+| `USER_PORT` | `8081` | No | Employee workspace HTTP port |
 | `OLLAMA_URL` | `http://localhost:11434` | No | URL of your Ollama instance |
 | `DATA_DIR` | `./data` | No | Directory for SQLite DB and backups |
-| `STATIC_DIR` | `./public` | No | Directory for static frontend files |
 | `DEFAULT_ADMIN_EMAIL` | `admin@ollanest.local` | No | Admin email seeded on first boot |
 | `DEFAULT_ADMIN_PASSWORD` | *(auto-generated)* | No | Leave blank — a secure password is printed to the console on first boot |
 | `DEFAULT_USER_PASSWORD` | `CHANGE_ME_ON_FIRST_BOOT` | No | Default password assigned to new user accounts |
 | `COOKIE_SECURE` | `false` | No | Set `true` when running behind HTTPS/TLS |
-| `TRUSTED_PROXY` | *(empty)* | No | Trusted proxy IP for X-Forwarded-For header |
+| `TRUSTED_PROXY` | *(empty)* | No | Trusted proxy IP for `X-Forwarded-For` rate-limit resolution |
+| `APP_BASE_URL` | `http://localhost:8080` | No | SSO `redirect_uri` base URL |
 
 > **First boot:** On the first startup, the server checks whether any users exist. If none do, it seeds a default admin account. If `DEFAULT_ADMIN_PASSWORD` is not set (or is the sentinel value `CHANGE_ME_ON_FIRST_BOOT`), a random 16-character password is generated and printed clearly to the server log. Copy it from the log and log in immediately. You can change it from **Admin → Users**.
 
 ---
 
-## Running the Server
+## Running the Servers
 
 ### Option 1 — Direct JAR (recommended for production)
 
 ```bash
+# Terminal 1 — Admin panel (port 8080)
 ENCRYPTION_KEY=your-secret-key \
 OLLAMA_URL=http://localhost:11434 \
-java --enable-native-access=ALL-UNNAMED -jar target/olla-nest-*.jar
+java --enable-native-access=ALL-UNNAMED \
+     -jar olla-nest-admin/target/olla-nest-admin-2026.1.9.jar
+
+# Terminal 2 — Employee workspace (port 8081)
+ENCRYPTION_KEY=your-secret-key \
+OLLAMA_URL=http://localhost:11434 \
+java --enable-native-access=ALL-UNNAMED \
+     -jar olla-nest-user/target/olla-nest-user-2026.1.9.jar
 ```
 
 > **`--enable-native-access=ALL-UNNAMED`** — SQLite JDBC loads its native binary via `System.load()`. Java 21+ prints a WARNING without this flag; Java 24+ will block it entirely. The flag silences the warning cleanly.
@@ -77,58 +95,64 @@ java --enable-native-access=ALL-UNNAMED -jar target/olla-nest-*.jar
 ### Option 2 — Maven (development)
 
 ```bash
-mvn spring-boot:run
+# Admin (terminal 1):
+mvn spring-boot:run -pl olla-nest-admin
+
+# User (terminal 2):
+mvn spring-boot:run -pl olla-nest-user
 ```
 
-> The `<jvmArguments>` in `pom.xml` already passes `--enable-native-access=ALL-UNNAMED` automatically for `mvn spring-boot:run` and IntelliJ "Run" via Maven.
+> The `<jvmArguments>` in each module's POM already passes `--enable-native-access=ALL-UNNAMED` automatically.
 
 ### Option 3 — Eclipse IDE
 
 1. **File → Import → Maven → Existing Maven Projects** → select the project folder
-2. Right-click `OllaNestApplication.java` → **Run As → Run Configurations**
-3. Go to the **Environment** tab → add your env vars
-4. Click **Run**
+2. Right-click `OllaNestAdminApplication.java` → **Run As → Run Configurations** → add env vars → **Run**
+3. Repeat for `OllaNestUserApplication.java`
 
-After installing the **Spring Tools 4** plugin *(Eclipse Marketplace → search "Spring Tools")*, you can use the Spring Boot Dashboard panel for one-click start/stop.
+After installing the **Spring Tools 4** plugin *(Eclipse Marketplace → search "Spring Tools")*, use the Spring Boot Dashboard panel for one-click start/stop of each module.
 
 ### Option 4 — IntelliJ IDEA
 
-1. **File → Open** → select the project folder (auto-detects Maven)
-2. Open `OllaNestApplication.java`
-3. Click the green ▶ Run button
-4. Go to **Run → Edit Configurations** → add env vars under **Environment variables**
+1. **File → Open** → select the project folder (auto-detects Maven multi-module)
+2. Open `OllaNestAdminApplication.java`, click the green ▶ Run button
+3. Open `OllaNestUserApplication.java`, click the green ▶ Run button
+4. Go to **Run → Edit Configurations** → add env vars under **Environment variables** for each
 
 ---
 
-## Building a Production JAR
+## Building Production JARs
 
 ```bash
 mvn clean package -DskipTests
 ```
 
-Output: `target/olla-nest-2026.1.0.jar`
+Output:
+- `olla-nest-admin/target/olla-nest-admin-2026.1.9.jar`
+- `olla-nest-user/target/olla-nest-user-2026.1.9.jar`
 
-This is a **fat JAR** — it contains the embedded Tomcat server and all dependencies. Copy it to any machine with Java 21+ and run it.
+Both are **fat JARs** — each contains the embedded Tomcat server and all dependencies. Copy them to any machine with Java 21+ and run them. They share the same `data/olla-nest.sqlite` file.
 
 ---
 
 ## Running as a System Service (macOS / Linux)
 
-### macOS — launchd
+### macOS — launchd (two plist files, one per service)
 
-Create `/Library/LaunchDaemons/com.ollanest.plist`:
+Create `/Library/LaunchDaemons/com.ollanest.admin.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.ollanest</string>
+  <key>Label</key><string>com.ollanest.admin</string>
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/java</string>
+    <string>--enable-native-access=ALL-UNNAMED</string>
     <string>-jar</string>
-    <string>/opt/olla-nest/olla-nest-2026.1.0.jar</string>
+    <string>/opt/olla-nest/olla-nest-admin-2026.1.9.jar</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
@@ -138,30 +162,34 @@ Create `/Library/LaunchDaemons/com.ollanest.plist`:
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/var/log/olla-nest.log</string>
-  <key>StandardErrorPath</key><string>/var/log/olla-nest-error.log</string>
+  <key>StandardOutPath</key><string>/var/log/olla-nest-admin.log</string>
+  <key>StandardErrorPath</key><string>/var/log/olla-nest-admin-error.log</string>
 </dict>
 </plist>
 ```
 
+Create a matching `com.ollanest.user.plist` with `olla-nest-user-2026.1.9.jar`.
+
 ```bash
-sudo launchctl load /Library/LaunchDaemons/com.ollanest.plist
+sudo launchctl load /Library/LaunchDaemons/com.ollanest.admin.plist
+sudo launchctl load /Library/LaunchDaemons/com.ollanest.user.plist
 ```
 
-### Linux — systemd
+### Linux — systemd (two unit files, one per service)
 
-Create `/etc/systemd/system/olla-nest.service`:
+Create `/etc/systemd/system/olla-nest-admin.service`:
 
 ```ini
 [Unit]
-Description=Olla Nest AI Workspace
+Description=Olla Nest Admin Panel
 After=network.target
 
 [Service]
 Type=simple
 User=ollanest
 WorkingDirectory=/opt/olla-nest
-ExecStart=/usr/bin/java --enable-native-access=ALL-UNNAMED -jar /opt/olla-nest/olla-nest-2026.1.0.jar
+ExecStart=/usr/bin/java --enable-native-access=ALL-UNNAMED \
+    -jar /opt/olla-nest/olla-nest-admin-2026.1.9.jar
 Environment=ENCRYPTION_KEY=your-secret-key
 Environment=OLLAMA_URL=http://localhost:11434
 Environment=DATA_DIR=/opt/olla-nest/data
@@ -172,10 +200,13 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
+Create a matching `olla-nest-user.service` pointing to `olla-nest-user-2026.1.9.jar`.
+
 ```bash
-sudo systemctl enable olla-nest
-sudo systemctl start olla-nest
-sudo journalctl -u olla-nest -f   # view logs
+sudo systemctl enable olla-nest-admin olla-nest-user
+sudo systemctl start  olla-nest-admin olla-nest-user
+sudo journalctl -u olla-nest-admin -f   # view admin logs
+sudo journalctl -u olla-nest-user  -f   # view user logs
 ```
 
 ---
@@ -201,8 +232,9 @@ Flyway will automatically apply any new database migrations on startup. No manua
 
 **Backup manually:**
 ```bash
-# Trigger an immediate backup via the Admin API
-curl -b cookies.txt -X POST http://localhost:3000/api/admin/settings/backup
+# Trigger an immediate VACUUM INTO backup via the Admin API
+curl -b cookies.txt -X POST http://localhost:8080/api/admin/settings/backup \
+     -H "X-Requested-With: XMLHttpRequest"
 ```
 
 **Restore from backup:**
@@ -297,27 +329,35 @@ If the dashboard shows **Ollama offline**, go to **Admin → Settings → Model 
 
 ---
 
-## Changing the Port
-
-```bash
-PORT=8080 java -jar target/olla-nest-*.jar
-```
-
-Or in `application.properties`:
-```properties
-server.port=8080
-```
-
 ---
 
 ## HTTPS / TLS
 
-Olla Nest does not handle TLS directly. Place it behind a reverse proxy (Nginx, Caddy, or Traefik) for HTTPS.
+Olla Nest does not handle TLS directly. Place both services behind a reverse proxy (Nginx, Caddy, or Traefik) for HTTPS.
 
 Once TLS is in place, set `COOKIE_SECURE=true` so the session cookie is only sent over HTTPS.
 
-Example Nginx config:
+Example Nginx config (two upstreams):
 ```nginx
+# Admin panel — admin.yourcompany.com
+server {
+    listen 443 ssl;
+    server_name admin.yourcompany.com;
+
+    ssl_certificate     /etc/ssl/certs/your.crt;
+    ssl_certificate_key /etc/ssl/private/your.key;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+    }
+}
+
+# Employee workspace — ai.yourcompany.com
 server {
     listen 443 ssl;
     server_name ai.yourcompany.com;
@@ -326,13 +366,16 @@ server {
     ssl_certificate_key /etc/ssl/private/your.key;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:8081;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        # Required for SSE streaming:
+        # Required for SSE streaming and WebSocket terminal:
         proxy_buffering off;
         proxy_read_timeout 300s;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
     }
 }
 ```
@@ -342,7 +385,17 @@ server {
 ## Health Check
 
 ```bash
-curl http://localhost:3000/api/admin/health
+curl http://localhost:8080/api/admin/health
 ```
 
 Returns server uptime, DB stats, JVM memory usage, and Ollama status.
+
+## Changing the Ports
+
+```bash
+ADMIN_PORT=9000 java --enable-native-access=ALL-UNNAMED \
+    -jar olla-nest-admin/target/olla-nest-admin-2026.1.9.jar
+
+USER_PORT=9001 java --enable-native-access=ALL-UNNAMED \
+    -jar olla-nest-user/target/olla-nest-user-2026.1.9.jar
+```

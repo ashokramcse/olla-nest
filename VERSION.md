@@ -1,14 +1,14 @@
 # Version
 
-**Current version:** v2026.1.8
+**Current version:** v2026.1.9
 
-**Release date:** 2026-05-24
+**Release date:** 2026-05-25
 
 **Runtime:** Oracle Java 26 + Spring Boot 3.5.14 (latest stable patch)
 
-**Database:** SQLite 3.49.x (Flyway managed, WAL mode)
+**Database:** SQLite 3.49.x (Flyway managed, WAL mode — V1–V6 migrations)
 
-**Build:** Maven 3.9+
+**Build:** Maven 3.9+ (multi-module: `olla-nest-common`, `olla-nest-admin`, `olla-nest-user`)
 
 ---
 
@@ -35,6 +35,7 @@
 
 | Version | Date | Summary |
 |---------|------|---------|
+| v2026.1.9 | 2026-05-25 | SQL hardening, SOC 2 audit, 140 new security tests (1,559 total), GitGuardian remediation |
 | v2026.1.8 | 2026-05-24 | Voice status feedback UX; log prefix dedup; Java formatter |
 | v2026.1.7 | 2026-05-24 | Firefox voice fix: click-to-toggle MediaRecorder; 600ms guard; inline status |
 | v2026.1.6 | 2026-05-24 | Branded alert overlays; STT admin UI; cross-platform Whisper setup |
@@ -80,3 +81,13 @@
 | Code Sandbox (Python / JS / Ruby / Java / Bash) | v2026.1.3 |
 | Comprehensive JavaDoc (79 files) | v2026.1.4 |
 | Spring Boot 3.5.14 | v2026.1.4 |
+| Maven multi-module (common / admin / user) | v2026.1.5 |
+| SQL injection prevention (enum guards, LIMIT bounds, allow-lists) | v2026.1.9 |
+| SOC 2 audit trail (auth.login.failed, IP in events) | v2026.1.9 |
+| BCrypt DoS prevention (email/password length limits) | v2026.1.9 |
+| SSO bypass prevention (auth_provider='local' login gate) | v2026.1.9 |
+| Concurrent backup guard (AtomicBoolean CAS) | v2026.1.9 |
+| MDC structured logging (requestId, userId, role, ip per request) | v2026.1.9 |
+| System path block-list for workspaceRoot | v2026.1.9 |
+| Flyway V6 — performance indexes (26 total) | v2026.1.9 |
+| 1,559 automated tests | v2026.1.9 |
