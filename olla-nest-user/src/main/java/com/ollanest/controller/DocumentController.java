@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * REST API for RAG document management.
@@ -49,6 +50,7 @@ import java.util.Map;
  *
  * @author Ashok Ram
  * @since v2026.1.2 — introduced with Spring AI 1.0.0 integration
+ * @version v2026.1.10 — HIGH-1 IDOR ownership check on delete; HIGH-4 MIME type validation
  */
 @RestController
 @RequestMapping("/api/documents")
@@ -120,6 +122,18 @@ public class DocumentController extends BaseController {
 		if (file.getSize() > 10 * 1024 * 1024) {
 			return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "File too large (max 10 MB)"));
 		}
+		String contentType = file.getContentType();
+		Set<String> allowedTypes = Set.of(
+			"application/pdf", "text/plain", "text/markdown",
+			"text/x-markdown", "application/octet-stream");
+		if (contentType != null && !allowedTypes.contains(contentType.toLowerCase())) {
+			// Also allow by extension as fallback
+			String fname = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+			if (!fname.endsWith(".pdf") && !fname.endsWith(".txt") && !fname.endsWith(".md")) {
+				return ResponseEntity.badRequest().body(Map.of("ok", false,
+					"error", "Unsupported file type. Allowed: PDF, TXT, MD"));
+			}
+		}
 
 		String name = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
 		String type = file.getContentType() != null ? file.getContentType() : "text/plain";
@@ -152,9 +166,16 @@ public class DocumentController extends BaseController {
 		ResponseEntity<Map<String, Object>> err = requireAuthWithCsrf(req);
 		if (err != null)
 			return err;
-		List<Map<String, Object>> docs = db.queryForList("SELECT id FROM rag_documents WHERE id = ?", id);
+		User user = getUser(req);
+		List<Map<String, Object>> docs = db.queryForList(
+			"SELECT id, uploaded_by FROM rag_documents WHERE id = ?", id);
 		if (docs.isEmpty()) {
 			return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Document not found"));
+		}
+		// Admins can delete any doc; regular users can only delete their own
+		String uploadedBy = (String) docs.get(0).get("uploaded_by");
+		if (!"admin".equals(user.role) && !user.name.equals(uploadedBy) && !user.id.equals(uploadedBy)) {
+			return ResponseEntity.status(403).body(Map.of("ok", false, "error", "You can only delete your own documents"));
 		}
 		ragService.deleteDocument(id);
 		return ResponseEntity.ok(Map.of("ok", true));

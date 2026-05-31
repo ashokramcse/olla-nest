@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Full user lifecycle management for admin users.
@@ -70,8 +71,7 @@ import java.util.Map;
  *
  * @author Ashok Ram
  * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — security hardening: prevent admin from deleting own
- *          account (LOW-7); audit events restricted to admins (LOW-8)
+ * @version v2026.1.10 — MED-12 enum+bounds validation on user update; security hardening (LOW-7, LOW-8)
  */
 @RestController
 @RequestMapping("/api/admin")
@@ -356,6 +356,35 @@ public class AdminUserController extends BaseController {
 			String newRole = (String) body.get("role");
 			if (!Arrays.asList("admin", "user").contains(newRole)) {
 				return ResponseEntity.status(400).body(Map.of("error", "Invalid role."));
+			}
+		}
+
+		// Validate enum fields before writing
+		if (body.containsKey("aiAccessTier")) {
+			String tier = String.valueOf(body.get("aiAccessTier"));
+			if (!Set.of("standard", "premium", "enterprise", "restricted").contains(tier)) {
+				return ResponseEntity.status(400).body(Map.of("error", "Invalid aiAccessTier: " + tier));
+			}
+		}
+		if (body.containsKey("accessStatus")) {
+			String status = String.valueOf(body.get("accessStatus"));
+			if (!Set.of("active", "suspended", "expired", "pending").contains(status)) {
+				return ResponseEntity.status(400).body(Map.of("error", "Invalid accessStatus: " + status));
+			}
+		}
+		// Numeric bounds validation
+		for (String numField : List.of("dailyTokenLimit", "monthlyTokenLimit", "gpuQuotaMinutes",
+				"vramLimitMb", "concurrentModelLimit", "apiRateLimitPerMinute", "maxContextSize")) {
+			if (body.containsKey(numField)) {
+				Object val = body.get(numField);
+				if (val != null) {
+					long num;
+					try { num = Long.parseLong(val.toString()); }
+					catch (NumberFormatException e) { return ResponseEntity.status(400).body(Map.of("error", "Invalid number for " + numField)); }
+					if (num < 0 || num > 10_000_000) {
+						return ResponseEntity.status(400).body(Map.of("error", numField + " out of range (0–10,000,000)"));
+					}
+				}
 			}
 		}
 

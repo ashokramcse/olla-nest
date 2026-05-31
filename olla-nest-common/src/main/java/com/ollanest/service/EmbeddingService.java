@@ -48,13 +48,18 @@ import java.util.*;
  *
  * @author Ashok Ram
  * @since v2026.1.0
- * @version v2026.1.0
+ * @version v2026.1.10 — HIGH-3 static shared HttpClient; L-2 retry logic for transient Ollama failures
  */
 @Service
 public class EmbeddingService {
 
 	/** SLF4J logger for this class. */
 	private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
+
+	/** Shared HTTP client for Ollama embedding API calls. Thread-safe; reuse avoids connection-pool thrashing. */
+	private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+			.connectTimeout(Duration.ofSeconds(30))
+			.build();
 
 	/**
 	 * Ollama model name used when no {@code embeddingModel} setting is configured.
@@ -136,19 +141,32 @@ public class EmbeddingService {
 			String model = embedModel();
 			Map<String, Object> reqBody = Map.of("model", model, "input", text);
 			String json = mapper.writeValueAsString(reqBody);
-			HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 			HttpRequest req = HttpRequest.newBuilder().uri(URI.create(ollamaUrl() + "/api/embed"))
 					.timeout(Duration.ofSeconds(60)).header("Content-Type", "application/json")
 					.POST(HttpRequest.BodyPublishers.ofString(json)).build();
-			HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
-			JsonNode root = mapper.readTree(resp.body());
-			JsonNode embeddings = root.get("embeddings");
-			if (embeddings != null && embeddings.isArray() && embeddings.size() > 0) {
-				JsonNode vec = embeddings.get(0);
-				List<Double> result = new ArrayList<>();
-				for (JsonNode v : vec)
-					result.add(v.asDouble());
-				return result;
+			Exception lastEx = null;
+			for (int attempt = 0; attempt < 3; attempt++) {
+				try {
+					HttpResponse<String> resp = HTTP_CLIENT.send(req, HttpResponse.BodyHandlers.ofString());
+					JsonNode root = mapper.readTree(resp.body());
+					JsonNode embeddings = root.get("embeddings");
+					if (embeddings != null && embeddings.isArray() && embeddings.size() > 0) {
+						JsonNode vec = embeddings.get(0);
+						List<Double> result = new ArrayList<>();
+						for (JsonNode v : vec)
+							result.add(v.asDouble());
+						return result;
+					}
+					break; // got a response but no embeddings — don't retry
+				} catch (Exception e) {
+					lastEx = e;
+					if (attempt < 2) {
+						Thread.sleep(500);
+					}
+				}
+			}
+			if (lastEx != null) {
+				log.warn("[embed] All 3 attempts failed: {}", lastEx.getMessage());
 			}
 		} catch (Exception e) {
 			log.warn("[embed] Embedding failed: {}", e.getMessage());

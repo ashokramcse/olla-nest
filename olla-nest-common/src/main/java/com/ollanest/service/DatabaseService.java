@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
@@ -47,7 +48,7 @@ import jakarta.annotation.PostConstruct;
  *
  * @author Ashok Ram
  * @since v2026.1.0
- * @version v2026.1.0
+ * @version v2026.1.10 — HIGH-6 startup validation that ENCRYPTION_KEY is not the insecure default
  */
 @Service
 public class DatabaseService {
@@ -60,6 +61,10 @@ public class DatabaseService {
 
 	/** Application configuration (admin credentials, data directory, etc.). */
 	private final AppConfig appConfig;
+
+	/** Encryption key injected from environment — checked at startup to catch insecure defaults. */
+	@Value("${encryption.key:change-me-in-production}")
+	private String encryptionKey;
 
 	/**
 	 * Constructs the service with its required collaborators.
@@ -88,6 +93,16 @@ public class DatabaseService {
 	 */
 	@PostConstruct
 	public void seedDatabase() {
+		// Fail fast if the insecure default encryption key is in use in non-dev
+		if ("change-me-in-production".equals(encryptionKey) || encryptionKey.length() < 32) {
+			log.warn("=================================================================");
+			log.warn("WARNING: ENCRYPTION_KEY is not set or is too short!");
+			log.warn("Set ENCRYPTION_KEY env var to a 64-char hex string.");
+			log.warn("Generate with: openssl rand -hex 32");
+			log.warn("Using insecure default — DO NOT run in production!");
+			log.warn("=================================================================");
+			// Don't throw — allow dev startup, but loudly warn
+		}
 		try {
 			seedSettings();
 			seedDepartments();
