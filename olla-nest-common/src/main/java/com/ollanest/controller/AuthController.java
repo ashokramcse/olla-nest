@@ -58,8 +58,8 @@ import java.util.Map;
  *
  * @author Ashok Ram
  * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — security hardening: enforce access_expires_at, session
- *          invalidation on role change (HIGH-2)
+ * @version v2026.1.10 — L-18: probabilistic cleanup of stale login_attempts
+ *          rows on successful login to prevent unbounded table growth
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -226,6 +226,14 @@ public class AuthController extends BaseController {
 
 		// Success — clear rate-limit record and issue session
 		db.update("DELETE FROM login_attempts WHERE ip = ?", ip);
+
+		// Probabilistic cleanup of stale login_attempts rows (fires ~1% of requests)
+		if (Math.random() < 0.01) {
+			try {
+				db.update("DELETE FROM login_attempts WHERE reset_at < ?", now - 86_400_000L); // 24h ago
+			} catch (Exception ignored) {}
+		}
+
 		User user = userService.publicUser(row);
 		authService.setSession(res, req, user);
 		// Include IP in audit log for SOC 2 traceability

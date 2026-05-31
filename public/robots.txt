@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /api/
+Disallow: /app
+Disallow: /admin
+Disallow: /login
+
+# Olla Nest is a private workspace application — no public content to index.

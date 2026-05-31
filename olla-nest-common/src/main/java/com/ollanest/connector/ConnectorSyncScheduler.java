@@ -8,8 +8,14 @@ import org.springframework.stereotype.Component;
 import com.ollanest.service.CryptoService;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Hourly background scheduler that drives incremental sync for all enabled
@@ -50,11 +56,14 @@ import java.util.Map;
  * <li><b>v2026.1.4</b> — initial creation; hourly fixed-delay scheduling;
  * per-connector try/catch isolation; sync-log write-back; 30-day log
  * pruning.</li>
+ * <li><b>v2026.1.10</b> — MED-4: run connectors in parallel virtual threads
+ * with 10-minute overall cap; L-8: add random suffix to logId to prevent
+ * ID collision under concurrent runs.</li>
  * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.4
- * @version v2026.1.4
+ * @version v2026.1.10
  * @see BaseConnector
  * @see ConnectorRegistry
  */
@@ -134,54 +143,89 @@ public class ConnectorSyncScheduler {
 			return;
 		log.info("[connectors] Starting scheduled sync for {} connector(s)", enabled.size());
 
+		ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+		List<Future<?>> futures = new ArrayList<>();
+
 		for (Map<String, Object> cfg : enabled) {
-			String id = (String) cfg.get("id");
-			String type = (String) cfg.get("type");
-			BaseConnector connector = registry.get(type);
-			if (connector == null) {
-				log.warn("[connectors] No connector registered for type '{}'", type);
-				continue;
-			}
+			futures.add(executor.submit(() -> syncOneConnector(cfg)));
+		}
 
-			String logId = "csl-" + Long.toString(System.currentTimeMillis(), 36);
-			db.update("INSERT INTO connector_sync_log (id, connector_id, started_at, status) VALUES (?,?,?,?)", logId,
-					id, Instant.now().toString(), "running");
-			db.update("UPDATE connector_configs SET sync_status='syncing', updated_at=? WHERE id=?",
-					Instant.now().toString(), id);
-
+		// Wait for all with overall 10-minute cap
+		for (Future<?> f : futures) {
 			try {
-				String credEnc = (String) cfg.get("credentials_enc");
-				String creds = (credEnc != null && !credEnc.isBlank()) ? cryptoService.decryptKey(credEnc) : "{}";
-				BaseConnector.SyncResult result = connector.sync(cfg, creds);
-
-				if (result.isOk()) {
-					db.update(
-							"UPDATE connector_configs " + "SET sync_status='ok', last_synced_at=?, sync_error=NULL, "
-									+ "docs_total=docs_total+?, updated_at=? WHERE id=?",
-							Instant.now().toString(), result.synced(), Instant.now().toString(), id);
-					db.update("UPDATE connector_sync_log " + "SET finished_at=?, docs_synced=?, status='ok' WHERE id=?",
-							Instant.now().toString(), result.synced(), logId);
-					log.info("[connectors] {} synced {} docs, skipped {}", type, result.synced(), result.skipped());
-				} else {
-					db.update(
-							"UPDATE connector_configs "
-									+ "SET sync_status='error', sync_error=?, updated_at=? WHERE id=?",
-							result.error(), Instant.now().toString(), id);
-					db.update("UPDATE connector_sync_log " + "SET finished_at=?, error=?, status='error' WHERE id=?",
-							Instant.now().toString(), result.error(), logId);
-					log.error("[connectors] {} sync error: {}", type, result.error());
-				}
+				f.get(10, TimeUnit.MINUTES);
+			} catch (TimeoutException e) {
+				log.warn("[connectors] Connector sync exceeded 10-minute cap, cancelling remaining");
+				f.cancel(true);
 			} catch (Exception e) {
-				log.error("[connectors] {} unexpected error: {}", type, e.getMessage());
-				db.update(
-						"UPDATE connector_configs " + "SET sync_status='error', sync_error=?, updated_at=? WHERE id=?",
-						e.getMessage(), Instant.now().toString(), id);
-				db.update("UPDATE connector_sync_log " + "SET finished_at=?, error=?, status='error' WHERE id=?",
-						Instant.now().toString(), e.getMessage(), logId);
+				log.error("[connectors] Connector sync task failed: {}", e.getMessage());
 			}
 		}
+		executor.shutdownNow();
 
 		// Prune log entries older than 30 days to prevent unbounded table growth
 		db.update("DELETE FROM connector_sync_log WHERE started_at < datetime('now', '-30 days')");
+	}
+
+	/**
+	 * Runs the incremental sync for a single connector configuration row.
+	 *
+	 * <p>
+	 * Inserts a {@code connector_sync_log} row, calls
+	 * {@link BaseConnector#sync(Map, String)}, and writes the outcome back to
+	 * both {@code connector_configs} and {@code connector_sync_log}. All
+	 * exceptions are caught and recorded so that one failing connector does not
+	 * prevent the others from running.
+	 *
+	 * @param cfg the {@code connector_configs} row to sync
+	 * @since v2026.1.10
+	 */
+	private void syncOneConnector(Map<String, Object> cfg) {
+		String id = (String) cfg.get("id");
+		String type = (String) cfg.get("type");
+		BaseConnector connector = registry.get(type);
+		if (connector == null) {
+			log.warn("[connectors] No connector registered for type '{}'", type);
+			return;
+		}
+
+		// L-8: append random suffix to prevent ID collision under concurrent runs
+		String logId = "csl-" + Long.toString(System.currentTimeMillis(), 36)
+				+ "-" + Long.toString((long)(Math.random() * 1_000_000), 36);
+		db.update("INSERT INTO connector_sync_log (id, connector_id, started_at, status) VALUES (?,?,?,?)", logId,
+				id, Instant.now().toString(), "running");
+		db.update("UPDATE connector_configs SET sync_status='syncing', updated_at=? WHERE id=?",
+				Instant.now().toString(), id);
+
+		try {
+			String credEnc = (String) cfg.get("credentials_enc");
+			String creds = (credEnc != null && !credEnc.isBlank()) ? cryptoService.decryptKey(credEnc) : "{}";
+			BaseConnector.SyncResult result = connector.sync(cfg, creds);
+
+			if (result.isOk()) {
+				db.update(
+						"UPDATE connector_configs " + "SET sync_status='ok', last_synced_at=?, sync_error=NULL, "
+								+ "docs_total=docs_total+?, updated_at=? WHERE id=?",
+						Instant.now().toString(), result.synced(), Instant.now().toString(), id);
+				db.update("UPDATE connector_sync_log " + "SET finished_at=?, docs_synced=?, status='ok' WHERE id=?",
+						Instant.now().toString(), result.synced(), logId);
+				log.info("[connectors] {} synced {} docs, skipped {}", type, result.synced(), result.skipped());
+			} else {
+				db.update(
+						"UPDATE connector_configs "
+								+ "SET sync_status='error', sync_error=?, updated_at=? WHERE id=?",
+						result.error(), Instant.now().toString(), id);
+				db.update("UPDATE connector_sync_log " + "SET finished_at=?, error=?, status='error' WHERE id=?",
+						Instant.now().toString(), result.error(), logId);
+				log.error("[connectors] {} sync error: {}", type, result.error());
+			}
+		} catch (Exception e) {
+			log.error("[connectors] {} unexpected error: {}", type, e.getMessage());
+			db.update(
+					"UPDATE connector_configs " + "SET sync_status='error', sync_error=?, updated_at=? WHERE id=?",
+					e.getMessage(), Instant.now().toString(), id);
+			db.update("UPDATE connector_sync_log " + "SET finished_at=?, error=?, status='error' WHERE id=?",
+					Instant.now().toString(), e.getMessage(), logId);
+		}
 	}
 }
