@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -36,18 +37,24 @@ import java.io.IOException;
  * a {@code ConcurrentHashMap} to avoid a DB round-trip on every request.</li>
  * <li>The following paths are intentionally served without a user attribute:
  * {@code POST /api/auth/login} and {@code GET /api/bootstrap}.</li>
+ * <li>{@code @Order(1)} ensures this filter runs before
+ * {@code MdcLoggingFilter} ({@code @Order(2)}) so the MDC context always has
+ * an authenticated user available when log entries are written (HIGH-5).</li>
  * </ul>
  *
  * <h3>Version history</h3>
  * <ul>
  * <li>v2026.1.0 — initial migration from Node.js session-cookie middleware</li>
  * <li>v2026.1.4 — no functional changes; retained as part of audit pass</li>
+ * <li>v2026.1.10 — HIGH-5: added {@code @Order(1)} to guarantee this filter
+ * executes before MdcLoggingFilter (@Order(2))</li>
  * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.0
- * @version v2026.1.4
+ * @version v2026.1.10
  */
+@Order(1)
 @Component
 public class SessionAuthFilter extends OncePerRequestFilter {
 

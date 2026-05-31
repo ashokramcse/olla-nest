@@ -2,6 +2,7 @@ package com.ollanest.config;
 
 import com.ollanest.service.TerminalService;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -21,11 +22,11 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
  *
  * <h3>Design notes</h3>
  * <ul>
- * <li>{@code setAllowedOriginPatterns("*")} is used because the application may
- * be accessed from different hostnames in development and air-gapped
- * deployments; actual authentication is enforced by
- * {@link WebSocketAuthInterceptor} at handshake time rather than by CORS origin
- * matching.</li>
+ * <li>{@code app.base-url} is used as the allowed WebSocket origin so that
+ * production deployments are locked to the configured base URL (HIGH-7).
+ * Defaults to {@code *} when not set, which permits all origins — only
+ * acceptable in local development; always set {@code app.base-url} in
+ * production.</li>
  * <li>SockJS fallback is not added here because the frontend uses native
  * WebSocket exclusively; adding it would complicate the terminal client
  * unnecessarily.</li>
@@ -37,11 +38,14 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
  * endpoint registration</li>
  * <li>v2026.1.4 — added {@link WebSocketAuthInterceptor} registration as part
  * of the CRIT-1 security hardening pass</li>
+ * <li>v2026.1.10 — HIGH-7: replaced hard-coded {@code "*"} with
+ * {@code app.base-url} property; wildcard is only the fallback for dev
+ * mode</li>
  * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.0
- * @version v2026.1.4
+ * @version v2026.1.10
  */
 @Configuration
 @EnableWebSocket
@@ -52,6 +56,17 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
 	/** Intercepts WebSocket upgrade requests to enforce session authentication. */
 	private final WebSocketAuthInterceptor authInterceptor;
+
+	/**
+	 * The base URL of the application, used to restrict WebSocket origin.
+	 * <p>
+	 * WARNING: In production, always set {@code app.base-url} (e.g.
+	 * {@code https://olla.example.com}) in application properties. Leaving it
+	 * unset falls back to {@code "*"} which permits WebSocket connections from
+	 * any origin and is NOT safe for production deployments.
+	 */
+	@Value("${app.base-url:*}")
+	private String appBaseUrl;
 
 	/**
 	 * Constructor-injects the terminal handler and the authentication interceptor.
@@ -71,15 +86,15 @@ public class WebSocketConfig implements WebSocketConfigurer {
 	 * authentication interceptor.
 	 *
 	 * <p>
-	 * All origin patterns are permitted at the CORS level; security is enforced by
-	 * {@link WebSocketAuthInterceptor} at the handshake stage.
+	 * The allowed origin pattern is read from {@code app.base-url}; security is
+	 * also enforced by {@link WebSocketAuthInterceptor} at the handshake stage.
 	 *
 	 * @param registry the Spring WebSocket handler registry
 	 * @since v2026.1.0
 	 */
 	@Override
 	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-		registry.addHandler(terminalService, "/api/terminal").setAllowedOriginPatterns("*")
+		registry.addHandler(terminalService, "/api/terminal").setAllowedOriginPatterns(appBaseUrl)
 				.addInterceptors(authInterceptor);
 	}
 }

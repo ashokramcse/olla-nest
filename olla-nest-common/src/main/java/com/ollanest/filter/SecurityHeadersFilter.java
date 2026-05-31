@@ -26,7 +26,9 @@ import java.io.IOException;
  * <ul>
  * <li>{@code 'unsafe-inline'} is permitted for scripts and styles because the
  * frontend uses inline event handlers; a nonce-based CSP is a future
- * improvement.</li>
+ * improvement.
+ * TODO (tech-debt): replace {@code 'unsafe-inline'} on script-src with a
+ * nonce-based CSP to eliminate XSS risk from injected inline scripts.</li>
  * <li>The filter is registered via {@link Component} so Spring Boot
  * auto-detects it, but its position in the security filter chain is controlled
  * explicitly in {@link com.ollanest.config.SecurityConfig#filterChain}.</li>
@@ -39,6 +41,9 @@ import java.io.IOException;
  * <li>v2026.1.4 — added {@code Content-Security-Policy} (MED-1) and
  * {@code Strict-Transport-Security} (MED-2) headers as part of the security
  * hardening pass</li>
+ * <li>v2026.1.10 — CRIT-5: changed Permissions-Policy microphone from () to
+ * (self) so voice recording works; MED-6: removed deprecated
+ * X-XSS-Protection header (harmful in modern browsers)</li>
  * </ul>
  *
  * <p>
@@ -46,8 +51,7 @@ import java.io.IOException;
  * <ul>
  * <li>{@code X-Content-Type-Options: nosniff} — prevents MIME-type
  * sniffing</li>
- * <li>{@code X-Frame-Options: SAMEORIGIN} — prevents clickjacking</li>
- * <li>{@code X-XSS-Protection: 1; mode=block} — legacy XSS filter hint</li>
+ * <li>{@code X-Frame-Options: DENY} — prevents clickjacking</li>
  * <li>{@code Referrer-Policy: strict-origin-when-cross-origin} — limits
  * referrer leakage</li>
  * <li>{@code Content-Security-Policy} — restricts resource origins (MED-1)</li>
@@ -57,7 +61,7 @@ import java.io.IOException;
  *
  * @author Ashok Ram
  * @since v2026.1.0
- * @version v2026.1.4
+ * @version v2026.1.10
  */
 @Component
 public class SecurityHeadersFilter extends OncePerRequestFilter {
@@ -79,10 +83,15 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
 		response.setHeader("X-Content-Type-Options", "nosniff");
 		// DENY is stricter than SAMEORIGIN — the app never needs to iframe itself.
 		response.setHeader("X-Frame-Options", "DENY");
-		response.setHeader("X-XSS-Protection", "1; mode=block");
+		// MED-6: X-XSS-Protection removed — the header is deprecated and can cause
+		// unintended page-blocking in modern browsers (Chromium removed the XSS
+		// Auditor; Firefox/Edge never supported it). CSP is the correct mitigation.
 		response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-		// Disable browser features the app never uses (hardening MED-3).
-		response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+		// CRIT-5: microphone=(self) allows voice recording from the same origin;
+		// camera, geolocation, and payment remain fully disabled (hardening MED-3).
+		response.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=(), payment=()");
+		// TODO (tech-debt): remove 'unsafe-inline' from script-src and replace with
+		// a nonce-based CSP once the frontend no longer uses inline event handlers.
 		response.setHeader("Content-Security-Policy",
 				"default-src 'self'; "
 						+ "script-src 'self' 'unsafe-inline'; "

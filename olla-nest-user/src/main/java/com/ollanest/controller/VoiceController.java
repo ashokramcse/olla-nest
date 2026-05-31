@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * REST API for voice input (speech-to-text) and voice output (text-to-speech).
@@ -31,6 +32,9 @@ import java.util.Map;
  * <li>The {@code /speak} response carries binary MP3 bytes with
  * {@code Content-Type: audio/mpeg} so the browser can play it directly via the
  * HTML {@code <audio>} element.</li>
+ * <li>The {@code voice} parameter is validated against
+ * {@link #ALLOWED_VOICES} before being passed to the TTS service (MED-8);
+ * unrecognised values are silently defaulted to {@code "alloy"}.</li>
  * </ul>
  *
  * <h3>Version history</h3>
@@ -38,15 +42,26 @@ import java.util.Map;
  * <li>v2026.1.0 — initial Java Spring Boot migration</li>
  * <li>v2026.1.4 — added voice/speak TTS endpoint; removed Firefox Web Speech
  * API fallback (Chrome/Edge only)</li>
+ * <li>v2026.1.10 — MED-8: added voice parameter validation against
+ * {@link #ALLOWED_VOICES} allowlist to prevent unvalidated input reaching the
+ * TTS API</li>
  * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.0
- * @version v2026.1.4
+ * @version v2026.1.10
  */
 @RestController
 @RequestMapping("/api/voice")
 public class VoiceController extends BaseController {
+
+	/**
+	 * Exhaustive set of voice IDs accepted by the OpenAI TTS API (MED-8).
+	 * Any value not in this set is replaced with {@code "alloy"} before the
+	 * request reaches the service layer.
+	 */
+	private static final Set<String> ALLOWED_VOICES =
+			Set.of("alloy", "echo", "fable", "onyx", "nova", "shimmer");
 
 	/** Delegates Whisper STT and OpenAI TTS calls to the voice service. */
 	private final VoiceService voiceService;
@@ -117,14 +132,16 @@ public class VoiceController extends BaseController {
 	 * Input text longer than 4 096 characters is silently truncated to match the
 	 * OpenAI TTS API character limit. The response body is raw MP3 binary data, not
 	 * a JSON envelope, so callers should check {@code Content-Type: audio/mpeg}.
+	 * The {@code voice} field is validated against {@link #ALLOWED_VOICES};
+	 * unrecognised values are silently replaced with {@code "alloy"} (MED-8).
 	 *
 	 * @param body JSON request body with:
 	 *             <ul>
 	 *             <li>{@code text} (String, required) — text to synthesise; max 4
 	 *             096 chars</li>
 	 *             <li>{@code voice} (String, optional, default {@code "alloy"}) —
-	 *             OpenAI voice ID (e.g. {@code "alloy"}, {@code "echo"},
-	 *             {@code "nova"})</li>
+	 *             OpenAI voice ID; must be one of: alloy, echo, fable, onyx, nova,
+	 *             shimmer</li>
 	 *             </ul>
 	 * @param req  the current HTTP request (session cookie used for auth + CSRF
 	 *             check)
@@ -142,6 +159,12 @@ public class VoiceController extends BaseController {
 
 		String text = (String) body.getOrDefault("text", "");
 		String voice = (String) body.getOrDefault("voice", "alloy");
+
+		// MED-8: validate voice against allowlist to prevent unvalidated input
+		// reaching the OpenAI TTS API; unknown values default to "alloy".
+		if (!ALLOWED_VOICES.contains(voice)) {
+			voice = "alloy"; // silently default to safe value
+		}
 
 		if (text.isBlank())
 			return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "text is required"));
