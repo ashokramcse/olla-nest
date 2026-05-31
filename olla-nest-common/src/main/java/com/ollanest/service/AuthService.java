@@ -2,6 +2,7 @@ package com.ollanest.service;
 
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,7 +71,8 @@ import jakarta.servlet.http.HttpServletResponse;
  *
  * @author Ashok Ram
  * @since v2026.1.0
- * @version v2026.1.4
+ * @version v2026.1.10 — MED-3: bounded session cache with size guard and
+ *          expired-entry eviction
  */
 @Service
 public class AuthService {
@@ -100,6 +102,9 @@ public class AuthService {
 
 	/** Session lifetime in seconds (12 hours). */
 	private static final long SESSION_DURATION_SECONDS = 43200;
+
+	/** Maximum number of sessions to hold in the in-memory cache. Prevents unbounded growth. */
+	private static final int MAX_CACHE_SIZE = 10_000;
 
 	/**
 	 * Whether to append the {@code Secure} flag to the session cookie. Should be
@@ -296,6 +301,19 @@ public class AuthService {
 		long expiresMs = System.currentTimeMillis() + SESSION_DURATION_SECONDS * 1000;
 		String expiresAt = Instant.ofEpochMilli(expiresMs).toString().replace("T", " ").replace("Z", "");
 
+		// Evict oldest entries if cache is at capacity
+		if (sessions.size() >= MAX_CACHE_SIZE) {
+			// Remove expired entries first
+			sessions.entrySet().removeIf(e -> System.currentTimeMillis() >= e.getValue().expiresAtMs);
+			// If still over limit, remove 10% oldest (approximate - ConcurrentHashMap has no ordering)
+			if (sessions.size() >= MAX_CACHE_SIZE) {
+				int toRemove = MAX_CACHE_SIZE / 10;
+				sessions.entrySet().stream()
+						.sorted(Map.Entry.comparingByValue(Comparator.comparingLong(s -> s.expiresAtMs)))
+						.limit(toRemove)
+						.forEach(e -> sessions.remove(e.getKey()));
+			}
+		}
 		db.update("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)", token, user.id, expiresAt);
 		sessions.put(token, new CachedSession(user, expiresMs));
 

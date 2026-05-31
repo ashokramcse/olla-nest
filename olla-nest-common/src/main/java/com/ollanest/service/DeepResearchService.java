@@ -38,17 +38,25 @@ import java.util.Map;
  * <h3>Version history</h3>
  * <ul>
  * <li><b>v2026.1.4</b> — initial creation</li>
+ * <li><b>v2026.1.10</b> — MED-2: overall timeout + sub-question cap; L-5: SSE
+ *     onTimeout/onError handlers added</li>
  * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.4
- * @version v2026.1.4
+ * @version v2026.1.10
  */
 @Service
 public class DeepResearchService {
 
 	/** SLF4J logger for this service. */
 	private static final Logger log = LoggerFactory.getLogger(DeepResearchService.class);
+
+	/** Maximum sub-questions the planner may generate (cost/time control). */
+	private static final int MAX_SUB_QUESTIONS = 5;
+
+	/** Hard wall-clock timeout for a full deep-research run (ms). */
+	private static final long RESEARCH_TIMEOUT_MS = 300_000; // 5 minutes
 
 	/** Resolves provider configuration maps from the persisted provider records. */
 	private final ProviderService providerService;
@@ -119,7 +127,16 @@ public class DeepResearchService {
 	 * @version v2026.1.4 — initial creation
 	 */
 	public void executeResearch(String query, User user, SseEmitter emitter) {
+		emitter.onTimeout(() -> {
+			log.warn("[research] SSE emitter timed out for query: {}", query.substring(0, Math.min(50, query.length())));
+			emitter.complete();
+		});
+		emitter.onError(ex -> {
+			log.warn("[research] SSE emitter error: {}", ex.getMessage());
+			emitter.completeWithError(ex);
+		});
 		try {
+			long startMs = System.currentTimeMillis();
 			RouterService.RouteResult route = routerService.routeModel(user, query, "ask");
 			Map<String, Object> provider = providerService.resolveProvider(route);
 
@@ -128,6 +145,18 @@ public class DeepResearchService {
 					"Analysing query and planning sub-questions…"));
 
 			List<String> subQuestions = planResearch(query, route, provider);
+
+			// Cap sub-questions to control cost and time
+			if (subQuestions.size() > MAX_SUB_QUESTIONS) {
+				subQuestions = subQuestions.subList(0, MAX_SUB_QUESTIONS);
+			}
+
+			if (System.currentTimeMillis() - startMs > RESEARCH_TIMEOUT_MS) {
+				emit(emitter, Map.of("type", "research_step", "step", "timeout", "status", "error",
+						"msg", "Research timed out after 5 minutes"));
+				emitter.complete();
+				return;
+			}
 
 			emit(emitter,
 					Map.of("type", "research_step", "step", "plan", "status", "done", "subQuestions", subQuestions));
@@ -152,6 +181,13 @@ public class DeepResearchService {
 
 				emit(emitter, Map.of("type", "research_step", "step", "search", "index", i, "query", sq, "status",
 						"done", "sources", webResults.size() + (ragCtx.isBlank() ? 0 : 1)));
+			}
+
+			if (System.currentTimeMillis() - startMs > RESEARCH_TIMEOUT_MS) {
+				emit(emitter, Map.of("type", "research_step", "step", "timeout", "status", "error",
+						"msg", "Research timed out after 5 minutes"));
+				emitter.complete();
+				return;
 			}
 
 			// ── Step 3: Synthesise ──────────────────────────────────────────

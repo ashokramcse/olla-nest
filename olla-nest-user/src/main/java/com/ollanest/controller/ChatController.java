@@ -81,10 +81,8 @@ import java.util.Map;
  *
  * @author Ashok Ram
  * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — security hardening: IDOR protection on feedback endpoint
- * @version v2026.1.2 — Spring AI integration: injected RagService +
- *          FunctionCallService; RAG context + function calling in both /chat
- *          and /chat/stream
+ * @version v2026.1.10 — L-4: ok:false added to all 4xx error responses;
+ *          MED-1: 403 chat:use response includes ok:false
  */
 @RestController
 @RequestMapping("/api")
@@ -194,10 +192,10 @@ public class ChatController extends BaseController {
 			return authError;
 		User user = getUser(req);
 		if (!userHasRight(user, "chat:use")) {
-			return ResponseEntity.status(403).body(Map.of("error", "Chat access is not enabled for this account"));
+			return ResponseEntity.status(403).body(Map.of("ok", false, "error", "Chat access is not enabled for this account"));
 		}
 		if (!chatService.checkChatRateLimit(user.id, user.apiRateLimitPerMinute)) {
-			return ResponseEntity.status(429).body(Map.of("error", "Rate limit reached."));
+			return ResponseEntity.status(429).body(Map.of("ok", false, "error", "Rate limit reached."));
 		}
 
 		String message = (String) body.get("message");
@@ -205,11 +203,11 @@ public class ChatController extends BaseController {
 		String manualModelId = (String) body.get("manualModelId");
 
 		if (message == null || message.trim().isEmpty()) {
-			return ResponseEntity.status(400).body(Map.of("error", "Message is required"));
+			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "Message is required"));
 		}
 		if (message.length() > 16000) {
 			return ResponseEntity.status(400)
-					.body(Map.of("error", "Message exceeds maximum length of 16,000 characters"));
+					.body(Map.of("ok", false, "error", "Message exceeds maximum length of 16,000 characters"));
 		}
 
 		// Daily token quota check
@@ -218,7 +216,7 @@ public class ChatController extends BaseController {
 						+ "WHERE user_id = ? AND role = 'assistant' AND date(created_at) = date('now')",
 				Integer.class, user.id);
 		if (todayUsage != null && user.dailyTokenLimit > 0 && todayUsage >= user.dailyTokenLimit) {
-			return ResponseEntity.status(429).body(Map.of("error", "Daily token limit reached."));
+			return ResponseEntity.status(429).body(Map.of("ok", false, "error", "Daily token limit reached."));
 		}
 
 		ModelRecord manualModel = null;
@@ -228,7 +226,7 @@ public class ChatController extends BaseController {
 			if (manualModel != null) {
 				RouterService.SensitivityResult sr = routerService.detectSensitiveContent(message);
 				if (sr.isSensitive && !"local".equals(manualModel.privacy)) {
-					return ResponseEntity.status(403).body(Map.of("error",
+					return ResponseEntity.status(403).body(Map.of("ok", false, "error",
 							"Message contains sensitive content and cannot be sent to an external model."));
 				}
 			}
@@ -247,7 +245,7 @@ public class ChatController extends BaseController {
 			route = routerService.routeModel(user, message, mode);
 		}
 		if (route.selected == null)
-			return ResponseEntity.status(403).body(Map.of("error", route.reason));
+			return ResponseEntity.status(403).body(Map.of("ok", false, "error", route.reason));
 
 		Map<String, Object> workspace = workspaceService.workspaceForUser(user.id);
 		Map<String, Object> chat = chatService.getActiveChat(user.id);
@@ -752,11 +750,11 @@ public class ChatController extends BaseController {
 		String sessionId = (String) body.get("sessionId");
 		Object ratingObj = body.get("rating");
 		if (messageId == null || sessionId == null || ratingObj == null) {
-			return ResponseEntity.status(400).body(Map.of("error", "messageId, sessionId, and rating are required"));
+			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "messageId, sessionId, and rating are required"));
 		}
 		int rating = ((Number) ratingObj).intValue();
 		if (rating != 1 && rating != -1) {
-			return ResponseEntity.status(400).body(Map.of("error", "rating must be 1 or -1"));
+			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "rating must be 1 or -1"));
 		}
 		// IDOR guard: verify the message belongs to the user's own session
 		Integer msgCount = db.queryForObject(
@@ -764,7 +762,7 @@ public class ChatController extends BaseController {
 						+ "AND session_id IN (SELECT id FROM chat_sessions WHERE user_id = ?)",
 				Integer.class, messageId, user.id);
 		if (msgCount == null || msgCount == 0) {
-			return ResponseEntity.status(404).body(Map.of("error", "Message not found"));
+			return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Message not found"));
 		}
 		db.update(
 				"INSERT INTO feedback (id, message_id, session_id, user_id, rating, comment, "

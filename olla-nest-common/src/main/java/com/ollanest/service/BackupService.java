@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @author Ashok Ram
  * @since v2026.1.0
- * @version v2026.1.4
+ * @version v2026.1.10 — L-3: backup filenames now use UTC timestamps
  */
 @Service
 public class BackupService {
@@ -149,7 +149,7 @@ public class BackupService {
 		if (!backupDir.exists())
 			backupDir.mkdirs();
 
-		String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss"));
+		String ts = LocalDateTime.now(java.time.ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss'Z'"));
 		File dest = new File(backupDir, "olla-nest-" + ts + ".sqlite");
 
 		try {
