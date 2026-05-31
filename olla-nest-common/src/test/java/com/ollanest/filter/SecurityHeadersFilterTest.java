@@ -44,10 +44,13 @@ class SecurityHeadersFilterTest {
 	}
 
 	@Test
-	@DisplayName("sets X-XSS-Protection header on every response")
-	void setsXXssProtection() throws Exception {
+	@DisplayName("X-XSS-Protection header is NOT set (MED-6: deprecated and harmful in modern browsers)")
+	void xXssProtectionNotSet() throws Exception {
 		filter.doFilterInternal(request, response, chain);
-		verify(response).setHeader("X-XSS-Protection", "1; mode=block");
+		// MED-6: X-XSS-Protection was removed because it is deprecated and the
+		// Chromium XSS Auditor was removed; setting it can cause unintended page-blocking.
+		// CSP is the correct XSS mitigation.
+		verify(response, never()).setHeader(eq("X-XSS-Protection"), anyString());
 	}
 
 	@Test
@@ -72,9 +75,11 @@ class SecurityHeadersFilterTest {
 	@DisplayName("sets Permissions-Policy header on every response")
 	void setsPermissionsPolicy() throws Exception {
 		filter.doFilterInternal(request, response, chain);
+		// CRIT-5: microphone=(self) allows voice recording from same origin;
+		// camera, geolocation, payment remain fully disabled.
 		verify(response).setHeader(eq("Permissions-Policy"), argThat(v ->
 				v.contains("camera=()")
-				&& v.contains("microphone=()")
+				&& v.contains("microphone=(self)")
 				&& v.contains("geolocation=()")
 				&& v.contains("payment=()")
 		));

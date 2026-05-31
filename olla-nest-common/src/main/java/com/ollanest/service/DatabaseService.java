@@ -93,8 +93,9 @@ public class DatabaseService {
 	 */
 	@PostConstruct
 	public void seedDatabase() {
-		// Fail fast if the insecure default encryption key is in use in non-dev
-		if ("change-me-in-production".equals(encryptionKey) || encryptionKey.length() < 32) {
+		// Fail fast if the insecure default encryption key is in use in non-dev.
+		// Guard against null (can occur in unit tests where @Value is not injected).
+		if (encryptionKey == null || "change-me-in-production".equals(encryptionKey) || encryptionKey.length() < 32) {
 			log.warn("=================================================================");
 			log.warn("WARNING: ENCRYPTION_KEY is not set or is too short!");
 			log.warn("Set ENCRYPTION_KEY env var to a 64-char hex string.");

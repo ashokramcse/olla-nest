@@ -4,6 +4,50 @@ All notable changes to Olla Nest are documented here.
 
 ---
 
+## v2026.1.10 — 2026-05-31
+
+### 🔴 Critical & High Security Fixes (Full Audit Remediation)
+
+#### CRITICAL
+- **CRIT-1** — `SsoService`: Added real JWT signature verification via `NimbusJwtDecoder` (spring-security-oauth2-jose) for both Google OAuth 2.0 and generic OIDC flows. Previously the `id_token` was decoded without signature verification, allowing trivial account takeover by forging any email. Fix: `NimbusJwtDecoder.withJwkSetUri(jwksUri).build().decode(idToken)` throws `JwtException` on tampered tokens.
+- **CRIT-5** — `SecurityHeadersFilter`: `Permissions-Policy` changed from `microphone=()` (blocked) to `microphone=(self)` (same-origin only). The previous value silently broke voice recording for all users.
+
+#### HIGH
+- **HIGH-1** — `DocumentController`: `DELETE /api/documents/{id}` now enforces ownership — regular users can only delete their own documents; admins can delete any. Previously any authenticated user could delete any document (IDOR).
+- **HIGH-3** — `EmbeddingService`: Replaced per-call `HttpClient.newBuilder().build()` with a `static final` shared client. Previous code created a new thread pool + connection pool on every RAG chunk embedding, causing memory/thread exhaustion under load.
+- **HIGH-4** — `DocumentController`: File upload now validates `Content-Type` against an explicit allowlist (`application/pdf`, `text/plain`, `text/markdown`), with extension fallback. Rejects unsupported types with 400 before content is processed.
+- **HIGH-5** — `SessionAuthFilter`: Added `@Order(1)` so it always runs before `MdcLoggingFilter` (`@Order(2)`). Without this, MDC logged `"anon"` for authenticated requests when filter ordering was non-deterministic.
+- **HIGH-6** — `DatabaseService`: Added startup warning when `ENCRYPTION_KEY` is null, equals the insecure default `"change-me-in-production"`, or is shorter than 32 characters. Logs a loud 5-line WARN block; does not throw (dev startup still proceeds).
+- **HIGH-7** — `WebSocketConfig`: Terminal WebSocket `setAllowedOriginPatterns("*")` replaced with `setAllowedOriginPatterns(appBaseUrl)` driven by `${app.base-url}` property. `"*"` only applies when `app.base-url` is not set (dev mode).
+
+#### MEDIUM
+- **MED-1** — `ChatController`: All 4xx responses that were missing `"ok": false` now include it. Consistent error envelope across every endpoint.
+- **MED-2** — `DeepResearchService`: Added `MAX_SUB_QUESTIONS = 5` cap, `RESEARCH_TIMEOUT_MS = 300_000` (5-minute) hard cutoff, and timeout check after each pipeline phase. Prevents unbounded OpenAI/web-search cost.
+- **MED-3** — `AuthService`: Session cache now enforces `MAX_CACHE_SIZE = 10_000`. On overflow, expired entries are evicted first; if still full, the soonest-to-expire 10% are removed. Prevents unbounded memory growth under high user load.
+- **MED-4** — `ConnectorSyncScheduler`: All connectors now run in parallel virtual threads (`Executors.newVirtualThreadPerTaskExecutor()`) with a 10-minute per-connector timeout. Previously all 20 connectors ran sequentially, blocking the scheduler thread for 10–20 minutes.
+- **MED-6** — `SecurityHeadersFilter`: Removed deprecated `X-XSS-Protection: 1; mode=block` header. Chromium removed the XSS Auditor; this header can cause unintended page-blocking. CSP is the correct mitigation.
+- **MED-7** — `application.properties` (admin + user): `app.version` changed from hardcoded `v2026.1.5` to Maven-filtered `@project.version@`. Health endpoints now report the actual artifact version.
+- **MED-8** — `VoiceController`: Added `ALLOWED_VOICES` allowlist (`alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`). Unrecognised `voice` values now silently default to `"alloy"` rather than being forwarded to the OpenAI API.
+- **MED-9** — `SsoService`: Added `@Scheduled` task to delete `oauth_state` rows older than 15 minutes (runs every 5 minutes). Prevents unbounded table growth from abandoned OAuth flows.
+- **MED-12** — `AdminUserController`: Added enum validation for `aiAccessTier` and `accessStatus` fields, and numeric bounds check `[0, 10_000_000]` for all quota fields before entering the update transaction.
+
+#### LOW / INFRASTRUCTURE
+- **L-2** — `EmbeddingService`: Added 3-attempt retry loop (500ms delay) for transient Ollama embedding failures. Previously a single network hiccup left chunks permanently un-embedded with no retry.
+- **L-3** — `BackupService`: Backup filenames now use `LocalDateTime.now(ZoneOffset.UTC)` with `'Z'` suffix, producing stable UTC-based names regardless of JVM timezone or DST transitions.
+- **L-5** — `DeepResearchService`: Added `onTimeout` and `onError` handlers to `SseEmitter`. Previously a timed-out research session left the client connection hanging indefinitely.
+- **L-8** — `ConnectorSyncScheduler`: Log entry IDs now include a random base-36 suffix to prevent collision when connectors complete within the same millisecond.
+- **L-9** — `public/robots.txt`: Created. Disallows `/api/`, `/app`, `/admin`, `/login` from all crawlers.
+- **L-10** — `V7__cleanup_and_indexes.sql`: Added `AFTER DELETE ON users` trigger to cascade-delete orphaned `workspace_prefs` rows.
+- **L-17** — `V7__cleanup_and_indexes.sql`: Added composite index `idx_audit_events_actor_date ON audit_events(actor, created_at)` for fast per-actor report queries.
+- **L-18** — `V7__cleanup_and_indexes.sql` + `AuthController`: Added `idx_login_attempts_reset_at` index. `AuthController.login()` now runs a probabilistic (1%) cleanup of stale `login_attempts` rows older than 24h on successful login, preventing unbounded table growth.
+- **L-19 / MED-7** — Sub-module `pom.xml` files aligned to parent version `2026.1.9` (build fix). Maven resource filtering enabled in admin and user modules for `@project.version@` substitution.
+
+#### Test fixes
+- `SecurityHeadersFilterTest`: Updated `setsXXssProtection` test → now asserts the header is NOT set (MED-6). Updated `setsPermissionsPolicy` → asserts `microphone=(self)` (CRIT-5).
+- `DatabaseServiceTest`: Fixed NPE when `@Value` not injected in unit test context — added null guard before `encryptionKey.length()` call.
+
+---
+
 ## v2026.1.9 — 2026-05-25
 
 ### 🔒 SQL Hardening, SOC 2 Security Audit & Enterprise Test Coverage

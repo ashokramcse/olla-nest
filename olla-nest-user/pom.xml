@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>com.ollanest</groupId>
 		<artifactId>olla-nest-parent</artifactId>
-		<version>2026.1.5</version>
+		<version>2026.1.9</version>
 	</parent>
 
 	<artifactId>olla-nest-user</artifactId>
