@@ -14,8 +14,15 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -78,18 +85,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <li><b>v2026.1.4</b> — initial creation; Google OAuth 2.0, generic OIDC
  * discovery, lightweight SAML 2.0 XML parsing; CSRF state nonce management;
  * provider CRUD helpers.</li>
+ * <li><b>v2026.1.10</b> — CRIT-1 JWT/OIDC signature verification via
+ * NimbusJwtDecoder; MED-9 scheduled oauth_state cleanup.</li>
  * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.4
- * @version v2026.1.4
+ * @version v2026.1.10
  * @see com.ollanest.controller.SsoController
  */
 @Service
 public class SsoService {
 
+	private static final Logger log = LoggerFactory.getLogger(SsoService.class);
+
 	/** Google OAuth 2.0 token exchange endpoint. */
 	private static final String GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+
+	/** Google JWKS URI for JWT signature verification. */
+	private static final String GOOGLE_JWKS_URI = "https://www.googleapis.com/oauth2/v3/certs";
 
 	/** Google OAuth 2.0 user-info endpoint (returns email, name, picture). */
 	private static final String GOOGLE_USERINFO = "https://www.googleapis.com/oauth2/v3/userinfo";
@@ -212,6 +226,27 @@ public class SsoService {
 		return rows.get(0);
 	}
 
+	/**
+	 * Periodically deletes expired OAuth state nonces from the {@code oauth_state}
+	 * table.
+	 *
+	 * <p>
+	 * Runs every 5 minutes (with a 60-second initial delay) and removes any rows
+	 * whose {@code created_at} timestamp is older than 15 minutes. This prevents
+	 * unbounded growth of the table when users abandon OAuth flows without
+	 * completing them.
+	 *
+	 * @since v2026.1.10
+	 */
+	@Scheduled(fixedDelay = 300_000, initialDelay = 60_000)
+	public void cleanExpiredOAuthState() {
+		try {
+			db.update("DELETE FROM oauth_state WHERE created_at < datetime('now', '-15 minutes')");
+		} catch (Exception e) {
+			log.warn("[sso] Failed to clean oauth_state: {}", e.getMessage());
+		}
+	}
+
 	// -------------------------------------------------------------------------
 	// Provider lookup
 	// -------------------------------------------------------------------------
@@ -315,12 +350,20 @@ public class SsoService {
 		if (tokens.has("error")) {
 			throw new RuntimeException("Google token error: " + tokens.path("error_description").asText());
 		}
-		// Use the access token to fetch user identity from the userinfo endpoint
-		String accessToken = tokens.path("access_token").asText();
-		HttpRequest infoReq = HttpRequest.newBuilder().uri(URI.create(GOOGLE_USERINFO))
-				.header("Authorization", "Bearer " + accessToken).timeout(Duration.ofSeconds(10)).GET().build();
-		JsonNode info = mapper.readTree(http.send(infoReq, HttpResponse.BodyHandlers.ofString()).body());
-		return new ClaimsResult(info.path("email").asText(), info.path("name").asText(), "google");
+		// Verify the id_token signature using Google's JWKS endpoint
+		String idToken = tokens.path("id_token").asText();
+		JwtDecoder googleDecoder = NimbusJwtDecoder.withJwkSetUri(GOOGLE_JWKS_URI).build();
+		Jwt googleJwt;
+		try {
+			googleJwt = googleDecoder.decode(idToken);
+		} catch (JwtException e) {
+			throw new RuntimeException("Invalid Google ID token signature: " + e.getMessage());
+		}
+		String email = googleJwt.getClaimAsString("email");
+		String name = googleJwt.getClaimAsString("name");
+		String sub = googleJwt.getClaimAsString("sub");
+		String picture = googleJwt.getClaimAsString("picture");
+		return new ClaimsResult(email != null ? email : "", name != null ? name : "", "google");
 	}
 
 	// -------------------------------------------------------------------------
@@ -392,13 +435,25 @@ public class SsoService {
 		if (tokens.has("error")) {
 			throw new RuntimeException("OIDC token error: " + tokens.path("error_description").asText());
 		}
-		// Decode the JWT id_token payload (header.PAYLOAD.signature) without signature
-		// verification
+		// Verify the id_token signature using the OIDC provider's JWKS endpoint
 		String idToken = tokens.path("id_token").asText();
-		JsonNode claims = decodeJwtPayload(idToken);
-		String email = claims.path("email").asText();
-		String name = claims.path("name").asText(claims.path("preferred_username").asText(email));
-		return new ClaimsResult(email, name, "oidc");
+		String jwksUri = discovery.path("jwks_uri").asText();
+		JwtDecoder oidcDecoder = NimbusJwtDecoder.withJwkSetUri(jwksUri).build();
+		Jwt oidcJwt;
+		try {
+			oidcJwt = oidcDecoder.decode(idToken);
+		} catch (JwtException e) {
+			throw new RuntimeException("Invalid OIDC ID token signature: " + e.getMessage());
+		}
+		String email = oidcJwt.getClaimAsString("email");
+		String name = oidcJwt.getClaimAsString("name");
+		if (name == null || name.isBlank()) {
+			name = oidcJwt.getClaimAsString("preferred_username");
+		}
+		if (name == null || name.isBlank()) {
+			name = email;
+		}
+		return new ClaimsResult(email != null ? email : "", name != null ? name : "", "oidc");
 	}
 
 	// -------------------------------------------------------------------------
