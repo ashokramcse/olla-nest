@@ -194,14 +194,15 @@ class AuthServiceTest {
 		}
 
 		@Test
-		@DisplayName("sets HttpOnly session cookie on response")
+		@DisplayName("sets HttpOnly session cookie on response (HIGH-1 fix: single Set-Cookie header via setHeader)")
 		void setsCookieOnResponse() {
 			User admin = UserFactory.admin();
 			when(req.getCookies()).thenReturn(null);
 
 			authService.setSession(res, req, admin);
 
-			verify(res, atLeastOnce()).addHeader(eq("Set-Cookie"), argThat(v ->
+			// HIGH-1 FIX: now uses setHeader (not addHeader) to prevent double Set-Cookie
+			verify(res).setHeader(eq("Set-Cookie"), argThat(v ->
 					v.contains("olla_nest_session")
 					&& v.contains("HttpOnly")
 					&& v.contains("SameSite=Lax")
@@ -233,8 +234,9 @@ class AuthServiceTest {
 
 			authService.setSession(res, req, admin);
 
+			// HIGH-1 FIX: now uses setHeader (not addHeader)
 			ArgumentCaptor<String> headerCaptor = ArgumentCaptor.forClass(String.class);
-			verify(res, atLeastOnce()).addHeader(eq("Set-Cookie"), headerCaptor.capture());
+			verify(res).setHeader(eq("Set-Cookie"), headerCaptor.capture());
 			// The raw header written by authService should NOT contain "; Secure"
 			boolean anyHasSecure = headerCaptor.getAllValues().stream()
 					.anyMatch(v -> v.contains("; Secure"));

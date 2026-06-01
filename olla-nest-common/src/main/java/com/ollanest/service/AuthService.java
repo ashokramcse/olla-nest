@@ -106,6 +106,9 @@ public class AuthService {
 	/** Maximum number of sessions to hold in the in-memory cache. Prevents unbounded growth. */
 	private static final int MAX_CACHE_SIZE = 10_000;
 
+	/** Lock for cache eviction — prevents two concurrent setSession() calls from over-evicting. */
+	private static final Object CACHE_EVICTION_LOCK = new Object();
+
 	/**
 	 * Whether to append the {@code Secure} flag to the session cookie. Should be
 	 * {@code true} in production behind HTTPS; defaults to {@code false} so local
@@ -301,34 +304,38 @@ public class AuthService {
 		long expiresMs = System.currentTimeMillis() + SESSION_DURATION_SECONDS * 1000;
 		String expiresAt = Instant.ofEpochMilli(expiresMs).toString().replace("T", " ").replace("Z", "");
 
-		// Evict oldest entries if cache is at capacity
-		if (sessions.size() >= MAX_CACHE_SIZE) {
-			// Remove expired entries first
-			sessions.entrySet().removeIf(e -> System.currentTimeMillis() >= e.getValue().expiresAtMs);
-			// If still over limit, remove 10% oldest (approximate - ConcurrentHashMap has no ordering)
+		// MED-4 FIX: Evict under synchronization to prevent two concurrent threads
+		// from both observing size >= MAX_CACHE_SIZE and over-evicting, or from
+		// adding a new session that gets immediately removed by a racing eviction.
+		// Use a dedicated lock object rather than synchronizing on 'sessions' itself
+		// (which would serialize all ConcurrentHashMap operations, defeating its purpose).
+		synchronized (CACHE_EVICTION_LOCK) {
 			if (sessions.size() >= MAX_CACHE_SIZE) {
-				int toRemove = MAX_CACHE_SIZE / 10;
-				sessions.entrySet().stream()
-						.sorted(Map.Entry.comparingByValue(Comparator.comparingLong(s -> s.expiresAtMs)))
-						.limit(toRemove)
-						.forEach(e -> sessions.remove(e.getKey()));
+				// Pass 1: remove expired entries — O(n) but cheap in the common case
+				sessions.entrySet().removeIf(e -> System.currentTimeMillis() >= e.getValue().expiresAtMs);
+				// Pass 2: if still over limit, evict the oldest 10%
+				if (sessions.size() >= MAX_CACHE_SIZE) {
+					int toRemove = MAX_CACHE_SIZE / 10;
+					sessions.entrySet().stream()
+							.sorted(Map.Entry.comparingByValue(Comparator.comparingLong(s -> s.expiresAtMs)))
+							.limit(toRemove)
+							.map(Map.Entry::getKey)
+							.toList()  // collect before modifying the map
+							.forEach(sessions::remove);
+				}
 			}
 		}
 		db.update("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)", token, user.id, expiresAt);
 		sessions.put(token, new CachedSession(user, expiresMs));
 
-		// Set HttpOnly cookie via Servlet API first (for compatibility)
-		Cookie cookie = new Cookie(COOKIE_NAME, token);
-		cookie.setHttpOnly(true);
-		cookie.setPath("/");
-		cookie.setMaxAge((int) SESSION_DURATION_SECONDS);
-		res.addCookie(cookie);
-
-		// Override with a full Set-Cookie header to include SameSite=Lax and optional
-		// Secure
+		// HIGH-1 FIX: Set cookie exclusively via the raw Set-Cookie header so that
+		// SameSite=Lax is always included. Using both res.addCookie() AND a manual
+		// Set-Cookie header results in two separate Set-Cookie directives for the
+		// same cookie name; browsers process both, and the one without SameSite may
+		// be stored instead of the hardened one on some older browsers.
 		String secureFlag = cookieSecure ? "; Secure" : "";
-		res.addHeader("Set-Cookie", COOKIE_NAME + "=" + token + "; HttpOnly; SameSite=Lax; Path=/; Max-Age="
-				+ SESSION_DURATION_SECONDS + secureFlag);
+		res.setHeader("Set-Cookie", COOKIE_NAME + "=" + token
+				+ "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" + SESSION_DURATION_SECONDS + secureFlag);
 	}
 
 	/**

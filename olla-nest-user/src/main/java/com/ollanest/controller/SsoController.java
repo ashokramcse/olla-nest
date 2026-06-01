@@ -289,6 +289,19 @@ public class SsoController {
 	public void samlAcs(@RequestParam("SAMLResponse") String samlResponse,
 			@RequestParam(value = "RelayState", required = false) String relayState, HttpServletRequest req,
 			HttpServletResponse res) throws Exception {
+		// CRIT-6 MITIGATION: SAML signature verification is not yet implemented.
+		// Until OpenSAML-based XML signature verification is integrated, SAML SSO
+		// is disabled by default. Admins can re-enable by setting saml.enabled=true
+		// ONLY in environments where they accept the risk of unsigned assertions.
+		boolean samlEnabled = "true".equalsIgnoreCase(
+			System.getProperty("saml.enabled", System.getenv("SAML_ENABLED")));
+		if (!samlEnabled) {
+			org.slf4j.LoggerFactory.getLogger(SsoController.class).warn(
+				"[sso] SAML ACS request rejected: SAML is disabled pending XML signature verification. " +
+				"Set SAML_ENABLED=true env var only if you accept unsigned assertion risk.");
+			res.sendRedirect("/login?sso_error=saml_disabled");
+			return;
+		}
 		SsoService.ClaimsResult claims;
 		try {
 			claims = ssoService.parseSamlResponse(samlResponse);

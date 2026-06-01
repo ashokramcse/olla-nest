@@ -176,7 +176,8 @@ public class WorkspaceController extends BaseController {
 			result.put("parent", parent);
 			result.put("dirs", dirs);
 			result.put("home", defaultHome);
-			result.put("hostHome", userHome);
+			// LOW-6 FIX: removed 'hostHome' — exposing the server JVM user's home path
+			// leaks server filesystem layout to all workspace:build users unnecessarily.
 			return ResponseEntity.ok(result);
 		} catch (Exception e) {
 			return ResponseEntity.status(400).body(Map.of("ok", false, "error", e.getMessage()));

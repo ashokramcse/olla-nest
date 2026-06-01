@@ -83,6 +83,13 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
 		response.setHeader("X-Content-Type-Options", "nosniff");
 		// DENY is stricter than SAMEORIGIN — the app never needs to iframe itself.
 		response.setHeader("X-Frame-Options", "DENY");
+		// MED-6 FIX: Prevent sensitive API responses from being cached by proxies or browsers.
+		// Applied to /api/** only; static assets can be cached by the reverse proxy.
+		String path = request.getRequestURI();
+		if (path != null && path.startsWith("/api/")) {
+			response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+			response.setHeader("Pragma", "no-cache");
+		}
 		// MED-6: X-XSS-Protection removed — the header is deprecated and can cause
 		// unintended page-blocking in modern browsers (Chromium removed the XSS
 		// Auditor; Firefox/Edge never supported it). CSP is the correct mitigation.

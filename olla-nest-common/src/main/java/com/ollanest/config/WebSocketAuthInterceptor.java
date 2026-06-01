@@ -104,6 +104,12 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
 		// Require workspace:build right; admins implicitly have all rights
 		boolean hasRight = "admin".equals(user.role)
 				|| (user.rights != null && user.rights.contains("workspace:build"));
+		if (hasRight) {
+			// CRIT-2 MITIGATION: Store user ID in WS session attributes so TerminalService
+			// can include it in audit log entries without re-querying the session store.
+			attributes.put("authenticatedUserId", user.id);
+			attributes.put("authenticatedUserName", user.name);
+		}
 		return hasRight;
 	}
 

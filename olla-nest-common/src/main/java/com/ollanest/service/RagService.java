@@ -289,9 +289,13 @@ public class RagService {
 	 * @return the generated document ID (e.g. {@code doc-lx7k3a-p2q8r5})
 	 * @since v2026.1.0
 	 */
+	/** SecureRandom for document ID generation — used to prevent ID collision and guessing. */
+	private static final java.security.SecureRandom INGEST_RNG = new java.security.SecureRandom();
+
 	public String ingestText(String content, String name, String scope) {
+		// MED-5 / LOW-7 FIX: Use SecureRandom instead of Math.random() for document ID.
 		String docId = "doc-" + Long.toString(System.currentTimeMillis(), 36) + "-"
-				+ Long.toString((long) (Math.random() * 1_000_000), 36);
+				+ Long.toString(INGEST_RNG.nextLong() & Long.MAX_VALUE, 36);
 		List<String> chunks = chunkText(content);
 		String now = java.time.Instant.now().toString();
 		db.update(

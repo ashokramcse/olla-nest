@@ -66,6 +66,10 @@ public class DatabaseService {
 	@Value("${encryption.key:change-me-in-production}")
 	private String encryptionKey;
 
+	/** Active Spring profiles — used to detect dev vs production environment. */
+	@org.springframework.beans.factory.annotation.Autowired
+	private org.springframework.core.env.Environment springEnv;
+
 	/**
 	 * Constructs the service with its required collaborators.
 	 *
@@ -93,16 +97,25 @@ public class DatabaseService {
 	 */
 	@PostConstruct
 	public void seedDatabase() {
-		// Fail fast if the insecure default encryption key is in use in non-dev.
-		// Guard against null (can occur in unit tests where @Value is not injected).
+		// MED-2 FIX: Fail fast on insecure default encryption key in production.
+		// In production (when the 'prod' profile is active or ENCRYPTION_KEY is
+		// explicitly set to the sentinel), we must refuse to start rather than silently
+		// using a well-known key that any attacker can use to decrypt all stored secrets.
+		boolean isDevMode = isDevMode();
 		if (encryptionKey == null || "change-me-in-production".equals(encryptionKey) || encryptionKey.length() < 32) {
+			if (!isDevMode) {
+				// Hard fail in non-dev — do not start with an insecure encryption key
+				throw new IllegalStateException(
+					"ENCRYPTION_KEY environment variable is not set or is too short. " +
+					"Generate a key with: openssl rand -hex 32 " +
+					"Refusing to start in production mode with an insecure default key.");
+			}
 			log.warn("=================================================================");
 			log.warn("WARNING: ENCRYPTION_KEY is not set or is too short!");
 			log.warn("Set ENCRYPTION_KEY env var to a 64-char hex string.");
 			log.warn("Generate with: openssl rand -hex 32");
-			log.warn("Using insecure default — DO NOT run in production!");
+			log.warn("DEV MODE: Using insecure default — NEVER run in production!");
 			log.warn("=================================================================");
-			// Don't throw — allow dev startup, but loudly warn
 		}
 		try {
 			seedSettings();
@@ -115,6 +128,25 @@ public class DatabaseService {
 		} catch (Exception e) {
 			log.error("[db] Seeding error: {}", e.getMessage(), e);
 		}
+		// Log security posture summary at startup for operator awareness
+		logSecurityPosture(isDevMode);
+	}
+
+	/** Logs a startup security posture summary so operators see critical config status. */
+	private void logSecurityPosture(boolean isDevMode) {
+		log.info("╔══════════════════════════════════════════════════════╗");
+		log.info("║          OLLA NEST — SECURITY POSTURE SUMMARY        ║");
+		log.info("╠══════════════════════════════════════════════════════╣");
+		log.info("║ Mode      : {}", isDevMode ? "DEVELOPMENT (warnings only)    ║" : "PRODUCTION (strict enforcement) ║");
+		log.info("║ Encryption: {}", (encryptionKey != null && encryptionKey.length() >= 32
+			&& !"change-me-in-production".equals(encryptionKey))
+			? "KEY SET ✓                      ║" : "DEFAULT KEY ✗ (INSECURE)       ║");
+		log.info("║ Cookie    : {}", "true".equals(System.getenv("COOKIE_SECURE"))
+			? "Secure flag enabled ✓          ║" : "Secure flag OFF (HTTP mode)    ║");
+		log.info("║ SAML      : {}", "true".equalsIgnoreCase(System.getProperty("saml.enabled",
+			System.getenv("SAML_ENABLED")))
+			? "ENABLED (no sig verify — risk!)║" : "DISABLED ✓ (safe default)      ║");
+		log.info("╚══════════════════════════════════════════════════════╝");
 	}
 
 	/**
@@ -299,6 +331,8 @@ public class DatabaseService {
 				{ "ollama:modelfile:create", "Ollama Governance", "Create models with Modelfiles", "high" },
 				{ "workspace:build", "Local Work", "Create local workspace files and access terminal shell",
 						"critical" },
+			{ "sandbox:run", "Local Work", "Execute code snippets in the code sandbox (OS-level, requires trust)",
+						"critical" },
 				{ "files:upload", "AI Workflow", "Upload files to AI workflows", "medium" },
 				{ "tools:call", "AI Workflow", "Use tool calling", "high" },
 				{ "internet:use", "AI Workflow", "Use internet-enabled agents", "high" },
@@ -363,6 +397,25 @@ public class DatabaseService {
 	 * cryptographically random 16-character password is generated instead and
 	 * printed to the log at WARN level.
 	 */
+	/**
+	 * Returns true when running in a development environment (no 'prod' or
+	 * 'production' Spring profile active, and no explicit PRODUCTION env var set).
+	 * Used to decide whether to hard-fail on insecure defaults or merely warn.
+	 */
+	private boolean isDevMode() {
+		// springEnv may be null in unit tests that construct DatabaseService directly
+		if (springEnv != null) {
+			String[] activeProfiles = springEnv.getActiveProfiles();
+			for (String p : activeProfiles) {
+				if ("prod".equalsIgnoreCase(p) || "production".equalsIgnoreCase(p)) return false;
+			}
+		}
+		// Also check explicit PRODUCTION env var (e.g. set by Docker/K8s)
+		String prodEnv = System.getenv("PRODUCTION");
+		if ("true".equalsIgnoreCase(prodEnv) || "1".equals(prodEnv)) return false;
+		return true;
+	}
+
 	private static final String FIRST_BOOT_SENTINEL = "CHANGE_ME_ON_FIRST_BOOT";
 
 	/**

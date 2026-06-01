@@ -61,6 +61,17 @@ public class CodeSandboxController extends BaseController {
 		if (authErr != null)
 			return authErr;
 
+		// CRIT-1 MITIGATION: Gate sandbox execution on an explicit 'sandbox:run' right.
+		// Without Docker/container isolation the sandbox is OS-level RCE for the JVM user.
+		// Admins implicitly have all rights; regular users need 'sandbox:run' granted explicitly.
+		com.ollanest.model.User sandboxUser = getUser(req);
+		boolean hasSandboxRight = "admin".equals(sandboxUser.role)
+			|| (sandboxUser.rights != null && sandboxUser.rights.contains("sandbox:run"));
+		if (!hasSandboxRight) {
+			return ResponseEntity.status(403).body(Map.of("ok", false,
+				"error", "Code execution requires the 'sandbox:run' permission. Contact your administrator."));
+		}
+
 		String language = (String) body.getOrDefault("language", "");
 		String code = (String) body.getOrDefault("code", "");
 

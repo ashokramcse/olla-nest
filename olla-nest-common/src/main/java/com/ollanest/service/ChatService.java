@@ -361,8 +361,11 @@ public class ChatService {
 	 */
 	public Map<String, Object> buildChatObject(Map<String, Object> session) {
 		String sessionId = (String) session.get("id");
-		List<Map<String, Object>> msgs = db
-				.queryForList("SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC", sessionId);
+		// LOW-8 FIX: Cap message history to prevent unbounded memory allocation for
+		// sessions with thousands of messages. 500 messages covers all practical use
+		// cases; the context budgeting in buildContextMessages() trims further anyway.
+		List<Map<String, Object>> msgs = db.queryForList(
+				"SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT 500", sessionId);
 
 		Map<String, Object> chat = new LinkedHashMap<>();
 		chat.put("id", sessionId);

@@ -210,6 +210,18 @@ public class ChatController extends BaseController {
 					.body(Map.of("ok", false, "error", "Message exceeds maximum length of 16,000 characters"));
 		}
 
+		// HIGH-9 FIX: Cap the images array to prevent OOM via large base64 payloads
+		@SuppressWarnings("unchecked")
+		List<String> rawImages = body.get("images") instanceof List ? (List<String>) body.get("images") : List.of();
+		if (rawImages.size() > 10) {
+			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "Maximum 10 images per message"));
+		}
+		for (String img : rawImages) {
+			if (img != null && img.length() > 5 * 1024 * 1024) { // 5 MB base64 ≈ ~3.75 MB decoded
+				return ResponseEntity.status(400).body(Map.of("ok", false, "error", "Each image must be under 5 MB base64"));
+			}
+		}
+
 		// Daily token quota check
 		Integer todayUsage = db.queryForObject(
 				"SELECT COALESCE(SUM(tokens_used),0) FROM chat_messages "
@@ -256,10 +268,9 @@ public class ChatController extends BaseController {
 			String ragContext = ragService.buildRagContext(message, user.id);
 			String systemPrompt = chatService.buildSystemPromptWithRag(mode, route, workspace,
 					databaseService.getSetting("projectKnowledge", ""), ragContext);
-			@SuppressWarnings("unchecked")
-			List<String> images = body.get("images") instanceof List ? (List<String>) body.get("images") : List.of();
+			// Use the already-validated rawImages list (validated above for count and size)
 			List<Map<String, Object>> messages = chatService.buildContextMessages((String) chat.get("id"), systemPrompt,
-					message, route.selected.model, images);
+					message, route.selected.model, rawImages);
 			// Function calling: include tools for Ollama providers
 			List<Map<String, Object>> tools = "ollama".equals(provider.get("type"))
 					? functionCallService.getToolDefinitions()
@@ -440,6 +451,27 @@ public class ChatController extends BaseController {
 			return emitter;
 		}
 
+		// HIGH-9 FIX: Cap images array in streaming path
+		@SuppressWarnings("unchecked")
+		List<String> streamImages = body.get("images") instanceof List ? (List<String>) body.get("images") : List.of();
+		if (streamImages.size() > 10) {
+			try {
+				emitter.send(SseEmitter.event().data("{\"type\":\"error\",\"message\":\"Maximum 10 images per message\"}"));
+				emitter.complete();
+			} catch (Exception ignored) {}
+			return emitter;
+		}
+		for (String img : streamImages) {
+			if (img != null && img.length() > 5 * 1024 * 1024) {
+				try {
+					emitter.send(SseEmitter.event().data("{\"type\":\"error\",\"message\":\"Each image must be under 5 MB base64\"}"));
+					emitter.complete();
+				} catch (Exception ignored) {}
+				return emitter;
+			}
+		}
+		final List<String> validatedImages = streamImages;
+
 		// Daily token quota check
 		Integer todayUsage = db.queryForObject(
 				"SELECT COALESCE(SUM(tokens_used),0) FROM chat_messages "
@@ -508,9 +540,7 @@ public class ChatController extends BaseController {
 						"provider", route.selected.provider, "reason", route.reason))));
 
 				Map<String, Object> workspace = workspaceService.workspaceForUser(user.id);
-				@SuppressWarnings("unchecked")
-				List<String> images = body.get("images") instanceof List ? (List<String>) body.get("images")
-						: List.of();
+					List<String> images = validatedImages; // already validated above
 				Map<String, Object> chatSession = chatService.getActiveChat(user.id);
 				String chatId = (String) chatSession.get("id");
 				String ragContext = ragService.buildRagContext(finalMessage, user.id);

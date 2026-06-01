@@ -1,5 +1,7 @@
 package com.ollanest.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -56,6 +58,8 @@ import java.util.regex.Pattern;
  */
 @Service
 public class WorkspaceService {
+
+	private static final Logger log = LoggerFactory.getLogger(WorkspaceService.class);
 
 	/** JDBC template bound to the application's SQLite data source. */
 	private final JdbcTemplate db;
@@ -480,6 +484,64 @@ public class WorkspaceService {
 	 *         nothing was written
 	 * @since v2026.1.4
 	 */
+	/**
+	 * Allowed file extensions for AI-generated workspace artifacts.
+	 * Extensions not in this set are rejected before any filesystem write.
+	 */
+	private static final java.util.Set<String> ALLOWED_ARTIFACT_EXTENSIONS = java.util.Set.of(
+		"html", "htm", "css", "js", "jsx", "ts", "tsx",
+		"json", "md", "txt", "py", "rb", "java", "go",
+		"rs", "c", "cpp", "h", "hpp", "sh", "yaml", "yml",
+		"toml", "xml", "sql", "env", "gitignore", "dockerfile"
+	);
+
+	/**
+	 * Pattern for safe artifact filenames: only alphanumerics, dots, hyphens,
+	 * underscores, and forward-slashes (for sub-directory paths).
+	 * Rejects any path component starting with a dot (hidden files/traversal),
+	 * double dots, or absolute paths.
+	 */
+	private static final java.util.regex.Pattern SAFE_FILENAME_PATTERN =
+		java.util.regex.Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._/\\-]*$");
+
+	/**
+	 * Sanitizes an AI-provided artifact filename to prevent path traversal and
+	 * symlink attacks.
+	 *
+	 * <p>CRIT-5 fix: AI model output can contain adversarial filenames such as
+	 * {@code ../../../etc/passwd} or {@code .env}. This method:
+	 * <ol>
+	 * <li>Strips any leading slashes or drive letters.</li>
+	 * <li>Rejects filenames containing {@code ..} components.</li>
+	 * <li>Enforces a safe character allowlist.</li>
+	 * <li>Validates the file extension against the allowed set.</li>
+	 * <li>Rejects filenames starting with a dot (hidden/config files).</li>
+	 * </ol>
+	 *
+	 * @param rawName the raw filename from AI output; may be {@code null}
+	 * @return the sanitized filename, or {@code null} if the name is unsafe
+	 */
+	private String sanitizeArtifactFilename(String rawName) {
+		if (rawName == null || rawName.isBlank()) return null;
+		// Strip leading slashes (absolute path attack) and Windows drive letters
+		String name = rawName.trim().replaceAll("^[/\\\\]+", "").replaceAll("^[a-zA-Z]:[/\\\\]", "");
+		// Reject path components containing ".." (directory traversal)
+		for (String part : name.split("[/\\\\]")) {
+			if (part.equals("..") || part.equals(".") || part.startsWith("."))
+				return null;
+		}
+		// Enforce safe character allowlist
+		if (!SAFE_FILENAME_PATTERN.matcher(name).matches()) return null;
+		// Enforce extension allowlist
+		int dotIdx = name.lastIndexOf('.');
+		if (dotIdx < 0) return null; // no extension — reject
+		String ext = name.substring(dotIdx + 1).toLowerCase();
+		if (!ALLOWED_ARTIFACT_EXTENSIONS.contains(ext)) return null;
+		// Cap total path length
+		if (name.length() > 200) return null;
+		return name;
+	}
+
 	public List<Map<String, Object>> writeLocalArtifacts(Map<String, Object> workspace, String message, String mode,
 			String content) {
 		if (!databaseService.getSettingBool("localWritesEnabled", true))
@@ -488,22 +550,40 @@ public class WorkspaceService {
 		if (artifacts.isEmpty())
 			return Collections.emptyList();
 		String rootStr = (String) workspace.get("workspaceRoot");
-		Path root = Paths.get(rootStr).toAbsolutePath();
+		Path root = Paths.get(rootStr).toAbsolutePath().normalize();
 		List<Map<String, Object>> result = new ArrayList<>();
 		for (Artifact artifact : artifacts) {
-			Path filePath = root.resolve(artifact.name).toAbsolutePath().normalize();
-			if (!filePath.startsWith(root))
-				continue; // path traversal guard
+			// CRIT-5 FIX: sanitize the AI-generated filename before any filesystem access
+			String safeName = sanitizeArtifactFilename(artifact.name);
+			if (safeName == null) {
+				log.warn("[workspace] Rejected unsafe artifact filename: '{}'", artifact.name);
+				continue;
+			}
+			Path filePath = root.resolve(safeName).normalize();
+			// Double-check path containment using normalized paths (covers symlink edge cases)
+			if (!filePath.startsWith(root)) {
+				log.warn("[workspace] Path traversal blocked: '{}' escapes workspace root", safeName);
+				continue;
+			}
+			// Use toRealPath() on the parent to detect symlink escapes before writing
 			try {
-				Files.createDirectories(filePath.getParent());
+				Path parent = filePath.getParent();
+				Files.createDirectories(parent);
+				Path realParent = parent.toRealPath();
+				Path realRoot   = root.toRealPath();
+				if (!realParent.startsWith(realRoot)) {
+					log.warn("[workspace] Symlink traversal blocked: '{}' resolves outside workspace", safeName);
+					continue;
+				}
 				Files.writeString(filePath, artifact.content + "\n");
 				Map<String, Object> a = new LinkedHashMap<>();
-				a.put("name", artifact.name);
+				a.put("name", safeName);
 				a.put("path", filePath.toString());
 				a.put("relativePath", root.relativize(filePath).toString());
 				a.put("bytes", artifact.content.getBytes("UTF-8").length);
 				result.add(a);
 			} catch (Exception e) {
+				log.warn("[workspace] Failed to write artifact '{}': {}", safeName, e.getMessage());
 			}
 		}
 		return result;

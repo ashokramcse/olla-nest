@@ -1,0 +1,124 @@
+# =============================================================================
+# Olla Nest — Production Docker Compose
+# Services: admin (8080), user (8081), optional Loki+Grafana monitoring
+#
+# REQUIRED before first start:
+#   1. Copy .env.example → .env
+#   2. Set ENCRYPTION_KEY to a 64-char hex string: openssl rand -hex 32
+#   3. Set DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD
+#   4. Set OLLAMA_URL to your Ollama instance
+#
+# Start:  docker compose up -d
+# Logs:   docker compose logs -f olla-admin olla-user
+# =============================================================================
+
+services:
+
+  # ── Admin Control Panel (port 8080) ────────────────────────────────────────
+  olla-admin:
+    build:
+      context: .
+      args:
+        MODULE: olla-nest-admin
+    image: olla-nest-admin:${VERSION:-latest}
+    container_name: olla-admin
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_PORT:-8080}:8080"
+    volumes:
+      - olla-data:/data
+    environment:
+      DATA_DIR: /data
+      ADMIN_PORT: 8080
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required. Run: openssl rand -hex 32}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@ollanest.local}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-CHANGE_ME_ON_FIRST_BOOT}
+      DEFAULT_USER_PASSWORD: ${DEFAULT_USER_PASSWORD:-CHANGE_ME_ON_FIRST_BOOT}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-}
+      BASE_URL: ${ADMIN_BASE_URL:-http://localhost:8080}
+      PRODUCTION: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - olla-net
+
+  # ── Employee Workspace (port 8081) ─────────────────────────────────────────
+  olla-user:
+    build:
+      context: .
+      args:
+        MODULE: olla-nest-user
+    image: olla-nest-user:${VERSION:-latest}
+    container_name: olla-user
+    restart: unless-stopped
+    ports:
+      - "${USER_PORT:-8081}:8081"
+    volumes:
+      - olla-data:/data
+    environment:
+      DATA_DIR: /data
+      USER_PORT: 8081
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@ollanest.local}
+      DEFAULT_USER_PASSWORD: ${DEFAULT_USER_PASSWORD:-CHANGE_ME_ON_FIRST_BOOT}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-}
+      BASE_URL: ${USER_BASE_URL:-http://localhost:8081}
+      PRODUCTION: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      olla-admin:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - olla-net
+
+  # ── Grafana Loki (optional log aggregation) ─────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: olla-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - olla-net
+    profiles:
+      - monitoring
+
+  # ── Grafana (optional dashboards) ──────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: olla-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    networks:
+      - olla-net
+    profiles:
+      - monitoring
+
+volumes:
+  olla-data:
+    driver: local
+
+networks:
+  olla-net:
+    driver: bridge

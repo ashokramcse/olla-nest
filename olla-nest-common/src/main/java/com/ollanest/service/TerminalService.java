@@ -2,12 +2,14 @@ package com.ollanest.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -57,13 +59,24 @@ public class TerminalService extends AbstractWebSocketHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(TerminalService.class);
 
+	/** CRIT-2 MITIGATION: JDBC for terminal session audit logging. */
+	private final JdbcTemplate db;
+
 	/** Live shell processes keyed by WebSocket session ID. */
 	private final ConcurrentHashMap<String, Process> processes = new ConcurrentHashMap<>();
 
-	/**
-	 * Stdin {@link OutputStream}s of live processes, keyed by WebSocket session ID.
-	 */
+	/** Stdin streams of live processes, keyed by WebSocket session ID. */
 	private final ConcurrentHashMap<String, OutputStream> stdinMap = new ConcurrentHashMap<>();
+
+	/** User ID associated with each terminal session (for audit logs). */
+	private final ConcurrentHashMap<String, String> sessionUserMap = new ConcurrentHashMap<>();
+
+	/** Input buffer for each session — used to capture commands for audit logging. */
+	private final ConcurrentHashMap<String, StringBuilder> inputBuffers = new ConcurrentHashMap<>();
+
+	public TerminalService(JdbcTemplate db) {
+		this.db = db;
+	}
 
 	/**
 	 * Called by Spring WebSocket after a new connection is successfully
@@ -120,7 +133,17 @@ public class TerminalService extends AbstractWebSocketHandler {
 		reader.setDaemon(true);
 		reader.start();
 
-		log.info("[terminal] Session started: {}", session.getId());
+		// CRIT-2 MITIGATION: Capture user for audit trail
+		Object userAttr = session.getAttributes().get("authenticatedUserId");
+		String userId = userAttr != null ? userAttr.toString() : "unknown";
+		sessionUserMap.put(session.getId(), userId);
+		inputBuffers.put(session.getId(), new StringBuilder());
+
+		// Audit log: terminal session opened
+		auditTerminalEvent(userId, "terminal.session.open",
+			"Terminal session started: wsSessionId=" + session.getId());
+
+		log.info("[terminal] Session started: wsId={} userId={}", session.getId(), userId);
 	}
 
 	/**
@@ -136,8 +159,28 @@ public class TerminalService extends AbstractWebSocketHandler {
 	protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
 		OutputStream stdin = stdinMap.get(session.getId());
 		if (stdin != null) {
-			stdin.write(message.getPayload().getBytes(StandardCharsets.UTF_8));
+			String payload = message.getPayload();
+			stdin.write(payload.getBytes(StandardCharsets.UTF_8));
 			stdin.flush();
+
+			// CRIT-2 MITIGATION: Buffer input for command-level audit logging.
+			// Log each newline-terminated command to the audit trail.
+			StringBuilder buf = inputBuffers.get(session.getId());
+			if (buf != null) {
+				for (char c : payload.toCharArray()) {
+					if (c == '\n' || c == '\r') {
+						String cmd = buf.toString().trim();
+						if (!cmd.isEmpty()) {
+							String userId = sessionUserMap.getOrDefault(session.getId(), "unknown");
+							auditTerminalEvent(userId, "terminal.command",
+								"Terminal input: " + truncateForLog(cmd));
+						}
+						buf.setLength(0);
+					} else {
+						buf.append(c);
+					}
+				}
+			}
 		}
 	}
 
@@ -188,7 +231,11 @@ public class TerminalService extends AbstractWebSocketHandler {
 		if (process != null) {
 			process.destroyForcibly();
 		}
-		log.info("[terminal] Session closed: {}", id);
+		String userId = sessionUserMap.remove(id);
+		inputBuffers.remove(id);
+		auditTerminalEvent(userId != null ? userId : "unknown", "terminal.session.close",
+			"Terminal session closed: wsSessionId=" + id + " status=" + closeStatus.getCode());
+		log.info("[terminal] Session closed: wsId={} userId={}", id, userId);
 	}
 
 	/**
@@ -208,5 +255,25 @@ public class TerminalService extends AbstractWebSocketHandler {
 	public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
 		log.warn("[terminal] Transport error on {}: {}", session.getId(), exception.getMessage());
 		afterConnectionClosed(session, CloseStatus.SERVER_ERROR);
+	}
+
+	// ── Private helpers ──────────────────────────────────────────────────────
+
+	/** Writes a terminal audit event to the audit_events table. Silent on failure. */
+	private void auditTerminalEvent(String userId, String action, String detail) {
+		try {
+			String id = "audit-" + Long.toString(System.currentTimeMillis(), 36) + "-"
+				+ Long.toHexString(new java.security.SecureRandom().nextLong() & Long.MAX_VALUE);
+			db.update(
+				"INSERT INTO audit_events (id, actor, action, detail, extra_json, created_at) VALUES (?,?,?,?,?,?)",
+				id, userId, action, detail, "{}", Instant.now().toString());
+		} catch (Exception e) {
+			log.warn("[terminal] Failed to write audit event: {}", e.getMessage());
+		}
+	}
+
+	/** Truncates a command string to 500 chars for audit log entries. */
+	private static String truncateForLog(String cmd) {
+		return cmd.length() > 500 ? cmd.substring(0, 500) + "…[truncated]" : cmd;
 	}
 }
