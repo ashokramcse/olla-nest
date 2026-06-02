@@ -42,6 +42,19 @@ public class MemoryService {
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Persist a new memory snippet. Computes and stores an embedding vector for
+     * semantic search when {@link EmbeddingService} is available; falls back to
+     * keyword search otherwise. Enforces a per-user cap of {@value #MAX_MEMORIES_PER_USER}
+     * memories by evicting the oldest lowest-importance entries when the cap is reached.
+     *
+     * @param owner     the user ID that owns this memory
+     * @param text      the memory text to store
+     * @param sessionId the chat session that produced this memory (may be {@code null})
+     * @param source    origin label: {@code "user"}, {@code "agent"}, or {@code "import"}
+     * @param tags      optional classification tags
+     * @return the persisted memory record
+     */
     public Map<String, Object> remember(String owner, String text, String sessionId, String source, List<String> tags) {
         enforceCapLimit(owner);
 
@@ -69,15 +82,30 @@ public class MemoryService {
         return buildRecord(id, owner, text, source, sessionId, tags, now);
     }
 
+    /**
+     * Delete a single memory. Throws {@link NoSuchElementException} if not found
+     * or owned by a different user.
+     *
+     * @param id    the memory ID
+     * @param owner the user ID that must own this memory
+     */
     public void forget(String id, String owner) {
         int rows = db.update("DELETE FROM memories WHERE id = ? AND owner = ?", id, owner);
         if (rows == 0) throw new NoSuchElementException("Memory not found: " + id);
     }
 
+    /** Delete all memories for the given owner — used on account wipe or user request. */
     public void forgetAll(String owner) {
         db.update("DELETE FROM memories WHERE owner = ?", owner);
     }
 
+    /**
+     * List memories for an owner ordered by creation time descending.
+     *
+     * @param owner the user ID
+     * @param limit maximum results; 0 or negative defaults to 100
+     * @return memory records (without raw embedding vectors)
+     */
     public List<Map<String, Object>> list(String owner, int limit) {
         return db.queryForList(
                 "SELECT id, owner, text, source, session_id, tags_json, importance, created_at FROM memories WHERE owner = ? ORDER BY created_at DESC LIMIT ?",
@@ -113,6 +141,15 @@ public class MemoryService {
 
     // ── Import / Export ───────────────────────────────────────────────────────
 
+    /**
+     * Bulk-import a list of memory texts. Blank entries are silently skipped.
+     * Each memory is stored via {@link #remember} so the cap and embedding rules apply.
+     *
+     * @param owner  the user ID
+     * @param texts  the list of memory strings to import
+     * @param source origin label attached to every imported memory; defaults to {@code "import"}
+     * @return the number of memories successfully stored
+     */
     public int importMemories(String owner, List<String> texts, String source) {
         int count = 0;
         for (String text : texts) {
@@ -124,6 +161,7 @@ public class MemoryService {
         return count;
     }
 
+    /** Return every memory for the given owner — used for backup/export. */
     public List<Map<String, Object>> exportAll(String owner) {
         return list(owner, Integer.MAX_VALUE);
     }

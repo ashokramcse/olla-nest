@@ -105,16 +105,36 @@ public class ApiTokenService {
 
     // ── List / Revoke ─────────────────────────────────────────────────────────
 
+    /**
+     * List all API tokens for an owner, ordered newest first.
+     * Token hashes are never included in the returned records.
+     *
+     * @param owner the user ID
+     * @return token records (id, name, token_prefix, scopes, is_active, created_at, last_used_at)
+     */
     public List<Map<String, Object>> list(String owner) {
         return db.queryForList(
                 "SELECT * FROM api_tokens WHERE owner=? ORDER BY created_at DESC", owner)
                 .stream().map(this::mapRow).toList();
     }
 
+    /**
+     * Soft-revoke a single token by setting {@code is_active=0}. The token record is
+     * retained for audit purposes. No-op if the token does not exist or is already inactive.
+     *
+     * @param id    the token ID
+     * @param owner the user ID that must own this token
+     */
     public void revoke(String id, String owner) {
         db.update("UPDATE api_tokens SET is_active=0 WHERE id=? AND owner=?", id, owner);
     }
 
+    /**
+     * Revoke all active tokens for an owner in one statement. Used on account
+     * compromise or when an admin resets a user's access.
+     *
+     * @param owner the user ID whose tokens should all be deactivated
+     */
     public void revokeAll(String owner) {
         db.update("UPDATE api_tokens SET is_active=0 WHERE owner=?", owner);
     }

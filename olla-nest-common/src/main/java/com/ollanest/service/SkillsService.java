@@ -43,6 +43,14 @@ public class SkillsService {
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Create a new skill. User-authored skills ({@code source="user"}) start as {@code active};
+     * agent-learned skills ({@code source="learned"}) start as {@code draft} pending admin approval.
+     *
+     * @param req    skill fields (name, description, category, when_to_use, procedure, pitfalls, verification, tags, etc.)
+     * @param owner  the user ID that owns this skill, or {@code null} for team-shared skills
+     * @return the persisted skill record
+     */
     public Map<String, Object> createSkill(Map<String, Object> req, String owner) {
         String id = "skill-" + Long.toString(System.currentTimeMillis(), 36);
         String name = getString(req, "name", "Untitled Skill");
@@ -74,6 +82,16 @@ public class SkillsService {
         return getById(id, owner);
     }
 
+    /**
+     * Partially update a skill. Only fields present in {@code req} are changed.
+     * Operates on skills owned by {@code owner} or team-shared skills (owner IS NULL).
+     * Throws {@link NoSuchElementException} if the skill is not found.
+     *
+     * @param id     the skill ID
+     * @param req    fields to update
+     * @param owner  the requesting user ID
+     * @return the updated skill record
+     */
     public Map<String, Object> updateSkill(String id, Map<String, Object> req, String owner) {
         Map<String, Object> existing = getById(id, owner);
         if (existing == null) throw new NoSuchElementException("Skill not found: " + id);
@@ -100,17 +118,40 @@ public class SkillsService {
         return getById(id, owner);
     }
 
+    /**
+     * Delete a skill owned by {@code owner} or a team-shared skill. Throws
+     * {@link NoSuchElementException} if not found.
+     *
+     * @param id    the skill ID
+     * @param owner the requesting user ID
+     */
     public void deleteSkill(String id, String owner) {
         int rows = db.update("DELETE FROM skills WHERE id = ? AND (owner = ? OR owner IS NULL)", id, owner);
         if (rows == 0) throw new NoSuchElementException("Skill not found or not owned by you: " + id);
     }
 
+    /**
+     * Fetch a single skill visible to {@code owner} (own skills + team-shared skills).
+     *
+     * @param id    the skill ID
+     * @param owner the requesting user ID
+     * @return the skill record, or {@code null} if not found
+     */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
                 "SELECT * FROM skills WHERE id = ? AND (owner = ? OR owner IS NULL)", id, owner);
         return rows.isEmpty() ? null : mapRow(rows.get(0));
     }
 
+    /**
+     * List skills visible to {@code owner}, ordered by source (user first), confidence, then updated.
+     *
+     * @param owner    the requesting user ID
+     * @param category optional category filter; {@code null} returns all categories
+     * @param status   optional status filter ({@code active}, {@code draft}, {@code archived}); {@code null} returns all
+     * @param limit    maximum results; 0 or negative defaults to 100
+     * @return matching skills
+     */
     public List<Map<String, Object>> list(String owner, String category, String status, int limit) {
         StringBuilder sql = new StringBuilder(
                 "SELECT * FROM skills WHERE (owner = ? OR owner IS NULL)");
@@ -131,6 +172,16 @@ public class SkillsService {
         return db.queryForList(sql.toString(), args.toArray()).stream().map(this::mapRow).toList();
     }
 
+    /**
+     * Keyword-based skill search across name, description, when_to_use, and category.
+     * Scores each skill by term-hit count and returns the top-K results.
+     * Only {@code active} skills are searched.
+     *
+     * @param owner  the requesting user ID
+     * @param query  space-separated search terms
+     * @param topK   maximum number of results to return
+     * @return matching skills sorted by relevance score descending
+     */
     public List<Map<String, Object>> search(String owner, String query, int topK) {
         List<Map<String, Object>> all = list(owner, null, "active", 1000);
         if (all.isEmpty()) return List.of();

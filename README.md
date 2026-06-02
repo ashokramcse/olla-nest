@@ -9,7 +9,7 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-v2026.1.9-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
+[![Version](https://img.shields.io/badge/version-v2026.2.1-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-26-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.14-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
@@ -748,6 +748,46 @@ olla-nest/
     ├── olla-nest.sqlite                            # Main SQLite database (WAL mode)
     └── backups/                                    # 7-rotation daily VACUUM INTO backups
 ```
+
+---
+
+## Test Coverage
+
+Unit tests are written with **JUnit 5** and **Mockito** — no Spring context is loaded, keeping tests fast and focused on service logic.
+
+### Service tests
+
+| Service | Test class |
+|---------|-----------|
+| `ApiTokenService` | `ApiTokenServiceTest` |
+| `AuthService` | `AuthServiceTest` |
+| `ChatService` | `ChatServiceTest` |
+| `CryptoService` | `CryptoServiceTest` |
+| `DatabaseService` | `DatabaseServiceTest` |
+| `MemoryService` | `MemoryServiceTest` |
+| `ModelService` | `ModelServiceTest` |
+| `NotesService` | `NotesServiceTest` |
+| `PromptSecurityService` | `PromptSecurityServiceTest` |
+| `RateLimiterService` | `RateLimiterServiceTest` |
+| `RouterService` | `RouterServiceTest` |
+| `SkillsService` | `SkillsServiceTest` |
+| `Soc2AuditService` | `Soc2AuditTest` |
+| `SqlSafetyService` | `SqlSafetyTest` |
+
+### Filter tests
+
+| Filter | Test class |
+|--------|-----------|
+| `MdcLoggingFilter` | `MdcLoggingFilterTest` |
+| `SecurityHeadersFilter` | `SecurityHeadersFilterTest` |
+| `SessionAuthFilter` | `SessionAuthFilterTest` |
+
+### Controller tests
+
+| Controller | Test class |
+|------------|-----------|
+| `AuthController` | `AuthControllerTest` |
+| `GlobalExceptionHandler` | `GlobalExceptionHandlerTest` |
 
 ---
 

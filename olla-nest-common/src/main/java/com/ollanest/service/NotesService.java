@@ -27,6 +27,14 @@ public class NotesService {
         this.mapper = mapper;
     }
 
+    /**
+     * Create a new note for the given owner. Supports checklists ({@code items}),
+     * colors, labels, pins, due dates, and repeat cadences.
+     *
+     * @param owner  the user ID that owns this note
+     * @param req    note fields (title, content, items, note_type, color, label, pinned, due_date, repeat, etc.)
+     * @return the persisted note record
+     */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         String id = "note-" + Long.toString(System.currentTimeMillis(), 36);
         String now = Instant.now().toString();
@@ -55,6 +63,16 @@ public class NotesService {
         return getById(id, owner);
     }
 
+    /**
+     * Partially update a note. Only fields present in {@code req} are changed;
+     * all others retain their existing values. Throws {@link NoSuchElementException} if
+     * the note does not exist or belongs to a different owner.
+     *
+     * @param id     the note ID
+     * @param owner  the user ID that owns this note
+     * @param req    fields to update
+     * @return the updated note record
+     */
     public Map<String, Object> update(String id, String owner, Map<String, Object> req) {
         Map<String, Object> existing = getById(id, owner);
         if (existing == null) throw new NoSuchElementException("Note not found: " + id);
@@ -81,17 +99,39 @@ public class NotesService {
         return getById(id, owner);
     }
 
+    /**
+     * Permanently delete a note. Throws {@link NoSuchElementException} if the note
+     * does not exist or belongs to a different owner.
+     *
+     * @param id    the note ID
+     * @param owner the user ID that must own this note
+     */
     public void delete(String id, String owner) {
         int rows = db.update("DELETE FROM notes WHERE id=? AND owner=?", id, owner);
         if (rows == 0) throw new NoSuchElementException("Note not found: " + id);
     }
 
+    /**
+     * Fetch a single note by ID, scoped to the given owner.
+     *
+     * @param id    the note ID
+     * @param owner the user ID that must own this note
+     * @return the note record, or {@code null} if not found
+     */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
                 "SELECT * FROM notes WHERE id=? AND owner=?", id, owner);
         return rows.isEmpty() ? null : mapRow(rows.get(0));
     }
 
+    /**
+     * List notes for an owner, ordered by pinned first, then sort_order, then most recently updated.
+     *
+     * @param owner           the user ID
+     * @param includeArchived when {@code false}, archived notes are excluded
+     * @param label           optional label filter; pass {@code null} to include all labels
+     * @return matching notes
+     */
     public List<Map<String, Object>> list(String owner, boolean includeArchived, String label) {
         StringBuilder sql = new StringBuilder("SELECT * FROM notes WHERE owner=?");
         List<Object> args = new ArrayList<>();
@@ -109,6 +149,12 @@ public class NotesService {
         return db.queryForList(sql.toString(), args.toArray()).stream().map(this::mapRow).toList();
     }
 
+    /**
+     * Return all non-archived notes whose {@code due_date} is at or before the current instant.
+     * Used by the reminder scheduler to fire notifications across all users.
+     *
+     * @return notes with past or present due dates
+     */
     public List<Map<String, Object>> getDueReminders() {
         String now = Instant.now().toString();
         return db.queryForList(
