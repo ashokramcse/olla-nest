@@ -62,6 +62,51 @@
       <!-- sidebarModels kept hidden for JS compatibility — models shown in composer dropdown -->
       <div id="sidebarModels" style="display:none;"></div>
 
+      <!-- ── FEATURES NAV ──────────────────────────────────── -->
+      <div class="app-sidebar-section-label" style="margin-top:12px;">Features</div>
+      <nav class="app-feature-nav" id="appFeatureNav">
+        <a class="feature-nav-item" data-panel="memory" href="#" onclick="openFeaturePanel('memory');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+          Memory
+        </a>
+        <a class="feature-nav-item" data-panel="skills" href="#" onclick="openFeaturePanel('skills');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          Skills
+        </a>
+        <a class="feature-nav-item" data-panel="notes" href="#" onclick="openFeaturePanel('notes');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Notes
+        </a>
+        <a class="feature-nav-item" data-panel="tasks" href="#" onclick="openFeaturePanel('tasks');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Tasks
+        </a>
+        <a class="feature-nav-item" data-panel="email" href="#" onclick="openFeaturePanel('email');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Email
+        </a>
+        <a class="feature-nav-item" data-panel="calendar" href="#" onclick="openFeaturePanel('calendar');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Calendar
+        </a>
+        <a class="feature-nav-item" data-panel="compare" href="#" onclick="openFeaturePanel('compare');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+          Compare
+        </a>
+        <a class="feature-nav-item" data-panel="cookbook" href="#" onclick="openFeaturePanel('cookbook');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4"/><path d="M12 20V10"/><path d="M17 20V4"/><path d="M22 20h.01"/></svg>
+          Cookbook
+        </a>
+        <a class="feature-nav-item" data-panel="assistant" href="#" onclick="openFeaturePanel('assistant');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Assistant
+        </a>
+        <a class="feature-nav-item" data-panel="research" href="#" onclick="openFeaturePanel('research');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          Research
+        </a>
+      </nav>
+
       <!-- Access level — hidden card kept for JS; badges shown as small chips -->
       <div id="accessLevelCard" style="display:none;">
         <div id="sidebarAccessRights" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
@@ -299,6 +344,7 @@ function updateModelRing(count, max) {
 </script>
 <script src="/dropdown.js"></script>
 <script src="/app.js?v=2026.1.8"></script>
+<script src="/features.js?v=2026.2.0"></script>
 
 <!-- ════ Profile Drawer (unchanged) ════ -->
 <style>
@@ -441,6 +487,265 @@ function updateModelRing(count, max) {
       <div class="profile-msg" id="profSaveMsg"></div>
       <button class="profile-save-btn" id="profSaveBtn" type="button">Save changes</button>
     </div>
+  </div>
+</div>
+
+<!-- ════ FEATURE PANELS ════ -->
+<!-- Shared backdrop for all feature panels -->
+<div id="featurePanelBackdrop" class="fp-backdrop" onclick="closeFeaturePanel()"></div>
+
+<!-- ── MEMORY PANEL ── -->
+<div id="fp-memory" class="feature-panel">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+      Memory
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn" onclick="memorySearch()">Search</button>
+      <button class="fp-btn primary" onclick="showAddMemory()">+ Add</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-search-bar">
+    <input class="fp-search-input" id="memorySearchInput" placeholder="Search memories semantically…" oninput="debounce(memorySearch, 400)()">
+  </div>
+  <div class="fp-body" id="memoryList">
+    <div class="fp-empty">Loading memories…</div>
+  </div>
+  <div class="fp-add-form" id="memoryAddForm" style="display:none;">
+    <textarea class="fp-textarea" id="memoryAddText" placeholder="What should I remember?"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="fp-btn primary" onclick="addMemory()">Save memory</button>
+      <button class="fp-btn" onclick="hideAddMemory()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SKILLS PANEL ── -->
+<div id="fp-skills" class="feature-panel">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      Skills
+    </div>
+    <div class="fp-header-actions">
+      <select class="fp-select" id="skillsCategoryFilter" onchange="loadSkills()">
+        <option value="">All categories</option>
+        <option value="general">General</option>
+        <option value="coding">Coding</option>
+        <option value="writing">Writing</option>
+        <option value="research">Research</option>
+        <option value="analysis">Analysis</option>
+      </select>
+      <button class="fp-btn primary" onclick="showAddSkill()">+ Add</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-search-bar">
+    <input class="fp-search-input" id="skillsSearchInput" placeholder="Search skills…" oninput="debounce(searchSkills, 400)()">
+  </div>
+  <div class="fp-body" id="skillsList">
+    <div class="fp-empty">Loading skills…</div>
+  </div>
+</div>
+
+<!-- ── NOTES PANEL ── -->
+<div id="fp-notes" class="feature-panel fp-wide">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Notes
+    </div>
+    <div class="fp-header-actions">
+      <select class="fp-select" id="notesLabelFilter" onchange="loadNotes()">
+        <option value="">All labels</option>
+        <option value="work">Work</option>
+        <option value="personal">Personal</option>
+        <option value="idea">Idea</option>
+      </select>
+      <button class="fp-btn primary" onclick="createNote()">+ Note</button>
+      <button class="fp-btn" onclick="createChecklist()">☑ Checklist</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body notes-grid" id="notesList">
+    <div class="fp-empty">Loading notes…</div>
+  </div>
+</div>
+
+<!-- ── TASKS PANEL ── -->
+<div id="fp-tasks" class="feature-panel">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Scheduled Tasks
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn primary" onclick="showCreateTask()">+ Task</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body" id="tasksList">
+    <div class="fp-empty">Loading tasks…</div>
+  </div>
+</div>
+
+<!-- ── EMAIL PANEL ── -->
+<div id="fp-email" class="feature-panel fp-wide">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      Email
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn primary" onclick="showCompose()">✉ Compose</button>
+      <button class="fp-btn" onclick="showEmailAccounts()">⚙ Accounts</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-email-layout">
+    <div class="fp-email-sidebar">
+      <div id="emailAccountsList"></div>
+    </div>
+    <div class="fp-email-main">
+      <div id="emailMessagesList" class="fp-body">
+        <div class="fp-empty">Select an account to view emails</div>
+      </div>
+    </div>
+    <div class="fp-email-preview" id="emailPreview" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ── CALENDAR PANEL ── -->
+<div id="fp-calendar" class="feature-panel fp-wide">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Calendar
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn" id="calPrevBtn" onclick="calNav(-1)">‹</button>
+      <span class="fp-month-label" id="calMonthLabel"></span>
+      <button class="fp-btn" id="calNextBtn" onclick="calNav(1)">›</button>
+      <button class="fp-btn primary" onclick="showCreateEvent()">+ Event</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body">
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+</div>
+
+<!-- ── COMPARE PANEL ── -->
+<div id="fp-compare" class="feature-panel fp-wide">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+      Blind Model Compare
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn primary" onclick="showNewCompare()">+ Compare</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body" id="compareMain">
+    <div class="compare-setup" id="compareSetup">
+      <div class="compare-setup-title">Set up a blind comparison</div>
+      <textarea class="fp-textarea" id="comparePrompt" placeholder="Enter the same prompt for both models…"></textarea>
+      <div class="compare-model-row">
+        <div class="compare-model-col">
+          <label class="compare-label">Model A</label>
+          <select class="fp-select" id="compareModelA" style="width:100%;"></select>
+        </div>
+        <div class="compare-vs">vs</div>
+        <div class="compare-model-col">
+          <label class="compare-label">Model B</label>
+          <select class="fp-select" id="compareModelB" style="width:100%;"></select>
+        </div>
+      </div>
+      <button class="fp-btn primary" style="width:100%;margin-top:12px;" onclick="startCompare()">Start comparison</button>
+    </div>
+    <div class="compare-arena" id="compareArena" style="display:none;">
+      <div class="compare-col" id="compareColA">
+        <div class="compare-col-label">Model A</div>
+        <div class="compare-col-content" id="compareContentA"></div>
+      </div>
+      <div class="compare-col" id="compareColB">
+        <div class="compare-col-label">Model B</div>
+        <div class="compare-col-content" id="compareContentB"></div>
+      </div>
+      <div class="compare-vote" id="compareVoteRow" style="display:none;">
+        <div class="compare-vote-label">Which response was better?</div>
+        <div class="compare-vote-btns">
+          <button class="compare-vote-btn" onclick="castVote('a')">Model A was better</button>
+          <button class="compare-vote-btn tie" onclick="castVote('tie')">It's a tie</button>
+          <button class="compare-vote-btn" onclick="castVote('b')">Model B was better</button>
+        </div>
+      </div>
+    </div>
+    <div class="compare-history" id="compareHistory">
+      <div class="compare-history-title">Recent comparisons</div>
+      <div id="compareHistoryList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── COOKBOOK PANEL ── -->
+<div id="fp-cookbook" class="feature-panel fp-wide">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Model Cookbook
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn" onclick="detectHardware()">🔍 Scan hardware</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body">
+    <div class="cookbook-hw" id="cookbookHw">
+      <div class="fp-empty">Click "Scan hardware" to detect your GPU and RAM</div>
+    </div>
+    <div class="cookbook-catalog" id="cookbookCatalog">
+      <div class="cookbook-section-title">Recommended Models</div>
+      <div id="cookbookModelGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ASSISTANT PANEL ── -->
+<div id="fp-assistant" class="feature-panel">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Personal Assistant
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn primary" id="assistantSaveBtn" onclick="saveAssistant()">Save</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body" id="assistantBody">
+    <div class="fp-empty">Loading assistant…</div>
+  </div>
+</div>
+
+<!-- ── RESEARCH PANEL ── -->
+<div id="fp-research" class="feature-panel">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Research Tasks
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body" id="researchTasksList">
+    <div class="fp-empty">No research tasks yet. Use the Research button in chat.</div>
+  </div>
+</div>
   </div>
 </div>
 <script>

@@ -34,7 +34,8 @@ class BaseControllerTest {
 	/** Minimal concrete subclass to exercise protected BaseController methods. */
 	private static class TestableController extends BaseController {
 		public User publicGetUser(HttpServletRequest req) { return getUser(req); }
-		public ResponseEntity<Map<String,Object>> publicRequireAuth(HttpServletRequest req) { return requireAuth(req); }
+		/** Tests the legacy guard-style requireAuth (returns ResponseEntity or null). */
+		public ResponseEntity<Map<String,Object>> publicRequireAuth(HttpServletRequest req) { return guardAuth(req); }
 		public ResponseEntity<Map<String,Object>> publicRequireAdmin(HttpServletRequest req) { return requireAdmin(req); }
 		public ResponseEntity<Map<String,Object>> publicRequireAuthWithCsrf(HttpServletRequest req) { return requireAuthWithCsrf(req); }
 		public boolean publicIsCsrfOk(HttpServletRequest req) { return isCsrfOk(req); }

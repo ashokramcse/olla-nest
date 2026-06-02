@@ -103,7 +103,7 @@ public class ImageController extends BaseController {
 	 */
 	@PostMapping("/generate")
 	public ResponseEntity<Map<String, Object>> generate(@RequestBody Map<String, Object> body, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> err = requireAuth(req);
+		ResponseEntity<Map<String, Object>> err = guardAuth(req);
 		if (err != null)
 			return err;
 		User user = getUser(req);

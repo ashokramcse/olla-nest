@@ -17,13 +17,13 @@
 
 	<dependencies>
 
-		<!-- ── Web (needed for @RestController, @RequestMapping in shared controllers) -->
+		<!-- ── Web -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
-		<!-- ── WebSocket (terminal — used by user app, declared here so common compiles) -->
+		<!-- ── WebSocket -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-websocket</artifactId>
@@ -60,6 +60,10 @@
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.datatype</groupId>
+			<artifactId>jackson-datatype-jsr310</artifactId>
+		</dependency>
 
 		<!-- ── Spring AI -->
 		<dependency>
@@ -67,7 +71,7 @@
 			<artifactId>spring-ai-client-chat</artifactId>
 		</dependency>
 
-		<!-- ── PDF text extraction (RAG) -->
+		<!-- ── PDF text extraction + form filling (RAG, documents) -->
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
@@ -79,6 +83,79 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+
+		<!-- ── Apache POI (DOCX, PPTX, XLSX → Markdown for RAG) -->
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>5.3.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<!-- ── Email (IMAP / SMTP via Jakarta Mail) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.sun.mail</groupId>
+			<artifactId>jakarta.mail</artifactId>
+			<version>2.0.1</version>
+		</dependency>
+
+		<!-- ── iCal4j (CalDAV / ics parsing) -->
+		<dependency>
+			<groupId>org.mnode.ical4j</groupId>
+			<artifactId>ical4j</artifactId>
+			<version>4.0.8</version>
+		</dependency>
+
+		<!-- ── HTML parsing (Jsoup — email HTML, web content extraction) -->
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>1.18.3</version>
+		</dependency>
+
+		<!-- ── QR code generation (ZXing — companion pairing) -->
+		<dependency>
+			<groupId>com.google.zxing</groupId>
+			<artifactId>core</artifactId>
+			<version>3.5.3</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.zxing</groupId>
+			<artifactId>javase</artifactId>
+			<version>3.5.3</version>
+		</dependency>
+
+		<!-- ── TOTP (2FA — Google Authenticator compatible) -->
+		<dependency>
+			<groupId>com.github.bastiaanjansen</groupId>
+			<artifactId>otp-java</artifactId>
+			<version>2.0.3</version>
+		</dependency>
+
+		<!-- ── Markdown → HTML (visual research report) -->
+		<dependency>
+			<groupId>com.vladsch.flexmark</groupId>
+			<artifactId>flexmark-all</artifactId>
+			<version>0.64.8</version>
+		</dependency>
+
+		<!-- ── ONNX Runtime (local embeddings — fastembed equivalent) -->
+		<dependency>
+			<groupId>com.microsoft.onnxruntime</groupId>
+			<artifactId>onnxruntime</artifactId>
+			<version>1.20.0</version>
+		</dependency>
+
+		<!-- ChromaDB integration uses plain HTTP via HttpClient — no extra library needed -->
 
 		<!-- ── SSO: JWT / OIDC -->
 		<dependency>
@@ -93,6 +170,27 @@
 			<version>1.5.2</version>
 		</dependency>
 
+		<!-- ── Commons CSV (contacts import) -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-csv</artifactId>
+			<version>1.12.0</version>
+		</dependency>
+
+		<!-- ── Commons IO (file utilities) -->
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.18.0</version>
+		</dependency>
+
+		<!-- ── Image metadata extraction (EXIF) -->
+		<dependency>
+			<groupId>com.drewnoakes</groupId>
+			<artifactId>metadata-extractor</artifactId>
+			<version>2.19.0</version>
+		</dependency>
+
 		<!-- ── Test -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -100,7 +198,7 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- ── WireMock (HTTP stub server for external API simulation) -->
+		<!-- ── WireMock -->
 		<dependency>
 			<groupId>org.wiremock</groupId>
 			<artifactId>wiremock-standalone</artifactId>
@@ -108,7 +206,7 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- ── Awaitility (async / concurrency assertions) -->
+		<!-- ── Awaitility -->
 		<dependency>
 			<groupId>org.awaitility</groupId>
 			<artifactId>awaitility</artifactId>

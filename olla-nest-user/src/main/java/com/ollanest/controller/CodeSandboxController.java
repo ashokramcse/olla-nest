@@ -108,7 +108,7 @@ public class CodeSandboxController extends BaseController {
 	 */
 	@GetMapping("/languages")
 	public ResponseEntity<Map<String, Object>> languages(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authErr = requireAuth(req);
+		ResponseEntity<Map<String, Object>> authErr = guardAuth(req);
 		if (authErr != null)
 			return authErr;
 		Set<String> langs = CodeSandboxService.supportedLanguages();

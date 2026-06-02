@@ -41,6 +41,41 @@ public class GlobalExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+	/** Maps AuthException (thrown by requireAuth) to HTTP 401. */
+	@ExceptionHandler(BaseController.AuthException.class)
+	public ResponseEntity<Map<String, Object>> handleAuthException(BaseController.AuthException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(Map.of("ok", false, "error", ex.getMessage()));
+	}
+
+	/** Maps ForbiddenException (thrown by requireAdminUser) to HTTP 403. */
+	@ExceptionHandler(BaseController.ForbiddenException.class)
+	public ResponseEntity<Map<String, Object>> handleForbiddenException(BaseController.ForbiddenException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN)
+				.body(Map.of("ok", false, "error", ex.getMessage()));
+	}
+
+	/** Maps NoSuchElementException to HTTP 404. */
+	@ExceptionHandler(java.util.NoSuchElementException.class)
+	public ResponseEntity<Map<String, Object>> handleNotFound(java.util.NoSuchElementException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(Map.of("ok", false, "error", ex.getMessage()));
+	}
+
+	/** Maps IllegalArgumentException to HTTP 400. */
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ResponseEntity<Map<String, Object>> handleBadArg(IllegalArgumentException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(Map.of("ok", false, "error", ex.getMessage()));
+	}
+
+	/** Maps IllegalStateException to HTTP 409 Conflict. */
+	@ExceptionHandler(IllegalStateException.class)
+	public ResponseEntity<Map<String, Object>> handleConflict(IllegalStateException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(Map.of("ok", false, "error", ex.getMessage()));
+	}
+
 	/**
 	 * Handles requests where no handler mapping was found (404).
 	 *

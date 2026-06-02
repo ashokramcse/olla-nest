@@ -96,7 +96,7 @@ public class DocumentController extends BaseController {
 	 */
 	@GetMapping
 	public ResponseEntity<Map<String, Object>> list(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> err = requireAuth(req);
+		ResponseEntity<Map<String, Object>> err = guardAuth(req);
 		if (err != null)
 			return err;
 		List<Map<String, Object>> docs = ragService.listDocuments();

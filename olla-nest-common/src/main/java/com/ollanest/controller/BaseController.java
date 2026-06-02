@@ -13,170 +13,171 @@ import java.util.Map;
 /**
  * Abstract base class for all Olla Nest REST controllers.
  *
- * <p>
- * Provides shared helper methods for authentication, authorisation, and CSRF
- * validation so that individual controllers do not duplicate boilerplate. Every
- * public controller in the {@code com.ollanest.controller} package extends this
- * class.
+ * Provides two auth patterns:
+ *   1. Legacy pattern (existing controllers):
+ *      {@code ResponseEntity<Map<String,Object>> err = guardAuth(req); if (err != null) return err;}
+ *   2. Modern pattern (new controllers):
+ *      {@code User user = requireAuth(req);} — throws AuthException (mapped to 401) if not logged in.
  *
- * <p>
- * The authentication model works as follows:
- * <ol>
- * <li>{@link com.ollanest.filter.SessionAuthFilter} validates the session
- * cookie and sets a {@link User} as the {@code "authenticatedUser"} request
- * attribute.</li>
- * <li>Controller methods call {@link #requireAuth} or {@link #requireAdmin} at
- * the top of their body; if either returns a non-null {@link ResponseEntity},
- * the controller returns that directly (401 or 403).</li>
- * <li>If the check returns {@code null}, the request is authorised and
- * processing continues.</li>
- * </ol>
- *
- * <p>
- * <b>Design decisions:</b>
- * <ul>
- * <li>Returning a {@code ResponseEntity} (or {@code null}) from guard methods
- * avoids exceptions for normal auth failures, keeping the hot path
- * allocation-free.</li>
- * <li>CSRF is checked via the {@code X-Requested-With} header (any non-null
- * value satisfies the check) — a simple and widely supported pattern for
- * same-origin detection.</li>
- * </ul>
- *
- * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
+ * Also provides response factory helpers: ok(), created(), badRequest(), notFound(), serverError().
  */
 public abstract class BaseController {
 
-	/**
-	 * Returns the authenticated {@link User} from the current request, or
-	 * {@code null} if the request is unauthenticated.
-	 *
-	 * <p>
-	 * The attribute is set by {@link com.ollanest.filter.SessionAuthFilter} after
-	 * validating the session cookie.
-	 *
-	 * @param req the current HTTP request
-	 * @return the authenticated {@link User}, or {@code null} if not logged in
-	 * @since v2026.1.0 — initial Java Spring Boot migration
-	 */
-	protected User getUser(HttpServletRequest req) {
-		return (User) req.getAttribute("authenticatedUser");
-	}
+    // ── Response factory helpers ──────────────────────────────────────────────
 
-	/**
-	 * Returns a 401 response if the request is unauthenticated, or {@code null} if
-	 * authentication is present.
-	 *
-	 * <p>
-	 * Usage pattern:
-	 * 
-	 * <pre>{@code
-	 * ResponseEntity<?> authError = requireAuth(req);
-	 * if (authError != null)
-	 * 	return authError;
-	 * }</pre>
-	 *
-	 * @param req the current HTTP request
-	 * @return a 401 {@link ResponseEntity} if not authenticated, or {@code null}
-	 * @since v2026.1.0 — initial Java Spring Boot migration
-	 */
-	protected ResponseEntity<Map<String, Object>> requireAuth(HttpServletRequest req) {
-		if (getUser(req) == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("ok", false, "error", "Login required"));
-		}
-		return null;
-	}
+    @SuppressWarnings("unchecked")
+    protected <T> ResponseEntity<T> ok(Object body) {
+        return (ResponseEntity<T>) ResponseEntity.ok(body);
+    }
 
-	/**
-	 * Returns a 401/403 response if the request is not authenticated as an admin,
-	 * or {@code null} if the admin check passes.
-	 *
-	 * <p>
-	 * Enforces three checks in order:
-	 * <ol>
-	 * <li>User is authenticated (401 if not).</li>
-	 * <li>User role is {@code "admin"} (403 if not).</li>
-	 * <li>Non-GET requests include the {@code X-Requested-With} header (CSRF
-	 * guard).</li>
-	 * </ol>
-	 *
-	 * @param req the current HTTP request
-	 * @return a 401 or 403 {@link ResponseEntity} if the check fails, or
-	 *         {@code null}
-	 * @since v2026.1.0 — initial Java Spring Boot migration
-	 */
-	protected ResponseEntity<Map<String, Object>> requireAdmin(HttpServletRequest req) {
-		User user = getUser(req);
-		if (user == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("ok", false, "error", "Login required"));
-		}
-		if (!"admin".equals(user.role)) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN)
-					.body(Map.of("ok", false, "error", "Admin access required"));
-		}
-		// CSRF guard on state-changing requests
-		if (!"GET".equals(req.getMethod()) && req.getHeader("x-requested-with") == null) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN)
-					.body(Map.of("ok", false, "error", "Forbidden: missing CSRF header"));
-		}
-		return null;
-	}
+    @SuppressWarnings("unchecked")
+    protected <T> ResponseEntity<T> created(Object body) {
+        return (ResponseEntity<T>) ResponseEntity.status(HttpStatus.CREATED).body(body);
+    }
 
-	/**
-	 * Returns a 401/403 response if the request is not authenticated or is missing
-	 * the CSRF header on non-GET requests, or {@code null} if all checks pass.
-	 *
-	 * <p>
-	 * Similar to {@link #requireAdmin} but without the role check — suitable for
-	 * any authenticated state-changing endpoint that any user may call.
-	 *
-	 * @param req the current HTTP request
-	 * @return a 401 or 403 {@link ResponseEntity} if a check fails, or {@code null}
-	 * @since v2026.1.0 — initial Java Spring Boot migration
-	 */
-	protected ResponseEntity<Map<String, Object>> requireAuthWithCsrf(HttpServletRequest req) {
-		User user = getUser(req);
-		if (user == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("ok", false, "error", "Login required"));
-		}
-		if (!"GET".equals(req.getMethod()) && req.getHeader("x-requested-with") == null) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN)
-					.body(Map.of("ok", false, "error", "Forbidden: missing CSRF header"));
-		}
-		return null;
-	}
+    @SuppressWarnings("unchecked")
+    protected <T> ResponseEntity<T> badRequest(String message) {
+        return (ResponseEntity<T>) ResponseEntity.badRequest().body(Map.of("ok", false, "error", message));
+    }
 
-	/**
-	 * Returns {@code true} if the CSRF check passes for the current request.
-	 *
-	 * <p>
-	 * GET requests always pass. Non-GET requests pass only when the
-	 * {@code X-Requested-With} header is present (any non-null value).
-	 *
-	 * @param req the current HTTP request
-	 * @return {@code true} if the CSRF check passes
-	 * @since v2026.1.0 — initial Java Spring Boot migration
-	 */
-	protected boolean isCsrfOk(HttpServletRequest req) {
-		return "GET".equals(req.getMethod()) || req.getHeader("x-requested-with") != null;
-	}
+    @SuppressWarnings("unchecked")
+    protected <T> ResponseEntity<T> notFound(String message) {
+        return (ResponseEntity<T>) ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("ok", false, "error", message));
+    }
 
-	/**
-	 * Strips HTML entities from user-supplied text to prevent stored XSS.
-	 *
-	 * <p>
-	 * Uses Spring's {@link HtmlUtils#htmlEscape} to convert {@code <}, {@code >},
-	 * {@code &}, {@code "} and {@code '} into their safe HTML entity equivalents
-	 * before the value is persisted. Returns {@code null} if the input is
-	 * {@code null}.
-	 *
-	 * @param input the raw user-supplied string, may be {@code null}
-	 * @return HTML-escaped string, or {@code null} if input was {@code null}
-	 * @since v2026.1.9 — XSS hardening (CRIT-2)
-	 */
-	public static String sanitizeText(String input) {
-		if (input == null) return null;
-		return HtmlUtils.htmlEscape(input.strip());
-	}
+    @SuppressWarnings("unchecked")
+    protected <T> ResponseEntity<T> serverError(String message) {
+        return (ResponseEntity<T>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("ok", false, "error", message));
+    }
+
+    // ── Auth helpers ──────────────────────────────────────────────────────────
+
+    /**
+     * Returns the authenticated {@link User} from the request attribute set by
+     * {@link com.ollanest.filter.SessionAuthFilter}, or {@code null}.
+     */
+    protected User getUser(HttpServletRequest req) {
+        return (User) req.getAttribute("authenticatedUser");
+    }
+
+    /**
+     * Modern auth check — returns the authenticated User or throws AuthException (maps to 401).
+     * Use in new-style controllers where the return type is ResponseEntity.
+     */
+    protected User requireAuth(HttpServletRequest req) {
+        User user = getUser(req);
+        if (user == null) throw new AuthException("Login required");
+        return user;
+    }
+
+    /**
+     * Modern admin check — returns the authenticated User or throws AuthException/ForbiddenException.
+     */
+    protected User requireAdminUser(HttpServletRequest req) {
+        User user = requireAuth(req);
+        if (!"admin".equals(user.role)) throw new ForbiddenException("Admin access required");
+        return user;
+    }
+
+    /**
+     * Legacy auth guard — returns 401 ResponseEntity if not authenticated, else null.
+     * Used by existing controllers that follow the old pattern.
+     */
+    protected ResponseEntity<Map<String, Object>> guardAuth(HttpServletRequest req) {
+        if (getUser(req) == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "error", "Login required"));
+        }
+        return null;
+    }
+
+    /**
+     * Legacy admin guard — returns 401/403 ResponseEntity if not admin, else null.
+     */
+    protected ResponseEntity<Map<String, Object>> guardAdmin(HttpServletRequest req) {
+        User user = getUser(req);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "error", "Login required"));
+        }
+        if (!"admin".equals(user.role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "error", "Admin access required"));
+        }
+        if (!"GET".equals(req.getMethod()) && req.getHeader("x-requested-with") == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "error", "Forbidden: missing CSRF header"));
+        }
+        return null;
+    }
+
+    /**
+     * Legacy CSRF+auth guard — any authenticated user, state-changing requests require CSRF header.
+     */
+    protected ResponseEntity<Map<String, Object>> guardAuthWithCsrf(HttpServletRequest req) {
+        User user = getUser(req);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("ok", false, "error", "Login required"));
+        }
+        if (!"GET".equals(req.getMethod()) && req.getHeader("x-requested-with") == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("ok", false, "error", "Forbidden: missing CSRF header"));
+        }
+        return null;
+    }
+
+    /** True if the CSRF check passes (GET always passes; others need X-Requested-With). */
+    protected boolean isCsrfOk(HttpServletRequest req) {
+        return "GET".equals(req.getMethod()) || req.getHeader("x-requested-with") != null;
+    }
+
+    // ── Exception types ───────────────────────────────────────────────────────
+
+    /** Thrown when authentication is required but not present. Maps to HTTP 401. */
+    public static class AuthException extends RuntimeException {
+        public AuthException(String msg) { super(msg); }
+    }
+
+    /** Thrown when the user lacks required permissions. Maps to HTTP 403. */
+    public static class ForbiddenException extends RuntimeException {
+        public ForbiddenException(String msg) { super(msg); }
+    }
+
+    /** Strips HTML to prevent stored XSS. */
+    public static String sanitizeText(String input) {
+        if (input == null) return null;
+        return HtmlUtils.htmlEscape(input.strip());
+    }
+
+    // ── Legacy compat: aliases for existing controllers ───────────────────────
+    // These preserve the old API so existing controllers don't need changes.
+
+    /** @deprecated Use {@link #guardAuth} */
+    @Deprecated
+    protected ResponseEntity<Map<String, Object>> requireAuthLegacy(HttpServletRequest req) {
+        return guardAuth(req);
+    }
+
+    /** @deprecated Use {@link #guardAdmin} */
+    @Deprecated
+    protected ResponseEntity<Map<String, Object>> requireAdminLegacy(HttpServletRequest req) {
+        return guardAdmin(req);
+    }
+
+    /** @deprecated Use {@link #guardAuthWithCsrf} */
+    @Deprecated
+    protected ResponseEntity<Map<String, Object>> requireAuthWithCsrf(HttpServletRequest req) {
+        return guardAuthWithCsrf(req);
+    }
+
+    /**
+     * Legacy: alias so existing code that calls requireAdmin(req) still compiles.
+     * Returns a 401/403 ResponseEntity or null.
+     */
+    protected ResponseEntity<Map<String, Object>> requireAdmin(HttpServletRequest req) {
+        return guardAdmin(req);
+    }
 }

@@ -162,12 +162,93 @@ public class WebSearchService {
 			return switch (provider) {
 			case "brave" -> searchBrave(query, limit);
 			case "searxng" -> searchSearXng(query, limit);
-			default -> searchSerper(query, limit); // serper is the default
+			case "duckduckgo" -> searchDuckDuckGo(query, limit);
+			case "google_pse" -> searchGooglePse(query, limit);
+			case "tavily" -> searchTavily(query, limit);
+			default -> searchSerper(query, limit);
 			};
 		} catch (Exception e) {
 			log.warn("[websearch] provider '{}' failed for query '{}': {}", provider, query, e.getMessage());
 			return List.of();
 		}
+	}
+
+	// ── DuckDuckGo (HTML scrape fallback — no API key needed) ─────────────────
+	private List<SearchResult> searchDuckDuckGo(String query, int limit) throws Exception {
+		String url = "https://html.duckduckgo.com/html/?q=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
+		HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url))
+				.header("User-Agent", "Mozilla/5.0 (compatible; OllaNest/1.0)")
+				.header("Accept", "text/html")
+				.timeout(Duration.ofSeconds(15)).GET().build();
+		String html = http.send(req, HttpResponse.BodyHandlers.ofString()).body();
+		List<SearchResult> results = new ArrayList<>();
+		// Parse result links from HTML using simple regex patterns
+		java.util.regex.Pattern titlePat = java.util.regex.Pattern.compile("<a class=\"result__a\" href=\"([^\"]+)\"[^>]*>([^<]+)</a>");
+		java.util.regex.Pattern snippetPat = java.util.regex.Pattern.compile("<a class=\"result__snippet\"[^>]*>([^<]+)</a>");
+		java.util.regex.Matcher titleMatcher = titlePat.matcher(html);
+		java.util.regex.Matcher snippetMatcher = snippetPat.matcher(html);
+		List<String> snippets = new ArrayList<>();
+		while (snippetMatcher.find()) snippets.add(snippetMatcher.group(1));
+		int i = 0;
+		while (titleMatcher.find() && results.size() < limit) {
+			String href = titleMatcher.group(1);
+			String title = titleMatcher.group(2);
+			if (href.startsWith("//duckduckgo.com")) continue;
+			// Resolve DuckDuckGo redirect URLs
+			if (href.contains("uddg=")) {
+				try {
+					href = java.net.URLDecoder.decode(
+							href.substring(href.indexOf("uddg=") + 5), StandardCharsets.UTF_8);
+				} catch (Exception ignore) {}
+			}
+			results.add(new SearchResult(title, href, snippets.size() > i ? snippets.get(i) : ""));
+			i++;
+		}
+		return results;
+	}
+
+	// ── Google Programmable Search Engine ─────────────────────────────────────
+	private List<SearchResult> searchGooglePse(String query, int limit) throws Exception {
+		String apiKey = dbService.getSetting("searchApiKey", "");
+		String cx = dbService.getSetting("googleSearchCx", "");
+		if (apiKey.isBlank() || cx.isBlank()) {
+			log.debug("[websearch] Google PSE not configured (needs searchApiKey + googleSearchCx)");
+			return List.of();
+		}
+		String url = "https://www.googleapis.com/customsearch/v1?key=" + apiKey + "&cx=" + cx
+				+ "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8) + "&num=" + Math.min(limit, 10);
+		HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url))
+				.timeout(Duration.ofSeconds(15)).GET().build();
+		JsonNode root = mapper.readTree(http.send(req, HttpResponse.BodyHandlers.ofString()).body());
+		List<SearchResult> results = new ArrayList<>();
+		for (JsonNode item : root.path("items")) {
+			results.add(new SearchResult(item.path("title").asText(), item.path("link").asText(),
+					item.path("snippet").asText("")));
+			if (results.size() >= limit) break;
+		}
+		return results;
+	}
+
+	// ── Tavily ────────────────────────────────────────────────────────────────
+	private List<SearchResult> searchTavily(String query, int limit) throws Exception {
+		String apiKey = dbService.getSetting("searchApiKey", "");
+		if (apiKey.isBlank()) {
+			log.debug("[websearch] Tavily API key not configured");
+			return List.of();
+		}
+		String body = mapper.writeValueAsString(Map.of("query", query, "max_results", limit, "api_key", apiKey));
+		HttpRequest req = HttpRequest.newBuilder().uri(URI.create("https://api.tavily.com/search"))
+				.header("Content-Type", "application/json")
+				.timeout(Duration.ofSeconds(15))
+				.POST(HttpRequest.BodyPublishers.ofString(body)).build();
+		JsonNode root = mapper.readTree(http.send(req, HttpResponse.BodyHandlers.ofString()).body());
+		List<SearchResult> results = new ArrayList<>();
+		for (JsonNode r : root.path("results")) {
+			results.add(new SearchResult(r.path("title").asText(), r.path("url").asText(),
+					r.path("content").asText("")));
+			if (results.size() >= limit) break;
+		}
+		return results;
 	}
 
 	/**

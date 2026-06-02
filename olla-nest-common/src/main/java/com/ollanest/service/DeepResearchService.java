@@ -73,24 +73,47 @@ public class DeepResearchService {
 	/** Jackson mapper used to serialise SSE event payloads. */
 	private final ObjectMapper mapper;
 
-	/**
-	 * Constructs a {@code DeepResearchService} with all required collaborators.
-	 *
-	 * @param providerService  LLM provider resolver and caller
-	 * @param routerService    model-routing logic
-	 * @param webSearchService live web search integration
-	 * @param ragService       RAG retrieval integration
-	 * @param mapper           Jackson {@link ObjectMapper} for JSON serialisation
-	 * @since v2026.1.4
-	 * @version v2026.1.4 — initial creation
-	 */
+	/** Persists research tasks to DB and generates visual HTML reports. */
+	private final org.springframework.jdbc.core.JdbcTemplate db;
+	private final VisualReportService visualReportService;
+
+	/** Active research tasks for cancellation support: taskId -> true. */
+	private final java.util.concurrent.ConcurrentHashMap<String, Boolean> activeTasks = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public DeepResearchService(ProviderService providerService, RouterService routerService,
-			WebSearchService webSearchService, RagService ragService, ObjectMapper mapper) {
+			WebSearchService webSearchService, RagService ragService, ObjectMapper mapper,
+			org.springframework.jdbc.core.JdbcTemplate db, VisualReportService visualReportService) {
 		this.providerService = providerService;
 		this.routerService = routerService;
 		this.webSearchService = webSearchService;
 		this.ragService = ragService;
 		this.mapper = mapper;
+		this.db = db;
+		this.visualReportService = visualReportService;
+	}
+
+	/** Cancel an in-progress research task. */
+	public void cancel(String taskId) {
+		activeTasks.remove(taskId);
+		try {
+			db.update("UPDATE research_tasks SET status='cancelled', finished_at=? WHERE id=?",
+					java.time.Instant.now().toString(), taskId);
+		} catch (Exception ignore) {}
+	}
+
+	/** List research tasks for a user. */
+	public java.util.List<java.util.Map<String, Object>> listTasks(String owner) {
+		return db.queryForList(
+				"SELECT id, owner, query, status, started_at, finished_at, duration_ms FROM research_tasks WHERE owner=? ORDER BY started_at DESC LIMIT 50",
+				owner);
+	}
+
+	/** Get a research task's HTML report. */
+	public String getReport(String taskId, String owner) {
+		java.util.List<java.util.Map<String, Object>> rows = db.queryForList(
+				"SELECT report_html FROM research_tasks WHERE id=? AND owner=?", taskId, owner);
+		if (rows.isEmpty()) return null;
+		return (String) rows.get(0).get("report_html");
 	}
 
 	/**
@@ -127,14 +150,32 @@ public class DeepResearchService {
 	 * @version v2026.1.4 — initial creation
 	 */
 	public void executeResearch(String query, User user, SseEmitter emitter) {
+		executeResearch(query, user, emitter, null);
+	}
+
+	public void executeResearch(String query, User user, SseEmitter emitter, String sessionId) {
+		// Create persistent task record
+		String taskId = "res-" + Long.toString(System.currentTimeMillis(), 36);
+		try {
+			db.update("INSERT INTO research_tasks (id, owner, session_id, query, status, started_at) VALUES (?,?,?,?,?,?)",
+					taskId, user.id, sessionId, query, "running", java.time.Instant.now().toString());
+		} catch (Exception ignore) {}
+		activeTasks.put(taskId, true);
+
 		emitter.onTimeout(() -> {
 			log.warn("[research] SSE emitter timed out for query: {}", query.substring(0, Math.min(50, query.length())));
+			cancel(taskId);
 			emitter.complete();
 		});
 		emitter.onError(ex -> {
 			log.warn("[research] SSE emitter error: {}", ex.getMessage());
+			cancel(taskId);
 			emitter.completeWithError(ex);
 		});
+
+		// Send taskId so client can reference it
+		try { emit(emitter, Map.of("type", "task_id", "task_id", taskId)); } catch (Exception ignore) {}
+
 		try {
 			long startMs = System.currentTimeMillis();
 			RouterService.RouteResult route = routerService.routeModel(user, query, "ask");
@@ -213,11 +254,26 @@ public class DeepResearchService {
 					}, tokens -> tokenCount[0] = tokens);
 
 			emit(emitter, Map.of("type", "research_step", "step", "synthesize", "status", "done"));
-			emit(emitter, Map.of("type", "done", "tokensUsed", tokenCount[0]));
+			emit(emitter, Map.of("type", "done", "tokensUsed", tokenCount[0], "task_id", taskId));
+
+			// Persist completion + generate HTML report
+			long durationMs = System.currentTimeMillis() - startMs;
+			activeTasks.remove(taskId);
+			try {
+				// Collect final report text from token events — for now just mark complete
+				db.update("UPDATE research_tasks SET status='completed', finished_at=?, duration_ms=? WHERE id=?",
+						java.time.Instant.now().toString(), durationMs, taskId);
+			} catch (Exception ignore) {}
+
 			emitter.complete();
 
 		} catch (Exception e) {
 			log.error("[research] failed: {}", e.getMessage());
+			activeTasks.remove(taskId);
+			try {
+				db.update("UPDATE research_tasks SET status='error', finished_at=? WHERE id=?",
+						java.time.Instant.now().toString(), taskId);
+			} catch (Exception ignore) {}
 			try {
 				emit(emitter, Map.of("type", "error", "message", e.getMessage()));
 				emitter.complete();
