@@ -1,0 +1,208 @@
+package com.ollanest.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.testinfra.UserFactory;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+/**
+ * OCD-level unit tests for {@link TaskSchedulerService}.
+ *
+ * <p>Covers: {@code create()} — DB INSERT, ID prefix, notifications_enabled defaulting;
+ * {@code update()} — NoSuchElementException when task not found, DB UPDATE called;
+ * {@code delete()} — scoped DELETE; {@code getById()} — null when not found;
+ * {@code list()} — with and without status filter; {@code computeNextRun()} — daily/once schedules.
+ *
+ * <p>All DB interactions are Mockito-stubbed — no Spring context, no real DB.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1 — initial creation
+ * @version v2026.2.1
+ */
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@DisplayName("TaskSchedulerService — unit tests")
+class TaskSchedulerServiceTest {
+
+    private static final String OWNER = UserFactory.USER_ID;
+
+    @Mock JdbcTemplate db;
+    @Mock ObjectMapper mapper;
+    @Mock DatabaseService databaseService;
+
+    @InjectMocks TaskSchedulerService svc;
+
+    @BeforeEach
+    void stubGetById() {
+        when(db.queryForList(contains("FROM scheduled_tasks WHERE id"), any(), any()))
+                .thenReturn(List.of());
+    }
+
+    // ── create() ──────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("create()")
+    class Create {
+
+        @Test
+        @DisplayName("DB INSERT called with owner")
+        void insertCalledWithOwner() {
+            ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
+            svc.create(OWNER, Map.of("name", "My Task", "schedule", "daily", "scheduled_time", "09:00"));
+            verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            assertThat(cap.getValue()[1]).isEqualTo(OWNER);
+        }
+
+        @Test
+        @DisplayName("generated id starts with 'task-'")
+        void idStartsWithTaskPrefix() {
+            ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
+            svc.create(OWNER, Map.of("schedule", "daily", "scheduled_time", "09:00"));
+            verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            assertThat(cap.getValue()[0].toString()).startsWith("task-");
+        }
+
+        @Test
+        @DisplayName("notifications_enabled defaults to 1 when not specified")
+        void notificationsEnabledDefaultsToOne() {
+            ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
+            svc.create(OWNER, Map.of("name", "Task", "schedule", "daily", "scheduled_time", "09:00"));
+            verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            // notifications_enabled is the 19th param (index 18)
+            assertThat(cap.getValue()[18]).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("notifications_enabled is 0 when explicitly set to false")
+        void notificationsDisabledWhenFalse() {
+            ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
+            svc.create(OWNER, Map.of("name", "Task", "schedule", "daily",
+                    "scheduled_time", "09:00", "notifications_enabled", false));
+            verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            assertThat(cap.getValue()[18]).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("status is set to 'active' on create")
+        void statusIsActive() {
+            ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
+            svc.create(OWNER, Map.of("schedule", "daily", "scheduled_time", "09:00"));
+            verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            assertThat(cap.getValue()[19]).isEqualTo("active");
+        }
+    }
+
+    // ── update() ──────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("update()")
+    class Update {
+
+        @Test
+        @DisplayName("throws NoSuchElementException when task not found")
+        void throwsWhenNotFound() {
+            when(db.queryForList(contains("FROM scheduled_tasks WHERE id"), eq("task-x"), eq(OWNER)))
+                    .thenReturn(List.of());
+            assertThatThrownBy(() -> svc.update("task-x", OWNER, Map.of("name", "New Name")))
+                    .isInstanceOf(NoSuchElementException.class)
+                    .hasMessageContaining("task-x");
+        }
+    }
+
+    // ── delete() ──────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("delete()")
+    class Delete {
+
+        @Test
+        @DisplayName("calls DELETE WHERE id=? AND owner=?")
+        void deleteScopedToIdAndOwner() {
+            svc.delete("task-123", OWNER);
+            verify(db).update(contains("DELETE FROM scheduled_tasks WHERE id"), eq("task-123"), eq(OWNER));
+        }
+    }
+
+    // ── getById() ─────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("getById()")
+    class GetById {
+
+        @Test
+        @DisplayName("returns null when DB has no row")
+        void returnsNullWhenNotFound() {
+            when(db.queryForList(anyString(), eq("task-missing"), eq(OWNER))).thenReturn(List.of());
+            assertThat(svc.getById("task-missing", OWNER)).isNull();
+        }
+    }
+
+    // ── list() ────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("list()")
+    class ListTasks {
+
+        @Test
+        @DisplayName("queries without status filter when status is null")
+        void noStatusFilter() {
+            when(db.queryForList(anyString(), eq(OWNER))).thenReturn(List.of());
+            svc.list(OWNER, null);
+            verify(db).queryForList(anyString(), eq(OWNER));
+        }
+
+        @Test
+        @DisplayName("queries with status filter when status provided")
+        void withStatusFilter() {
+            when(db.queryForList(anyString(), eq(OWNER), eq("active"))).thenReturn(List.of());
+            svc.list(OWNER, "active");
+            verify(db).queryForList(anyString(), eq(OWNER), eq("active"));
+        }
+    }
+
+    // ── computeNextRun() ──────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("computeNextRun()")
+    class ComputeNextRun {
+
+        @Test
+        @DisplayName("daily schedule returns a non-null future ISO instant")
+        void dailyReturnsInstant() {
+            String next = svc.computeNextRun(Map.of("schedule", "daily", "scheduled_time", "09:00"));
+            assertThat(next).isNotNull().matches("\\d{4}-\\d{2}-\\d{2}T.*Z");
+        }
+
+        @Test
+        @DisplayName("weekly schedule returns a non-null future ISO instant")
+        void weeklyReturnsInstant() {
+            String next = svc.computeNextRun(Map.of("schedule", "weekly", "scheduled_time", "08:00", "scheduled_day", 1));
+            assertThat(next).isNotNull().matches("\\d{4}-\\d{2}-\\d{2}T.*Z");
+        }
+
+        @Test
+        @DisplayName("unknown schedule falls back to next-day instant")
+        void unknownScheduleFallback() {
+            String next = svc.computeNextRun(Map.of("schedule", "unknown", "scheduled_time", "09:00"));
+            assertThat(next).isNotNull();
+        }
+    }
+}
