@@ -96,16 +96,55 @@ public class WebSearchService {
 	private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10))
 			.followRedirects(java.net.http.HttpClient.Redirect.NORMAL).build();
 
-	/**
-	 * Constructor-injects the database settings service and JSON mapper.
-	 *
-	 * @param dbService the database service used to read search provider settings
-	 * @param mapper    the shared Jackson {@link ObjectMapper}
-	 * @since v2026.1.4
-	 */
-	public WebSearchService(DatabaseService dbService, ObjectMapper mapper) {
+	private final SearchCacheService cacheService;
+
+	public WebSearchService(DatabaseService dbService, ObjectMapper mapper, SearchCacheService cacheService) {
 		this.dbService = dbService;
 		this.mapper = mapper;
+		this.cacheService = cacheService;
+	}
+
+	// ── Query classification ──────────────────────────────────────────────────
+	public String classifyQuery(String query) {
+		if (query == null) return "general";
+		String q = query.toLowerCase();
+		if (q.contains("breaking") || q.contains("today") || q.contains("latest") || q.contains("news")) return "news";
+		if (q.contains("research") || q.contains("study") || q.contains("analysis") || q.length() > 80) return "research";
+		return "general";
+	}
+
+	// ── Full-page content fetching ────────────────────────────────────────────
+	public String fetchPageContent(String url) {
+		try {
+			HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url))
+					.header("User-Agent", "Mozilla/5.0 (compatible; OllaNest/1.0)")
+					.timeout(Duration.ofSeconds(10)).GET().build();
+			HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+			if (resp.statusCode() != 200) return null;
+			// Strip HTML
+			String text = resp.body().replaceAll("<style[^>]*>[\\s\\S]*?</style>", "")
+					.replaceAll("<script[^>]*>[\\s\\S]*?</script>", "")
+					.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
+			return text.length() > 8000 ? text.substring(0, 8000) + "..." : text;
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	// ── Result ranking ────────────────────────────────────────────────────────
+	private List<SearchResult> rank(List<SearchResult> results, String query) {
+		if (results.isEmpty()) return results;
+		String[] terms = query.toLowerCase().split("\\s+");
+		record Scored(SearchResult r, int score) {}
+		var scored = results.stream().map(r -> {
+			int score = 0;
+			String text = (r.title() + " " + r.snippet()).toLowerCase();
+			for (String t : terms) { if (text.contains(t)) score++; }
+			// Boost HTTPS
+			if (r.url().startsWith("https")) score++;
+			return new Scored(r, score);
+		}).sorted((a, b) -> b.score() - a.score()).toList();
+		return scored.stream().map(Scored::r).toList();
 	}
 
 	// -------------------------------------------------------------------------
@@ -154,19 +193,28 @@ public class WebSearchService {
 	 * @since v2026.1.4
 	 */
 	public List<SearchResult> search(String query, int maxResults) {
-		if (query == null || query.isBlank())
-			return List.of();
+		if (query == null || query.isBlank()) return List.of();
 		String provider = dbService.getSetting("searchProvider", "serper");
 		int limit = maxResults > 0 ? maxResults : DEFAULT_RESULTS;
+		String queryType = classifyQuery(query);
+
+		// Check cache first
+		String key = cacheService.cacheKey(query, provider);
+		List<SearchResult> cached = cacheService.get(key);
+		if (cached != null) return cached;
+
 		try {
-			return switch (provider) {
-			case "brave" -> searchBrave(query, limit);
-			case "searxng" -> searchSearXng(query, limit);
-			case "duckduckgo" -> searchDuckDuckGo(query, limit);
-			case "google_pse" -> searchGooglePse(query, limit);
-			case "tavily" -> searchTavily(query, limit);
-			default -> searchSerper(query, limit);
+			List<SearchResult> results = switch (provider) {
+				case "brave"      -> searchBrave(query, limit);
+				case "searxng"    -> searchSearXng(query, limit);
+				case "duckduckgo" -> searchDuckDuckGo(query, limit);
+				case "google_pse" -> searchGooglePse(query, limit);
+				case "tavily"     -> searchTavily(query, limit);
+				default           -> searchSerper(query, limit);
 			};
+			results = rank(results, query);
+			cacheService.put(key, query, provider, queryType, results);
+			return results;
 		} catch (Exception e) {
 			log.warn("[websearch] provider '{}' failed for query '{}': {}", provider, query, e.getMessage());
 			return List.of();

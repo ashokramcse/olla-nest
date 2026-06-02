@@ -6,6 +6,12 @@
 <title>Olla Nest</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Olla Nest" />
+<meta name="theme-color" content="#F5C800" />
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}</script>
 <script src="/theme.js"></script>
 <link rel="stylesheet" href="/styles.css" />
 <link rel="stylesheet" href="/vendor/highlight-github.min.css" />
@@ -104,6 +110,18 @@
         <a class="feature-nav-item" data-panel="research" href="#" onclick="openFeaturePanel('research');return false;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
           Research
+        </a>
+        <a class="feature-nav-item" data-panel="contacts" href="#" onclick="openFeaturePanel('contacts');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Contacts
+        </a>
+        <a class="feature-nav-item" data-panel="gallery" href="#" onclick="openFeaturePanel('gallery');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Gallery
+        </a>
+        <a class="feature-nav-item" data-panel="presets" href="#" onclick="openFeaturePanel('presets');return false;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          Presets
         </a>
       </nav>
 
@@ -729,6 +747,60 @@ function updateModelRing(count, max) {
   <div class="fp-body" id="assistantBody">
     <div class="fp-empty">Loading assistant…</div>
   </div>
+</div>
+
+<!-- ── CONTACTS PANEL ── -->
+<div id="fp-contacts" class="feature-panel">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Contacts
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn primary" onclick="showAddContact()">+ Contact</button>
+      <a class="fp-btn" href="/api/contacts/export.vcf" download="contacts.vcf">⬇ Export vCard</a>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-search-bar">
+    <input class="fp-search-input" id="contactsSearchInput" placeholder="Search contacts…" oninput="debounce(searchContacts, 400)()">
+  </div>
+  <div class="fp-body" id="contactsList"><div class="fp-empty">Loading contacts…</div></div>
+</div>
+
+<!-- ── GALLERY PANEL ── -->
+<div id="fp-gallery" class="feature-panel fp-wide">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      Gallery
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn primary" onclick="triggerGalleryUpload()">⬆ Upload</button>
+      <button class="fp-btn" onclick="showCreateAlbum()">+ Album</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body">
+    <input type="file" id="galleryFileInput" accept="image/*" multiple style="display:none" onchange="handleGalleryUpload(this)">
+    <div id="galleryAlbumBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"></div>
+    <div id="galleryImageGrid" class="notes-grid"></div>
+  </div>
+</div>
+
+<!-- ── PRESETS PANEL ── -->
+<div id="fp-presets" class="feature-panel">
+  <div class="fp-header">
+    <div class="fp-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+      Presets &amp; Templates
+    </div>
+    <div class="fp-header-actions">
+      <button class="fp-btn primary" onclick="showCreatePreset()">+ Template</button>
+      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+    </div>
+  </div>
+  <div class="fp-body" id="presetsList"><div class="fp-empty">Loading presets…</div></div>
 </div>
 
 <!-- ── RESEARCH PANEL ── -->

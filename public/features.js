@@ -989,3 +989,261 @@ document.addEventListener('keydown', e => {
 });
 
 console.log('[Olla Nest] Features v2026.2.0 loaded — Memory, Skills, Notes, Tasks, Email, Calendar, Compare, Cookbook, Assistant, Research');
+
+/* ─────────────────────────────────────────────
+   CONTACTS
+   ───────────────────────────────────────────── */
+
+async function loadContacts() {
+  try {
+    const contacts = await api('/api/contacts?limit=200');
+    renderContacts(Array.isArray(contacts) ? contacts : []);
+  } catch (e) {
+    document.getElementById('contactsList').innerHTML = `<div class="fp-empty">Failed to load contacts</div>`;
+  }
+}
+
+async function searchContacts() {
+  const q = document.getElementById('contactsSearchInput')?.value?.trim();
+  if (!q) { loadContacts(); return; }
+  try {
+    const contacts = await api(`/api/contacts/search?q=${encodeURIComponent(q)}`);
+    renderContacts(Array.isArray(contacts) ? contacts : []);
+  } catch (e) {}
+}
+
+function renderContacts(contacts) {
+  const el = document.getElementById('contactsList');
+  if (!contacts.length) {
+    el.innerHTML = `<div class="fp-empty">No contacts yet. Click "+ Contact" to add one.</div>`;
+    return;
+  }
+  el.innerHTML = contacts.map(c => `
+    <div class="memory-item" style="align-items:center;">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--ac-pale);border:1.5px solid var(--ac-mid);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--ac-dark);flex-shrink:0;">
+        ${esc((c.display_name || c.first_name || '?').charAt(0).toUpperCase())}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:13px;">${esc(c.display_name || (c.first_name + ' ' + c.last_name).trim())}</div>
+        <div style="font-size:11px;color:var(--muted2);">
+          ${c.organization ? `<span>${esc(c.organization)}</span>` : ''}
+          ${Array.isArray(c.email) && c.email[0] ? ` · ${esc(c.email[0].value || c.email[0])}` : ''}
+        </div>
+      </div>
+      <button class="memory-item-del" onclick="deleteContact('${esc(c.id)}')">×</button>
+    </div>
+  `).join('');
+}
+
+function showAddContact() {
+  const name = prompt('Full name:');
+  if (!name) return;
+  const email = prompt('Email (optional):') || '';
+  const org = prompt('Organization (optional):') || '';
+  const emails = email ? [{ type: 'work', value: email }] : [];
+  api('/api/contacts', {
+    method: 'POST',
+    body: JSON.stringify({ display_name: name, email: emails, organization: org })
+  }).then(() => { loadContacts(); showToast('Contact added'); })
+    .catch(() => showToast('Failed', 'error'));
+}
+
+async function deleteContact(id) {
+  if (!confirm('Delete this contact?')) return;
+  try {
+    await api(`/api/contacts/${id}`, { method: 'DELETE' });
+    loadContacts();
+    showToast('Contact deleted');
+  } catch (e) { showToast('Failed', 'error'); }
+}
+
+/* ─────────────────────────────────────────────
+   GALLERY
+   ───────────────────────────────────────────── */
+
+let _galleryAlbumId = null;
+
+async function loadGallery() {
+  await loadGalleryAlbums();
+  await loadGalleryImages();
+}
+
+async function loadGalleryAlbums() {
+  try {
+    const albums = await api('/api/gallery/albums');
+    renderGalleryAlbums(Array.isArray(albums) ? albums : []);
+  } catch (e) {}
+}
+
+function renderGalleryAlbums(albums) {
+  const bar = document.getElementById('galleryAlbumBar');
+  if (!bar) return;
+  bar.innerHTML = `
+    <button class="fp-btn ${!_galleryAlbumId ? 'primary' : ''}" onclick="selectAlbum(null)">All</button>
+    ${albums.map(a => `
+      <button class="fp-btn ${_galleryAlbumId === a.id ? 'primary' : ''}" onclick="selectAlbum('${a.id}')">
+        ${esc(a.name)} <span style="opacity:.6;font-size:10px;">(${a.image_count || 0})</span>
+      </button>
+    `).join('')}`;
+}
+
+async function selectAlbum(albumId) {
+  _galleryAlbumId = albumId;
+  await loadGalleryAlbums();
+  await loadGalleryImages();
+}
+
+async function loadGalleryImages() {
+  const params = new URLSearchParams({ page: '1', pageSize: '40' });
+  if (_galleryAlbumId) params.set('albumId', _galleryAlbumId);
+  try {
+    const images = await api(`/api/gallery/images?${params}`);
+    renderGalleryImages(Array.isArray(images) ? images : []);
+  } catch (e) {
+    document.getElementById('galleryImageGrid').innerHTML = `<div class="fp-empty">Failed to load images</div>`;
+  }
+}
+
+function renderGalleryImages(images) {
+  const el = document.getElementById('galleryImageGrid');
+  if (!images.length) {
+    el.innerHTML = `<div class="fp-empty" style="grid-column:1/-1;">No images yet. Upload some!</div>`;
+    return;
+  }
+  el.innerHTML = images.map(img => `
+    <div class="note-card color-default" style="padding:8px;cursor:default;">
+      <div style="aspect-ratio:1;background:var(--bg);border-radius:8px;overflow:hidden;margin-bottom:6px;display:flex;align-items:center;justify-content:center;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--muted2)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </div>
+      <div style="font-size:11px;color:var(--muted1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(img.filename)}</div>
+      <div style="font-size:10px;color:var(--muted2);">${img.width && img.height ? `${img.width}×${img.height}` : ''} ${img.file_size ? (img.file_size/1024).toFixed(0)+'KB' : ''}</div>
+      <div class="note-card-actions">
+        <button class="note-card-action" onclick="deleteGalleryImage('${img.id}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function triggerGalleryUpload() {
+  document.getElementById('galleryFileInput')?.click();
+}
+
+async function handleGalleryUpload(input) {
+  for (const file of input.files) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (_galleryAlbumId) formData.append('albumId', _galleryAlbumId);
+    try {
+      const res = await fetch('/api/gallery/upload', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.duplicate) showToast(`${file.name} — duplicate skipped`, 'ok');
+      else showToast(`${file.name} uploaded`);
+    } catch (e) { showToast(`Failed: ${file.name}`, 'error'); }
+  }
+  input.value = '';
+  loadGalleryImages();
+}
+
+function showCreateAlbum() {
+  const name = prompt('Album name:');
+  if (!name) return;
+  api('/api/gallery/albums', { method: 'POST', body: JSON.stringify({ name }) })
+    .then(() => { loadGalleryAlbums(); showToast('Album created'); })
+    .catch(() => showToast('Failed', 'error'));
+}
+
+function deleteGalleryImage(id) {
+  if (!confirm('Delete this image?')) return;
+  api(`/api/gallery/images/${id}`, { method: 'DELETE' })
+    .then(() => { loadGalleryImages(); showToast('Deleted'); });
+}
+
+/* ─────────────────────────────────────────────
+   PRESETS
+   ───────────────────────────────────────────── */
+
+async function loadPresets() {
+  try {
+    const presets = await api('/api/presets');
+    renderPresets(Array.isArray(presets) ? presets : []);
+  } catch (e) {
+    document.getElementById('presetsList').innerHTML = `<div class="fp-empty">Failed to load presets</div>`;
+  }
+}
+
+function renderPresets(presets) {
+  const el = document.getElementById('presetsList');
+  el.innerHTML = presets.map(p => `
+    <div class="skill-item">
+      <div class="skill-item-header">
+        <span class="skill-item-name">${esc(p.name)}</span>
+        <span class="skill-item-cat">${esc(p.source || 'system')}</span>
+      </div>
+      ${p.system_prompt ? `<div class="skill-item-desc">${esc(p.system_prompt.slice(0, 100))}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:8px;font-size:11px;color:var(--muted2);">
+        <span>temp: ${p.temperature ?? 1.0}</span>
+        ${p.max_tokens ? `<span>max: ${p.max_tokens} tokens</span>` : ''}
+      </div>
+      ${p.source === 'user' ? `
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <button class="fp-btn" style="font-size:11px;" onclick="editPreset('${esc(p.id)}', '${esc(p.name)}')">Edit</button>
+          <button class="fp-btn danger" style="font-size:11px;" onclick="deletePreset('${esc(p.id)}')">Delete</button>
+        </div>` : ''}
+    </div>
+  `).join('');
+}
+
+function showCreatePreset() {
+  const name = prompt('Preset name:');
+  if (!name) return;
+  const systemPrompt = prompt('System prompt:') || '';
+  const tempStr = prompt('Temperature (0.0 - 2.0, default 1.0):') || '1.0';
+  const temperature = parseFloat(tempStr) || 1.0;
+  api('/api/presets/templates', {
+    method: 'POST',
+    body: JSON.stringify({ name, system_prompt: systemPrompt, temperature })
+  }).then(() => { loadPresets(); showToast('Template created'); })
+    .catch(() => showToast('Failed', 'error'));
+}
+
+async function editPreset(id, currentName) {
+  const name = prompt('Name:', currentName);
+  if (!name) return;
+  const systemPrompt = prompt('System prompt:') || '';
+  api(`/api/presets/templates/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name, system_prompt: systemPrompt })
+  }).then(() => { loadPresets(); showToast('Updated'); });
+}
+
+async function deletePreset(id) {
+  if (!confirm('Delete this template?')) return;
+  api(`/api/presets/templates/${id}`, { method: 'DELETE' })
+    .then(() => { loadPresets(); showToast('Deleted'); });
+}
+
+/* ─────────────────────────────────────────────
+   PANEL LOADER — wire new panels
+   ───────────────────────────────────────────── */
+
+const _origOpenFeaturePanel = openFeaturePanel;
+// Patch to handle new panels added in Phase 2
+const _phase2PanelLoaders = {
+  contacts: loadContacts,
+  gallery:  loadGallery,
+  presets:  loadPresets,
+};
+// Override openFeaturePanel to also trigger phase 2 loaders
+(function() {
+  const orig = openFeaturePanel;
+  window.openFeaturePanel = function(name) {
+    orig(name);
+    if (_phase2PanelLoaders[name]) _phase2PanelLoaders[name]();
+  };
+})();
+
+console.log('[Olla Nest] Features Phase 2 loaded — Contacts, Gallery, Presets');

@@ -64,22 +64,31 @@ import com.ollanest.model.User;
 @Service
 public class UserService {
 
+	/**
+	 * Usernames the auth layer reserves as internal "synthetic owner" sentinels.
+	 * These must never belong to a real account — creating or renaming into any of
+	 * them would grant silent privilege escalation (internal-tool is treated as admin
+	 * by require_admin, api is the bearer-token owner sentinel, etc.).
+	 */
+	public static final java.util.Set<String> RESERVED_USERNAMES =
+			java.util.Set.of("internal-tool", "api", "demo", "system", "admin");
+
 	/** JDBC template for all database queries in this service. */
 	private final JdbcTemplate db;
 
 	/** Shared Jackson mapper used to deserialise the {@code rights} JSON column. */
 	private final ObjectMapper mapper;
 
-	/**
-	 * Constructor-injects the JDBC template and JSON mapper.
-	 *
-	 * @param db     the Spring-managed JDBC template; must not be {@code null}
-	 * @param mapper the shared {@link ObjectMapper} bean; must not be {@code null}
-	 * @since v2026.1.0
-	 */
 	public UserService(JdbcTemplate db, ObjectMapper mapper) {
 		this.db = db;
 		this.mapper = mapper;
+	}
+
+	/** Guard: throw IllegalArgumentException if the username is reserved. */
+	public static void assertNotReserved(String username) {
+		if (username != null && RESERVED_USERNAMES.contains(username.toLowerCase())) {
+			throw new IllegalArgumentException("Username '" + username + "' is reserved and cannot be used");
+		}
 	}
 
 	// -------------------------------------------------------------------------

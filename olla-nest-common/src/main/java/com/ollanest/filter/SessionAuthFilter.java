@@ -60,15 +60,11 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 
 	/** Resolves and validates session cookies against the session store. */
 	private final AuthService authService;
+	private final com.ollanest.service.UserService userService;
 
-	/**
-	 * Constructor-injects the authentication service.
-	 *
-	 * @param authService the service used to look up and validate session tokens
-	 * @since v2026.1.0
-	 */
-	public SessionAuthFilter(AuthService authService) {
+	public SessionAuthFilter(AuthService authService, com.ollanest.service.UserService userService) {
 		this.authService = authService;
+		this.userService = userService;
 	}
 
 	/**
@@ -90,10 +86,55 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 			throws ServletException, IOException {
+		// 1. Try cookie-based session (primary path)
 		User user = authService.getSessionUser(request);
 		if (user != null) {
 			request.setAttribute("authenticatedUser", user);
+			filterChain.doFilter(request, response);
+			return;
 		}
+
+		// 2. Try Bearer token (API access via oly_ prefixed tokens)
+		String authHeader = request.getHeader("Authorization");
+		if (authHeader != null && authHeader.startsWith("Bearer oly_")) {
+			String rawToken = authHeader.substring("Bearer ".length()).trim();
+			try {
+				// Lazy-load ApiTokenService to avoid circular dependency
+				com.ollanest.service.ApiTokenService tokenService =
+						getApplicationContext(request).getBean(com.ollanest.service.ApiTokenService.class);
+				if (tokenService != null) {
+					java.util.Map<String, Object> token = tokenService.validate(rawToken);
+					if (token != null) {
+						String owner = (String) token.get("owner");
+						User tokenUser = userService != null ? userService.findUserByEmail(owner) : null;
+						if (tokenUser == null) {
+							// Create a synthetic user record for the token owner
+							tokenUser = new User();
+							tokenUser.id = owner;
+							tokenUser.name = owner;
+							tokenUser.role = "user";
+							tokenUser.rights = java.util.List.of("chat:use");
+						}
+						request.setAttribute("authenticatedUser", tokenUser);
+						request.setAttribute("api_token", true);
+						request.setAttribute("api_token_owner", owner);
+					}
+				}
+			} catch (Exception ignore) {
+				// Token validation failure — continue unauthenticated
+			}
+		}
+
 		filterChain.doFilter(request, response);
+	}
+
+	private org.springframework.context.ApplicationContext getApplicationContext(
+			jakarta.servlet.http.HttpServletRequest request) {
+		try {
+			return org.springframework.web.context.support.WebApplicationContextUtils
+					.getWebApplicationContext(request.getServletContext());
+		} catch (Exception e) {
+			return null;
+		}
 	}
 }
