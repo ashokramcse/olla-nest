@@ -44,6 +44,13 @@ public class GalleryService {
 
     // ── Albums ────────────────────────────────────────────────────────────────
 
+    /**
+     * Creates a new gallery album.
+     *
+     * @param owner the user ID
+     * @param req   album fields: {@code name}, {@code description}, {@code team_id}
+     * @return the created album record
+     */
     public Map<String, Object> createAlbum(String owner, Map<String, Object> req) {
         String id = "alb-" + Long.toString(System.currentTimeMillis(), 36);
         String now = Instant.now().toString();
@@ -52,21 +59,50 @@ public class GalleryService {
         return getAlbum(id, owner);
     }
 
+    /**
+     * Returns all albums for the given owner with an image count, ordered by name.
+     *
+     * @param owner the user ID
+     * @return list of album rows including {@code image_count}; never null
+     */
     public List<Map<String, Object>> listAlbums(String owner) {
         return db.queryForList("SELECT a.*, COUNT(i.id) as image_count FROM gallery_albums a LEFT JOIN gallery_images i ON i.album_id=a.id WHERE a.owner=? GROUP BY a.id ORDER BY a.name ASC", owner);
     }
 
+    /**
+     * Returns the album with the given ID owned by the given user.
+     *
+     * @param id    the album ID
+     * @param owner the user ID
+     * @return the album record, or {@code null} if not found
+     */
     public Map<String, Object> getAlbum(String id, String owner) {
         var rows = db.queryForList("SELECT * FROM gallery_albums WHERE id=? AND owner=?", id, owner);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /**
+     * Deletes an album owned by the given user.
+     *
+     * @param id    the album ID
+     * @param owner the user ID — only the owner may delete
+     */
     public void deleteAlbum(String id, String owner) {
         db.update("DELETE FROM gallery_albums WHERE id=? AND owner=?", id, owner);
     }
 
     // ── Images ────────────────────────────────────────────────────────────────
 
+    /**
+     * Uploads an image, extracting EXIF metadata and deduplicating by SHA-256 hash per owner.
+     *
+     * @param owner    the user ID
+     * @param bytes    raw image bytes
+     * @param filename original filename (used to determine MIME type)
+     * @param albumId  optional album ID to assign the image to; may be {@code null}
+     * @return upload result map with {@code id}, {@code filename}, {@code size}, {@code duplicate} flag, and {@code exif}
+     * @throws IOException if the file cannot be written to disk
+     */
     public Map<String, Object> uploadImage(String owner, byte[] bytes, String filename, String albumId) throws IOException {
         // SHA-256 dedup per owner
         String hash = sha256Hex(bytes);
@@ -99,6 +135,15 @@ public class GalleryService {
         return Map.of("id", id, "filename", filename, "size", bytes.length, "duplicate", false, "exif", exif);
     }
 
+    /**
+     * Returns a paginated list of active images for the given owner, optionally filtered by album.
+     *
+     * @param owner    the user ID
+     * @param albumId  optional album filter; {@code null} returns all images
+     * @param page     1-based page number
+     * @param pageSize number of images per page
+     * @return list of image rows (without file_path or exif_json); never null
+     */
     public List<Map<String, Object>> listImages(String owner, String albumId, int page, int pageSize) {
         int offset = (page - 1) * pageSize;
         if (albumId != null) {
@@ -111,12 +156,27 @@ public class GalleryService {
                 owner, pageSize, offset);
     }
 
+    /**
+     * Soft-deletes an image by setting {@code is_active=0}.
+     *
+     * @param id    the image ID
+     * @param owner the user ID — only the owner may delete
+     */
     public void deleteImage(String id, String owner) {
         db.update("UPDATE gallery_images SET is_active=0 WHERE id=? AND owner=?", id, owner);
     }
 
     // ── Editor Drafts ─────────────────────────────────────────────────────────
 
+    /**
+     * Creates or updates an editor draft. If {@code req} contains an existing {@code id},
+     * the draft is updated; otherwise a new draft is created.
+     *
+     * @param owner the user ID
+     * @param req   draft fields: {@code id} (for update), {@code name}, {@code source_image_id},
+     *              {@code width}, {@code height}, {@code payload}, {@code thumbnail}
+     * @return the saved draft record
+     */
     public Map<String, Object> saveDraft(String owner, Map<String, Object> req) {
         String existingId = (String) req.get("id");
         String now = Instant.now().toString();
@@ -140,15 +200,34 @@ public class GalleryService {
         return getDraft(id, owner);
     }
 
+    /**
+     * Returns all editor drafts for the given owner, most recently updated first.
+     *
+     * @param owner the user ID
+     * @return list of draft summary rows (without payload_json); never null
+     */
     public List<Map<String, Object>> listDrafts(String owner) {
         return db.queryForList("SELECT id, owner, name, thumbnail, width, height, created_at, updated_at FROM editor_drafts WHERE owner=? ORDER BY updated_at DESC", owner);
     }
 
+    /**
+     * Returns an editor draft by ID, restricted to the given owner.
+     *
+     * @param id    the draft ID
+     * @param owner the user ID
+     * @return the draft record including payload, or {@code null} if not found
+     */
     public Map<String, Object> getDraft(String id, String owner) {
         var rows = db.queryForList("SELECT * FROM editor_drafts WHERE id=? AND owner=?", id, owner);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /**
+     * Permanently deletes an editor draft.
+     *
+     * @param id    the draft ID
+     * @param owner the user ID — only the owner may delete
+     */
     public void deleteDraft(String id, String owner) {
         db.update("DELETE FROM editor_drafts WHERE id=? AND owner=?", id, owner);
     }

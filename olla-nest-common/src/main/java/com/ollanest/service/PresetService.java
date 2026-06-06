@@ -42,6 +42,13 @@ public class PresetService {
         this.mapper = mapper;
     }
 
+    /**
+     * Returns all presets visible to the given owner: built-in system presets
+     * followed by the owner's custom user templates, ordered by sort order.
+     *
+     * @param owner the user ID
+     * @return combined list of preset/template maps; never null
+     */
     public List<Map<String, Object>> listAll(String owner) {
         List<Map<String, Object>> all = new ArrayList<>(SYSTEM_PRESETS);
         // Add user templates
@@ -63,6 +70,14 @@ public class PresetService {
         return all;
     }
 
+    /**
+     * Creates a new user-defined template/preset.
+     *
+     * @param owner the user ID
+     * @param req   template fields: {@code name}, {@code system_prompt}, {@code temperature},
+     *              {@code max_tokens}, {@code inject_prefix}, {@code inject_suffix}, {@code sort_order}
+     * @return the created template record
+     */
     public Map<String, Object> createTemplate(String owner, Map<String, Object> req) {
         String id = "tpl-" + Long.toString(System.currentTimeMillis(), 36);
         String now = Instant.now().toString();
@@ -82,6 +97,14 @@ public class PresetService {
         return getTemplate(id, owner);
     }
 
+    /**
+     * Updates an existing user template.
+     *
+     * @param id    the template ID
+     * @param owner the user ID — only the owner may update
+     * @param req   updated fields
+     * @return the updated template record
+     */
     public Map<String, Object> updateTemplate(String id, String owner, Map<String, Object> req) {
         db.update("""
                 UPDATE user_templates SET name=?, system_prompt=?, temperature=?, max_tokens=?,
@@ -97,10 +120,23 @@ public class PresetService {
         return getTemplate(id, owner);
     }
 
+    /**
+     * Deletes a user-defined template.
+     *
+     * @param id    the template ID
+     * @param owner the user ID — only the owner may delete
+     */
     public void deleteTemplate(String id, String owner) {
         db.update("DELETE FROM user_templates WHERE id=? AND owner=?", id, owner);
     }
 
+    /**
+     * Returns a user template by ID, restricted to the given owner.
+     *
+     * @param id    the template ID
+     * @param owner the user ID
+     * @return the template record, or {@code null} if not found
+     */
     public Map<String, Object> getTemplate(String id, String owner) {
         var rows = db.queryForList("SELECT * FROM user_templates WHERE id=? AND owner=?", id, owner);
         return rows.isEmpty() ? null : rows.get(0);

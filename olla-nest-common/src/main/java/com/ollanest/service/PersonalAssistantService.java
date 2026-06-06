@@ -40,6 +40,16 @@ public class PersonalAssistantService {
 
     // ── Get or create ─────────────────────────────────────────────────────────
 
+    /**
+     * Returns the personal assistant for the given owner, creating it on demand if it does not exist.
+     *
+     * <p>New assistants are seeded with three daily check-in tasks (Morning/Midday/Evening).
+     * Throws {@link IllegalArgumentException} for synthetic/reserved owner values.
+     *
+     * @param owner the user ID
+     * @return the assistant record enriched with enabled_tools and check_ins
+     * @throws IllegalArgumentException if owner is null or a reserved synthetic value
+     */
     public Map<String, Object> getOrCreate(String owner) {
         if (owner == null || SYNTHETIC_OWNERS.contains(owner)) {
             throw new IllegalArgumentException("Cannot create assistant for synthetic owner: " + owner);
@@ -103,6 +113,15 @@ public class PersonalAssistantService {
 
     // ── Update ────────────────────────────────────────────────────────────────
 
+    /**
+     * Updates the personal assistant settings for the given owner.
+     *
+     * @param owner the user ID
+     * @param req   fields to update: {@code name}, {@code avatar}, {@code personality},
+     *              {@code model}, {@code endpoint_url}, {@code enabled_tools},
+     *              {@code timezone}, {@code allow_autonomous_email}
+     * @return the updated assistant record
+     */
     public Map<String, Object> update(String owner, Map<String, Object> req) {
         Map<String, Object> existing = getOrCreate(owner);
         String now = Instant.now().toString();
@@ -126,6 +145,12 @@ public class PersonalAssistantService {
 
     // ── Check-ins ─────────────────────────────────────────────────────────────
 
+    /**
+     * Returns the daily check-in scheduled tasks for the given user, ordered by scheduled time.
+     *
+     * @param owner the user ID
+     * @return list of check-in task row maps; never null
+     */
     public List<Map<String, Object>> getCheckIns(String owner) {
         return db.queryForList(
                 "SELECT * FROM scheduled_tasks WHERE owner=? AND task_type='llm' ORDER BY scheduled_time ASC",

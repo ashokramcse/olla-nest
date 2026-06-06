@@ -40,6 +40,14 @@ public class TaskSchedulerService {
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Creates a new scheduled task for the given owner and computes its first {@code next_run}.
+     *
+     * @param owner the user ID
+     * @param req   task fields: {@code name}, {@code prompt}, {@code task_type},
+     *              {@code schedule}, {@code scheduled_time}, {@code trigger_type}, etc.
+     * @return the created task record
+     */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         String id = "task-" + Long.toString(System.currentTimeMillis(), 36);
         String now = Instant.now().toString();
@@ -74,6 +82,15 @@ public class TaskSchedulerService {
         return getById(id, owner);
     }
 
+    /**
+     * Updates a scheduled task and recomputes its next run time.
+     *
+     * @param id    the task ID
+     * @param owner the user ID
+     * @param req   updated fields
+     * @return the updated task record
+     * @throws java.util.NoSuchElementException if the task is not found
+     */
     public Map<String, Object> update(String id, String owner, Map<String, Object> req) {
         Map<String, Object> existing = getById(id, owner);
         if (existing == null) throw new NoSuchElementException("Task not found: " + id);
@@ -96,16 +113,36 @@ public class TaskSchedulerService {
         return getById(id, owner);
     }
 
+    /**
+     * Deletes a scheduled task owned by the given user.
+     *
+     * @param id    the task ID
+     * @param owner the user ID
+     */
     public void delete(String id, String owner) {
         db.update("DELETE FROM scheduled_tasks WHERE id=? AND owner=?", id, owner);
     }
 
+    /**
+     * Returns a scheduled task by ID, restricted to the given owner.
+     *
+     * @param id    the task ID
+     * @param owner the user ID
+     * @return the task record, or {@code null} if not found
+     */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
                 "SELECT * FROM scheduled_tasks WHERE id=? AND owner=?", id, owner);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /**
+     * Returns scheduled tasks for the given owner, optionally filtered by status.
+     *
+     * @param owner  the user ID
+     * @param status optional status filter (e.g. {@code "active"}, {@code "completed"}); {@code null} returns all
+     * @return list of task records, newest first; never null
+     */
     public List<Map<String, Object>> list(String owner, String status) {
         if (status != null && !status.isBlank()) {
             return db.queryForList(
@@ -116,6 +153,14 @@ public class TaskSchedulerService {
                 "SELECT * FROM scheduled_tasks WHERE owner=? ORDER BY created_at DESC", owner);
     }
 
+    /**
+     * Returns past execution runs for a task, newest first.
+     *
+     * @param taskId the task ID
+     * @param owner  the user ID (ownership verified)
+     * @param limit  maximum results; {@code 0} or negative defaults to 20
+     * @return list of task run rows; never null
+     */
     public List<Map<String, Object>> getRuns(String taskId, String owner, int limit) {
         // Verify ownership
         getById(taskId, owner); // throws if not found
@@ -126,6 +171,10 @@ public class TaskSchedulerService {
 
     // ── Scheduler ────────────────────────────────────────────────────────────
 
+    /**
+     * Scheduled every minute — queries for active tasks whose {@code next_run} is due
+     * and executes each in a virtual thread.
+     */
     @Scheduled(fixedDelay = 60000, initialDelay = 15000) // check every minute
     public void runDueTasks() {
         try {
@@ -233,6 +282,14 @@ public class TaskSchedulerService {
         return "Action '" + action + "' executed for " + owner;
     }
 
+    /**
+     * Computes the next run timestamp for a task based on its {@code schedule} and
+     * {@code scheduled_time} fields.
+     *
+     * @param req task/request map with {@code schedule}, {@code scheduled_time},
+     *            {@code scheduled_day}, {@code scheduled_date} fields
+     * @return ISO-8601 instant string for the next scheduled run
+     */
     public String computeNextRun(Map<String, Object> req) {
         String schedule = (String) req.getOrDefault("schedule", "daily");
         String scheduledTime = (String) req.getOrDefault("scheduled_time", "09:00");

@@ -43,6 +43,18 @@ public class CalendarService {
 
     // ── Calendar CRUD ─────────────────────────────────────────────────────────
 
+    /**
+     * Creates a new calendar for the given owner.
+     *
+     * <p>If {@code req} contains {@code is_default: true}, any existing default
+     * calendar for the owner is demoted first. If the user has no calendars yet,
+     * the new calendar is automatically made the default.
+     *
+     * @param owner the user ID who will own the calendar
+     * @param req   request map — supports {@code name}, {@code color}, {@code is_default},
+     *              {@code caldav_url}, {@code team_id}
+     * @return the newly created calendar record, or {@code null} if not found after insert
+     */
     public Map<String, Object> createCalendar(String owner, Map<String, Object> req) {
         String id = "cal-" + Long.toString(System.currentTimeMillis(), 36);
         String now = Instant.now().toString();
@@ -71,23 +83,52 @@ public class CalendarService {
         return getCalendar(id, owner);
     }
 
+    /**
+     * Returns the calendar with the given ID visible to the owner, or {@code null} if not found.
+     *
+     * @param id    the calendar ID
+     * @param owner the requesting user ID
+     * @return the calendar row map, or {@code null}
+     */
     public Map<String, Object> getCalendar(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
                 "SELECT * FROM calendars WHERE id=? AND (owner=? OR team_id IS NOT NULL)", id, owner);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /**
+     * Returns all calendars owned by the given user, ordered by default-first then name.
+     *
+     * @param owner the user ID
+     * @return list of calendar row maps; never null
+     */
     public List<Map<String, Object>> listCalendars(String owner) {
         return db.queryForList(
                 "SELECT * FROM calendars WHERE owner=? ORDER BY is_default DESC, name ASC", owner);
     }
 
+    /**
+     * Deletes the calendar with the given ID, restricted to the owning user.
+     *
+     * @param id    the calendar ID to delete
+     * @param owner the user ID — only the owner may delete
+     */
     public void deleteCalendar(String id, String owner) {
         db.update("DELETE FROM calendars WHERE id=? AND owner=?", id, owner);
     }
 
     // ── Event CRUD ────────────────────────────────────────────────────────────
 
+    /**
+     * Creates a new event in the specified calendar.
+     *
+     * @param calendarId the ID of the calendar to add the event to
+     * @param owner      the requesting user ID (must own the calendar)
+     * @param req        event fields: {@code title}, {@code start_at}, {@code end_at},
+     *                   {@code description}, {@code location}, {@code all_day}, {@code rrule}, etc.
+     * @return the newly created event record
+     * @throws java.util.NoSuchElementException if the calendar is not found or not owned by the user
+     */
     public Map<String, Object> createEvent(String calendarId, String owner, Map<String, Object> req) {
         verifyCalendarOwner(calendarId, owner);
         String id = "evt-" + Long.toString(System.currentTimeMillis(), 36);
@@ -113,6 +154,15 @@ public class CalendarService {
         return getEvent(id);
     }
 
+    /**
+     * Updates an existing calendar event.
+     *
+     * @param id    the event ID to update
+     * @param owner the requesting user ID (must own the parent calendar)
+     * @param req   fields to update; unspecified fields retain existing values
+     * @return the updated event record
+     * @throws java.util.NoSuchElementException if the event is not found
+     */
     public Map<String, Object> updateEvent(String id, String owner, Map<String, Object> req) {
         Map<String, Object> existing = getEvent(id);
         if (existing == null) throw new NoSuchElementException("Event not found: " + id);
@@ -137,6 +187,12 @@ public class CalendarService {
         return getEvent(id);
     }
 
+    /**
+     * Deletes a calendar event, silently no-ops if not found.
+     *
+     * @param id    the event ID to delete
+     * @param owner the requesting user ID (must own the parent calendar)
+     */
     public void deleteEvent(String id, String owner) {
         Map<String, Object> event = getEvent(id);
         if (event == null) return;
@@ -144,12 +200,26 @@ public class CalendarService {
         db.update("DELETE FROM calendar_events WHERE id=?", id);
     }
 
+    /**
+     * Returns the event with the given ID, or {@code null} if not found.
+     *
+     * @param id the event ID
+     * @return the event row map, or {@code null}
+     */
     public Map<String, Object> getEvent(String id) {
         List<Map<String, Object>> rows = db.queryForList(
                 "SELECT * FROM calendar_events WHERE id=?", id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /**
+     * Returns all events in the owner's calendars whose {@code start_at} falls within the given range.
+     *
+     * @param owner the user ID
+     * @param from  ISO-8601 start of range (inclusive)
+     * @param to    ISO-8601 end of range (inclusive)
+     * @return list of event row maps ordered by start_at; never null
+     */
     public List<Map<String, Object>> listEventsInRange(String owner, String from, String to) {
         return db.queryForList("""
                 SELECT e.* FROM calendar_events e
@@ -160,6 +230,14 @@ public class CalendarService {
 
     // ── .ics Export ───────────────────────────────────────────────────────────
 
+    /**
+     * Exports all events in the given calendar as an RFC 5545 iCalendar (.ics) string.
+     *
+     * @param calendarId the calendar ID to export
+     * @param owner      the requesting user ID (must own the calendar)
+     * @return the full .ics content string starting with {@code BEGIN:VCALENDAR}
+     * @throws java.util.NoSuchElementException if the calendar is not owned by the user
+     */
     public String exportCalendarAsIcs(String calendarId, String owner) {
         verifyCalendarOwner(calendarId, owner);
         List<Map<String, Object>> events = db.queryForList(

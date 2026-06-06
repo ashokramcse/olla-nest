@@ -64,6 +64,15 @@ public class WebhookService {
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Creates a new outgoing webhook configuration.
+     *
+     * @param owner the user ID who owns this webhook
+     * @param req   webhook fields: {@code url} (required), {@code name}, {@code secret},
+     *              {@code events}, {@code team_id}
+     * @return the created webhook record
+     * @throws IllegalArgumentException if the URL is invalid or targets a private network
+     */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         validateUrl((String) req.get("url"));
         String id = "wh-" + Long.toString(System.currentTimeMillis(), 36);
@@ -82,21 +91,47 @@ public class WebhookService {
         return getById(id, owner);
     }
 
+    /**
+     * Returns the webhook with the given ID owned by the given user.
+     *
+     * @param id    the webhook ID
+     * @param owner the requesting user ID
+     * @return the webhook record, or {@code null} if not found
+     */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
                 "SELECT * FROM webhooks WHERE id=? AND owner=?", id, owner);
         return rows.isEmpty() ? null : mapRow(rows.get(0));
     }
 
+    /**
+     * Returns all webhooks owned by the given user, ordered newest first.
+     *
+     * @param owner the user ID
+     * @return list of webhook record maps; never null
+     */
     public List<Map<String, Object>> list(String owner) {
         return db.queryForList("SELECT * FROM webhooks WHERE owner=? ORDER BY created_at DESC", owner)
                 .stream().map(this::mapRow).toList();
     }
 
+    /**
+     * Deletes the webhook with the given ID, restricted to the owning user.
+     *
+     * @param id    the webhook ID to delete
+     * @param owner the user ID — only the owner may delete
+     */
     public void delete(String id, String owner) {
         db.update("DELETE FROM webhooks WHERE id=? AND owner=?", id, owner);
     }
 
+    /**
+     * Enables or disables the given webhook.
+     *
+     * @param id      the webhook ID
+     * @param owner   the user ID
+     * @param enabled {@code true} to enable, {@code false} to disable
+     */
     public void setEnabled(String id, String owner, boolean enabled) {
         db.update("UPDATE webhooks SET enabled=? WHERE id=? AND owner=?", enabled ? 1 : 0, id, owner);
     }

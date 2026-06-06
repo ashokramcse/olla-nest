@@ -148,10 +148,22 @@ public class AgentLoopService {
         });
     }
 
+    /**
+     * Cancels the running agent loop for the given session.
+     * If no loop is running for the session, this is a no-op.
+     *
+     * @param sessionId the chat session ID whose agent loop should be cancelled
+     */
     public void cancel(String sessionId) {
         activeRuns.remove(sessionId);
     }
 
+    /**
+     * Returns {@code true} if an agent loop is currently running for the given session.
+     *
+     * @param sessionId the chat session ID to check
+     * @return {@code true} if a loop is active; {@code false} otherwise
+     */
     public boolean isRunning(String sessionId) {
         return activeRuns.containsKey(sessionId);
     }

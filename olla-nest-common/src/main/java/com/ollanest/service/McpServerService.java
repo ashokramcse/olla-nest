@@ -44,6 +44,13 @@ public class McpServerService {
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Creates a new MCP server configuration.
+     *
+     * @param req server fields: {@code name}, {@code command}, {@code args},
+     *            {@code env}, {@code transport}, {@code url}, {@code team_id}
+     * @return the created server record with enriched status fields
+     */
     public Map<String, Object> create(Map<String, Object> req) {
         String id = "mcp-" + Long.toString(System.currentTimeMillis(), 36);
         String now = Instant.now().toString();
@@ -67,28 +74,56 @@ public class McpServerService {
         return getById(id);
     }
 
+    /**
+     * Returns the MCP server configuration by ID, enriched with connection status.
+     *
+     * @param id the server ID
+     * @return the server record, or {@code null} if not found
+     */
     public Map<String, Object> getById(String id) {
         List<Map<String, Object>> rows = db.queryForList("SELECT * FROM mcp_servers WHERE id=?", id);
         if (rows.isEmpty()) return null;
         return enrichWithStatus(mapRow(rows.get(0)));
     }
 
+    /**
+     * Returns all MCP server configurations ordered by name, each enriched with connection status.
+     *
+     * @return list of server record maps; never null
+     */
     public List<Map<String, Object>> list() {
         return db.queryForList("SELECT * FROM mcp_servers ORDER BY name ASC")
                 .stream().map(r -> enrichWithStatus(mapRow(r))).toList();
     }
 
+    /**
+     * Disconnects and deletes the MCP server configuration with the given ID.
+     *
+     * @param id the server ID to delete
+     */
     public void delete(String id) {
         disconnect(id);
         db.update("DELETE FROM mcp_servers WHERE id=?", id);
     }
 
+    /**
+     * Enables or disables an MCP server. Disabling also disconnects the server.
+     *
+     * @param id      the server ID
+     * @param enabled {@code true} to enable, {@code false} to disable
+     */
     public void setEnabled(String id, boolean enabled) {
         db.update("UPDATE mcp_servers SET enabled=?, updated_at=? WHERE id=?",
                 enabled ? 1 : 0, Instant.now().toString(), id);
         if (!enabled) disconnect(id);
     }
 
+    /**
+     * Sets the list of tool names that are disabled for the given MCP server.
+     *
+     * @param id            the server ID
+     * @param disabledTools list of tool names to disable; empty list re-enables all
+     */
     public void setDisabledTools(String id, List<String> disabledTools) {
         db.update("UPDATE mcp_servers SET disabled_tools_json=?, updated_at=? WHERE id=?",
                 toJson(disabledTools), Instant.now().toString(), id);
@@ -96,6 +131,13 @@ public class McpServerService {
 
     // ── Connection Management ─────────────────────────────────────────────────
 
+    /**
+     * Initiates a connection to the MCP server and returns the resulting connection status.
+     *
+     * @param serverId the server ID to connect to
+     * @return connection status map with at least {@code status} key
+     * @throws java.util.NoSuchElementException if the server is not found
+     */
     public Map<String, Object> connect(String serverId) {
         Map<String, Object> server = getById(serverId);
         if (server == null) throw new NoSuchElementException("MCP server not found: " + serverId);
@@ -116,15 +158,32 @@ public class McpServerService {
         return connectionStatus.getOrDefault(serverId, Map.of("status", "disconnected"));
     }
 
+    /**
+     * Disconnects the MCP server and clears its in-memory tool list.
+     *
+     * @param serverId the server ID to disconnect
+     */
     public void disconnect(String serverId) {
         connectionStatus.put(serverId, Map.of("status", "disconnected"));
         serverTools.remove(serverId);
     }
 
+    /**
+     * Returns the in-memory list of tools discovered from the given MCP server.
+     *
+     * @param serverId the server ID
+     * @return list of tool definition maps; empty list if not connected or no tools
+     */
     public List<Map<String, Object>> getTools(String serverId) {
         return serverTools.getOrDefault(serverId, List.of());
     }
 
+    /**
+     * Returns a flat list of all tools from all enabled MCP servers, respecting per-server
+     * disabled-tool lists. Each tool map includes a {@code server_id} field.
+     *
+     * @return list of all enabled tool definition maps; never null
+     */
     public List<Map<String, Object>> getAllEnabledTools() {
         List<Map<String, Object>> all = new ArrayList<>();
         List<Map<String, Object>> servers = db.queryForList(

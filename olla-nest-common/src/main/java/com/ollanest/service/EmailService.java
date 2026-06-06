@@ -62,6 +62,14 @@ public class EmailService {
 
     // ── Account Management ────────────────────────────────────────────────────
 
+    /**
+     * Creates a new email account configuration for the given owner.
+     *
+     * @param owner the user ID who owns this account
+     * @param req   account fields: {@code imap_host}, {@code smtp_host}, {@code username},
+     *              {@code password}, {@code name}, {@code display_name}, {@code signature}, etc.
+     * @return the created account row (password_enc stripped); never null
+     */
     public Map<String, Object> createAccount(String owner, Map<String, Object> req) {
         String id = "email-" + Long.toString(System.currentTimeMillis(), 36);
         String password = (String) req.get("password");
@@ -93,6 +101,14 @@ public class EmailService {
         return getAccount(id, owner);
     }
 
+    /**
+     * Returns the email account with the given ID visible to the owner, or {@code null} if not found.
+     * {@code password_enc} is always stripped from the returned map.
+     *
+     * @param id    the account ID
+     * @param owner the requesting user ID
+     * @return the account row map without password, or {@code null}
+     */
     public Map<String, Object> getAccount(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
                 "SELECT * FROM email_accounts WHERE id = ? AND (owner = ? OR team_id IS NOT NULL)", id, owner);
@@ -102,6 +118,12 @@ public class EmailService {
         return row;
     }
 
+    /**
+     * Returns all email accounts owned by or shared with the given user.
+     *
+     * @param owner the user ID
+     * @return list of account row maps (without passwords); never null
+     */
     public List<Map<String, Object>> listAccounts(String owner) {
         return db.queryForList(
                 "SELECT id, owner, name, imap_host, smtp_host, username, display_name, enabled, last_polled_at, team_id FROM email_accounts WHERE owner = ? OR team_id IN (SELECT team FROM users WHERE id = ?)",
@@ -109,12 +131,28 @@ public class EmailService {
                 .stream().map(r -> (Map<String, Object>) new LinkedHashMap<String, Object>(r)).toList();
     }
 
+    /**
+     * Deletes the email account with the given ID, restricted to the owning user.
+     *
+     * @param id    the account ID to delete
+     * @param owner the user ID — only the owner may delete
+     */
     public void deleteAccount(String id, String owner) {
         db.update("DELETE FROM email_accounts WHERE id = ? AND owner = ?", id, owner);
     }
 
     // ── IMAP: List Messages ────────────────────────────────────────────────────
 
+    /**
+     * Returns a paginated list of email messages for the given account and folder.
+     *
+     * @param accountId the email account ID
+     * @param owner     the requesting user ID
+     * @param folder    the IMAP folder name (e.g. {@code "INBOX"})
+     * @param page      1-based page number
+     * @param pageSize  number of messages per page
+     * @return list of message row maps ordered by date descending; never null
+     */
     public List<Map<String, Object>> listMessages(String accountId, String owner, String folder, int page, int pageSize) {
         int offset = (page - 1) * pageSize;
         return db.queryForList("""
@@ -128,6 +166,13 @@ public class EmailService {
                 .stream().map(this::mapMessageRow).toList();
     }
 
+    /**
+     * Returns a single email message by ID, marking it read as a side effect.
+     *
+     * @param id        the message ID
+     * @param accountId the account the message belongs to
+     * @return the message row map, or {@code null} if not found
+     */
     public Map<String, Object> getMessage(String id, String accountId) {
         List<Map<String, Object>> rows = db.queryForList(
                 "SELECT * FROM email_messages WHERE id = ? AND account_id = ?", id, accountId);
@@ -136,6 +181,13 @@ public class EmailService {
         return mapMessageRow(rows.get(0));
     }
 
+    /**
+     * Returns all messages in a given thread, ordered chronologically.
+     *
+     * @param threadId  the thread ID (derived from Message-ID / In-Reply-To headers)
+     * @param accountId the account the thread belongs to
+     * @return ordered list of message row maps; never null
+     */
     public List<Map<String, Object>> getThread(String threadId, String accountId) {
         return db.queryForList(
                 "SELECT * FROM email_messages WHERE thread_id = ? AND account_id = ? ORDER BY date_sent ASC",
@@ -143,15 +195,34 @@ public class EmailService {
                 .stream().map(this::mapMessageRow).toList();
     }
 
+    /**
+     * Marks the given message as read.
+     *
+     * @param id        the message ID
+     * @param accountId the account the message belongs to
+     */
     public void markRead(String id, String accountId) {
         db.update("UPDATE email_messages SET is_read=1 WHERE id=? AND account_id=?", id, accountId);
     }
 
+    /**
+     * Sets the starred flag on the given message.
+     *
+     * @param id        the message ID
+     * @param accountId the account the message belongs to
+     * @param starred   {@code true} to star, {@code false} to unstar
+     */
     public void markStarred(String id, String accountId, boolean starred) {
         db.update("UPDATE email_messages SET is_starred=? WHERE id=? AND account_id=?",
                 starred ? 1 : 0, id, accountId);
     }
 
+    /**
+     * Permanently deletes the given message from the local store.
+     *
+     * @param id        the message ID to delete
+     * @param accountId the account the message belongs to
+     */
     public void deleteMessage(String id, String accountId) {
         db.update("DELETE FROM email_messages WHERE id=? AND account_id=?", id, accountId);
     }
@@ -220,6 +291,14 @@ public class EmailService {
 
     // ── AI Triage ─────────────────────────────────────────────────────────────
 
+    /**
+     * Asynchronously triages the given message via the LLM, updating urgency score,
+     * spam flag, AI summary, and tags in the database.
+     *
+     * @param messageId the message ID to triage
+     * @param accountId the account the message belongs to
+     * @param owner     the user ID (may be {@code null} for background poller runs)
+     */
     public void triageMessage(String messageId, String accountId, String owner) {
         Thread.ofVirtual().name("email-triage-" + messageId).start(() -> {
             try {
@@ -276,6 +355,14 @@ public class EmailService {
 
     // ── AI Reply Draft ────────────────────────────────────────────────────────
 
+    /**
+     * Generates an AI reply draft for the given message using the configured LLM.
+     *
+     * @param messageId the source message ID to reply to
+     * @param accountId the account the message belongs to
+     * @param owner     the requesting user ID
+     * @return the generated reply body text, or {@code ""} on failure
+     */
     public String generateReplyDraft(String messageId, String accountId, String owner) {
         try {
             List<Map<String, Object>> rows = db.queryForList(

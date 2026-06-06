@@ -44,8 +44,10 @@ public class YouTubeService {
     }
 
     /**
-     * Extract transcript from a YouTube URL or video ID.
-     * Returns the plain-text transcript, or null if unavailable.
+     * Extracts the plain-text transcript for a YouTube video, using a 30-day DB cache.
+     *
+     * @param urlOrId a full YouTube URL or bare 11-character video ID
+     * @return the transcript as a single space-separated string, or {@code null} if unavailable
      */
     public String getTranscript(String urlOrId) {
         String videoId = extractVideoId(urlOrId);
@@ -128,6 +130,13 @@ public class YouTubeService {
         }
     }
 
+    /**
+     * Extracts the 11-character YouTube video ID from a URL or returns the input if it is
+     * already a bare video ID.
+     *
+     * @param input a YouTube URL (watch, youtu.be, embed, shorts) or a bare video ID
+     * @return the 11-character video ID, or {@code null} if extraction fails
+     */
     public String extractVideoId(String input) {
         if (input == null || input.isBlank()) return null;
         // Direct 11-char video ID

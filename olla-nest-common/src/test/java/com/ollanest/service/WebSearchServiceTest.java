@@ -1,0 +1,157 @@
+package com.ollanest.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.testinfra.UserFactory;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+/**
+ * OCD-level unit tests for {@link WebSearchService}.
+ *
+ * <p>Covers query classification, result formatting, and cache-hit behavior.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
+ */
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@DisplayName("WebSearchService — unit tests")
+class WebSearchServiceTest {
+
+    @Mock DatabaseService dbService;
+    @Mock ObjectMapper mapper;
+    @Mock SearchCacheService cacheService;
+
+    @InjectMocks WebSearchService webSearchService;
+
+    // ── classifyQuery() ───────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("classifyQuery()")
+    class ClassifyQuery {
+
+        @Test
+        @DisplayName("'news' keyword → 'news'")
+        void newsKeyword() {
+            assertThat(webSearchService.classifyQuery("latest news today")).isEqualTo("news");
+        }
+
+        @Test
+        @DisplayName("'latest Apple announced' → 'news'")
+        void latestApple() {
+            assertThat(webSearchService.classifyQuery("latest Apple announced")).isEqualTo("news");
+        }
+
+        @Test
+        @DisplayName("'python tutorial' → 'general'")
+        void pythonTutorial() {
+            assertThat(webSearchService.classifyQuery("python tutorial")).isEqualTo("general");
+        }
+
+        @Test
+        @DisplayName("'research study analysis' → 'research'")
+        void researchStyle() {
+            assertThat(webSearchService.classifyQuery("research study analysis on climate")).isEqualTo("research");
+        }
+
+        @Test
+        @DisplayName("null → 'general'")
+        void nullQuery() {
+            assertThat(webSearchService.classifyQuery(null)).isEqualTo("general");
+        }
+
+        @Test
+        @DisplayName("blank string → 'general'")
+        void blankQuery() {
+            assertThat(webSearchService.classifyQuery("   ")).isEqualTo("general");
+        }
+    }
+
+    // ── formatResultsForPrompt() ──────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("formatResultsForPrompt()")
+    class FormatResultsForPrompt {
+
+        @Test
+        @DisplayName("empty list returns empty/placeholder string")
+        void emptyListReturnsEmpty() {
+            assertThat(webSearchService.formatResultsForPrompt(List.of())).isEmpty();
+        }
+
+        @Test
+        @DisplayName("non-empty list includes titles and URLs")
+        void nonEmptyIncludesTitlesAndUrls() {
+            List<WebSearchService.SearchResult> results = List.of(
+                    new WebSearchService.SearchResult("Title One", "https://example.com/1", "Snippet one"),
+                    new WebSearchService.SearchResult("Title Two", "https://example.com/2", "Snippet two")
+            );
+            String formatted = webSearchService.formatResultsForPrompt(results);
+            assertThat(formatted).contains("Title One").contains("https://example.com/1");
+            assertThat(formatted).contains("Title Two").contains("https://example.com/2");
+        }
+
+        @Test
+        @DisplayName("output starts with CURRENT WEB SEARCH RESULTS header")
+        void hasHeader() {
+            List<WebSearchService.SearchResult> results = List.of(
+                    new WebSearchService.SearchResult("Test", "https://test.com", "snippet"));
+            assertThat(webSearchService.formatResultsForPrompt(results))
+                    .startsWith("CURRENT WEB SEARCH RESULTS:");
+        }
+    }
+
+    // ── search() — cache-hit behavior ─────────────────────────────────────────
+
+    @Nested
+    @DisplayName("search() — cache hit")
+    class SearchCacheHit {
+
+        @Test
+        @DisplayName("returns cached results when cache hit")
+        void returnsCachedResults() {
+            List<WebSearchService.SearchResult> cached = List.of(
+                    new WebSearchService.SearchResult("Cached Result", "https://cached.com", "cached snippet"));
+            when(cacheService.cacheKey(anyString(), anyString())).thenReturn("cache-key");
+            when(cacheService.get("cache-key")).thenReturn(cached);
+            when(dbService.getSetting("searchProvider", "serper")).thenReturn("serper");
+
+            List<WebSearchService.SearchResult> results = webSearchService.search("test query", 5);
+            assertThat(results).isEqualTo(cached);
+            verify(cacheService).get("cache-key");
+        }
+    }
+
+    // ── search() — empty/null query ───────────────────────────────────────────
+
+    @Nested
+    @DisplayName("search() — empty/null query")
+    class SearchEmptyQuery {
+
+        @Test
+        @DisplayName("returns empty list for null query")
+        void emptyForNullQuery() {
+            assertThat(webSearchService.search(null, 5)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("returns empty list for blank query")
+        void emptyForBlankQuery() {
+            assertThat(webSearchService.search("   ", 5)).isEmpty();
+        }
+    }
+}

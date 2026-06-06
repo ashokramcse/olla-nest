@@ -31,6 +31,15 @@ public class CompareService {
 
     // ── Create comparison ─────────────────────────────────────────────────────
 
+    /**
+     * Creates a new blind A/B model comparison, allocating two ephemeral chat sessions.
+     *
+     * @param owner the user ID
+     * @param req   fields: {@code prompt}, {@code model_a}, {@code model_b},
+     *              {@code endpoint_a}, {@code endpoint_b}, {@code is_blind} (default true)
+     * @return map with {@code id}, {@code session_id_a}, {@code session_id_b},
+     *         {@code label_a}, {@code label_b}, and {@code is_blind}
+     */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         String id = "cmp-" + Long.toString(System.currentTimeMillis(), 36);
         String sessionIdA = "cmp-sess-a-" + UUID.randomUUID().toString().substring(0, 8);
@@ -65,6 +74,16 @@ public class CompareService {
 
     // ── Vote ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Records the user's vote for a comparison, revealing the model identities.
+     *
+     * @param id     the comparison ID
+     * @param owner  the user ID — must own the comparison
+     * @param winner the winning side: {@code "a"}, {@code "b"}, or {@code "tie"}
+     * @return the updated comparison record with model names revealed
+     * @throws java.util.NoSuchElementException if the comparison is not found
+     * @throws IllegalStateException            if the user has already voted
+     */
     public Map<String, Object> vote(String id, String owner, String winner) {
         Map<String, Object> existing = getById(id, owner);
         if (existing == null) throw new NoSuchElementException("Comparison not found: " + id);
@@ -79,6 +98,13 @@ public class CompareService {
 
     // ── History ───────────────────────────────────────────────────────────────
 
+    /**
+     * Returns past comparisons for the given owner, newest first.
+     *
+     * @param owner the user ID
+     * @param limit maximum results; {@code 0} or negative defaults to 20
+     * @return list of comparison rows; never null
+     */
     public List<Map<String, Object>> list(String owner, int limit) {
         return db.queryForList(
                 "SELECT * FROM comparisons WHERE owner=? ORDER BY created_at DESC LIMIT ?",
@@ -86,13 +112,25 @@ public class CompareService {
                 .stream().map(this::mapRow).toList();
     }
 
+    /**
+     * Returns a comparison by ID, restricted to the given owner.
+     *
+     * @param id    the comparison ID
+     * @param owner the user ID
+     * @return the comparison record, or {@code null} if not found
+     */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
                 "SELECT * FROM comparisons WHERE id=? AND owner=?", id, owner);
         return rows.isEmpty() ? null : mapRow(rows.get(0));
     }
 
-    /** Enterprise: aggregate win rates per model for a team. */
+    /**
+     * Enterprise: returns the aggregate win-rate leaderboard for all models used by a team.
+     *
+     * @param teamId the team identifier
+     * @return list of {@code {model, wins}} rows ordered by wins descending; never null
+     */
     public List<Map<String, Object>> teamLeaderboard(String teamId) {
         // Count wins per model across all team members
         return db.queryForList("""
