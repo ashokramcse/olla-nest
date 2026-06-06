@@ -98,6 +98,14 @@ public class WebSearchService {
 
 	private final SearchCacheService cacheService;
 
+	/**
+	 * Constructs a {@code WebSearchService} with the required infrastructure dependencies.
+	 *
+	 * @param dbService    application settings service for reading search provider configuration
+	 * @param mapper       shared Jackson mapper for API response parsing
+	 * @param cacheService cache service for deduplicating repeat search queries
+	 * @since v2026.2.1
+	 */
 	public WebSearchService(DatabaseService dbService, ObjectMapper mapper, SearchCacheService cacheService) {
 		this.dbService = dbService;
 		this.mapper = mapper;
@@ -105,6 +113,18 @@ public class WebSearchService {
 	}
 
 	// ── Query classification ──────────────────────────────────────────────────
+
+	/**
+	 * Classifies a search query into a category that influences provider selection.
+	 *
+	 * <p>Returns {@code "news"} for queries containing time-sensitive keywords
+	 * (breaking, today, latest, news), {@code "research"} for longer analytical
+	 * queries, or {@code "general"} for everything else.
+	 *
+	 * @param query the search query string; may be null
+	 * @return one of {@code "news"}, {@code "research"}, or {@code "general"}
+	 * @since v2026.2.1
+	 */
 	public String classifyQuery(String query) {
 		if (query == null) return "general";
 		String q = query.toLowerCase();
@@ -114,6 +134,17 @@ public class WebSearchService {
 	}
 
 	// ── Full-page content fetching ────────────────────────────────────────────
+
+	/**
+	 * Fetches the plain-text body of a web page by stripping HTML tags.
+	 *
+	 * <p>Uses a 10-second response timeout. Returns {@code null} on any error
+	 * (non-200 status, network failure, etc.) so callers can degrade gracefully.
+	 *
+	 * @param url the fully-qualified URL to fetch; must be a valid URI
+	 * @return the stripped plain-text content, or {@code null} on failure
+	 * @since v2026.2.1
+	 */
 	public String fetchPageContent(String url) {
 		try {
 			HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url))

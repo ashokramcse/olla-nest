@@ -80,6 +80,18 @@ public class DeepResearchService {
 	/** Active research tasks for cancellation support: taskId -> true. */
 	private final java.util.concurrent.ConcurrentHashMap<String, Boolean> activeTasks = new java.util.concurrent.ConcurrentHashMap<>();
 
+	/**
+	 * Constructs a {@code DeepResearchService} with all required infrastructure dependencies.
+	 *
+	 * @param providerService     resolves LLM provider configuration maps
+	 * @param routerService       routes queries to the appropriate model
+	 * @param webSearchService    executes live web searches
+	 * @param ragService          retrieves relevant document chunks from the vector store
+	 * @param mapper              Jackson mapper for SSE event serialisation
+	 * @param db                  JDBC template for research_tasks persistence
+	 * @param visualReportService generates visual HTML reports from research results
+	 * @since v2026.1.4
+	 */
 	public DeepResearchService(ProviderService providerService, RouterService routerService,
 			WebSearchService webSearchService, RagService ragService, ObjectMapper mapper,
 			org.springframework.jdbc.core.JdbcTemplate db, VisualReportService visualReportService) {
@@ -92,7 +104,16 @@ public class DeepResearchService {
 		this.visualReportService = visualReportService;
 	}
 
-	/** Cancel an in-progress research task. */
+	/**
+	 * Cancels an in-progress research task.
+	 *
+	 * <p>Removes the task from the active-tasks map (stops the cancellation check
+	 * inside the pipeline) and marks the {@code research_tasks} row as
+	 * {@code "cancelled"} in the database. Safe to call for unknown task IDs.
+	 *
+	 * @param taskId the task ID returned at pipeline start; unknown IDs are silently ignored
+	 * @since v2026.1.4
+	 */
 	public void cancel(String taskId) {
 		activeTasks.remove(taskId);
 		try {
@@ -101,14 +122,29 @@ public class DeepResearchService {
 		} catch (Exception ignore) {}
 	}
 
-	/** List research tasks for a user. */
+	/**
+	 * Lists the most recent research tasks created by the given owner.
+	 *
+	 * @param owner the user ID whose tasks should be listed
+	 * @return a list of task rows (up to 50) ordered by {@code started_at} descending;
+	 *         never null
+	 * @since v2026.1.4
+	 */
 	public java.util.List<java.util.Map<String, Object>> listTasks(String owner) {
 		return db.queryForList(
 				"SELECT id, owner, query, status, started_at, finished_at, duration_ms FROM research_tasks WHERE owner=? ORDER BY started_at DESC LIMIT 50",
 				owner);
 	}
 
-	/** Get a research task's HTML report. */
+	/**
+	 * Retrieves the HTML report for a completed research task.
+	 *
+	 * @param taskId the task ID to look up
+	 * @param owner  the owner user ID (enforces ownership gate in the query)
+	 * @return the {@code report_html} string, or {@code null} if the task does not
+	 *         exist or belongs to a different owner
+	 * @since v2026.1.4
+	 */
 	public String getReport(String taskId, String owner) {
 		java.util.List<java.util.Map<String, Object>> rows = db.queryForList(
 				"SELECT report_html FROM research_tasks WHERE id=? AND owner=?", taskId, owner);
@@ -153,6 +189,18 @@ public class DeepResearchService {
 		executeResearch(query, user, emitter, null);
 	}
 
+	/**
+	 * Executes the deep-research pipeline, associating results with the given session ID.
+	 *
+	 * <p>Delegates to the three-phase pipeline (Plan → Search → Synthesise) and
+	 * persists the created task linked to {@code sessionId}.
+	 *
+	 * @param query     the natural-language research question; must not be blank
+	 * @param user      the authenticated user, for model routing and RAG scoping
+	 * @param emitter   the SSE emitter over which progress events and tokens are pushed
+	 * @param sessionId optional chat session ID to link the research task; may be null
+	 * @since v2026.1.10
+	 */
 	public void executeResearch(String query, User user, SseEmitter emitter, String sessionId) {
 		// Create persistent task record
 		String taskId = "res-" + Long.toString(System.currentTimeMillis(), 36);

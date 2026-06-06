@@ -53,6 +53,16 @@ public class WebhookService {
     private final ObjectMapper mapper;
     private final EventBusService eventBus;
 
+    /**
+     * Constructs a {@code WebhookService} and wires the wildcard event-bus subscription
+     * that dispatches all events to registered webhooks.
+     *
+     * @param db       JDBC template for webhook persistence
+     * @param mapper   shared Jackson mapper for payload serialisation
+     * @param eventBus the application event bus; a wildcard subscription is registered
+     *                 immediately on construction
+     * @since v2026.2.1
+     */
     public WebhookService(JdbcTemplate db, ObjectMapper mapper, EventBusService eventBus) {
         this.db = db;
         this.mapper = mapper;

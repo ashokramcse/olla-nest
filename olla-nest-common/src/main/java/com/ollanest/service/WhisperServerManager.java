@@ -217,6 +217,15 @@ public class WhisperServerManager {
 	 *
 	 * @since v2026.1.5
 	 */
+	/**
+	 * Stops the managed Whisper server process.
+	 *
+	 * <p>Sends {@code SIGTERM} via {@link Process#destroy()}; if the process has not
+	 * exited within 5 seconds it is force-killed with {@link Process#destroyForcibly()}.
+	 * Safe to call when the process was never started (no-op).
+	 *
+	 * @since v2026.1.5
+	 */
 	@PreDestroy
 	public void stop() {
 		if (whisperProcess != null && whisperProcess.isAlive()) {

@@ -46,6 +46,13 @@ public class ContextCompactorService {
     private final ObjectMapper mapper;
     private final DatabaseService databaseService;
 
+    /**
+     * Constructs a {@code ContextCompactorService} with the required dependencies.
+     *
+     * @param mapper          shared Jackson mapper for JSON operations
+     * @param databaseService application settings service used to read provider config
+     * @since v2026.2.1
+     */
     public ContextCompactorService(ObjectMapper mapper, DatabaseService databaseService) {
         this.mapper = mapper;
         this.databaseService = databaseService;

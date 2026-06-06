@@ -70,6 +70,14 @@ public class CookbookService {
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(30)).build();
 
+    /**
+     * Constructs a new {@code CookbookService} with the required infrastructure dependencies.
+     *
+     * @param db              JDBC template for cookbook_models persistence
+     * @param mapper          shared Jackson mapper for JSON serialisation
+     * @param databaseService application settings service (HuggingFace token, models dir)
+     * @since v2026.2.1
+     */
     public CookbookService(JdbcTemplate db, ObjectMapper mapper, DatabaseService databaseService) {
         this.db = db;
         this.mapper = mapper;
@@ -78,6 +86,18 @@ public class CookbookService {
 
     // ── Hardware Detection ────────────────────────────────────────────────────
 
+    /**
+     * Detects the host machine's GPU and CPU hardware capabilities.
+     *
+     * <p>Uses platform-specific tools: {@code sysctl} on macOS (Apple Silicon),
+     * {@code nvidia-smi} on Linux/Windows (NVIDIA GPUs). Falls back to CPU-only
+     * when no GPU is detected.
+     *
+     * @return a map containing {@code os}, {@code backend}, {@code has_gpu},
+     *         {@code gpu_name}, {@code gpu_vram_gb}, {@code gpu_count},
+     *         {@code available_ram_gb}, and {@code gpu_bandwidth_gb_s}
+     * @since v2026.2.1
+     */
     public Map<String, Object> detectHardware() {
         Map<String, Object> result = new LinkedHashMap<>();
         String os = System.getProperty("os.name", "").toLowerCase();
@@ -166,6 +186,16 @@ public class CookbookService {
 
     // ── Model Catalog ─────────────────────────────────────────────────────────
 
+    /**
+     * Returns the full model catalog annotated with VRAM-fit and download-status flags.
+     *
+     * <p>Calls {@link #detectHardware()} to determine effective memory, then
+     * annotates each hardcoded catalog entry with {@code fits} (boolean) and
+     * {@code is_downloaded} (boolean from the database).
+     *
+     * @return list of model metadata maps; never null
+     * @since v2026.2.1
+     */
     public List<Map<String, Object>> getCatalog() {
         Map<String, Object> hardware = detectHardware();
         double vramGb = ((Number) hardware.get("gpu_vram_gb")).doubleValue();
@@ -214,6 +244,19 @@ public class CookbookService {
 
     // ── Download ──────────────────────────────────────────────────────────────
 
+    /**
+     * Starts an asynchronous HuggingFace model download and streams progress via SSE.
+     *
+     * <p>The download runs on a virtual thread. Progress events ({@code progress},
+     * {@code completed}, {@code error}) are sent to {@code emitter}. On completion the
+     * model path is persisted to {@code cookbook_models}.
+     *
+     * @param hfRepo  the HuggingFace repository slug (e.g. {@code "bartowski/Llama-3.2-3B-Instruct-GGUF"})
+     * @param hfFile  the specific GGUF file to download; may be {@code null} to use a default name
+     * @param emitter the SSE emitter over which progress events are sent
+     * @return the job ID string (prefixed with {@code "dl-"}) for client tracking
+     * @since v2026.2.1
+     */
     public String startDownload(String hfRepo, String hfFile, SseEmitter emitter) {
         String jobId = "dl-" + Long.toString(System.currentTimeMillis(), 36);
         activeDownloads.put(jobId, new LinkedHashMap<>(Map.of(
@@ -288,6 +331,12 @@ public class CookbookService {
         return jobId;
     }
 
+    /**
+     * Returns a snapshot of all active and recently completed download jobs.
+     *
+     * @return a list of job-status maps; empty if no downloads have been initiated
+     * @since v2026.2.1
+     */
     public List<Map<String, Object>> getDownloads() {
         return new ArrayList<>(activeDownloads.values());
     }
