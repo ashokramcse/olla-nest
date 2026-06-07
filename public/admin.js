@@ -112,7 +112,7 @@ function esc(v) {
 async function api(path, opts = {}) {
   const headers = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...(opts.headers || {}) };
   const res = await fetch(path, { ...opts, headers });
-  if (res.status === 401) { window.location.href = "/login"; return null; }
+  if (res.status === 401) { window.location.href = "/admin-login"; return null; }
   if (res.status === 403) { window.location.href = "/app"; return null; } // non-admin users get bounced to /app
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Request failed");
@@ -797,7 +797,7 @@ $all(".nav-item[data-tab]").forEach(btn => {
 
 $("logoutBtn").addEventListener("click", async () => {
   await api("/api/auth/logout", { method: "POST", body: "{}" });
-  window.location.href = "/login";
+  window.location.href = "/admin-login";
 });
 
 $("refreshBtn").addEventListener("click", async () => {
