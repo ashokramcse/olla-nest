@@ -66,9 +66,16 @@ All configuration is done via environment variables or a `.env` file. Copy `.env
 | `DEFAULT_USER_PASSWORD` | `CHANGE_ME_ON_FIRST_BOOT` | No | Default password assigned to new user accounts |
 | `COOKIE_SECURE` | `false` | No | Set `true` when running behind HTTPS/TLS |
 | `TRUSTED_PROXY` | *(empty)* | No | Trusted proxy IP for `X-Forwarded-For` rate-limit resolution |
-| `APP_BASE_URL` | `http://localhost:8080` | No | SSO `redirect_uri` base URL |
+| `STATIC_DIR` | `./public` | No | Directory served as the static frontend |
+| `ADMIN_BASE_URL` | `http://localhost:8080` | No | **Admin** public base URL — allowed WebSocket origin and SSO `redirect_uri` base |
+| `BASE_URL` | `http://localhost:8081` | No | **User** public base URL — allowed WebSocket origin and SSO `redirect_uri` base |
+| `SESSION_COOKIE_NAME` | admin `olla_nest_session` · user `olla_nest_user_session` | No | Session cookie name; read independently by each service |
 
 > **First boot:** On the first startup, the server checks whether any users exist. If none do, it seeds a default admin account. If `DEFAULT_ADMIN_PASSWORD` is not set (or is the sentinel value `CHANGE_ME_ON_FIRST_BOOT`), a random 16-character password is generated and printed clearly to the server log. Copy it from the log and log in immediately. You can change it from **Admin → Users**.
+
+> **Ports are fully configurable.** Each service reads its port from `ADMIN_PORT` / `USER_PORT`, so it can run on any port without code changes. When you move a service to a non-default port, also set its base URL (`ADMIN_BASE_URL` / `BASE_URL`) so the WebSocket origin check and SSO callbacks stay correct.
+
+> **Independent sessions, same host:** Cookies are scoped by **host, not port**. The admin and user apps therefore use **different** session cookie names by default (`olla_nest_session` vs `olla_nest_user_session`) so they never share a session when both run on `localhost`. You can be logged into both at once in one browser; login/logout in one does not affect the other. Changing ports does **not** require changing cookie names — only override `SESSION_COOKIE_NAME` if you run multiple deployments on the same host and need to disambiguate further.
 
 ---
 
@@ -392,10 +399,16 @@ Returns server uptime, DB stats, JVM memory usage, and Ollama status.
 
 ## Changing the Ports
 
+Either service can run on any port. Set the port **and** the matching base URL so the WebSocket origin check and SSO callbacks resolve correctly:
+
 ```bash
-ADMIN_PORT=9000 java --enable-native-access=ALL-UNNAMED \
+ADMIN_PORT=9000 ADMIN_BASE_URL=http://localhost:9000 \
+    java --enable-native-access=ALL-UNNAMED \
     -jar olla-nest-admin/target/olla-nest-admin-2026.1.9.jar
 
-USER_PORT=9001 java --enable-native-access=ALL-UNNAMED \
+USER_PORT=9001 BASE_URL=http://localhost:9001 \
+    java --enable-native-access=ALL-UNNAMED \
     -jar olla-nest-user/target/olla-nest-user-2026.1.9.jar
 ```
+
+Session cookie names are **independent of the port** — they are fixed per service (`olla_nest_session` for admin, `olla_nest_user_session` for user), so changing ports never causes a session clash. The two apps remain independently logged-in in the same browser regardless of which ports they bind. Override `SESSION_COOKIE_NAME` only if you run more than one instance of the same service on a single host.

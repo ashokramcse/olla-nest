@@ -92,7 +92,7 @@ olla-nest-common/src/main/java/com/ollanest/
 ├── filter/
 │   ├── MdcLoggingFilter.java             # Per-request MDC: requestId, userId, userEmail,
 │   │                                     # userRole, method, path, ip — SOC 2 CC7.2
-│   ├── SessionAuthFilter.java            # Reads olla_nest_session cookie → sets User on request
+│   ├── SessionAuthFilter.java            # Reads session cookie (app.session-cookie-name) → sets User on request
 │   └── SecurityHeadersFilter.java        # CSP, HSTS (HTTPS only), X-Frame-Options: DENY,
 │                                         # X-Content-Type-Options, Referrer-Policy, Permissions-Policy
 │
@@ -179,7 +179,7 @@ public/                                  # Frontend — static files served by b
 ```
 Browser → HTTP request
   → SecurityHeadersFilter  (adds CSP, HSTS, X-Frame-Options)
-  → SessionAuthFilter       (reads olla_nest_session cookie → attaches user to request)
+  → SessionAuthFilter       (reads the per-app session cookie → attaches user to request)
   → Spring DispatcherServlet
   → Controller              (requireAuth / requireAdmin guard)
   → Service layer           (JdbcTemplate → SQLite)

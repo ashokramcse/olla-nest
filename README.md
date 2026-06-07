@@ -173,6 +173,29 @@ mvn spring-boot:run -pl olla-nest-user --enable-native-access=ALL-UNNAMED
 
 Open **http://localhost:8080** for the Admin panel · **http://localhost:8081** for the Employee workspace.
 
+### Custom ports
+
+Both services bind their port from configuration, so they can run on **any port**. Set the port (and the matching base URL) via environment variables — no code changes:
+
+```bash
+# Run admin on 9000 and user on 9001
+ADMIN_PORT=9000 ADMIN_BASE_URL=http://localhost:9000 \
+  java --enable-native-access=ALL-UNNAMED -jar olla-nest-admin/target/olla-nest-admin-2026.1.9.jar &
+
+USER_PORT=9001 BASE_URL=http://localhost:9001 \
+  java --enable-native-access=ALL-UNNAMED -jar olla-nest-user/target/olla-nest-user-2026.1.9.jar &
+```
+
+| Variable | Service | Default | Purpose |
+|---|---|---|---|
+| `ADMIN_PORT` | admin | `8080` | HTTP listen port |
+| `USER_PORT` | user | `8081` | HTTP listen port |
+| `ADMIN_BASE_URL` | admin | `http://localhost:8080` | Public base URL / allowed WebSocket origin |
+| `BASE_URL` | user | `http://localhost:8081` | Public base URL / allowed WebSocket origin |
+| `SESSION_COOKIE_NAME` | each | admin `olla_nest_session`, user `olla_nest_user_session` | Session cookie name |
+
+> **Independent sessions in one browser:** Cookies are scoped by **host, not port**, so the two services use **different session cookie names** by default. This lets you stay logged into the admin panel and the employee workspace **simultaneously in the same browser** — logging in or out of one never affects the other. When changing ports, you do **not** need to change the cookie names; only override `SESSION_COOKIE_NAME` if you run multiple deployments on the same host.
+
 ### Running from Eclipse
 
 1. **File → Import → Maven → Existing Maven Projects** → select the project folder

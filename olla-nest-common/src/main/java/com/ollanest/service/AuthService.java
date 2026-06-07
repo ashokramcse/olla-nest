@@ -36,7 +36,9 @@ import jakarta.servlet.http.HttpServletResponse;
  * <p>
  * Cookie configuration:
  * <ul>
- * <li>Name: {@code olla_nest_session}</li>
+ * <li>Name: configurable via {@code app.session-cookie-name} (default
+ * {@code olla_nest_session}). The admin and user apps set distinct names so they
+ * do not share a cookie when running on the same host but different ports.</li>
  * <li>Flags: {@code HttpOnly; SameSite=Lax; Path=/}</li>
  * <li>Duration: 12 hours (43 200 seconds)</li>
  * <li>Optional {@code Secure} flag controlled by the {@code app.cookie-secure}
