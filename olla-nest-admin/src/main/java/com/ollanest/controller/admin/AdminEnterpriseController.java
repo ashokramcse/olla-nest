@@ -12,20 +12,60 @@ import java.util.*;
 
 /**
  * Enterprise admin endpoints — team-scoped resources, analytics, audit trail,
- * connector-aware memory, team onboarding, and admin analytics dashboard.
+ * connector-aware memory, team onboarding, and the admin analytics dashboard.
  *
- * All endpoints require admin role. Enterprise features layer on top of
- * personal features: email/calendar/tasks/memory scoped per-team.
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Layers enterprise/team features on top of the per-user product: it aggregates
+ * usage analytics across all users, manages team-scoped memory and skills
+ * (owner key {@code "team:<id>"}), surfaces the audit trail, extracts memory
+ * from connector documents, and onboards users into teams. Every endpoint is
+ * admin-gated.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Each handler short-circuits via {@link BaseController#requireAdmin}, which
+ * returns a non-null error response when the caller is not an admin.</li>
+ * <li>Team-scoped resources reuse the personal services by passing a synthetic
+ * {@code "team:<id>"} owner key rather than a user id.</li>
+ * <li>Analytics and audit queries run directly against the database via
+ * {@link JdbcTemplate} for flexible aggregation.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — documented as part of the project-wide Javadoc pass</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @RestController
 @RequestMapping("/api/admin/enterprise")
 public class AdminEnterpriseController extends BaseController {
 
+    /** Direct database access for analytics, audit, and connector queries. */
     private final JdbcTemplate db;
+
+    /** Service used to store team-scoped and connector-derived memories. */
     private final MemoryService memoryService;
+
+    /** Service used to list team-scoped skills. */
     private final SkillsService skillsService;
+
+    /** Service used to monitor active background jobs. */
     private final BackgroundJobService jobService;
 
+    /**
+     * Constructor-injects the database template and supporting services.
+     *
+     * @param db            the JDBC template for direct queries
+     * @param memoryService the service backing team/connector memory
+     * @param skillsService the service backing team skills
+     * @param jobService    the service backing background job monitoring
+     * @since v2026.2.1
+     */
     public AdminEnterpriseController(JdbcTemplate db, MemoryService memoryService,
             SkillsService skillsService, BackgroundJobService jobService) {
         this.db = db;
@@ -36,6 +76,19 @@ public class AdminEnterpriseController extends BaseController {
 
     // ── Analytics dashboard ───────────────────────────────────────────────────
 
+    /**
+     * Returns the admin analytics dashboard over a recent time window.
+     *
+     * <p>
+     * Aggregates message/session/user counts, memory/skill/task totals, the most
+     * used models, and per-user activity within the last {@code days} days.
+     *
+     * @param req  the HTTP request; must resolve to an admin user
+     * @param days size of the look-back window in days (default 30)
+     * @return an OK response with the aggregated statistics, or an admin error
+     *         response
+     * @since v2026.2.1
+     */
     @GetMapping("/analytics")
     public ResponseEntity<?> analytics(HttpServletRequest req,
             @RequestParam(defaultValue = "30") int days) {
@@ -74,6 +127,15 @@ public class AdminEnterpriseController extends BaseController {
 
     // ── Team memory management ────────────────────────────────────────────────
 
+    /**
+     * Lists memories scoped to a team.
+     *
+     * @param req    the HTTP request; must resolve to an admin user
+     * @param teamId the team whose memories are listed
+     * @param limit  maximum number of memories to return (default 100)
+     * @return an OK response with the team's memories, or an admin error response
+     * @since v2026.2.1
+     */
     @GetMapping("/teams/{teamId}/memory")
     public ResponseEntity<?> teamMemory(HttpServletRequest req, @PathVariable String teamId,
             @RequestParam(defaultValue = "100") int limit) {
@@ -86,6 +148,16 @@ public class AdminEnterpriseController extends BaseController {
         return ok(memories);
     }
 
+    /**
+     * Stores a new memory scoped to a team.
+     *
+     * @param req    the HTTP request; must resolve to an admin user
+     * @param teamId the team to attach the memory to
+     * @param body   request payload; {@code text} is required
+     * @return a CREATED response with the stored memory, a 400 if {@code text} is
+     *         missing, or an admin error response
+     * @since v2026.2.1
+     */
     @PostMapping("/teams/{teamId}/memory")
     public ResponseEntity<?> addTeamMemory(HttpServletRequest req, @PathVariable String teamId,
             @RequestBody Map<String, Object> body) {
@@ -99,6 +171,15 @@ public class AdminEnterpriseController extends BaseController {
 
     // ── Team skills management ────────────────────────────────────────────────
 
+    /**
+     * Lists active skills scoped to a team.
+     *
+     * @param req    the HTTP request; must resolve to an admin user
+     * @param teamId the team whose skills are listed
+     * @return an OK response with the team's active skills, or an admin error
+     *         response
+     * @since v2026.2.1
+     */
     @GetMapping("/teams/{teamId}/skills")
     public ResponseEntity<?> teamSkills(HttpServletRequest req, @PathVariable String teamId) {
         var err = requireAdmin(req);
@@ -108,6 +189,17 @@ public class AdminEnterpriseController extends BaseController {
 
     // ── Comprehensive audit trail ─────────────────────────────────────────────
 
+    /**
+     * Queries the audit trail with optional actor and action filters.
+     *
+     * @param req    the HTTP request; must resolve to an admin user
+     * @param limit  maximum number of events to return (default 50)
+     * @param actor  optional exact-match actor filter
+     * @param action optional substring filter on the action name
+     * @return an OK response with the matching audit events, or an admin error
+     *         response
+     * @since v2026.2.1
+     */
     @GetMapping("/audit")
     public ResponseEntity<?> audit(HttpServletRequest req,
             @RequestParam(defaultValue = "50") int limit,
@@ -128,6 +220,22 @@ public class AdminEnterpriseController extends BaseController {
 
     // ── Connector-aware memory extraction ─────────────────────────────────────
 
+    /**
+     * Extracts memory facts from a connector's recently synced documents.
+     *
+     * <p>
+     * Reads up to the 50 most recently synced documents for the connector and
+     * stores a short "document available" memory for each, scoped to the target
+     * team.
+     *
+     * @param req         the HTTP request; must resolve to an admin user
+     * @param connectorId the connector whose documents are mined
+     * @param body        request payload; optional {@code team_id} scopes the
+     *                    stored memories (default {@code "default"})
+     * @return an OK response with the number of facts stored, or an admin error
+     *         response
+     * @since v2026.2.1
+     */
     @PostMapping("/connectors/{connectorId}/extract-memory")
     public ResponseEntity<?> extractConnectorMemory(HttpServletRequest req,
             @PathVariable String connectorId,
@@ -157,6 +265,13 @@ public class AdminEnterpriseController extends BaseController {
 
     // ── Background job monitoring ──────────────────────────────────────────────
 
+    /**
+     * Lists all currently active background jobs across users.
+     *
+     * @param req the HTTP request; must resolve to an admin user
+     * @return an OK response with the active jobs, or an admin error response
+     * @since v2026.2.1
+     */
     @GetMapping("/jobs")
     public ResponseEntity<?> jobs(HttpServletRequest req) {
         var err = requireAdmin(req);
@@ -166,6 +281,19 @@ public class AdminEnterpriseController extends BaseController {
 
     // ── Team SSO onboarding ────────────────────────────────────────────────────
 
+    /**
+     * Onboards a user into a team and records an audit event.
+     *
+     * <p>
+     * Assigns the user's {@code team} column and writes a {@code team.onboard}
+     * entry to the audit trail.
+     *
+     * @param req    the HTTP request; must resolve to an admin user
+     * @param teamId the team to assign the user to
+     * @param userId the user being onboarded
+     * @return an OK response echoing the user and team, or an admin error response
+     * @since v2026.2.1
+     */
     @PostMapping("/teams/{teamId}/onboard-user/{userId}")
     public ResponseEntity<?> onboardUser(HttpServletRequest req,
             @PathVariable String teamId, @PathVariable String userId) {
