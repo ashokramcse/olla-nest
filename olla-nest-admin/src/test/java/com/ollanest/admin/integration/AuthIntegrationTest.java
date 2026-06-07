@@ -35,6 +35,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>Uses H2 in-memory database (SQLite-mode) with a fresh schema per test class.
  * External services (Ollama, Whisper) are mocked out so tests run offline.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @SpringBootTest(
 		classes = OllaNestAdminApplication.class,

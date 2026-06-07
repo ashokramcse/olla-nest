@@ -27,6 +27,10 @@ import static org.mockito.Mockito.*;
  * <p>Covers: sensitive-content detection, request classification, model
  * routing (privacy blocking, scoring, router-disabled path, empty candidate
  * list), and the null-safety fix in {@code detectSensitiveContent}.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RouterService — unit tests")

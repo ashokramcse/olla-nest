@@ -22,6 +22,10 @@ import static org.mockito.Mockito.*;
  * <p>Verifies: authenticated request sets "authenticatedUser" attribute,
  * unauthenticated request does not set attribute but still calls chain,
  * filter never short-circuits the request.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SessionAuthFilter — unit tests")

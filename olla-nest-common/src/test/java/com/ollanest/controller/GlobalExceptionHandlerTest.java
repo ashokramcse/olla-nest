@@ -23,6 +23,10 @@ import static org.mockito.Mockito.*;
  * <p>Verifies that each exception type is translated to the correct
  * HTTP status and {@code {ok: false, error: "..."}} JSON envelope without
  * leaking any stack trace detail.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @DisplayName("GlobalExceptionHandler — unit tests")
 class GlobalExceptionHandlerTest {

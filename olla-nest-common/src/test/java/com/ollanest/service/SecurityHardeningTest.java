@@ -17,6 +17,10 @@ import static org.assertj.core.api.Assertions.*;
  *
  * <p>These tests act as executable security specifications — they document
  * and enforce the security invariants of the production codebase.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @DisplayName("Security Hardening — validation tests")
 class SecurityHardeningTest {

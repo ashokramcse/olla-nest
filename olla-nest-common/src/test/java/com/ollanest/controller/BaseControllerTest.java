@@ -26,6 +26,10 @@ import static org.mockito.Mockito.*;
  * <p>Uses a concrete anonymous subclass to access protected methods.
  * Covers: getUser, requireAuth, requireAdmin (auth/role/CSRF), requireAuthWithCsrf,
  * isCsrfOk, sanitizeText (XSS vectors, null, empty, whitespace).
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("BaseController — unit tests")

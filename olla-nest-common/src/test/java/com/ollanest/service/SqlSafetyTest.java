@@ -28,6 +28,10 @@ import static org.mockito.Mockito.*;
  * and concurrent-deletion safety.
  *
  * <p>All tests use Mockito stubs — no real DB is touched.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SQL Safety — hardening validation tests")

@@ -28,6 +28,10 @@ import static org.mockito.Mockito.*;
  * findUserByEmail, hasRight (admin bypass + explicit rights), departmentDefaults,
  * safeJsonList (null/blank/invalid/valid), allowedModelIds (admin bypass,
  * access_grants by user/department/group, implicit rights, overrides).
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserService — unit tests")

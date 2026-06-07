@@ -21,6 +21,10 @@ import static org.mockito.Mockito.*;
  * <p>Verifies MDC population for authenticated and anonymous requests,
  * MDC cleanup after the chain, IP resolution priority, and the
  * {@code shouldNotFilter} static-asset bypass.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MdcLoggingFilter — unit tests")

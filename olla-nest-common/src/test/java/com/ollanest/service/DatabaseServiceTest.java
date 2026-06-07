@@ -26,6 +26,10 @@ import static org.mockito.Mockito.*;
  * <p>Covers: getSetting/setSetting/getSettingBool contract, null-value guard
  * (NOT NULL schema constraint), tableCount SQL-injection guard, and
  * seedDatabase idempotency logic.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DatabaseService — unit tests")

@@ -35,6 +35,10 @@ import static org.mockito.Mockito.*;
  * <p>Covers: token estimation, rate-limit concurrency safety (race-condition
  * regression), UID uniqueness + entropy, context-window budgeting, message
  * parsing, and audit/trace persistence.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ChatService — unit tests")

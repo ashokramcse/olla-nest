@@ -18,6 +18,10 @@ import static org.mockito.Mockito.*;
  * <p>Verifies all required security headers are emitted exactly once per
  * response, that HSTS is only added on HTTPS, and that the filter chain
  * always continues.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SecurityHeadersFilter — unit tests")

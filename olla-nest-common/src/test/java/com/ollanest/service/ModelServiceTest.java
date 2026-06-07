@@ -25,6 +25,10 @@ import static org.mockito.Mockito.*;
  * <p>Covers: {@code parseModel} field hydration and defaults,
  * {@code allowedModels} access filtering and API-flag enforcement,
  * and JSON capability parsing.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ModelService — unit tests")

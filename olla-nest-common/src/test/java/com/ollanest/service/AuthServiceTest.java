@@ -32,6 +32,10 @@ import static org.mockito.Mockito.*;
  * no real DB, no network calls. Covers: token extraction, session resolution
  * (cache hit / miss / expired), session creation (rotation, DB write, cookie),
  * clearSession, removeSession, forceLogoutUser, scheduled cleanup.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AuthService — unit tests")

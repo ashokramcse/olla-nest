@@ -13,6 +13,10 @@ import java.util.Map;
  *
  * <p>All constants use placeholder credentials that are safe for test code.
  * Nothing here is ever committed to a production system.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 public final class UserFactory {
 

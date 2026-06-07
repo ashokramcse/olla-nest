@@ -31,6 +31,10 @@ import static org.mockito.Mockito.*;
  * response shape for admin, and that DB stats use the correct SQL queries
  * (models uses {@code IN ('available','configured')}, sessions uses
  * {@code datetime('now')}).
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AdminHealthController — unit tests")

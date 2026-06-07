@@ -17,6 +17,10 @@ import static org.assertj.core.api.Assertions.*;
  * <p>Covers: AES-GCM encrypt/decrypt round-trip, IV uniqueness (no IV reuse),
  * corrupt-ciphertext handling, wrong-key handling, null/blank input handling,
  * SecureRandom static-field reuse, and format validation.
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @DisplayName("CryptoService — unit tests")
 class CryptoServiceTest {

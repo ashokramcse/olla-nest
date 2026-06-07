@@ -41,6 +41,10 @@ import static org.mockito.Mockito.*;
  * <li>POST /api/auth/logout — CSRF guard 403, happy path 200</li>
  * <li>GET /api/auth/me — authenticated, unauthenticated</li>
  * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AuthController — unit tests")
