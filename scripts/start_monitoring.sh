@@ -294,6 +294,17 @@ if port_in_use $GRAFANA_PORT; then
   log "Grafana already running on port $GRAFANA_PORT — skipping."
 else
   log "Starting Grafana on port $GRAFANA_PORT..."
+  # Enforce the generated password on the admin user. Grafana only applies
+  # cfg:security.admin_password when it first creates the DB; if the DB already
+  # exists (e.g. from a previous run) it keeps the old password and the freshly
+  # generated .grafana-password file would be wrong. Resetting here against the
+  # DB (before the server launches) keeps the file authoritative and idempotent.
+  if [[ -f "$GRAFANA_DIR/bin/grafana" ]]; then
+    "$GRAFANA_DIR/bin/grafana" cli --homepath "$GRAFANA_DIR" \
+      admin reset-admin-password "$GRAFANA_PASS" \
+      >> "$MONITORING_DIR/grafana.log" 2>&1 || \
+      warn "Could not pre-set Grafana admin password (will use existing)."
+  fi
   "${GRAFANA_CMD[@]}" \
     --homepath="$GRAFANA_DIR" \
     cfg:server.http_port=$GRAFANA_PORT \
