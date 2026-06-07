@@ -20,25 +20,62 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * YouTube transcript extraction — fetches video transcripts for RAG ingestion and chat context.
+ * Fetches YouTube video transcripts for use as chat context or RAG ingestion.
  *
- * Extracts transcripts from YouTube's timedtext API endpoint. Transcripts are
- * cached in the youtube_transcripts table for 30 days.
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Users frequently paste YouTube URLs into the chat and ask the agent to
+ * summarise, analyse, or quote from the video. Rather than running speech
+ * recognition, this service extracts the closed-caption XML directly from
+ * YouTube's {@code timedtext} endpoint, which is available for most videos and
+ * requires no API key. The extracted transcript is cached in the
+ * {@code youtube_transcripts} table for 30 days to avoid repeated network
+ * requests for the same video.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The caption track URL is extracted from the {@code ytInitialPlayerResponse}
+ * JSON embedded in the watch page HTML using a regex; this is the same approach
+ * used by popular transcript-extraction libraries.</li>
+ * <li>The raw XML is parsed with Jsoup's XML parser, which handles HTML entity
+ * escaping in caption text.</li>
+ * <li>All formats of YouTube URL are supported via the {@link #VIDEO_ID_PATTERN}
+ * regex: {@code watch?v=}, {@code youtu.be/}, {@code embed/}, {@code shorts/}.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the media context expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class YouTubeService {
 
     private static final Logger log = LoggerFactory.getLogger(YouTubeService.class);
+
+    /** Regex that extracts the 11-character video ID from all common YouTube URL formats. */
     private static final Pattern VIDEO_ID_PATTERN = Pattern.compile(
             "(?:v=|youtu\\.be/|embed/|v/|shorts/)([a-zA-Z0-9_-]{11})");
 
+    /** Shared HTTP client for YouTube page and caption XML fetches. */
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
             .build();
 
+    /** JDBC template for reading and writing the {@code youtube_transcripts} cache. */
     private final JdbcTemplate db;
 
+    /**
+     * Constructor-injects the persistence dependency.
+     *
+     * @param db the JDBC template for transcript cache operations
+     * @since v2026.2.1
+     */
     public YouTubeService(JdbcTemplate db) {
         this.db = db;
     }
@@ -47,7 +84,9 @@ public class YouTubeService {
      * Extracts the plain-text transcript for a YouTube video, using a 30-day DB cache.
      *
      * @param urlOrId a full YouTube URL or bare 11-character video ID
-     * @return the transcript as a single space-separated string, or {@code null} if unavailable
+     * @return the transcript as a single space-separated string, or {@code null} if
+     *         no caption track is available or extraction fails
+     * @since v2026.2.1
      */
     public String getTranscript(String urlOrId) {
         String videoId = extractVideoId(urlOrId);
@@ -136,6 +175,7 @@ public class YouTubeService {
      *
      * @param input a YouTube URL (watch, youtu.be, embed, shorts) or a bare video ID
      * @return the 11-character video ID, or {@code null} if extraction fails
+     * @since v2026.2.1
      */
     public String extractVideoId(String input) {
         if (input == null || input.isBlank()) return null;

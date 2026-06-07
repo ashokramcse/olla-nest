@@ -14,24 +14,63 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * Scheduled task runner — executes LLM prompts, actions, and research tasks
- * on cron/interval schedules or in response to events.
+ * Persists and executes user-defined scheduled tasks against configurable
+ * LLM endpoints.
  *
- * Task types: llm (run prompt), action (builtin action), research (deep research)
- * Schedules: once, daily, weekly, monthly, cron
- * Triggers: schedule, event (every N occurrences), webhook
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Users need to run recurring LLM prompts (daily briefings, research digests,
+ * check-ins) and built-in actions on a schedule without leaving the browser
+ * open. This service owns the full task lifecycle: CRUD, next-run computation,
+ * the execution loop, run-history persistence, and task chaining. It replaces
+ * what would otherwise require a dedicated job scheduler framework with a
+ * lightweight SQLite-backed approach suitable for a self-hosted single-process
+ * deployment.
  *
- * Tasks can be chained: after success, run then_task_id.
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The scheduler polling interval is 60 seconds; tasks whose {@code next_run}
+ * timestamp has passed are selected and dispatched in virtual threads to prevent
+ * a slow task from blocking subsequent ones.</li>
+ * <li>Tasks support optional chaining via {@code then_task_id}: after a
+ * successful run the linked task is dispatched immediately in a new virtual
+ * thread.</li>
+ * <li>Run history is stored in the {@code task_runs} table for observability;
+ * the total number of runs and the last-run timestamp are denormalized onto the
+ * task row for fast dashboard queries.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the personal assistant expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class TaskSchedulerService {
 
     private static final Logger log = LoggerFactory.getLogger(TaskSchedulerService.class);
 
+    /** JDBC template for task and run persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for LLM request/response serialization. */
     private final ObjectMapper mapper;
+
+    /** Provides runtime-configurable Ollama URL and default model settings. */
     private final DatabaseService databaseService;
 
+    /**
+     * Constructor-injects persistence, serialization, and settings dependencies.
+     *
+     * @param db              the JDBC template for task and run operations
+     * @param mapper          the shared Jackson object mapper
+     * @param databaseService the settings service for Ollama URL and model configuration
+     * @since v2026.2.1
+     */
     public TaskSchedulerService(JdbcTemplate db, ObjectMapper mapper, DatabaseService databaseService) {
         this.db = db;
         this.mapper = mapper;
@@ -47,6 +86,7 @@ public class TaskSchedulerService {
      * @param req   task fields: {@code name}, {@code prompt}, {@code task_type},
      *              {@code schedule}, {@code scheduled_time}, {@code trigger_type}, etc.
      * @return the created task record
+     * @since v2026.2.1
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         String id = "task-" + Long.toString(System.currentTimeMillis(), 36);
@@ -90,6 +130,7 @@ public class TaskSchedulerService {
      * @param req   updated fields
      * @return the updated task record
      * @throws java.util.NoSuchElementException if the task is not found
+     * @since v2026.2.1
      */
     public Map<String, Object> update(String id, String owner, Map<String, Object> req) {
         Map<String, Object> existing = getById(id, owner);
@@ -118,6 +159,7 @@ public class TaskSchedulerService {
      *
      * @param id    the task ID
      * @param owner the user ID
+     * @since v2026.2.1
      */
     public void delete(String id, String owner) {
         db.update("DELETE FROM scheduled_tasks WHERE id=? AND owner=?", id, owner);
@@ -129,6 +171,7 @@ public class TaskSchedulerService {
      * @param id    the task ID
      * @param owner the user ID
      * @return the task record, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
@@ -142,6 +185,7 @@ public class TaskSchedulerService {
      * @param owner  the user ID
      * @param status optional status filter (e.g. {@code "active"}, {@code "completed"}); {@code null} returns all
      * @return list of task records, newest first; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> list(String owner, String status) {
         if (status != null && !status.isBlank()) {
@@ -160,6 +204,7 @@ public class TaskSchedulerService {
      * @param owner  the user ID (ownership verified)
      * @param limit  maximum results; {@code 0} or negative defaults to 20
      * @return list of task run rows; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> getRuns(String taskId, String owner, int limit) {
         // Verify ownership
@@ -174,6 +219,7 @@ public class TaskSchedulerService {
     /**
      * Scheduled every minute — queries for active tasks whose {@code next_run} is due
      * and executes each in a virtual thread.
+     * @since v2026.2.1
      */
     @Scheduled(fixedDelay = 60000, initialDelay = 15000) // check every minute
     public void runDueTasks() {
@@ -289,6 +335,7 @@ public class TaskSchedulerService {
      * @param req task/request map with {@code schedule}, {@code scheduled_time},
      *            {@code scheduled_day}, {@code scheduled_date} fields
      * @return ISO-8601 instant string for the next scheduled run
+     * @since v2026.2.1
      */
     public String computeNextRun(Map<String, Object> req) {
         String schedule = (String) req.getOrDefault("schedule", "daily");

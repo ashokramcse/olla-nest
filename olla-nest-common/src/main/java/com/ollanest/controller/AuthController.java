@@ -23,43 +23,50 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Handles the authentication lifecycle: login, logout, and session status.
+ * REST controller for the authentication lifecycle: login, logout, and session
+ * status.
  *
  * <p>
- * Endpoints:
+ * Exposes three endpoints:
  * <ul>
- * <li>{@code POST /api/auth/login} — authenticate with email + password; sets
+ * <li>{@code POST /api/auth/login} — authenticate with email and password; sets
  * an HttpOnly session cookie on success</li>
- * <li>{@code POST /api/auth/logout} — invalidates the current session
- * cookie</li>
- * <li>{@code GET /api/auth/me} — returns authenticated status and user
- * object</li>
+ * <li>{@code POST /api/auth/logout} — invalidates the current session cookie</li>
+ * <li>{@code GET /api/auth/me} — returns authenticated status and the user object</li>
  * </ul>
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Login is protected by IP-based rate limiting (max 10 attempts per 15
- * minutes). A trusted proxy may be configured to extract the real client IP
- * from the {@code X-Forwarded-For} header.
+ * Centralising the login flow in a dedicated controller keeps auth logic out of
+ * the general-purpose {@code StateController} and makes it straightforward to
+ * audit all credential-handling code in one place. The separation also simplifies
+ * future work such as adding MFA or SSO flows without touching the chat or model
+ * controllers.
  *
- * <p>
- * The {@code access_expires_at} column is enforced at login time: if the
- * account has a non-null expiry in the past, login is denied (HIGH-2 security
- * fix).
- *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Design notes</h3>
  * <ul>
  * <li>Rate limit state is stored in the {@code login_attempts} DB table rather
  * than in-memory so it survives restarts and works correctly with multiple JVM
  * instances.</li>
- * <li>The same 401 error message is returned for bad password, unknown email,
- * and expired account to prevent user enumeration.</li>
+ * <li>A dummy BCrypt hash is used for constant-time comparison when the email is
+ * not found, preventing user-enumeration via timing attacks.</li>
+ * <li>The same 401 message is returned for bad password, unknown email, and
+ * expired account to prevent user enumeration.</li>
+ * <li>A 1 % probabilistic cleanup of stale {@code login_attempts} rows runs on
+ * successful login (L-18 fix) to prevent unbounded table growth without a
+ * dedicated scheduled job.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.0 — initial Java Spring Boot migration</li>
+ * <li>v2026.1.0 — security hardening: enforce {@code access_expires_at} (HIGH-2)</li>
+ * <li>v2026.1.10 — L-18: probabilistic cleanup of stale login_attempts rows</li>
  * </ul>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.10 — L-18: probabilistic cleanup of stale login_attempts
- *          rows on successful login to prevent unbounded table growth
+ * @since v2026.1.0
+ * @version v2026.1.10
  */
 @RestController
 @RequestMapping("/api/auth")

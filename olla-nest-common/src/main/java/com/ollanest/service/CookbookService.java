@@ -19,22 +19,50 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
- * Model Cookbook — VRAM-aware hardware detection and model management.
+ * VRAM-aware model management service ("Cookbook") that helps users discover, score,
+ * and download LLM models that fit their hardware.
  *
- * Features:
- * - Hardware detection (NVIDIA/AMD/Apple Silicon/CPU)
- * - GPU bandwidth table for 80+ GPUs (memory bandwidth in GB/s)
- * - VRAM-aware model scoring with quantization awareness
- * - HuggingFace model download with SSE progress streaming
- * - llama.cpp and Ollama serve integration
- * - Cookbook state persistence
+ * <p>Features:
+ * <ul>
+ * <li>Hardware detection (NVIDIA, AMD, Apple Silicon, CPU) via platform-specific CLI tools</li>
+ * <li>GPU memory bandwidth table for 80+ GPUs used for tokens/sec estimation</li>
+ * <li>VRAM-aware model fit scoring with quantisation awareness</li>
+ * <li>Asynchronous HuggingFace GGUF model downloads with SSE progress streaming</li>
+ * <li>Cookbook state persistence to {@code cookbook_models}</li>
+ * </ul>
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Choosing and downloading the right LLM for local hardware is the single biggest
+ * friction point for new users. This service automates the "does this model fit my GPU?"
+ * calculation and handles the multi-gigabyte download lifecycle without requiring the
+ * user to touch the command line.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Downloads run on virtual threads and stream progress as SSE events so the UI
+ *     can show a live progress bar without polling.</li>
+ * <li>The catalog is hardcoded rather than fetched from HuggingFace to avoid a network
+ *     dependency at startup; it is annotated at runtime with fit and download-status flags.</li>
+ * <li>The GPU bandwidth table uses longest-match substring search to handle GPU names like
+ *     "NVIDIA GeForce RTX 4090" matching key "4090".</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced with hardware detection, model catalog, and HuggingFace download</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class CookbookService {
 
     private static final Logger log = LoggerFactory.getLogger(CookbookService.class);
 
-    // GPU memory bandwidth table (GB/s) — used for tokens/sec estimation
+    /** GPU memory bandwidth table in GB/s, keyed by short model name — used for tokens/sec estimation. */
     private static final Map<String, Integer> GPU_BANDWIDTH = Map.ofEntries(
             Map.entry("5090", 1792), Map.entry("5080", 960), Map.entry("5070 ti", 896), Map.entry("5070", 672),
             Map.entry("4090", 1008), Map.entry("4080 super", 736), Map.entry("4080", 717),
@@ -53,20 +81,26 @@ public class CookbookService {
             Map.entry("m1 ultra", 800), Map.entry("m1 max", 400), Map.entry("m1 pro", 200), Map.entry("m1", 68)
     );
 
-    // Quantization: bytes per parameter
+    /** Maps quantisation format names to bytes-per-parameter values for VRAM size calculation. */
     private static final Map<String, Double> QUANT_BPP = Map.of(
             "F16", 2.0, "BF16", 2.0, "Q8_0", 1.0, "Q6_K", 0.75,
             "Q5_K_M", 0.625, "Q4_K_M", 0.5, "Q3_K_M", 0.375, "Q2_K", 0.25,
             "FP8", 1.0, "INT4", 0.5
     );
 
+    /** JDBC template for cookbook_models persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for JSON serialisation. */
     private final ObjectMapper mapper;
+
+    /** Application settings service used to read HuggingFace token and models directory. */
     private final DatabaseService databaseService;
 
-    // jobId -> download status
+    /** Tracks active and recently completed download jobs by job ID. */
     private final Map<String, Map<String, Object>> activeDownloads = new ConcurrentHashMap<>();
 
+    /** Shared HTTP client for HuggingFace download requests. */
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(30)).build();
 

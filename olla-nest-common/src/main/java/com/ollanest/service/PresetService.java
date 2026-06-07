@@ -11,19 +11,44 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Preset / user template management.
+ * Manages system-defined presets and user-editable prompt templates.
  *
- * System presets are read-only defaults. Custom presets and per-user templates
- * are user-editable. Presets can include inject_prefix and inject_suffix to
- * wrap prompts automatically.
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Users need a quick way to switch the LLM into a specific mode — precise,
+ * creative, coding, research — without retyping a system prompt each time. This
+ * service provides a two-tier preset model: a hardcoded set of built-in system
+ * presets (always available, read-only) and a per-user {@code user_templates}
+ * table for custom presets. Both tiers are returned together by {@link #listAll}
+ * so the frontend can render a unified preset picker.
  *
- * Enterprise: admin can publish team-shared presets visible to all team members.
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>System presets are defined as a static {@link List} constant at class
+ * initialisation and never hit the database, keeping the common read path
+ * allocation-free for the built-in presets.</li>
+ * <li>{@code inject_prefix} and {@code inject_suffix} fields allow wrapping
+ * every user message automatically without the user needing to remember to add
+ * boilerplate text.</li>
+ * <li>All CRUD operations on user templates are owner-scoped so users cannot
+ * modify each other's templates.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the personal productivity expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class PresetService {
 
     private static final Logger log = LoggerFactory.getLogger(PresetService.class);
 
+    /** Built-in read-only presets available to all users regardless of database state. */
     private static final List<Map<String, Object>> SYSTEM_PRESETS = List.of(
         preset("default",    "Default",          "",                                 1.0, 0),
         preset("precise",    "Precise",          "You are precise and concise.",     0.3, 0),
@@ -34,9 +59,19 @@ public class PresetService {
         preset("analyst",    "Data Analyst",     "You are a data analyst. Be structured, use bullet points, and quantify when possible.", 0.3, 0)
     );
 
+    /** JDBC template for user template CRUD. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper (reserved for future JSON field support). */
     private final ObjectMapper mapper;
 
+    /**
+     * Constructor-injects persistence and serialization dependencies.
+     *
+     * @param db     the JDBC template for user template operations
+     * @param mapper the shared Jackson object mapper
+     * @since v2026.2.1
+     */
     public PresetService(JdbcTemplate db, ObjectMapper mapper) {
         this.db = db;
         this.mapper = mapper;
@@ -48,6 +83,7 @@ public class PresetService {
      *
      * @param owner the user ID
      * @return combined list of preset/template maps; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> listAll(String owner) {
         List<Map<String, Object>> all = new ArrayList<>(SYSTEM_PRESETS);
@@ -77,6 +113,7 @@ public class PresetService {
      * @param req   template fields: {@code name}, {@code system_prompt}, {@code temperature},
      *              {@code max_tokens}, {@code inject_prefix}, {@code inject_suffix}, {@code sort_order}
      * @return the created template record
+     * @since v2026.2.1
      */
     public Map<String, Object> createTemplate(String owner, Map<String, Object> req) {
         String id = "tpl-" + Long.toString(System.currentTimeMillis(), 36);
@@ -104,6 +141,7 @@ public class PresetService {
      * @param owner the user ID — only the owner may update
      * @param req   updated fields
      * @return the updated template record
+     * @since v2026.2.1
      */
     public Map<String, Object> updateTemplate(String id, String owner, Map<String, Object> req) {
         db.update("""
@@ -125,6 +163,7 @@ public class PresetService {
      *
      * @param id    the template ID
      * @param owner the user ID — only the owner may delete
+     * @since v2026.2.1
      */
     public void deleteTemplate(String id, String owner) {
         db.update("DELETE FROM user_templates WHERE id=? AND owner=?", id, owner);
@@ -136,6 +175,7 @@ public class PresetService {
      * @param id    the template ID
      * @param owner the user ID
      * @return the template record, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getTemplate(String id, String owner) {
         var rows = db.queryForList("SELECT * FROM user_templates WHERE id=? AND owner=?", id, owner);

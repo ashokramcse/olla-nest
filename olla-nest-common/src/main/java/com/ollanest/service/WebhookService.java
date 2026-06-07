@@ -20,25 +20,53 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Outgoing webhook service — fires signed HTTP POSTs on events.
+ * Manages outgoing webhook configurations and dispatches signed HTTP POST
+ * payloads to registered endpoints when application events are fired.
  *
- * Security:
- * - HMAC-SHA256 signature in X-Olla-Signature header
- * - SSRF protection: private/internal network targets are rejected
- * - Retry with exponential backoff (max 3 attempts)
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Users need a way to integrate Olla Nest events (completed chats, task runs,
+ * email arrivals) with external systems such as automation platforms, Slack, or
+ * custom pipelines. This service provides a classic webhook model: users register
+ * an HTTPS endpoint and a list of event filters; the service signs each delivery
+ * with HMAC-SHA256 and retries up to three times with exponential back-off.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>SSRF protection blocks deliveries to private/RFC-1918 IP ranges at both
+ * the hostname and DNS-resolved-IP level to prevent internal network pivoting.</li>
+ * <li>The HMAC-SHA256 signature is sent in the {@code X-Olla-Signature} header as
+ * {@code sha256=hex} so receivers can verify authenticity using the same pattern
+ * as GitHub webhooks.</li>
+ * <li>Dispatch runs in a virtual thread per webhook so a slow or unreachable
+ * target does not block the event bus or other webhooks.</li>
+ * <li>A wildcard event-bus subscription is registered in the constructor; the
+ * {@code dispatch} method then filters by each webhook's event list at call
+ * time.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the integration and automation expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class WebhookService {
 
     private static final Logger log = LoggerFactory.getLogger(WebhookService.class);
 
+    /** Recognised event names; webhooks configured with unknown events are silently skipped. */
     private static final Set<String> ALLOWED_EVENTS = Set.of(
             "session.created", "chat.completed", "chat.message",
             "email.received", "email.sent", "note.reminder",
             "task.triggered", "connector.synced", "webhook.test"
     );
 
-    // Private/internal network ranges to block (SSRF protection)
+    /** IP/hostname prefixes that map to private or loopback networks (SSRF block-list). */
     private static final List<String> PRIVATE_PREFIXES = List.of(
             "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.",
             "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.",
@@ -46,11 +74,17 @@ public class WebhookService {
             "192.168.", "127.", "169.254.", "0.", "::1", "fc", "fd", "fe80"
     );
 
+    /** Shared HTTP client for all webhook delivery attempts. */
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).build();
 
+    /** JDBC template for webhook CRUD and delivery status updates. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for serializing webhook payloads. */
     private final ObjectMapper mapper;
+
+    /** Application event bus; a wildcard subscription is registered at construction. */
     private final EventBusService eventBus;
 
     /**
@@ -82,6 +116,7 @@ public class WebhookService {
      *              {@code events}, {@code team_id}
      * @return the created webhook record
      * @throws IllegalArgumentException if the URL is invalid or targets a private network
+     * @since v2026.2.1
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         validateUrl((String) req.get("url"));
@@ -107,6 +142,7 @@ public class WebhookService {
      * @param id    the webhook ID
      * @param owner the requesting user ID
      * @return the webhook record, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
@@ -119,6 +155,7 @@ public class WebhookService {
      *
      * @param owner the user ID
      * @return list of webhook record maps; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> list(String owner) {
         return db.queryForList("SELECT * FROM webhooks WHERE owner=? ORDER BY created_at DESC", owner)
@@ -130,6 +167,7 @@ public class WebhookService {
      *
      * @param id    the webhook ID to delete
      * @param owner the user ID — only the owner may delete
+     * @since v2026.2.1
      */
     public void delete(String id, String owner) {
         db.update("DELETE FROM webhooks WHERE id=? AND owner=?", id, owner);
@@ -141,6 +179,7 @@ public class WebhookService {
      * @param id      the webhook ID
      * @param owner   the user ID
      * @param enabled {@code true} to enable, {@code false} to disable
+     * @since v2026.2.1
      */
     public void setEnabled(String id, String owner, boolean enabled) {
         db.update("UPDATE webhooks SET enabled=? WHERE id=? AND owner=?", enabled ? 1 : 0, id, owner);
@@ -216,7 +255,14 @@ public class WebhookService {
         }
     }
 
-    /** Test a webhook by sending a test payload. */
+    /**
+     * Sends a test payload to the webhook to verify delivery and connectivity.
+     *
+     * @param id    the webhook ID to test
+     * @param owner the user ID — only the owner may trigger a test
+     * @throws NoSuchElementException if the webhook is not found
+     * @since v2026.2.1
+     */
     public void test(String id, String owner) {
         Map<String, Object> webhook = getById(id, owner);
         if (webhook == null) throw new NoSuchElementException("Webhook not found: " + id);

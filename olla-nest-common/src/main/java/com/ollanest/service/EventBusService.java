@@ -16,15 +16,41 @@ import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 
 /**
- * Lightweight in-process event bus for firing named events that trigger automation.
+ * Lightweight in-process event bus that dispatches named events to registered handlers
+ * and persists every event to the {@code event_log} table for audit purposes.
  *
- * Subscribers register a handler for a specific event name. When an event fires,
- * all matching handlers are called asynchronously on a virtual-thread executor.
- * Events are also persisted to the {@code event_log} table for audit purposes.
+ * <p>Subscribers register a {@link java.util.function.BiConsumer} for a specific event
+ * name (or {@code "*"} to receive all events). When an event fires, all matching handlers
+ * are called asynchronously on a virtual-thread executor so they cannot block the caller.
  *
- * Standard events:
- *   session.created, chat.message, chat.completed, email.received,
- *   note.reminder, task.triggered, connector.synced
+ * <p>Standard platform events include:
+ * {@code session.created}, {@code chat.message}, {@code chat.completed},
+ * {@code email.received}, {@code email.sent}, {@code note.reminder},
+ * {@code task.triggered}, {@code connector.synced}.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Services need to react to each other's events (e.g. new email triggers an AI triage,
+ * completed chat fires a memory-extraction pass) without direct coupling. The event bus
+ * decouples producers from consumers and provides an audit log as a side effect.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Subscriptions are stored in a {@code CopyOnWriteArrayList} — safe for concurrent
+ *     reads during event dispatch even if new subscribers register mid-flight.</li>
+ * <li>Handlers that throw are logged as warnings and do not affect other subscribers
+ *     or the calling thread.</li>
+ * <li>Event persistence failures are logged but do not suppress handler dispatch.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced for decoupled inter-service communication and audit logging</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class EventBusService {
@@ -33,19 +59,40 @@ public class EventBusService {
 
     private record Subscription(String eventName, BiConsumer<String, Map<String, Object>> handler) {}
 
+    /** Thread-safe subscription list; iterated during dispatch and written by subscribe calls. */
     private final List<Subscription> subscriptions = new CopyOnWriteArrayList<>();
+
+    /** Virtual-thread executor that runs event handlers asynchronously. */
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+
+    /** JDBC template for event_log persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for payload JSON serialisation. */
     private final ObjectMapper mapper;
 
+    /**
+     * Constructor-injects persistence and serialisation dependencies.
+     *
+     * @param db     JDBC template for the {@code event_log} table
+     * @param mapper shared Jackson mapper
+     * @since v2026.2.1
+     */
     public EventBusService(JdbcTemplate db, ObjectMapper mapper) {
         this.db = db;
         this.mapper = mapper;
     }
 
     /**
-     * Subscribe to an event. The handler receives (owner, payload).
-     * Use {@code "*"} as eventName to receive all events.
+     * Registers a handler for the given event name.
+     *
+     * <p>The handler receives {@code (owner, payload)} where {@code owner} is the user who
+     * triggered the event (may be {@code null} for system events).
+     * Use {@code "*"} as {@code eventName} to receive all events regardless of name.
+     *
+     * @param eventName the event name to subscribe to, or {@code "*"} for all events
+     * @param handler   callback invoked with {@code (owner, payload)} when the event fires
+     * @since v2026.2.1
      */
     public void subscribe(String eventName, BiConsumer<String, Map<String, Object>> handler) {
         subscriptions.add(new Subscription(eventName, handler));
@@ -54,9 +101,10 @@ public class EventBusService {
     /**
      * Fire an event. Persists to audit log and notifies all matching subscribers asynchronously.
      *
-     * @param eventName the event name (e.g. "chat.completed")
-     * @param owner     the user who triggered the event; may be null for system events
-     * @param payload   arbitrary event data
+     * @param eventName the event name (e.g. {@code "chat.completed"})
+     * @param owner     the user who triggered the event; may be {@code null} for system events
+     * @param payload   arbitrary event data map
+     * @since v2026.2.1
      */
     public void fire(String eventName, String owner, Map<String, Object> payload) {
         persistEvent(eventName, owner, payload);
@@ -79,7 +127,13 @@ public class EventBusService {
         }
     }
 
-    /** Convenience overload — fire without payload. */
+    /**
+     * Convenience overload — fires an event with an empty payload map.
+     *
+     * @param eventName the event name
+     * @param owner     the user who triggered the event; may be {@code null}
+     * @since v2026.2.1
+     */
     public void fire(String eventName, String owner) {
         fire(eventName, owner, Map.of());
     }

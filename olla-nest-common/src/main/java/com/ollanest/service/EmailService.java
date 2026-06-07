@@ -23,14 +23,39 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
- * Email system: IMAP inbox management and SMTP sending with AI triage.
+ * Full-featured email service providing IMAP inbox management, SMTP sending, and
+ * AI-powered triage for multiple accounts per user.
  *
- * Supports multiple accounts per user (personal + team shared inboxes).
- * AI triage runs urgency scoring (1-5), auto-tagging, summarization,
- * and spam detection via the configured LLM.
+ * <p>Supports personal and team-shared inboxes. AI triage assigns urgency scores (1–5),
+ * auto-tags, summarises, and detects spam via the configured LLM. Background polling
+ * runs every {@value #DEFAULT_POLL_INTERVAL_S} seconds per account on a virtual thread.
  *
- * Background polling runs every {@value #DEFAULT_POLL_INTERVAL_S} seconds
- * per account. Each account's poller runs on a virtual thread.
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Email is the primary communication channel for most users. Hosting email data locally
+ * and running AI triage on-device means no email content ever leaves the user's
+ * infrastructure. The service integrates with any standard IMAP/SMTP server.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Each account's poll runs on a separate virtual thread to avoid head-of-line
+ *     blocking when one server is slow.</li>
+ * <li>AI triage is always asynchronous — it never blocks message import or delivery.</li>
+ * <li>Passwords are stored encrypted via {@link CryptoService}; they are never exposed
+ *     in API responses ({@code password_enc} is stripped in {@link #getAccount}).</li>
+ * <li>Thread grouping uses the {@code In-Reply-To} / {@code References} headers from
+ *     RFC 2822, resolving to an existing local thread ID where possible.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced with multi-account IMAP/SMTP, AI triage, reply drafts,
+ *     and background polling</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class EmailService {
@@ -39,18 +64,38 @@ public class EmailService {
     private static final int DEFAULT_POLL_INTERVAL_S = 300;
     private static final int FETCH_BATCH = 50;
 
+    /** JDBC template for email account and message persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for tags JSON serialisation. */
     private final ObjectMapper mapper;
+
+    /** Encrypts and decrypts IMAP/SMTP passwords stored in the database. */
     private final CryptoService cryptoService;
+
+    /** Application settings service used to read LLM endpoint and model name. */
     private final DatabaseService databaseService;
+
+    /** Event bus used to fire {@code email.received} and {@code email.sent} events. */
     private final EventBusService eventBus;
 
-    // accountId -> last poll timestamp
+    /** Maps account IDs to their last successful poll epoch-second timestamp. */
     private final Map<String, Long> lastPoll = new ConcurrentHashMap<>();
 
+    /** Shared HTTP client for LLM triage calls. */
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15)).build();
 
+    /**
+     * Constructor-injects all required service dependencies.
+     *
+     * @param db              JDBC template for email tables
+     * @param mapper          shared Jackson mapper
+     * @param cryptoService   service for encrypting email credentials
+     * @param databaseService application settings service
+     * @param eventBus        event bus for email lifecycle events
+     * @since v2026.2.1
+     */
     public EmailService(JdbcTemplate db, ObjectMapper mapper, CryptoService cryptoService,
             DatabaseService databaseService, EventBusService eventBus) {
         this.db = db;
@@ -69,6 +114,7 @@ public class EmailService {
      * @param req   account fields: {@code imap_host}, {@code smtp_host}, {@code username},
      *              {@code password}, {@code name}, {@code display_name}, {@code signature}, etc.
      * @return the created account row (password_enc stripped); never null
+     * @since v2026.2.1
      */
     public Map<String, Object> createAccount(String owner, Map<String, Object> req) {
         String id = "email-" + Long.toString(System.currentTimeMillis(), 36);
@@ -108,6 +154,7 @@ public class EmailService {
      * @param id    the account ID
      * @param owner the requesting user ID
      * @return the account row map without password, or {@code null}
+     * @since v2026.2.1
      */
     public Map<String, Object> getAccount(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
@@ -123,6 +170,7 @@ public class EmailService {
      *
      * @param owner the user ID
      * @return list of account row maps (without passwords); never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> listAccounts(String owner) {
         return db.queryForList(
@@ -136,6 +184,7 @@ public class EmailService {
      *
      * @param id    the account ID to delete
      * @param owner the user ID — only the owner may delete
+     * @since v2026.2.1
      */
     public void deleteAccount(String id, String owner) {
         db.update("DELETE FROM email_accounts WHERE id = ? AND owner = ?", id, owner);
@@ -152,6 +201,7 @@ public class EmailService {
      * @param page      1-based page number
      * @param pageSize  number of messages per page
      * @return list of message row maps ordered by date descending; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> listMessages(String accountId, String owner, String folder, int page, int pageSize) {
         int offset = (page - 1) * pageSize;
@@ -172,6 +222,7 @@ public class EmailService {
      * @param id        the message ID
      * @param accountId the account the message belongs to
      * @return the message row map, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getMessage(String id, String accountId) {
         List<Map<String, Object>> rows = db.queryForList(
@@ -187,6 +238,7 @@ public class EmailService {
      * @param threadId  the thread ID (derived from Message-ID / In-Reply-To headers)
      * @param accountId the account the thread belongs to
      * @return ordered list of message row maps; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> getThread(String threadId, String accountId) {
         return db.queryForList(
@@ -200,6 +252,7 @@ public class EmailService {
      *
      * @param id        the message ID
      * @param accountId the account the message belongs to
+     * @since v2026.2.1
      */
     public void markRead(String id, String accountId) {
         db.update("UPDATE email_messages SET is_read=1 WHERE id=? AND account_id=?", id, accountId);
@@ -211,6 +264,7 @@ public class EmailService {
      * @param id        the message ID
      * @param accountId the account the message belongs to
      * @param starred   {@code true} to star, {@code false} to unstar
+     * @since v2026.2.1
      */
     public void markStarred(String id, String accountId, boolean starred) {
         db.update("UPDATE email_messages SET is_starred=? WHERE id=? AND account_id=?",
@@ -222,6 +276,7 @@ public class EmailService {
      *
      * @param id        the message ID to delete
      * @param accountId the account the message belongs to
+     * @since v2026.2.1
      */
     public void deleteMessage(String id, String accountId) {
         db.update("DELETE FROM email_messages WHERE id=? AND account_id=?", id, accountId);
@@ -229,6 +284,20 @@ public class EmailService {
 
     // ── SMTP: Send ────────────────────────────────────────────────────────────
 
+    /**
+     * Sends an email via SMTP using the specified account configuration.
+     *
+     * <p>Decrypts the stored IMAP/SMTP password, builds a MIME multipart message with
+     * optional display name and signature, and delivers it via {@code jakarta.mail.Transport}.
+     * Fires an {@code email.sent} event after successful delivery.
+     *
+     * @param accountId the email account ID to send from
+     * @param owner     the requesting user ID (must own or share the account)
+     * @param req       send fields: {@code to}, {@code cc}, {@code subject}, {@code body},
+     *                  {@code reply_to_id} (optional, for threading)
+     * @throws Exception if the SMTP session fails or the account is not found
+     * @since v2026.2.1
+     */
     public void sendEmail(String accountId, String owner, Map<String, Object> req) throws Exception {
         Map<String, Object> account = getAccountWithPassword(accountId, owner);
         if (account == null) throw new NoSuchElementException("Email account not found: " + accountId);
@@ -298,6 +367,7 @@ public class EmailService {
      * @param messageId the message ID to triage
      * @param accountId the account the message belongs to
      * @param owner     the user ID (may be {@code null} for background poller runs)
+     * @since v2026.2.1
      */
     public void triageMessage(String messageId, String accountId, String owner) {
         Thread.ofVirtual().name("email-triage-" + messageId).start(() -> {
@@ -362,6 +432,7 @@ public class EmailService {
      * @param accountId the account the message belongs to
      * @param owner     the requesting user ID
      * @return the generated reply body text, or {@code ""} on failure
+     * @since v2026.2.1
      */
     public String generateReplyDraft(String messageId, String accountId, String owner) {
         try {
@@ -393,6 +464,12 @@ public class EmailService {
 
     // ── Background IMAP Polling ────────────────────────────────────────────────
 
+    /**
+     * Scheduled IMAP polling dispatcher — checks every enabled account once per minute
+     * and triggers a per-account poll on a virtual thread when its poll interval has elapsed.
+     *
+     * @since v2026.2.1
+     */
     @Scheduled(fixedDelay = 60000, initialDelay = 10000)
     public void pollAllAccounts() {
         try {

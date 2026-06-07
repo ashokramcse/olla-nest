@@ -11,17 +11,56 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Contacts system — CRUD with CardDAV sync support.
- * Contacts can be personal or team-shared, synced from Radicale/Nextcloud, or local-only.
+ * Manages the personal and team-shared contacts system with CardDAV sync support.
+ *
+ * <p>Contacts can be personal (owned by a single user), team-shared (linked to a team ID),
+ * or synced from an external CardDAV server such as Radicale or Nextcloud. Multi-value
+ * fields (emails, phones, addresses) are stored as JSON arrays.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * The integrated productivity suite needs a contact store that is private-by-default,
+ * supports team sharing, and can be exported as a standard vCard 3.0 file for use in
+ * other apps without vendor lock-in.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Multi-value fields ({@code email}, {@code phone}, {@code address}) are stored as
+ *     JSON arrays in dedicated {@code *_json} columns and deserialised transparently in
+ *     {@code mapRow}.</li>
+ * <li>Full-text search queries the JSON text column directly with {@code LIKE} patterns,
+ *     which is adequate for personal address books; a future FTS5 index can replace this.</li>
+ * <li>Team-shared contacts are visible to any user but only the owner may delete them.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced with personal contacts, team sharing, vCard export, and
+ *     full-text search</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class ContactsService {
 
     private static final Logger log = LoggerFactory.getLogger(ContactsService.class);
 
+    /** JDBC template for contact persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for multi-value field JSON serialisation. */
     private final ObjectMapper mapper;
 
+    /**
+     * Constructor-injects persistence and serialisation dependencies.
+     *
+     * @param db     JDBC template for the {@code contacts} table
+     * @param mapper shared Jackson mapper
+     * @since v2026.2.1
+     */
     public ContactsService(JdbcTemplate db, ObjectMapper mapper) {
         this.db = db;
         this.mapper = mapper;
@@ -34,6 +73,7 @@ public class ContactsService {
      * @param req   contact fields: {@code display_name}, {@code first_name}, {@code last_name},
      *              {@code email}, {@code phone}, {@code address}, {@code organization}, {@code title}, {@code notes}
      * @return the created contact record; never null
+     * @since v2026.2.1
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         String id = "cnt-" + Long.toString(System.currentTimeMillis(), 36);
@@ -66,6 +106,7 @@ public class ContactsService {
      * @param req   fields to update: {@code display_name}, {@code first_name}, {@code last_name},
      *              {@code email}, {@code phone}, {@code organization}, {@code title}, {@code notes}
      * @return the updated contact record
+     * @since v2026.2.1
      */
     public Map<String, Object> update(String id, String owner, Map<String, Object> req) {
         String now = Instant.now().toString();
@@ -90,6 +131,7 @@ public class ContactsService {
      *
      * @param id    the contact ID
      * @param owner the user ID — only the owner may delete
+     * @since v2026.2.1
      */
     public void delete(String id, String owner) {
         db.update("DELETE FROM contacts WHERE id=? AND owner=?", id, owner);
@@ -101,6 +143,7 @@ public class ContactsService {
      * @param id    the contact ID
      * @param owner the requesting user ID
      * @return the contact record, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getById(String id, String owner) {
         var rows = db.queryForList("SELECT * FROM contacts WHERE id=? AND (owner=? OR team_id IS NOT NULL)", id, owner);
@@ -113,6 +156,7 @@ public class ContactsService {
      * @param owner the user ID
      * @param limit maximum results; {@code 0} or negative defaults to 100
      * @return list of contact record maps; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> list(String owner, int limit) {
         return db.queryForList(
@@ -128,6 +172,7 @@ public class ContactsService {
      * @param owner the user ID
      * @param query search string
      * @return matching contact records; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> search(String owner, String query) {
         String q = "%" + query.toLowerCase() + "%";
@@ -144,6 +189,7 @@ public class ContactsService {
      *
      * @param owner the user ID
      * @return vCard 3.0 formatted string; never null
+     * @since v2026.2.1
      */
     public String exportVCard(String owner) {
         List<Map<String, Object>> contacts = list(owner, 10000);

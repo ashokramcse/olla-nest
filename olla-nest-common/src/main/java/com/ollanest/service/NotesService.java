@@ -11,29 +11,74 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Google Keep-style notes with checklists, colors, labels, pins, and reminders.
- * Notes are owner-scoped. Agent can create/read/update notes via the tool system.
+ * Google Keep-style note management with support for checklists, colors, labels,
+ * pins, and due-date reminders.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Users and the agent loop need a lightweight, structured way to capture and
+ * retrieve notes without leaving the Olla Nest interface. This service provides a
+ * familiar Keep-inspired data model — notes with optional checklist items, color
+ * coding, labels, pins, and scheduled reminders — persisted in the {@code notes}
+ * table. The agent can call {@code create}, {@code update}, and {@code getById}
+ * via the tool dispatch system to maintain notes on behalf of the user.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Checklist items are stored as a JSON array in the {@code items_json} column
+ * and deserialized on every read so the caller always receives a typed
+ * {@code List}.</li>
+ * <li>All operations are owner-scoped; there is no cross-user access.</li>
+ * <li>{@link #list} supports an optional {@code label} filter and an
+ * {@code includeArchived} flag so the UI can render separate "Notes" and
+ * "Archive" views without separate tables.</li>
+ * <li>{@link #getDueReminders} is designed to be polled by the reminder
+ * scheduler and is therefore not owner-scoped — it spans all users.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the personal productivity expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class NotesService {
 
     private static final Logger log = LoggerFactory.getLogger(NotesService.class);
 
+    /** JDBC template for all note persistence operations. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for serializing and deserializing checklist item arrays. */
     private final ObjectMapper mapper;
 
+    /**
+     * Constructor-injects persistence and serialization dependencies.
+     *
+     * @param db     the JDBC template for note CRUD operations
+     * @param mapper the shared Jackson object mapper
+     * @since v2026.2.1
+     */
     public NotesService(JdbcTemplate db, ObjectMapper mapper) {
         this.db = db;
         this.mapper = mapper;
     }
 
     /**
-     * Create a new note for the given owner. Supports checklists ({@code items}),
+     * Creates a new note for the given owner. Supports checklists ({@code items}),
      * colors, labels, pins, due dates, and repeat cadences.
      *
-     * @param owner  the user ID that owns this note
-     * @param req    note fields (title, content, items, note_type, color, label, pinned, due_date, repeat, etc.)
+     * @param owner the user ID that owns this note
+     * @param req   note fields: {@code title}, {@code content}, {@code items},
+     *              {@code note_type}, {@code color}, {@code label}, {@code pinned},
+     *              {@code due_date}, {@code repeat}, {@code source}, {@code session_id},
+     *              {@code image_url}, {@code sort_order}
      * @return the persisted note record
+     * @since v2026.2.1
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         String id = "note-" + Long.toString(System.currentTimeMillis(), 36);
@@ -64,14 +109,16 @@ public class NotesService {
     }
 
     /**
-     * Partially update a note. Only fields present in {@code req} are changed;
-     * all others retain their existing values. Throws {@link NoSuchElementException} if
-     * the note does not exist or belongs to a different owner.
+     * Partially updates a note. Only fields present in {@code req} are changed;
+     * all others retain their existing values.
      *
-     * @param id     the note ID
-     * @param owner  the user ID that owns this note
-     * @param req    fields to update
+     * @param id    the note ID
+     * @param owner the user ID that owns this note
+     * @param req   fields to update
      * @return the updated note record
+     * @throws NoSuchElementException if the note does not exist or belongs to a
+     *                                different owner
+     * @since v2026.2.1
      */
     public Map<String, Object> update(String id, String owner, Map<String, Object> req) {
         Map<String, Object> existing = getById(id, owner);
@@ -100,11 +147,13 @@ public class NotesService {
     }
 
     /**
-     * Permanently delete a note. Throws {@link NoSuchElementException} if the note
-     * does not exist or belongs to a different owner.
+     * Permanently deletes a note.
      *
      * @param id    the note ID
      * @param owner the user ID that must own this note
+     * @throws NoSuchElementException if the note does not exist or belongs to a
+     *                                different owner
+     * @since v2026.2.1
      */
     public void delete(String id, String owner) {
         int rows = db.update("DELETE FROM notes WHERE id=? AND owner=?", id, owner);
@@ -112,11 +161,12 @@ public class NotesService {
     }
 
     /**
-     * Fetch a single note by ID, scoped to the given owner.
+     * Fetches a single note by ID, scoped to the given owner.
      *
      * @param id    the note ID
      * @param owner the user ID that must own this note
      * @return the note record, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
@@ -125,12 +175,14 @@ public class NotesService {
     }
 
     /**
-     * List notes for an owner, ordered by pinned first, then sort_order, then most recently updated.
+     * Lists notes for an owner, ordered by pinned first, then {@code sort_order},
+     * then most recently updated.
      *
      * @param owner           the user ID
      * @param includeArchived when {@code false}, archived notes are excluded
      * @param label           optional label filter; pass {@code null} to include all labels
-     * @return matching notes
+     * @return matching notes; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> list(String owner, boolean includeArchived, String label) {
         StringBuilder sql = new StringBuilder("SELECT * FROM notes WHERE owner=?");
@@ -150,10 +202,11 @@ public class NotesService {
     }
 
     /**
-     * Return all non-archived notes whose {@code due_date} is at or before the current instant.
+     * Returns all non-archived notes whose {@code due_date} is at or before the current instant.
      * Used by the reminder scheduler to fire notifications across all users.
      *
-     * @return notes with past or present due dates
+     * @return notes with past or present due dates; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> getDueReminders() {
         String now = Instant.now().toString();

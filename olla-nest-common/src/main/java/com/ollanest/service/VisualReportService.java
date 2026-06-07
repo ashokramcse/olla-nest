@@ -10,24 +10,53 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Generates a self-contained, styled HTML report from deep research results.
+ * Generates a polished, self-contained HTML research report from deep-research
+ * results.
  *
- * The report includes:
- * - Auto-generated table of contents from headings
- * - Hero section with gradient background
- * - Dark/light theme via prefers-color-scheme
- * - Collapsible sources list
- * - Print/share toolbar
- * - Inline rendered markdown body
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Deep research results are long, structured markdown documents that are hard to
+ * read in a plain chat bubble. This service converts them into a visually rich,
+ * shareable HTML page with a hero header, auto-generated table of contents,
+ * collapsible sources list, dark-mode support, and a print/copy toolbar — all
+ * without any external dependencies or network requests.
  *
- * No external dependencies — all fonts/styles are inline.
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>All CSS and fonts are inlined so the report is a single portable
+ * {@code .html} file that can be emailed or shared as an attachment.</li>
+ * <li>Markdown is rendered to HTML via Flexmark-Java (CommonMark-compatible)
+ * using a shared {@link Parser} and {@link HtmlRenderer} pair built once at
+ * construction time.</li>
+ * <li>HTML-escaping is applied to all user-supplied strings (query, source
+ * titles, URLs) to prevent XSS when the report is opened in a browser.</li>
+ * <li>The table of contents is built from {@code #} and {@code ##} headings
+ * only; deeper headings are omitted to keep the TOC concise.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the deep research expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class VisualReportService {
 
+    /** Flexmark CommonMark parser, built once and reused for all report renders. */
     private final Parser mdParser;
+
+    /** Flexmark HTML renderer, built once and reused for all report renders. */
     private final HtmlRenderer mdRenderer;
 
+    /**
+     * Constructs the service and initializes the shared Flexmark Markdown parser and renderer.
+     *
+     * @since v2026.2.1
+     */
     public VisualReportService() {
         MutableDataSet opts = new MutableDataSet();
         this.mdParser = Parser.builder(opts).build();
@@ -35,12 +64,15 @@ public class VisualReportService {
     }
 
     /**
-     * Generate a full HTML research report.
+     * Generates a complete self-contained HTML research report.
      *
-     * @param query    the original research query
-     * @param markdown the markdown content of the report
-     * @param sources  list of {title, url, snippet} source maps
-     * @param durationMs how long the research took
+     * @param query      the original research query (shown in the hero and page title)
+     * @param markdown   the Markdown-formatted report body
+     * @param sources    list of source maps, each containing {@code title}, {@code url},
+     *                   and optionally {@code snippet}
+     * @param durationMs the wall-clock time the research took, shown in the hero meta line
+     * @return a fully rendered HTML string suitable for display or download
+     * @since v2026.2.1
      */
     public String generate(String query, String markdown, List<Map<String, Object>> sources, long durationMs) {
         String bodyHtml = mdRenderer.render(mdParser.parse(markdown != null ? markdown : ""));

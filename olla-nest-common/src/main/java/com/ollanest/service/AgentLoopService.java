@@ -19,20 +19,46 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Multi-round agentic loop that streams tool execution via SSE.
+ * Multi-round agentic loop that drives an LLM through iterative tool execution
+ * and streams all events to the client via Server-Sent Events.
  *
- * The LLM signals tool calls via fenced code blocks:
+ * <p>The LLM signals tool calls via fenced code blocks:
  * <pre>
  *   ```bash
  *   ls -la
  *   ```
  * </pre>
  *
- * The loop parses tool calls, executes them, feeds results back, and
- * continues until the LLM produces no further tool calls or MAX_ROUNDS
- * is reached. All tool output is streamed via the SSE emitter.
+ * The loop parses tool calls, executes them, feeds results back, and continues
+ * until the LLM produces no further tool calls or {@code MAX_ROUNDS} is reached.
+ * All tool output is streamed via the SSE emitter.
  *
- * Tools are security-checked against the user's privilege flags before execution.
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Plain chat completions are stateless. This service adds the "loop" that lets
+ * an LLM autonomously call tools over multiple rounds, observe their outputs,
+ * and reason again — enabling research, coding, and calendar/task automation
+ * without manual user relay between turns.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Each loop runs on a virtual thread to avoid blocking the Tomcat thread pool.</li>
+ * <li>Active loops are tracked in {@code activeRuns}; a {@link #cancel} call removes
+ *     the entry and the next round check exits cleanly.</li>
+ * <li>Tool access is gated on the {@code canBash} flag propagated from the caller
+ *     rather than re-checking the DB on each round, to avoid per-round DB overhead.</li>
+ * <li>The {@code MAX_ROUNDS} cap prevents infinite loops from runaway models.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced with multi-tool agent loop (bash, web_search, web_fetch,
+ *     manage_memory, manage_notes, manage_calendar, manage_tasks)</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class AgentLoopService {
@@ -45,20 +71,46 @@ public class AgentLoopService {
             "```(bash|python|web_search|web_fetch|read_file|write_file|manage_memory|manage_notes|manage_calendar|manage_tasks)\\s*\\n([\\s\\S]*?)```",
             Pattern.MULTILINE);
 
-    // sessionId -> active run info
+    /** Maps session IDs to their currently-running agent loop metadata. */
     private final Map<String, Map<String, Object>> activeRuns = new ConcurrentHashMap<>();
 
+    /** Shared HTTP client for LLM and web-fetch calls. */
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(30)).build();
 
+    /** Shared Jackson mapper for JSON serialisation. */
     private final ObjectMapper mapper;
+
+    /** JDBC template for session and owner lookups. */
     private final JdbcTemplate db;
+
+    /** Delegate for web-search tool execution. */
     private final WebSearchService webSearchService;
+
+    /** Delegate for manage_memory tool execution. */
     private final MemoryService memoryService;
+
+    /** Delegate for manage_notes tool execution. */
     private final NotesService notesService;
+
+    /** Delegate for manage_calendar tool execution. */
     private final CalendarService calendarService;
+
+    /** Delegate for manage_tasks tool execution. */
     private final TaskSchedulerService taskService;
 
+    /**
+     * Constructor-injects all required service dependencies.
+     *
+     * @param mapper           shared Jackson mapper
+     * @param db               JDBC template
+     * @param webSearchService web-search tool delegate
+     * @param memoryService    memory tool delegate
+     * @param notesService     notes tool delegate
+     * @param calendarService  calendar tool delegate
+     * @param taskService      task-scheduler tool delegate
+     * @since v2026.2.1
+     */
     public AgentLoopService(ObjectMapper mapper, JdbcTemplate db,
             WebSearchService webSearchService, MemoryService memoryService,
             NotesService notesService, CalendarService calendarService,
@@ -73,15 +125,26 @@ public class AgentLoopService {
     }
 
     /**
-     * Run the agent loop for a given session. Streams events via {@code emitter}.
+     * Starts the multi-round agent loop for the given session and streams events via SSE.
      *
-     * @param sessionId  chat session ID
-     * @param owner      authenticated user ID
-     * @param messages   full conversation history
-     * @param ollamaUrl  LLM endpoint base URL
-     * @param model      model name
-     * @param canBash    whether the user has bash tool access
-     * @param emitter    SSE emitter to stream output
+     * <p>Steps performed on each round:
+     * <ol>
+     * <li>Checks whether the loop has been cancelled; exits if so.</li>
+     * <li>Calls the configured LLM with the full conversation history.</li>
+     * <li>Streams the LLM text response as an {@code agent_text} SSE event.</li>
+     * <li>Parses fenced code-block tool calls from the response.</li>
+     * <li>Executes each tool call and feeds results back as a user message.</li>
+     * <li>Repeats until no tool calls are found or {@code MAX_ROUNDS} is reached.</li>
+     * </ol>
+     *
+     * @param sessionId  chat session ID used for run tracking and tool context
+     * @param owner      authenticated user ID used for tool access scoping
+     * @param messages   full conversation history to send to the LLM
+     * @param ollamaUrl  LLM endpoint base URL (e.g. {@code http://localhost:11434})
+     * @param model      model name to use for inference
+     * @param canBash    {@code true} if the user has bash tool access
+     * @param emitter    SSE emitter over which all events are streamed
+     * @since v2026.2.1
      */
     public void runLoop(String sessionId, String owner, List<Map<String, Object>> messages,
             String ollamaUrl, String model, boolean canBash, SseEmitter emitter) {
@@ -153,6 +216,7 @@ public class AgentLoopService {
      * If no loop is running for the session, this is a no-op.
      *
      * @param sessionId the chat session ID whose agent loop should be cancelled
+     * @since v2026.2.1
      */
     public void cancel(String sessionId) {
         activeRuns.remove(sessionId);
@@ -163,6 +227,7 @@ public class AgentLoopService {
      *
      * @param sessionId the chat session ID to check
      * @return {@code true} if a loop is active; {@code false} otherwise
+     * @since v2026.2.1
      */
     public boolean isRunning(String sessionId) {
         return activeRuns.containsKey(sessionId);

@@ -12,28 +12,72 @@ import java.time.Duration;
 import java.util.regex.Pattern;
 
 /**
- * Same-origin emoji SVG proxy — caches OpenMoji SVGs locally on first request.
+ * Same-origin proxy and on-disk cache for monochrome OpenMoji emoji SVGs.
  *
- * The frontend uses CSS masks for monochrome emoji icons.
- * Codepoints are fetched from the OpenMoji CDN once and cached in data/emoji_cache/.
- * Unknown codepoints return a transparent SVG (no 404) so CSS masks show nothing.
+ * <h3>Why this class exists</h3>
+ * <p>
+ * The front-end renders emoji icons using CSS masks, which require the SVG to be
+ * served from the same origin (cross-origin masks are blocked). Rather than
+ * bundle the full OpenMoji set, this controller lazily fetches each requested
+ * codepoint from the OpenMoji CDN on first use and caches it under
+ * {@code data/emoji_cache/}, serving subsequent requests from disk.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Requested codepoints are validated against a strict hex pattern before any
+ * filesystem or network access, preventing path traversal and SSRF.</li>
+ * <li>Unknown or failed codepoints return a transparent 1×1 SVG with HTTP 200
+ * (never a 404) so that CSS masks simply render nothing instead of breaking.</li>
+ * <li>Successfully cached responses are served with a long immutable
+ * {@code Cache-Control} so browsers cache them aggressively.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — documented as part of the project-wide Javadoc pass</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @RestController
 @RequestMapping("/api/emoji")
 public class EmojiController extends BaseController {
 
+    /** Base CDN URL of the OpenMoji black (monochrome) SVG set. */
     private static final String OPENMOJI_BASE = "https://cdn.jsdelivr.net/npm/openmoji@15.0.0/black/svg";
+
+    /** Validates a codepoint path variable: one or more dash-separated hex groups. */
     private static final Pattern CODE_RE = Pattern.compile("^[0-9a-fA-F]{2,6}(?:-[0-9a-fA-F]{2,6})*$");
+
+    /** Transparent 1×1 SVG returned for unknown or invalid codepoints. */
     private static final byte[] BLANK_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1 1\"></svg>".getBytes();
 
+    /** Shared HTTP client used to fetch uncached emoji from the CDN. */
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
+    /** Filesystem root for application data; the emoji cache lives under {@code emoji_cache}. */
     @Value("${app.data-dir:./data}")
     private String dataDir;
 
+    /**
+     * Serves the SVG for a single emoji codepoint, fetching and caching on miss.
+     *
+     * <p>
+     * Validates the codepoint, returns the cached file if present, otherwise
+     * fetches it from the OpenMoji CDN and writes it to the cache. Any invalid
+     * codepoint, network failure, or non-200 CDN response yields a transparent
+     * SVG with HTTP 200 so the caller never sees an error.
+     *
+     * @param code the emoji codepoint (dash-separated hex groups)
+     * @return an HTTP 200 response carrying either the emoji SVG or a transparent
+     *         placeholder SVG
+     * @since v2026.2.1
+     */
     @GetMapping(value = "/{code}.svg", produces = "image/svg+xml")
     public ResponseEntity<byte[]> emojiSvg(@PathVariable String code) {
         code = code.toLowerCase();

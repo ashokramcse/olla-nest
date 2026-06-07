@@ -13,34 +13,78 @@ import java.util.Base64;
 import java.util.Map;
 
 /**
- * Notification service — sends alerts via ntfy, browser push, or email.
+ * Sends user-facing alerts through a configurable notification channel (ntfy,
+ * email, or none).
  *
- * Used by the task scheduler for task reminders and note due-date alerts.
- * Channel is configured per-user in settings. ntfy is the default (self-hosted friendly).
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Task reminders and note due-date alerts need to reach the user outside the
+ * browser tab. Rather than hard-coding a single delivery mechanism, this service
+ * dispatches to whichever channel is configured in settings. ntfy is the default
+ * because it is self-hosted-friendly and requires no third-party accounts;
+ * email is wired as a logging stub pending SMTP configuration.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The delivery channel is resolved at call time via
+ * {@link DatabaseService#getSetting} so changes take effect without a restart.</li>
+ * <li>ntfy requests are fired asynchronously via {@code sendAsync} to avoid
+ * blocking the scheduler thread.</li>
+ * <li>Authentication for protected ntfy topics is passed as a Basic
+ * {@code Authorization} header when {@code ntfyAuth} is set.</li>
+ * <li>A channel value of {@code "none"} is explicitly handled as a no-op so
+ * users can silence notifications entirely without removing the setting.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the personal productivity expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
+    /** Shared HTTP client for ntfy push requests. */
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).build();
 
+    /** JDBC template (reserved for future per-user channel preferences). */
     private final JdbcTemplate db;
+
+    /** Provides runtime-configurable settings such as ntfy URL and topic. */
     private final DatabaseService databaseService;
 
+    /**
+     * Constructor-injects persistence and settings dependencies.
+     *
+     * @param db              the JDBC template
+     * @param databaseService the settings service used to look up the notification channel and credentials
+     * @since v2026.2.1
+     */
     public NotificationService(JdbcTemplate db, DatabaseService databaseService) {
         this.db = db;
         this.databaseService = databaseService;
     }
 
     /**
-     * Send a notification to the user via their configured channel.
+     * Sends a notification to the user via their configured channel.
      *
-     * @param owner   user ID
-     * @param title   notification title
-     * @param message notification body
-     * @param priority 1=min, 3=default, 5=urgent
+     * <p>
+     * Reads the {@code notificationChannel} setting at call time and dispatches to
+     * the appropriate delivery mechanism. Unknown channel values are logged at debug
+     * level and silently ignored.
+     *
+     * @param owner    the user ID of the notification recipient
+     * @param title    the notification title / subject line
+     * @param message  the notification body text
+     * @param priority delivery urgency: {@code 1}=min, {@code 3}=default, {@code 5}=urgent
+     * @since v2026.2.1
      */
     public void notify(String owner, String title, String message, int priority) {
         String channel = databaseService.getSetting("notificationChannel", "none");

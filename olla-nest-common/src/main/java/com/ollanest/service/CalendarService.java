@@ -18,10 +18,37 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * Calendar service — local SQLite-backed calendars with CalDAV sync.
+ * Local SQLite-backed calendar service with CalDAV synchronisation support.
  *
- * Supports multiple calendars per user (personal + team shared), recurring events
- * via rrule, CalDAV bidirectional sync, and .ics import/export.
+ * <p>Supports multiple calendars per user (personal and team-shared), recurring events
+ * via RFC 5545 RRULE, bidirectional CalDAV sync, and RFC 5545 iCalendar (.ics) export.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * The application provides a self-hosted personal productivity suite. A local calendar
+ * that syncs with external CalDAV servers (Nextcloud, Radicale, iCloud, Google) lets
+ * users manage their schedule without data leaving their infrastructure, while still
+ * being accessible from any CalDAV-capable client.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>CalDAV sync runs every 15 minutes on a virtual thread per calendar to avoid
+ *     blocking each other.</li>
+ * <li>Only one calendar per user may be marked as default; {@link #createCalendar}
+ *     demotes existing defaults when a new default is requested.</li>
+ * <li>Calendar credentials are stored encrypted via {@link CryptoService}.</li>
+ * <li>The {@link #syncAllCalDav()} scheduler method is the extension point for a
+ *     full CalDAV PROPFIND/REPORT implementation.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced with multi-calendar support, CalDAV sync stub, and .ics export</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class CalendarService {
@@ -31,10 +58,23 @@ public class CalendarService {
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15)).build();
 
+    /** JDBC template for calendar and event persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for JSON serialisation. */
     private final ObjectMapper mapper;
+
+    /** Used to encrypt/decrypt CalDAV credentials stored in the database. */
     private final CryptoService cryptoService;
 
+    /**
+     * Constructor-injects persistence, serialisation, and crypto dependencies.
+     *
+     * @param db            JDBC template for {@code calendars} and {@code calendar_events} tables
+     * @param mapper        shared Jackson mapper
+     * @param cryptoService service for encrypting CalDAV credentials
+     * @since v2026.2.1
+     */
     public CalendarService(JdbcTemplate db, ObjectMapper mapper, CryptoService cryptoService) {
         this.db = db;
         this.mapper = mapper;
@@ -54,6 +94,7 @@ public class CalendarService {
      * @param req   request map — supports {@code name}, {@code color}, {@code is_default},
      *              {@code caldav_url}, {@code team_id}
      * @return the newly created calendar record, or {@code null} if not found after insert
+     * @since v2026.2.1
      */
     public Map<String, Object> createCalendar(String owner, Map<String, Object> req) {
         String id = "cal-" + Long.toString(System.currentTimeMillis(), 36);
@@ -89,6 +130,7 @@ public class CalendarService {
      * @param id    the calendar ID
      * @param owner the requesting user ID
      * @return the calendar row map, or {@code null}
+     * @since v2026.2.1
      */
     public Map<String, Object> getCalendar(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
@@ -101,6 +143,7 @@ public class CalendarService {
      *
      * @param owner the user ID
      * @return list of calendar row maps; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> listCalendars(String owner) {
         return db.queryForList(
@@ -112,6 +155,7 @@ public class CalendarService {
      *
      * @param id    the calendar ID to delete
      * @param owner the user ID — only the owner may delete
+     * @since v2026.2.1
      */
     public void deleteCalendar(String id, String owner) {
         db.update("DELETE FROM calendars WHERE id=? AND owner=?", id, owner);
@@ -128,6 +172,7 @@ public class CalendarService {
      *                   {@code description}, {@code location}, {@code all_day}, {@code rrule}, etc.
      * @return the newly created event record
      * @throws java.util.NoSuchElementException if the calendar is not found or not owned by the user
+     * @since v2026.2.1
      */
     public Map<String, Object> createEvent(String calendarId, String owner, Map<String, Object> req) {
         verifyCalendarOwner(calendarId, owner);
@@ -162,6 +207,7 @@ public class CalendarService {
      * @param req   fields to update; unspecified fields retain existing values
      * @return the updated event record
      * @throws java.util.NoSuchElementException if the event is not found
+     * @since v2026.2.1
      */
     public Map<String, Object> updateEvent(String id, String owner, Map<String, Object> req) {
         Map<String, Object> existing = getEvent(id);
@@ -192,6 +238,7 @@ public class CalendarService {
      *
      * @param id    the event ID to delete
      * @param owner the requesting user ID (must own the parent calendar)
+     * @since v2026.2.1
      */
     public void deleteEvent(String id, String owner) {
         Map<String, Object> event = getEvent(id);
@@ -205,6 +252,7 @@ public class CalendarService {
      *
      * @param id the event ID
      * @return the event row map, or {@code null}
+     * @since v2026.2.1
      */
     public Map<String, Object> getEvent(String id) {
         List<Map<String, Object>> rows = db.queryForList(
@@ -219,6 +267,7 @@ public class CalendarService {
      * @param from  ISO-8601 start of range (inclusive)
      * @param to    ISO-8601 end of range (inclusive)
      * @return list of event row maps ordered by start_at; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> listEventsInRange(String owner, String from, String to) {
         return db.queryForList("""
@@ -237,6 +286,7 @@ public class CalendarService {
      * @param owner      the requesting user ID (must own the calendar)
      * @return the full .ics content string starting with {@code BEGIN:VCALENDAR}
      * @throws java.util.NoSuchElementException if the calendar is not owned by the user
+     * @since v2026.2.1
      */
     public String exportCalendarAsIcs(String calendarId, String owner) {
         verifyCalendarOwner(calendarId, owner);
@@ -266,6 +316,12 @@ public class CalendarService {
 
     // ── CalDAV Sync ───────────────────────────────────────────────────────────
 
+    /**
+     * Scheduled CalDAV synchronisation — iterates all calendars with a {@code caldav_url}
+     * and triggers a per-calendar sync on a virtual thread every 15 minutes.
+     *
+     * @since v2026.2.1
+     */
     @Scheduled(fixedDelay = 900000, initialDelay = 30000) // every 15 minutes
     public void syncAllCalDav() {
         try {

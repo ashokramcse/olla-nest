@@ -8,32 +8,37 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Central Spring configuration bean factory for Olla Nest.
+ * Central Spring {@code @Configuration} class that declares application-wide
+ * beans and exposes environment-driven configuration as typed accessors.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Defines the shared {@link ObjectMapper} singleton and exposes all
- * environment-driven configuration values as typed accessor methods. This class
- * acts as the glue configuration class — any application-wide beans not covered
- * by Spring Boot auto-configuration belong here.
+ * Spring Boot auto-configuration covers many concerns, but the application still
+ * needs a single place to declare the shared {@link ObjectMapper} bean and to
+ * bind startup properties (admin credentials, directory paths, version string)
+ * to strongly-typed fields. Centralising these here keeps {@code application.
+ * properties} as the sole configuration surface and avoids scattered
+ * {@code @Value} annotations in unrelated service classes.
  *
- * <p>
- * All values are bound from {@code application.properties} or environment
- * variables, with sensible defaults so the application starts without any
- * external configuration.
- *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Design notes</h3>
  * <ul>
  * <li>A single {@code ObjectMapper} bean is declared here and injected
- * everywhere to avoid per-class mapper instances with inconsistent
- * configuration.</li>
+ * everywhere to ensure consistent JSON serialisation configuration across all
+ * services and controllers.</li>
  * <li>Dates are serialised as ISO-8601 strings (not epoch milliseconds) by
  * disabling {@link SerializationFeature#WRITE_DATES_AS_TIMESTAMPS}.</li>
+ * <li>All properties have safe defaults so the application starts in development
+ * without any external configuration file.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.0 — initial Java Spring Boot migration</li>
  * </ul>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — security hardening: minor fix
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @Configuration
 public class AppConfig {

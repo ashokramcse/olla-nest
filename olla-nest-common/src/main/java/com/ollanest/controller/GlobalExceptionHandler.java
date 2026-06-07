@@ -23,53 +23,97 @@ import java.util.Map;
  * Without this handler, Spring Boot returns its own {@code /error} page JSON
  * for unhandled exceptions, which has a different shape ({@code timestamp},
  * {@code status}, {@code error}, {@code path}) than the rest of the Olla Nest
- * API. This causes frontend consumers to fail on otherwise handled error paths.
+ * API. This causes frontend consumers to fail on otherwise-handled error paths
+ * and produces unintended information disclosure via the default error body.
  *
  * <h3>Design notes</h3>
  * <ul>
  * <li>Only maps exceptions that reach the controller layer — Spring Security
- * and filter exceptions are handled earlier in the pipeline.</li>
+ * and filter exceptions are handled earlier in the pipeline and never arrive
+ * here.</li>
  * <li>Does not expose stack traces or internal class names to the caller;
- * those are logged server-side only.</li>
+ * those are logged server-side only at WARN or ERROR level.</li>
+ * <li>The catch-all {@code handleGeneric} handler returns HTTP 500 and logs
+ * the full stack trace so on-call engineers can diagnose unexpected failures
+ * without exposing internals to the client.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.9 — created for API consistency (OCD Polish pass)</li>
+ * <li>v2026.2.1 — added {@code NoResourceFoundException} handler to suppress
+ * noisy 404 stack traces for static-resource misses</li>
  * </ul>
  *
  * @author Ashok Ram
- * @since v2026.1.9 — added for API consistency (OCD Polish)
+ * @since v2026.1.9
+ * @version v2026.2.1
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+	/** SLF4J logger for server-side exception details (never exposed to callers). */
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-	/** Maps AuthException (thrown by requireAuth) to HTTP 401. */
+	/**
+	 * Maps {@link BaseController.AuthException} (thrown by {@code requireAuth}) to HTTP 401.
+	 *
+	 * @param ex the authentication exception
+	 * @return 401 with {@code {ok: false, error: "message"}}
+	 * @since v2026.1.9
+	 */
 	@ExceptionHandler(BaseController.AuthException.class)
 	public ResponseEntity<Map<String, Object>> handleAuthException(BaseController.AuthException ex) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 				.body(Map.of("ok", false, "error", ex.getMessage()));
 	}
 
-	/** Maps ForbiddenException (thrown by requireAdminUser) to HTTP 403. */
+	/**
+	 * Maps {@link BaseController.ForbiddenException} (thrown by {@code requireAdminUser}) to HTTP 403.
+	 *
+	 * @param ex the authorisation exception
+	 * @return 403 with {@code {ok: false, error: "message"}}
+	 * @since v2026.1.9
+	 */
 	@ExceptionHandler(BaseController.ForbiddenException.class)
 	public ResponseEntity<Map<String, Object>> handleForbiddenException(BaseController.ForbiddenException ex) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
 				.body(Map.of("ok", false, "error", ex.getMessage()));
 	}
 
-	/** Maps NoSuchElementException to HTTP 404. */
+	/**
+	 * Maps {@link java.util.NoSuchElementException} (resource not found in DB) to HTTP 404.
+	 *
+	 * @param ex the not-found exception carrying the resource identifier
+	 * @return 404 with {@code {ok: false, error: "message"}}
+	 * @since v2026.1.9
+	 */
 	@ExceptionHandler(java.util.NoSuchElementException.class)
 	public ResponseEntity<Map<String, Object>> handleNotFound(java.util.NoSuchElementException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(Map.of("ok", false, "error", ex.getMessage()));
 	}
 
-	/** Maps IllegalArgumentException to HTTP 400. */
+	/**
+	 * Maps {@link IllegalArgumentException} (invalid caller-supplied input) to HTTP 400.
+	 *
+	 * @param ex the bad-argument exception
+	 * @return 400 with {@code {ok: false, error: "message"}}
+	 * @since v2026.1.9
+	 */
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<Map<String, Object>> handleBadArg(IllegalArgumentException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 				.body(Map.of("ok", false, "error", ex.getMessage()));
 	}
 
-	/** Maps IllegalStateException to HTTP 409 Conflict. */
+	/**
+	 * Maps {@link IllegalStateException} (business-rule violation) to HTTP 409 Conflict.
+	 *
+	 * @param ex the conflict exception
+	 * @return 409 with {@code {ok: false, error: "message"}}
+	 * @since v2026.1.9
+	 */
 	@ExceptionHandler(IllegalStateException.class)
 	public ResponseEntity<Map<String, Object>> handleConflict(IllegalStateException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)

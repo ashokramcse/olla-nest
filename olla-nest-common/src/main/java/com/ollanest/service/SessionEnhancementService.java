@@ -14,23 +14,63 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Session history enhancements — topic analysis, session forking, history truncation.
+ * Provides additive enhancements to chat session history: LLM-based topic
+ * analysis, conversation forking, and message-level history truncation.
  *
- * These operations work on the chat_sessions and chat_messages tables and are
- * additive to the existing ChatService functionality.
+ * <h3>Why this class exists</h3>
+ * <p>
+ * These features are deliberately kept separate from {@code ChatService} to
+ * preserve the single-responsibility principle: {@code ChatService} handles the
+ * real-time message exchange loop, while this service handles higher-level,
+ * post-hoc operations on the accumulated history. Keeping the separation also
+ * makes it straightforward to disable or replace any one enhancement without
+ * touching the core chat flow.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Topic analysis calls the configured Ollama endpoint asynchronously via a
+ * virtual thread so it never delays the response to the user.</li>
+ * <li>Session forking creates a full copy of messages up to the chosen index;
+ * the original session is not modified.</li>
+ * <li>History truncation deletes messages by {@code created_at} timestamp
+ * rather than by offset so the operation is safe against concurrent inserts.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the session management expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class SessionEnhancementService {
 
     private static final Logger log = LoggerFactory.getLogger(SessionEnhancementService.class);
 
+    /** Shared HTTP client for topic-analysis LLM calls. */
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15)).build();
 
+    /** JDBC template for chat session and message persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for LLM response parsing. */
     private final ObjectMapper mapper;
+
+    /** Provides runtime-configurable Ollama URL and default model settings. */
     private final DatabaseService databaseService;
 
+    /**
+     * Constructor-injects persistence, serialization, and settings dependencies.
+     *
+     * @param db              the JDBC template
+     * @param mapper          the shared Jackson object mapper
+     * @param databaseService the settings service for Ollama URL and model configuration
+     * @since v2026.2.1
+     */
     public SessionEnhancementService(JdbcTemplate db, ObjectMapper mapper, DatabaseService databaseService) {
         this.db = db;
         this.mapper = mapper;
@@ -40,8 +80,12 @@ public class SessionEnhancementService {
     // ── Topic analysis ────────────────────────────────────────────────────────
 
     /**
-     * LLM-based topic detection for a session. Stores detected topics in
-     * session metadata. Runs async.
+     * Triggers LLM-based topic detection for a session in a background virtual thread.
+     * Detected topics are stored as the session title if no meaningful title exists yet.
+     *
+     * @param sessionId the chat session ID to analyse
+     * @param userId    the owner user ID (used for ownership checks inside the async task)
+     * @since v2026.2.1
      */
     public void analyzeTopicsAsync(String sessionId, String userId) {
         Thread.ofVirtual().name("topic-" + sessionId).start(() -> {
@@ -102,8 +146,16 @@ public class SessionEnhancementService {
     // ── Session forking ───────────────────────────────────────────────────────
 
     /**
-     * Fork a conversation at a given message index. Creates a new session with
-     * all messages up to (and including) that index.
+     * Forks a conversation at a given message index, creating a new session with all
+     * messages up to and including that index. The original session is not modified.
+     *
+     * @param sessionId    the session to fork
+     * @param userId       the owner user ID (must match the session's user_id)
+     * @param messageIndex zero-based index of the last message to include in the fork
+     * @return a map with {@code forked_session_id}, {@code message_count}, and
+     *         {@code original_session_id}
+     * @throws NoSuchElementException if the session is not found or not owned by the user
+     * @since v2026.2.1
      */
     public Map<String, Object> forkSession(String sessionId, String userId, int messageIndex) {
         // Verify ownership
@@ -134,7 +186,17 @@ public class SessionEnhancementService {
 
     // ── History truncation ────────────────────────────────────────────────────
 
-    /** Truncate messages from a given message index onward (delete newer messages). */
+    /**
+     * Deletes all messages in a session from the given message onwards (inclusive),
+     * effectively rolling the conversation back to just before that message.
+     *
+     * @param sessionId     the session to truncate
+     * @param userId        the owner user ID (ownership is verified)
+     * @param fromMessageId the ID of the first message to delete; all messages at or
+     *                      after its {@code created_at} timestamp are removed
+     * @throws NoSuchElementException if the session or pivot message is not found
+     * @since v2026.2.1
+     */
     public void truncateHistory(String sessionId, String userId, String fromMessageId) {
         var session = db.queryForList("SELECT id FROM chat_sessions WHERE id=? AND user_id=?", sessionId, userId);
         if (session.isEmpty()) throw new NoSuchElementException("Session not found: " + sessionId);

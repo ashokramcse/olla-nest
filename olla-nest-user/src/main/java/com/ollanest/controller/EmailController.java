@@ -9,26 +9,74 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 
 /**
- * Email API — account management, inbox browsing, compose/send, AI triage.
+ * REST controller for the integrated email client: account management, inbox
+ * browsing, message actions, sending, and AI-assisted reply drafting.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Brings IMAP/SMTP email accounts into the assistant so users can read, triage,
+ * and reply to mail in one place — and have the model draft replies. This
+ * controller is the HTTP surface over those operations; all protocol handling,
+ * persistence, and AI generation live in {@link EmailService}.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Endpoints are organised into account, message, send, and AI groups
+ * (marked by the section comments below).</li>
+ * <li>Account-level operations scope to {@code user.id}; message-level operations
+ * are scoped by {@code accountId} (which itself belongs to the authenticated
+ * user) and only require authentication.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — documented as part of the project-wide Javadoc pass</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @RestController
 @RequestMapping("/api/email")
 public class EmailController extends BaseController {
 
+    /** Service backing IMAP/SMTP access, persistence, and AI reply drafting. */
     private final EmailService emailService;
 
+    /**
+     * Constructor-injects the email service.
+     *
+     * @param emailService the service backing all email operations
+     * @since v2026.2.1
+     */
     public EmailController(EmailService emailService) {
         this.emailService = emailService;
     }
 
     // ── Accounts ──────────────────────────────────────────────────────────────
 
+    /**
+     * Lists the calling user's configured email accounts.
+     *
+     * @param req the HTTP request, used to resolve the authenticated user
+     * @return an OK response with the user's accounts
+     * @since v2026.2.1
+     */
     @GetMapping("/accounts")
     public ResponseEntity<?> listAccounts(HttpServletRequest req) {
         User user = requireAuth(req);
         return ok(emailService.listAccounts(user.id));
     }
 
+    /**
+     * Adds a new email account for the calling user.
+     *
+     * @param req  the HTTP request, used to resolve the authenticated user
+     * @param body the account configuration (server, credentials, etc.)
+     * @return a CREATED response with the persisted account
+     * @since v2026.2.1
+     */
     @PostMapping("/accounts")
     public ResponseEntity<?> createAccount(HttpServletRequest req,
             @RequestBody Map<String, Object> body) {
@@ -36,6 +84,14 @@ public class EmailController extends BaseController {
         return created(emailService.createAccount(user.id, body));
     }
 
+    /**
+     * Fetches a single email account owned by the calling user.
+     *
+     * @param req the HTTP request, used to resolve the authenticated user
+     * @param id  the id of the account to fetch
+     * @return an OK response with the account, or a 404 if it does not exist
+     * @since v2026.2.1
+     */
     @GetMapping("/accounts/{id}")
     public ResponseEntity<?> getAccount(HttpServletRequest req, @PathVariable String id) {
         User user = requireAuth(req);
@@ -44,6 +100,14 @@ public class EmailController extends BaseController {
         return ok(account);
     }
 
+    /**
+     * Deletes an email account owned by the calling user.
+     *
+     * @param req the HTTP request, used to resolve the authenticated user
+     * @param id  the id of the account to delete
+     * @return an OK response acknowledging the deletion
+     * @since v2026.2.1
+     */
     @DeleteMapping("/accounts/{id}")
     public ResponseEntity<?> deleteAccount(HttpServletRequest req, @PathVariable String id) {
         User user = requireAuth(req);
@@ -53,6 +117,17 @@ public class EmailController extends BaseController {
 
     // ── Messages ──────────────────────────────────────────────────────────────
 
+    /**
+     * Lists messages in a folder of one of the calling user's accounts, paged.
+     *
+     * @param req       the HTTP request, used to resolve the authenticated user
+     * @param accountId the account whose mailbox is browsed
+     * @param folder    the mailbox folder (default {@code "INBOX"})
+     * @param page      1-based page number (default 1)
+     * @param pageSize  messages per page (default 30)
+     * @return an OK response with the page of messages
+     * @since v2026.2.1
+     */
     @GetMapping("/accounts/{accountId}/messages")
     public ResponseEntity<?> listMessages(HttpServletRequest req,
             @PathVariable String accountId,
@@ -63,6 +138,15 @@ public class EmailController extends BaseController {
         return ok(emailService.listMessages(accountId, user.id, folder, page, pageSize));
     }
 
+    /**
+     * Fetches a single message.
+     *
+     * @param req       the HTTP request; authentication is required
+     * @param accountId the account the message belongs to
+     * @param messageId the id of the message to fetch
+     * @return an OK response with the message, or a 404 if it does not exist
+     * @since v2026.2.1
+     */
     @GetMapping("/accounts/{accountId}/messages/{messageId}")
     public ResponseEntity<?> getMessage(HttpServletRequest req,
             @PathVariable String accountId, @PathVariable String messageId) {
@@ -72,6 +156,15 @@ public class EmailController extends BaseController {
         return ok(msg);
     }
 
+    /**
+     * Fetches a conversation thread.
+     *
+     * @param req       the HTTP request; authentication is required
+     * @param accountId the account the thread belongs to
+     * @param threadId  the id of the thread to fetch
+     * @return an OK response with the thread's messages
+     * @since v2026.2.1
+     */
     @GetMapping("/accounts/{accountId}/threads/{threadId}")
     public ResponseEntity<?> getThread(HttpServletRequest req,
             @PathVariable String accountId, @PathVariable String threadId) {
@@ -79,6 +172,15 @@ public class EmailController extends BaseController {
         return ok(emailService.getThread(threadId, accountId));
     }
 
+    /**
+     * Marks a message as read.
+     *
+     * @param req       the HTTP request; authentication is required
+     * @param accountId the account the message belongs to
+     * @param messageId the id of the message to mark read
+     * @return an OK response acknowledging the change
+     * @since v2026.2.1
+     */
     @PostMapping("/accounts/{accountId}/messages/{messageId}/read")
     public ResponseEntity<?> markRead(HttpServletRequest req,
             @PathVariable String accountId, @PathVariable String messageId) {
@@ -87,6 +189,16 @@ public class EmailController extends BaseController {
         return ok(Map.of("ok", true));
     }
 
+    /**
+     * Sets or clears the starred flag on a message.
+     *
+     * @param req       the HTTP request; authentication is required
+     * @param accountId the account the message belongs to
+     * @param messageId the id of the message to star or unstar
+     * @param body      request payload; {@code starred} carries the desired state
+     * @return an OK response acknowledging the change
+     * @since v2026.2.1
+     */
     @PostMapping("/accounts/{accountId}/messages/{messageId}/star")
     public ResponseEntity<?> markStarred(HttpServletRequest req,
             @PathVariable String accountId, @PathVariable String messageId,
@@ -97,6 +209,15 @@ public class EmailController extends BaseController {
         return ok(Map.of("ok", true));
     }
 
+    /**
+     * Deletes a message.
+     *
+     * @param req       the HTTP request; authentication is required
+     * @param accountId the account the message belongs to
+     * @param messageId the id of the message to delete
+     * @return an OK response acknowledging the deletion
+     * @since v2026.2.1
+     */
     @DeleteMapping("/accounts/{accountId}/messages/{messageId}")
     public ResponseEntity<?> deleteMessage(HttpServletRequest req,
             @PathVariable String accountId, @PathVariable String messageId) {
@@ -107,6 +228,15 @@ public class EmailController extends BaseController {
 
     // ── Send ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Sends an email from one of the calling user's accounts.
+     *
+     * @param req       the HTTP request, used to resolve the authenticated user
+     * @param accountId the account to send from
+     * @param body      the message to send (recipients, subject, body, etc.)
+     * @return an OK response on success, or a 500 if sending fails
+     * @since v2026.2.1
+     */
     @PostMapping("/accounts/{accountId}/send")
     public ResponseEntity<?> send(HttpServletRequest req,
             @PathVariable String accountId,
@@ -122,6 +252,15 @@ public class EmailController extends BaseController {
 
     // ── AI ────────────────────────────────────────────────────────────────────
 
+    /**
+     * Generates an AI-drafted reply to a message.
+     *
+     * @param req       the HTTP request, used to resolve the authenticated user
+     * @param accountId the account the message belongs to
+     * @param messageId the id of the message being replied to
+     * @return an OK response whose {@code draft} entry holds the generated reply
+     * @since v2026.2.1
+     */
     @PostMapping("/accounts/{accountId}/messages/{messageId}/reply-draft")
     public ResponseEntity<?> replyDraft(HttpServletRequest req,
             @PathVariable String accountId, @PathVariable String messageId) {

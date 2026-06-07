@@ -11,30 +11,68 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Skills management — persistent reusable skill definitions for the agent.
+ * Manages persistent, reusable skill definitions that augment the agent loop's
+ * capabilities at inference time.
  *
- * Skills are structured knowledge snippets in SKILL.md format:
- *   - name, description, category, tags
- *   - when_to_use — trigger condition
- *   - procedure — ordered steps
- *   - pitfalls — common mistakes
- *   - verification — how to confirm success
- *   - source: "user" (human-authored) or "learned" (agent-extracted)
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Skills are structured knowledge snippets in a SKILL.md-inspired format.
+ * Rather than relying solely on the base model's training, users and the agent
+ * itself can author skills — capturing step-by-step procedures, trigger
+ * conditions, common pitfalls, and verification checks. The agent loop calls
+ * {@link #search} to retrieve relevant skills for the current task and injects
+ * them into the system prompt, effectively giving the model domain-specific
+ * procedural memory.
  *
- * Skills are searchable by the agent loop to augment its capabilities.
- * Team-shared skills (owner = null) are visible to all users; per-user
- * skills are private to their owner.
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Skills authored by users ({@code source="user"}) are immediately
+ * {@code active}; skills extracted by the agent ({@code source="learned"}) start
+ * as {@code draft} pending admin approval to prevent prompt-injection via learned
+ * content.</li>
+ * <li>Team-shared skills ({@code owner IS NULL}) are visible to all users;
+ * per-user skills are private to their owner.</li>
+ * <li>All JSON array fields ({@code tags}, {@code procedure}, etc.) are stored
+ * as JSON columns and deserialized on every read.</li>
+ * <li>{@link #search} uses a lightweight keyword-hit scoring approach rather
+ * than vector search to avoid embedding overhead for the common case of small
+ * skill libraries.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the agent skill-augmentation expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class SkillsService {
 
     private static final Logger log = LoggerFactory.getLogger(SkillsService.class);
+
+    /** Maximum number of agent-learned skills per owner before LRU eviction. */
     private static final int MAX_LEARNED_SKILLS = 500;
 
+    /** JDBC template for all skill persistence operations. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for serializing and deserializing skill JSON array fields. */
     private final ObjectMapper mapper;
+
+    /** Embedding service (reserved for future semantic search upgrade). */
     private final EmbeddingService embeddingService;
 
+    /**
+     * Constructor-injects persistence, serialization, and embedding dependencies.
+     *
+     * @param db               the JDBC template for skill CRUD operations
+     * @param mapper           the shared Jackson object mapper
+     * @param embeddingService the embedding service (reserved for semantic search)
+     * @since v2026.2.1
+     */
     public SkillsService(JdbcTemplate db, ObjectMapper mapper, EmbeddingService embeddingService) {
         this.db = db;
         this.mapper = mapper;
@@ -50,6 +88,7 @@ public class SkillsService {
      * @param req    skill fields (name, description, category, when_to_use, procedure, pitfalls, verification, tags, etc.)
      * @param owner  the user ID that owns this skill, or {@code null} for team-shared skills
      * @return the persisted skill record
+     * @since v2026.2.1
      */
     public Map<String, Object> createSkill(Map<String, Object> req, String owner) {
         String id = "skill-" + Long.toString(System.currentTimeMillis(), 36);
@@ -91,6 +130,7 @@ public class SkillsService {
      * @param req    fields to update
      * @param owner  the requesting user ID
      * @return the updated skill record
+     * @since v2026.2.1
      */
     public Map<String, Object> updateSkill(String id, Map<String, Object> req, String owner) {
         Map<String, Object> existing = getById(id, owner);
@@ -124,6 +164,7 @@ public class SkillsService {
      *
      * @param id    the skill ID
      * @param owner the requesting user ID
+     * @since v2026.2.1
      */
     public void deleteSkill(String id, String owner) {
         int rows = db.update("DELETE FROM skills WHERE id = ? AND (owner = ? OR owner IS NULL)", id, owner);
@@ -136,6 +177,7 @@ public class SkillsService {
      * @param id    the skill ID
      * @param owner the requesting user ID
      * @return the skill record, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
@@ -150,7 +192,8 @@ public class SkillsService {
      * @param category optional category filter; {@code null} returns all categories
      * @param status   optional status filter ({@code active}, {@code draft}, {@code archived}); {@code null} returns all
      * @param limit    maximum results; 0 or negative defaults to 100
-     * @return matching skills
+     * @return matching skills; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> list(String owner, String category, String status, int limit) {
         StringBuilder sql = new StringBuilder(
@@ -180,7 +223,8 @@ public class SkillsService {
      * @param owner  the requesting user ID
      * @param query  space-separated search terms
      * @param topK   maximum number of results to return
-     * @return matching skills sorted by relevance score descending
+     * @return matching skills sorted by relevance score descending; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> search(String owner, String query, int topK) {
         List<Map<String, Object>> all = list(owner, null, "active", 1000);
@@ -213,17 +257,35 @@ public class SkillsService {
         return scored.stream().limit(topK).map(Scored::row).toList();
     }
 
-    /** Approve a learned skill (change status from draft → active). Admin action. */
+    /**
+     * Approves a learned skill, changing its status from {@code draft} to {@code active}.
+     * Admin action.
+     *
+     * @param id the skill ID to approve
+     * @since v2026.2.1
+     */
     public void approve(String id) {
         db.update("UPDATE skills SET status='active', updated_at=? WHERE id=?", Instant.now().toString(), id);
     }
 
-    /** Reject/archive a learned skill. Admin action. */
+    /**
+     * Archives (soft-rejects) a skill, changing its status to {@code archived}.
+     * Admin action.
+     *
+     * @param id the skill ID to archive
+     * @since v2026.2.1
+     */
     public void archive(String id) {
         db.update("UPDATE skills SET status='archived', updated_at=? WHERE id=?", Instant.now().toString(), id);
     }
 
-    /** Increment use count for analytics. */
+    /**
+     * Increments the {@code use_count} for a skill. Called by the agent loop each
+     * time a skill is retrieved and injected into a conversation.
+     *
+     * @param id the skill ID
+     * @since v2026.2.1
+     */
     public void recordUse(String id) {
         db.update("UPDATE skills SET use_count = use_count + 1 WHERE id = ?", id);
     }

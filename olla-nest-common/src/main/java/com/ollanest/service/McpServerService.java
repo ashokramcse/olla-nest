@@ -16,27 +16,62 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * MCP (Model Context Protocol) server management.
+ * Manages Model Context Protocol (MCP) server configurations, connection state,
+ * and tool discovery for the agent loop.
  *
- * Manages server configurations, connection state, and tool discovery.
- * Each MCP server exposes a set of tools that become available in the agent loop.
- * Tools can be selectively disabled per server by admins.
+ * <p>Each MCP server exposes a set of tools via JSON-RPC that become available in the
+ * {@link AgentLoopService}. Tools can be selectively disabled per server by admins.
+ * Supported transports: {@code stdio} (subprocess), {@code sse} (HTTP stream),
+ * {@code http} (REST).
  *
- * Transport types: stdio (subprocess), sse (HTTP stream), http (REST)
+ * <h3>Why this class exists</h3>
+ * <p>
+ * MCP is an open standard for tool-augmented LLMs. By supporting MCP servers, Olla Nest
+ * allows users to extend the agent loop with any third-party tool server (file system,
+ * databases, browser automation, etc.) without modifying application code.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Connection state and discovered tools are stored in memory only — they are rebuilt
+ *     on server restart via {@link #connect}.</li>
+ * <li>The stdio transport extension point is wired for JSON-RPC but the full protocol
+ *     exchange ({@code initialize}, {@code tools/list}) is left for a future implementation.</li>
+ * <li>Disabling a server also disconnects it to ensure no stale tool list is served.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced with MCP server CRUD, connection management, and tool registry</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class McpServerService {
 
     private static final Logger log = LoggerFactory.getLogger(McpServerService.class);
 
-    // serverId -> connection status info
+    /** Maps server IDs to their current connection status information. */
     private final Map<String, Map<String, Object>> connectionStatus = new ConcurrentHashMap<>();
-    // serverId -> list of discovered tools
+
+    /** Maps server IDs to the list of tools discovered from that server. */
     private final Map<String, List<Map<String, Object>>> serverTools = new ConcurrentHashMap<>();
 
+    /** JDBC template for MCP server configuration persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for args/env/tools JSON serialisation. */
     private final ObjectMapper mapper;
 
+    /**
+     * Constructor-injects persistence and serialisation dependencies.
+     *
+     * @param db     JDBC template for the {@code mcp_servers} table
+     * @param mapper shared Jackson mapper
+     * @since v2026.2.1
+     */
     public McpServerService(JdbcTemplate db, ObjectMapper mapper) {
         this.db = db;
         this.mapper = mapper;
@@ -50,6 +85,7 @@ public class McpServerService {
      * @param req server fields: {@code name}, {@code command}, {@code args},
      *            {@code env}, {@code transport}, {@code url}, {@code team_id}
      * @return the created server record with enriched status fields
+     * @since v2026.2.1
      */
     public Map<String, Object> create(Map<String, Object> req) {
         String id = "mcp-" + Long.toString(System.currentTimeMillis(), 36);
@@ -79,6 +115,7 @@ public class McpServerService {
      *
      * @param id the server ID
      * @return the server record, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getById(String id) {
         List<Map<String, Object>> rows = db.queryForList("SELECT * FROM mcp_servers WHERE id=?", id);
@@ -90,6 +127,7 @@ public class McpServerService {
      * Returns all MCP server configurations ordered by name, each enriched with connection status.
      *
      * @return list of server record maps; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> list() {
         return db.queryForList("SELECT * FROM mcp_servers ORDER BY name ASC")
@@ -100,6 +138,7 @@ public class McpServerService {
      * Disconnects and deletes the MCP server configuration with the given ID.
      *
      * @param id the server ID to delete
+     * @since v2026.2.1
      */
     public void delete(String id) {
         disconnect(id);
@@ -111,6 +150,7 @@ public class McpServerService {
      *
      * @param id      the server ID
      * @param enabled {@code true} to enable, {@code false} to disable
+     * @since v2026.2.1
      */
     public void setEnabled(String id, boolean enabled) {
         db.update("UPDATE mcp_servers SET enabled=?, updated_at=? WHERE id=?",
@@ -123,6 +163,7 @@ public class McpServerService {
      *
      * @param id            the server ID
      * @param disabledTools list of tool names to disable; empty list re-enables all
+     * @since v2026.2.1
      */
     public void setDisabledTools(String id, List<String> disabledTools) {
         db.update("UPDATE mcp_servers SET disabled_tools_json=?, updated_at=? WHERE id=?",
@@ -137,6 +178,7 @@ public class McpServerService {
      * @param serverId the server ID to connect to
      * @return connection status map with at least {@code status} key
      * @throws java.util.NoSuchElementException if the server is not found
+     * @since v2026.2.1
      */
     public Map<String, Object> connect(String serverId) {
         Map<String, Object> server = getById(serverId);
@@ -162,6 +204,7 @@ public class McpServerService {
      * Disconnects the MCP server and clears its in-memory tool list.
      *
      * @param serverId the server ID to disconnect
+     * @since v2026.2.1
      */
     public void disconnect(String serverId) {
         connectionStatus.put(serverId, Map.of("status", "disconnected"));
@@ -173,6 +216,7 @@ public class McpServerService {
      *
      * @param serverId the server ID
      * @return list of tool definition maps; empty list if not connected or no tools
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> getTools(String serverId) {
         return serverTools.getOrDefault(serverId, List.of());
@@ -183,6 +227,7 @@ public class McpServerService {
      * disabled-tool lists. Each tool map includes a {@code server_id} field.
      *
      * @return list of all enabled tool definition maps; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> getAllEnabledTools() {
         List<Map<String, Object>> all = new ArrayList<>();

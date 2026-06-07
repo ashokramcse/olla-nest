@@ -16,20 +16,62 @@ import java.net.NetworkInterface;
 import java.util.*;
 
 /**
- * Companion bridge — LAN discovery and QR-code pairing for mobile clients.
- * Generates oly_ bearer tokens for paired devices.
+ * REST controller acting as the companion bridge: LAN discovery and QR-code
+ * pairing for mobile clients.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Mobile companion apps need a frictionless way to discover and authenticate
+ * against a self-hosted server on the local network. This controller advertises
+ * the server's LAN address, mints a scoped bearer token for a new device, and
+ * encodes the pairing handoff as a scannable QR code so the user does not have
+ * to type credentials.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Pairing mints a real API token and is therefore restricted to admins via
+ * {@link BaseController#requireAdminUser}; discovery and ping only require
+ * authentication.</li>
+ * <li>The LAN IP is resolved with a UDP "connect" trick that reveals the egress
+ * interface, falling back to interface enumeration and finally
+ * {@code localhost}.</li>
+ * <li>The QR code encodes an {@code ollanest://pair} deep link carrying host,
+ * port, and the freshly minted token.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — documented as part of the project-wide Javadoc pass</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @RestController
 @RequestMapping("/api/companion")
 public class CompanionController extends BaseController {
 
+    /** Service used to mint scoped bearer tokens for paired devices. */
     private final ApiTokenService tokenService;
 
+    /**
+     * Constructor-injects the API token service.
+     *
+     * @param tokenService the service used to mint device tokens
+     * @since v2026.2.1
+     */
     public CompanionController(ApiTokenService tokenService) {
         this.tokenService = tokenService;
     }
 
-    /** Return server discovery info (LAN IP, port, version). */
+    /**
+     * Returns server discovery info (LAN IP, port, version, name).
+     *
+     * @param req the HTTP request; authentication is required
+     * @return an OK response with the discovery payload
+     * @since v2026.2.1
+     */
     @GetMapping("/info")
     public ResponseEntity<?> info(HttpServletRequest req) {
         requireAuth(req);
@@ -41,7 +83,21 @@ public class CompanionController extends BaseController {
         ));
     }
 
-    /** Mint a companion bearer token and return a QR code for pairing. */
+    /**
+     * Mints a companion bearer token and returns a QR code for pairing.
+     *
+     * <p>
+     * Generates a {@code chat}-scoped token, builds an {@code ollanest://pair}
+     * deep link embedding the LAN host, port, and token, then renders that link
+     * as a base64 PNG QR code for the mobile client to scan.
+     *
+     * @param req  the HTTP request; must resolve to an admin user
+     * @param body optional request payload; {@code name} labels the device
+     *             (defaults to {@code "Mobile Device"})
+     * @return a CREATED response with the token prefix, pairing URL, QR image, and
+     *         device name
+     * @since v2026.2.1
+     */
     @PostMapping("/pair")
     public ResponseEntity<?> pair(HttpServletRequest req,
             @RequestBody(required = false) Map<String, Object> body) {
@@ -67,13 +123,30 @@ public class CompanionController extends BaseController {
         ));
     }
 
-    /** Ping endpoint for paired devices to verify connectivity. */
+    /**
+     * Lightweight connectivity check for paired devices.
+     *
+     * @param req the HTTP request; authentication is required
+     * @return an OK response with a liveness flag and server timestamp
+     * @since v2026.2.1
+     */
     @GetMapping("/ping")
     public ResponseEntity<?> ping(HttpServletRequest req) {
         requireAuth(req);
         return ok(Map.of("ok", true, "ts", System.currentTimeMillis()));
     }
 
+    /**
+     * Resolves the server's LAN-facing IPv4 address.
+     *
+     * <p>
+     * First attempts a UDP "connect" to a public address to discover the egress
+     * interface; if that yields only a loopback address, falls back to scanning
+     * the non-loopback network interfaces, and finally returns {@code "localhost"}.
+     *
+     * @return the best-guess LAN IP, or {@code "localhost"} if none can be found
+     * @since v2026.2.1
+     */
     private String getLanIp() {
         try {
             // UDP connect trick — reveals egress interface IP
@@ -100,6 +173,13 @@ public class CompanionController extends BaseController {
         return "localhost";
     }
 
+    /**
+     * Encodes the given text as a base64 PNG QR-code data URI.
+     *
+     * @param content the text to encode (the pairing deep link)
+     * @return a {@code data:image/png;base64,...} URI, or an empty string on error
+     * @since v2026.2.1
+     */
     private String generateQrBase64(String content) {
         try {
             QRCodeWriter writer = new QRCodeWriter();

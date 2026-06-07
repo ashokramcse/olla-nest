@@ -6,22 +6,39 @@ import java.util.List;
  * POJO representing an authenticated user loaded from the {@code users} table.
  *
  * <p>
- * Carries all enterprise access-control fields needed by the auth, routing, and
- * quota subsystems. An instance is set as a request attribute by
- * {@code SessionAuthFilter} under the key {@code "user"}, and read by
- * {@code BaseController.getUser()}.
+ * Carries all enterprise access-control fields needed by the authentication,
+ * routing, and quota subsystems. An instance is set as a request attribute by
+ * {@code SessionAuthFilter} under the key {@code "authenticatedUser"} and
+ * retrieved by {@code BaseController.getUser()}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * <b>Design decisions:</b>
+ * A dedicated, lightweight POJO avoids the overhead and coupling of pulling a
+ * full JPA entity through the web layer. It also makes it straightforward to
+ * serialise the user object directly to JSON for the {@code /api/state} and
+ * {@code /api/auth/me} responses without accidentally including sensitive
+ * fields.
+ *
+ * <h3>Design notes</h3>
  * <ul>
- * <li>No {@code password_hash} field — this object is safe to serialise to JSON
- * and return to the browser (e.g. via GET /api/me or GET /api/state).</li>
- * <li>Plain public fields to avoid Jackson getter-naming surprises with boolean
- * {@code isEnterprise}; the field is named exactly as stored in the DB.</li>
+ * <li>No {@code password_hash} field — this object is safe to serialise to
+ * JSON and return to the browser.</li>
+ * <li>Plain public fields are used instead of getters/setters to avoid Jackson
+ * getter-naming surprises with the boolean {@code isEnterprise} field; the
+ * field name matches the DB column exactly.</li>
+ * <li>Quota and limit fields default to {@code 0}, which the quota enforcement
+ * layer treats as "no configured limit" rather than "hard zero".</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.0 — initial Java Spring Boot migration</li>
+ * <li>v2026.1.4 — added enterprise quota and access-control fields</li>
  * </ul>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
+ * @since v2026.1.0
+ * @version v2026.1.4
  */
 public class User {
 

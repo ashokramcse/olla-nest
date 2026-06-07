@@ -20,23 +20,63 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Gallery service — photo/image library with albums, EXIF extraction, and SHA-256 dedup.
+ * Photo and image library service with album management, EXIF extraction,
+ * SHA-256 deduplication, and a canvas-style editor with draft persistence.
  *
- * Images are stored on disk under data/gallery/. Metadata and album assignments
- * are persisted in gallery_albums and gallery_images tables.
- * Deduplication is per-user (SHA-256 hash match within same owner).
+ * <p>Images are stored on disk under {@code data/gallery/}. Metadata and album
+ * assignments are persisted in {@code gallery_albums} and {@code gallery_images} tables.
+ * Deduplication is per-user: re-uploading the same image returns the existing record
+ * without writing a new file.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Users need a private, self-hosted photo library that does not upload their images to
+ * a third-party cloud. This service stores images locally, extracts EXIF metadata for
+ * filtering and display, and provides a JSON editor-draft store for the client-side
+ * canvas editor.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>SHA-256 deduplication is intentionally per-owner — the same physical file can be
+ *     independently uploaded by different users without cross-user visibility.</li>
+ * <li>Soft delete ({@code is_active=0}) is used for images so file references remain
+ *     intact for any drafts that pointed to them.</li>
+ * <li>EXIF extraction is best-effort via the {@code metadata-extractor} library;
+ *     non-JPEG files or stripped EXIF silently return an empty map.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced with album CRUD, image upload, EXIF extraction,
+ *     deduplication, and editor draft persistence</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class GalleryService {
 
     private static final Logger log = LoggerFactory.getLogger(GalleryService.class);
 
+    /** JDBC template for album, image, and draft persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for EXIF and payload JSON serialisation. */
     private final ObjectMapper mapper;
 
+    /** Root data directory injected from {@code app.data-dir}; images stored under {@code gallery/} subdirectory. */
     @Value("${app.data-dir:./data}")
     private String dataDir;
 
+    /**
+     * Constructor-injects persistence and serialisation dependencies.
+     *
+     * @param db     JDBC template for gallery tables
+     * @param mapper shared Jackson mapper
+     * @since v2026.2.1
+     */
     public GalleryService(JdbcTemplate db, ObjectMapper mapper) {
         this.db = db;
         this.mapper = mapper;
@@ -50,6 +90,7 @@ public class GalleryService {
      * @param owner the user ID
      * @param req   album fields: {@code name}, {@code description}, {@code team_id}
      * @return the created album record
+     * @since v2026.2.1
      */
     public Map<String, Object> createAlbum(String owner, Map<String, Object> req) {
         String id = "alb-" + Long.toString(System.currentTimeMillis(), 36);
@@ -64,6 +105,7 @@ public class GalleryService {
      *
      * @param owner the user ID
      * @return list of album rows including {@code image_count}; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> listAlbums(String owner) {
         return db.queryForList("SELECT a.*, COUNT(i.id) as image_count FROM gallery_albums a LEFT JOIN gallery_images i ON i.album_id=a.id WHERE a.owner=? GROUP BY a.id ORDER BY a.name ASC", owner);
@@ -75,6 +117,7 @@ public class GalleryService {
      * @param id    the album ID
      * @param owner the user ID
      * @return the album record, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getAlbum(String id, String owner) {
         var rows = db.queryForList("SELECT * FROM gallery_albums WHERE id=? AND owner=?", id, owner);
@@ -86,6 +129,7 @@ public class GalleryService {
      *
      * @param id    the album ID
      * @param owner the user ID — only the owner may delete
+     * @since v2026.2.1
      */
     public void deleteAlbum(String id, String owner) {
         db.update("DELETE FROM gallery_albums WHERE id=? AND owner=?", id, owner);
@@ -102,6 +146,7 @@ public class GalleryService {
      * @param albumId  optional album ID to assign the image to; may be {@code null}
      * @return upload result map with {@code id}, {@code filename}, {@code size}, {@code duplicate} flag, and {@code exif}
      * @throws IOException if the file cannot be written to disk
+     * @since v2026.2.1
      */
     public Map<String, Object> uploadImage(String owner, byte[] bytes, String filename, String albumId) throws IOException {
         // SHA-256 dedup per owner
@@ -143,6 +188,7 @@ public class GalleryService {
      * @param page     1-based page number
      * @param pageSize number of images per page
      * @return list of image rows (without file_path or exif_json); never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> listImages(String owner, String albumId, int page, int pageSize) {
         int offset = (page - 1) * pageSize;
@@ -161,6 +207,7 @@ public class GalleryService {
      *
      * @param id    the image ID
      * @param owner the user ID — only the owner may delete
+     * @since v2026.2.1
      */
     public void deleteImage(String id, String owner) {
         db.update("UPDATE gallery_images SET is_active=0 WHERE id=? AND owner=?", id, owner);
@@ -176,6 +223,7 @@ public class GalleryService {
      * @param req   draft fields: {@code id} (for update), {@code name}, {@code source_image_id},
      *              {@code width}, {@code height}, {@code payload}, {@code thumbnail}
      * @return the saved draft record
+     * @since v2026.2.1
      */
     public Map<String, Object> saveDraft(String owner, Map<String, Object> req) {
         String existingId = (String) req.get("id");
@@ -205,6 +253,7 @@ public class GalleryService {
      *
      * @param owner the user ID
      * @return list of draft summary rows (without payload_json); never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> listDrafts(String owner) {
         return db.queryForList("SELECT id, owner, name, thumbnail, width, height, created_at, updated_at FROM editor_drafts WHERE owner=? ORDER BY updated_at DESC", owner);
@@ -216,6 +265,7 @@ public class GalleryService {
      * @param id    the draft ID
      * @param owner the user ID
      * @return the draft record including payload, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getDraft(String id, String owner) {
         var rows = db.queryForList("SELECT * FROM editor_drafts WHERE id=? AND owner=?", id, owner);
@@ -227,6 +277,7 @@ public class GalleryService {
      *
      * @param id    the draft ID
      * @param owner the user ID — only the owner may delete
+     * @since v2026.2.1
      */
     public void deleteDraft(String id, String owner) {
         db.update("DELETE FROM editor_drafts WHERE id=? AND owner=?", id, owner);

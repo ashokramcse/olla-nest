@@ -10,20 +10,55 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Blind model A/B comparison service.
+ * Blind model A/B comparison service that allocates side-by-side ephemeral chat
+ * sessions and records user preference votes.
  *
- * Creates ephemeral chat sessions for two models with the same prompt.
- * Model identities are hidden ("Model A" / "Model B") until the user votes.
- * Results are stored for personal analytics and, for enterprise, team leaderboards.
+ * <p>Model identities are hidden behind neutral labels ("Model A" / "Model B") until
+ * the user casts a vote. After voting the actual model names are revealed. Results
+ * are persisted for personal analytics and, in enterprise deployments, team leaderboards.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Choosing between competing LLMs is difficult without objective side-by-side comparison.
+ * This service lets users run the same prompt against two models simultaneously and
+ * select the better response, building an empirical preference dataset over time.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Each comparison allocates two distinct session IDs so the chat subsystem can
+ *     process them independently without any coupling.</li>
+ * <li>The {@code is_blind} flag is stored per-comparison to support future non-blind
+ *     mode (e.g. known-model evaluations for benchmarking).</li>
+ * <li>Voting is write-once: a second vote attempt throws {@link IllegalStateException}.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced with the model comparison feature</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class CompareService {
 
     private static final Logger log = LoggerFactory.getLogger(CompareService.class);
 
+    /** JDBC template for comparison persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for JSON serialisation. */
     private final ObjectMapper mapper;
 
+    /**
+     * Constructor-injects persistence and serialisation dependencies.
+     *
+     * @param db     JDBC template for the {@code comparisons} table
+     * @param mapper shared Jackson mapper
+     * @since v2026.2.1
+     */
     public CompareService(JdbcTemplate db, ObjectMapper mapper) {
         this.db = db;
         this.mapper = mapper;
@@ -39,6 +74,7 @@ public class CompareService {
      *              {@code endpoint_a}, {@code endpoint_b}, {@code is_blind} (default true)
      * @return map with {@code id}, {@code session_id_a}, {@code session_id_b},
      *         {@code label_a}, {@code label_b}, and {@code is_blind}
+     * @since v2026.2.1
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         String id = "cmp-" + Long.toString(System.currentTimeMillis(), 36);
@@ -83,6 +119,7 @@ public class CompareService {
      * @return the updated comparison record with model names revealed
      * @throws java.util.NoSuchElementException if the comparison is not found
      * @throws IllegalStateException            if the user has already voted
+     * @since v2026.2.1
      */
     public Map<String, Object> vote(String id, String owner, String winner) {
         Map<String, Object> existing = getById(id, owner);
@@ -104,6 +141,7 @@ public class CompareService {
      * @param owner the user ID
      * @param limit maximum results; {@code 0} or negative defaults to 20
      * @return list of comparison rows; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> list(String owner, int limit) {
         return db.queryForList(
@@ -118,6 +156,7 @@ public class CompareService {
      * @param id    the comparison ID
      * @param owner the user ID
      * @return the comparison record, or {@code null} if not found
+     * @since v2026.2.1
      */
     public Map<String, Object> getById(String id, String owner) {
         List<Map<String, Object>> rows = db.queryForList(
@@ -130,6 +169,7 @@ public class CompareService {
      *
      * @param teamId the team identifier
      * @return list of {@code {model, wins}} rows ordered by wins descending; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> teamLeaderboard(String teamId) {
         // Count wins per model across all team members

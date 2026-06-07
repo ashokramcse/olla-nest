@@ -11,29 +11,70 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Persistent memory storage and retrieval for the personal memory system.
+ * Persistent memory storage and retrieval service for the personal AI memory system.
  *
- * Memories are short text snippets the user or agent wants to retain across
- * sessions: preferences, facts, decisions, context. Each memory is owner-scoped,
- * optionally linked to the session it came from, and tagged for filtering.
+ * <p>Memories are short text snippets (preferences, facts, decisions, context) that
+ * the user or agent wants to retain across sessions. Each memory is owner-scoped,
+ * optionally linked to the originating session, tagged for filtering, and optionally
+ * backed by a vector embedding for semantic retrieval.
  *
- * Retrieval uses a combination of:
- *   1. Semantic search via {@link EmbeddingService} cosine similarity (when available)
- *   2. Keyword overlap fallback (always available)
+ * <p>Retrieval is dual-mode:
+ * <ol>
+ * <li>Semantic search via {@link EmbeddingService} cosine similarity (when embeddings
+ *     are available)</li>
+ * <li>Keyword overlap fallback (always available, no embedding required)</li>
+ * </ol>
  *
- * The {@link MemoryExtractorService} runs an LLM-in-the-loop pass after N
- * messages to automatically extract and store memorable facts.
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Without persistent memory, every conversation starts from scratch. This service gives
+ * the assistant a long-term memory that grows with use, enabling personalised responses,
+ * continuity between sessions, and user-controlled recall and deletion of stored facts.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>A per-user cap of {@value #MAX_MEMORIES_PER_USER} entries is enforced by evicting
+ *     the oldest, lowest-importance 10% when the cap is reached.</li>
+ * <li>Embeddings are stored as JSON arrays in {@code embedding_json} and are excluded
+ *     from the serialised output returned to clients.</li>
+ * <li>Cosine similarity uses a 0.25 threshold to filter low-relevance results before
+ *     ranking.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced with semantic + keyword search, cap enforcement, and
+ *     bulk import/export</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class MemoryService {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryService.class);
+    /** Maximum number of memory entries per user; oldest low-importance entries are evicted beyond this. */
     private static final int MAX_MEMORIES_PER_USER = 2000;
 
+    /** JDBC template for memory persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for tags and embedding JSON serialisation. */
     private final ObjectMapper mapper;
+
+    /** Embedding service used to compute vector representations for semantic search. */
     private final EmbeddingService embeddingService;
 
+    /**
+     * Constructor-injects persistence, serialisation, and embedding dependencies.
+     *
+     * @param db               JDBC template for the {@code memories} table
+     * @param mapper           shared Jackson mapper
+     * @param embeddingService service for computing embedding vectors
+     * @since v2026.2.1
+     */
     public MemoryService(JdbcTemplate db, ObjectMapper mapper, EmbeddingService embeddingService) {
         this.db = db;
         this.mapper = mapper;
@@ -54,6 +95,7 @@ public class MemoryService {
      * @param source    origin label: {@code "user"}, {@code "agent"}, or {@code "import"}
      * @param tags      optional classification tags
      * @return the persisted memory record
+     * @since v2026.2.1
      */
     public Map<String, Object> remember(String owner, String text, String sessionId, String source, List<String> tags) {
         enforceCapLimit(owner);
@@ -88,13 +130,19 @@ public class MemoryService {
      *
      * @param id    the memory ID
      * @param owner the user ID that must own this memory
+     * @since v2026.2.1
      */
     public void forget(String id, String owner) {
         int rows = db.update("DELETE FROM memories WHERE id = ? AND owner = ?", id, owner);
         if (rows == 0) throw new NoSuchElementException("Memory not found: " + id);
     }
 
-    /** Delete all memories for the given owner — used on account wipe or user request. */
+    /**
+     * Deletes all memories for the given owner — used on account wipe or explicit user request.
+     *
+     * @param owner the user ID whose memories should all be deleted
+     * @since v2026.2.1
+     */
     public void forgetAll(String owner) {
         db.update("DELETE FROM memories WHERE owner = ?", owner);
     }
@@ -105,6 +153,7 @@ public class MemoryService {
      * @param owner the user ID
      * @param limit maximum results; 0 or negative defaults to 100
      * @return memory records (without raw embedding vectors)
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> list(String owner, int limit) {
         return db.queryForList(
@@ -116,8 +165,14 @@ public class MemoryService {
     // ── Search ────────────────────────────────────────────────────────────────
 
     /**
-     * Search memories for the given owner. Uses semantic search when embeddings
-     * are available; falls back to keyword overlap.
+     * Searches memories for the given owner, using semantic search when embeddings are
+     * available and falling back to keyword overlap otherwise.
+     *
+     * @param owner the user ID
+     * @param query the search query string
+     * @param topK  maximum number of results to return
+     * @return ranked list of matching memory records; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> recall(String owner, String query, int topK) {
         List<Map<String, Object>> all = db.queryForList(
@@ -149,6 +204,7 @@ public class MemoryService {
      * @param texts  the list of memory strings to import
      * @param source origin label attached to every imported memory; defaults to {@code "import"}
      * @return the number of memories successfully stored
+     * @since v2026.2.1
      */
     public int importMemories(String owner, List<String> texts, String source) {
         int count = 0;
@@ -161,7 +217,13 @@ public class MemoryService {
         return count;
     }
 
-    /** Return every memory for the given owner — used for backup/export. */
+    /**
+     * Returns every memory for the given owner, used for full backup/export.
+     *
+     * @param owner the user ID
+     * @return complete list of memory records; never null
+     * @since v2026.2.1
+     */
     public List<Map<String, Object>> exportAll(String owner) {
         return list(owner, Integer.MAX_VALUE);
     }

@@ -15,28 +15,52 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Auto-compacts conversation history when approaching the context window limit.
+ * Auto-compacts conversation history when approaching the model's context window limit.
  *
- * When the estimated token count of a session's messages exceeds
- * {@value #COMPACT_THRESHOLD} of the model's context window, the oldest
- * messages are summarized via an LLM call into a structured Cursor-style
- * summary. The summary is inserted as a hidden {@code system} role message
- * and the summarized messages are removed from the active context. Both the
- * original and the summary are kept in the DB for the record, but only the
- * summary is sent to the LLM on subsequent calls.
+ * <p>When the estimated token count of a session's messages exceeds 85% of the context
+ * window, the oldest messages are summarised via a structured LLM call. The summary
+ * is inserted as a {@code system} role message and the summarised messages are dropped
+ * from the active context. The original messages are retained in the database but are
+ * no longer forwarded to the LLM.
+ *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Local LLMs typically have context windows between 4 k and 128 k tokens. Long chat
+ * sessions would silently fail or produce degraded output once the limit was hit without
+ * a compaction strategy. This service provides a Cursor-style rolling summary that
+ * preserves important facts while keeping the token count manageable.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Token estimation uses a 4 chars/token heuristic — cheap and good enough for the
+ *     85% threshold decision.</li>
+ * <li>The most recent {@value #KEEP_RECENT} messages are always kept verbatim so the
+ *     LLM retains full context for the current exchange.</li>
+ * <li>The summary prompt is opinionated (Cursor-style structured output) to maximise
+ *     information density in the replacement message.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced to prevent context overflow in long chat sessions</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class ContextCompactorService {
 
     private static final Logger log = LoggerFactory.getLogger(ContextCompactorService.class);
 
-    /** Trigger compaction when context reaches this fraction of the window. */
+    /** Trigger compaction when context token usage reaches this fraction of the window. */
     private static final double COMPACT_THRESHOLD = 0.85;
 
-    /** Keep this many recent messages untouched — only summarize older ones. */
+    /** Number of most-recent messages to keep verbatim; older messages are summarised. */
     private static final int KEEP_RECENT = 6;
 
-    /** Maximum model context size assumed when the actual size is unknown. */
+    /** Fallback context window size (tokens) when the actual model context is unknown. */
     private static final int DEFAULT_CONTEXT = 8192;
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
@@ -58,17 +82,25 @@ public class ContextCompactorService {
         this.databaseService = databaseService;
     }
 
-    /** Estimate token count: ~4 chars per token heuristic. */
+    /**
+     * Estimates the token count of a text string using the 4 chars/token heuristic.
+     *
+     * @param text the text to estimate; {@code null} or empty returns {@code 0}
+     * @return estimated token count; always at least {@code 1} for non-empty input
+     * @since v2026.2.1
+     */
     public int estimateTokens(String text) {
         if (text == null || text.isEmpty()) return 0;
         return Math.max(1, text.length() / 4);
     }
 
     /**
-     * Check whether the given message list needs compaction given a context window size.
+     * Checks whether the given message list needs compaction given a context window size.
      *
-     * @param messages    list of {role, content} maps
-     * @param contextSize model context window token count; 0 = use default
+     * @param messages    list of {@code {role, content}} maps representing the conversation
+     * @param contextSize model context window token count; {@code 0} or negative uses the default
+     * @return {@code true} if the estimated total token count exceeds the compaction threshold
+     * @since v2026.2.1
      */
     public boolean needsCompaction(List<Map<String, Object>> messages, int contextSize) {
         if (contextSize <= 0) contextSize = DEFAULT_CONTEXT;
@@ -81,13 +113,19 @@ public class ContextCompactorService {
     }
 
     /**
-     * Compact the given message list. Returns a new list where older messages have
-     * been replaced with a single hidden summary message.
+     * Compacts the given message list by replacing older messages with a structured summary.
      *
-     * @param messages    full message history
-     * @param contextSize model context window; 0 = use default
-     * @param ollamaUrl   LLM endpoint base URL for the summarisation call
-     * @param model       model name to use for summarisation
+     * <p>If the list is short enough to fit in {@code KEEP_RECENT + 2} messages it is
+     * returned unchanged. Otherwise the oldest {@code messages.size() - KEEP_RECENT}
+     * messages are summarised and replaced with a single system-role summary message.
+     *
+     * @param messages    full conversation message history
+     * @param contextSize model context window token count; {@code 0} or negative uses the default
+     * @param ollamaUrl   LLM endpoint base URL used for the summarisation call
+     * @param model       model name to use for the summarisation LLM call
+     * @return a new message list with older content replaced by a summary, or the original
+     *         list unchanged if compaction was not needed
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> compact(List<Map<String, Object>> messages,
             int contextSize, String ollamaUrl, String model) {

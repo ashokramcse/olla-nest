@@ -11,26 +11,65 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Personal AI assistant management — per-user assistant with configurable
- * name, personality, model, enabled tools, and daily check-in tasks.
+ * Manages each user's personal AI assistant — a single {@code crew_member} row
+ * with a configurable name, personality, model, enabled tools, and daily
+ * check-in tasks.
  *
- * Each user gets exactly one assistant (CrewMember), created on demand.
- * Three daily check-in tasks (Morning/Midday/Evening) are seeded automatically.
- * All settings are user-editable.
+ * <h3>Why this class exists</h3>
+ * <p>
+ * Every user in Olla Nest can have one personalised AI companion that remembers
+ * their preferences, greets them in their chosen style, and runs scheduled
+ * check-in tasks throughout the day. This service owns the lifecycle: it creates
+ * the assistant on demand (no explicit onboarding step required), seeds the three
+ * standard daily check-ins, and exposes update and read operations for the
+ * settings UI.
  *
- * Enterprise: team assistants share personality/model across all team members.
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>A synthetic-owner guard ({@link #SYNTHETIC_OWNERS}) prevents phantom
+ * records being created for internal system callers such as {@code "api"} or
+ * {@code "system"}.</li>
+ * <li>The three daily check-in tasks are created via {@link TaskSchedulerService}
+ * so they participate in the normal task-run pipeline and appear in the
+ * scheduler UI.</li>
+ * <li>{@code enabled_tools_json} is a JSON array stored in the DB and
+ * deserialized on every read; callers always receive a typed {@code List}.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — introduced as part of the personal productivity expansion</li>
+ * </ul>
+ *
+ * @author Ashok Ram
+ * @since v2026.2.1
+ * @version v2026.2.1
  */
 @Service
 public class PersonalAssistantService {
 
     private static final Logger log = LoggerFactory.getLogger(PersonalAssistantService.class);
 
+    /** Owner values that must never trigger assistant creation. */
     private static final Set<String> SYNTHETIC_OWNERS = Set.of("internal-tool", "api", "demo", "system", "");
 
+    /** JDBC template for crew_member and scheduled_task persistence. */
     private final JdbcTemplate db;
+
+    /** Shared Jackson mapper for serializing and deserializing the enabled-tools JSON array. */
     private final ObjectMapper mapper;
+
+    /** Used to create the seeded daily check-in tasks. */
     private final TaskSchedulerService taskService;
 
+    /**
+     * Constructor-injects persistence, serialization, and scheduling dependencies.
+     *
+     * @param db          the JDBC template
+     * @param mapper      the shared Jackson object mapper
+     * @param taskService the task scheduler service used to seed daily check-ins
+     * @since v2026.2.1
+     */
     public PersonalAssistantService(JdbcTemplate db, ObjectMapper mapper,
             TaskSchedulerService taskService) {
         this.db = db;
@@ -49,6 +88,7 @@ public class PersonalAssistantService {
      * @param owner the user ID
      * @return the assistant record enriched with enabled_tools and check_ins
      * @throws IllegalArgumentException if owner is null or a reserved synthetic value
+     * @since v2026.2.1
      */
     public Map<String, Object> getOrCreate(String owner) {
         if (owner == null || SYNTHETIC_OWNERS.contains(owner)) {
@@ -121,6 +161,7 @@ public class PersonalAssistantService {
      *              {@code model}, {@code endpoint_url}, {@code enabled_tools},
      *              {@code timezone}, {@code allow_autonomous_email}
      * @return the updated assistant record
+     * @since v2026.2.1
      */
     public Map<String, Object> update(String owner, Map<String, Object> req) {
         Map<String, Object> existing = getOrCreate(owner);
@@ -150,6 +191,7 @@ public class PersonalAssistantService {
      *
      * @param owner the user ID
      * @return list of check-in task row maps; never null
+     * @since v2026.2.1
      */
     public List<Map<String, Object>> getCheckIns(String owner) {
         return db.queryForList(

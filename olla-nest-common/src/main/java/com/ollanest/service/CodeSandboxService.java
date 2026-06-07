@@ -11,58 +11,81 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * Isolated code execution sandbox.
+ * Isolated code execution sandbox that runs user-supplied snippets in a
+ * sandboxed subprocess.
  *
  * <p>
- * Executes user-supplied code snippets in a sandboxed subprocess with:
+ * Provides the following protections for every execution:
  * <ul>
  * <li>10-second wall-clock timeout (SIGKILL on breach)</li>
  * <li>Stdout + stderr combined, capped at 64 KB</li>
- * <li>Temp-file cleanup after every run</li>
- * <li>Per-language interpreter detection (python3 / node / ruby / bash /
- * java)</li>
+ * <li>Temp-file cleanup in a {@code finally} block</li>
+ * <li>Per-language interpreter detection (python3 / node / ruby / bash / java)</li>
  * </ul>
  *
  * <p>
  * Supported languages and their interpreter detection order:
- * 
+ *
  * <pre>
  *   python / python3  → python3, python
  *   javascript / js   → node, nodejs
  *   ruby              → ruby3, ruby
  *   bash / sh         → bash
- *   typescript        → ts-node, npx ts-node
- *   java              → javac + java (compile + run, single public class)
+ *   typescript        → ts-node
+ *   java              → javac + java (compile then run, single public class)
  * </pre>
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Security notes: This service uses OS-level process isolation only. For
- * production use, wrap each run in a Docker container or use a dedicated
- * sandbox runtime (Firecracker, gVisor). The current implementation is suitable
- * for trusted internal teams.
+ * The agent loop needs to execute code snippets on behalf of users — running
+ * data transformations, checking algorithm outputs, or demonstrating code the
+ * model has generated. This service provides that capability with a layered
+ * security model: process isolation, {@code ulimit} memory/CPU caps, a minimal
+ * subprocess environment (no inherited API keys or proxy settings), and
+ * language-level preambles that block network access in Python and Bash.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The subprocess environment is cleared and rebuilt from a safe minimal
+ * set ({@code PATH}, {@code HOME}, {@code TMPDIR}, {@code LANG}) so that no
+ * parent-process secrets can be read by the executed code.</li>
+ * <li>{@code ulimit -v} and {@code ulimit -t} are applied via a wrapping
+ * {@code bash -c} invocation on Unix/macOS systems; Windows runs without
+ * these limits (Docker is the recommended Windows isolation approach).</li>
+ * <li>For production deployments with untrusted users, wrap each run in a
+ * Docker container or use Firecracker/gVisor. The current implementation is
+ * suitable for trusted internal teams.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial implementation</li>
+ * <li>v2026.1.9 — security hardening: cleared env, TMPDIR/HOME redirect,
+ * ulimit wrapping</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.4
+ * @version v2026.1.9
  */
 @Service
 public class CodeSandboxService {
 
 	private static final Logger log = LoggerFactory.getLogger(CodeSandboxService.class);
 
-	/** Wall-clock timeout per execution (seconds). */
+	/** Wall-clock timeout enforced per execution run. SIGKILL is sent on breach. */
 	private static final int TIMEOUT_SECONDS = 10;
 
-	/** Maximum output returned to caller (bytes). */
+	/** Maximum output captured from the subprocess before truncation. */
 	private static final int MAX_OUTPUT_BYTES = 65_536; // 64 KB
 
 	/**
-	 * Maximum virtual memory for sandboxed processes via {@code ulimit -v}
-	 * (kilobytes). Prevents memory bombs. 256 MB expressed as KB.
-	 * Only applied on Linux/macOS where {@code ulimit} is available.
+	 * Virtual memory ceiling applied via {@code ulimit -v} on Unix-like systems,
+	 * expressed in kilobytes (256 MB). Prevents memory-bomb attacks.
 	 */
 	private static final int MEMORY_LIMIT_KB = 262_144; // 256 MB
 
-	/** Maps normalised language key → (extension, command-candidates). */
+	/** Mapping from normalised language key to its {@link LangSpec} descriptor. */
 	private static final Map<String, LangSpec> LANGS = new LinkedHashMap<>();
 
 	static {
@@ -86,6 +109,7 @@ public class CodeSandboxService {
 	 * @param language the language identifier (e.g. "python", "javascript")
 	 * @param code     the source code to execute
 	 * @return a {@link RunResult} with stdout/stderr, exit code, and elapsed time
+	 * @since v2026.1.4
 	 */
 	public RunResult run(String language, String code) {
 		String lang = language == null ? "" : language.toLowerCase().trim();
@@ -522,8 +546,11 @@ public class CodeSandboxService {
 	}
 
 	/**
-	 * Returns the set of supported language keys (for the frontend "Run" button
-	 * check).
+	 * Returns the set of supported language keys that can be passed to
+	 * {@link #run}. Used by the frontend to gate display of the "Run" button.
+	 *
+	 * @return an unmodifiable set of supported language key strings
+	 * @since v2026.1.4
 	 */
 	public static Set<String> supportedLanguages() {
 		return LANGS.keySet();
