@@ -53,7 +53,7 @@ class TaskSchedulerServiceTest {
     @BeforeEach
     void stubGetById() {
         // Stub: default to empty list so getById returns null unless overridden in specific tests
-        when(db.queryForList(contains("FROM scheduled_tasks WHERE id"), any(), any()))
+        when(db.queryForList(contains("FROM scheduled_tasks WHERE id"), (Object) any(), any()))
                 .thenReturn(List.of());
     }
 

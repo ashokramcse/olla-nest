@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -51,11 +52,22 @@ class EmailServiceTest {
     }
 
     private Map<String, Object> msgRow(String id, String accountId) {
-        return Map.of("id", id, "account_id", accountId, "subject", "Hello",
-                "from_addr", "sender@example.com", "to_addr", "me@example.com",
-                "date_sent", "2026-06-01T09:00:00Z", "is_read", 0, "is_starred", 0,
-                "is_spam", 0, "urgency_score", 3, "ai_summary", null,
-                "ai_tags_json", null, "has_attachments", 0, "created_at", "2026-06-01T09:00:00Z");
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", id);
+        row.put("account_id", accountId);
+        row.put("subject", "Hello");
+        row.put("from_addr", "sender@example.com");
+        row.put("to_addr", "me@example.com");
+        row.put("date_sent", "2026-06-01T09:00:00Z");
+        row.put("is_read", 0);
+        row.put("is_starred", 0);
+        row.put("is_spam", 0);
+        row.put("urgency_score", 3);
+        row.put("ai_summary", null);
+        row.put("ai_tags_json", null);
+        row.put("has_attachments", 0);
+        row.put("created_at", "2026-06-01T09:00:00Z");
+        return row;
     }
 
     // ── createAccount() ───────────────────────────────────────────────────────

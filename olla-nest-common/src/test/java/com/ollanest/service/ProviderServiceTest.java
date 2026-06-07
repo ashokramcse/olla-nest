@@ -45,18 +45,24 @@ class ProviderServiceTest {
         ModelRecord m = new ModelRecord();
         m.id = "llama3.2";
         m.provider = "ollama";
-        m.modelRef = "llama3.2";
+        m.model = "llama3.2";
         m.name = "LLaMA 3.2";
-        return new RouterService.RouteResult(m, "auto");
+        RouterService.RouteResult r = new RouterService.RouteResult();
+        r.selected = m;
+        r.reason = "auto";
+        return r;
     }
 
     private RouterService.RouteResult apiRoute(String providerId) {
         ModelRecord m = new ModelRecord();
         m.id = providerId + ":gpt-4";
         m.provider = providerId;
-        m.modelRef = "gpt-4";
+        m.model = "gpt-4";
         m.name = "GPT-4";
-        return new RouterService.RouteResult(m, "forced");
+        RouterService.RouteResult r = new RouterService.RouteResult();
+        r.selected = m;
+        r.reason = "forced";
+        return r;
     }
 
     // ── resolveProvider() ─────────────────────────────────────────────────────

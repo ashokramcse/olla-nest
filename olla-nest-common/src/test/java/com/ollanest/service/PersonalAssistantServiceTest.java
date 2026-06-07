@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -43,10 +44,19 @@ class PersonalAssistantServiceTest {
     @InjectMocks PersonalAssistantService personalAssistantService;
 
     private Map<String, Object> assistantRow() {
-        return Map.of("id", "crew-abc", "owner", OWNER, "name", "Assistant",
-                "avatar", "🤖", "personality", "Helpful", "enabled_tools_json", "[]",
-                "timezone", "UTC", "greeting", "Hello!", "allow_autonomous_email", 0,
-                "created_at", "2026-01-01T00:00:00Z", "updated_at", "2026-01-01T00:00:00Z");
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", "crew-abc");
+        row.put("owner", OWNER);
+        row.put("name", "Assistant");
+        row.put("avatar", "🤖");
+        row.put("personality", "Helpful");
+        row.put("enabled_tools_json", "[]");
+        row.put("timezone", "UTC");
+        row.put("greeting", "Hello!");
+        row.put("allow_autonomous_email", 0);
+        row.put("created_at", "2026-01-01T00:00:00Z");
+        row.put("updated_at", "2026-01-01T00:00:00Z");
+        return row;
     }
 
     // ── getOrCreate() ─────────────────────────────────────────────────────────

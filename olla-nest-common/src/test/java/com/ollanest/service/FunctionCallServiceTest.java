@@ -67,7 +67,7 @@ class FunctionCallServiceTest {
             // OpenAI function-calling spec: each tool object must have function.name
             // and function.description for the model to understand what to invoke
             functionCallService.getToolDefinitions().forEach(tool -> {
-                Map<?, ?> func = (Map<?, ?>) tool.get("function");
+                Map<String, Object> func = (Map<String, Object>) tool.get("function");
                 assertThat(func).containsKey("name");
                 assertThat(func).containsKey("description");
             });
@@ -78,7 +78,7 @@ class FunctionCallServiceTest {
         void includesGetDatetime() {
             // get_datetime is the most frequently used built-in — must always be present
             assertThat(functionCallService.getToolDefinitions())
-                    .anyMatch(t -> "get_datetime".equals(((Map<?, ?>) t.get("function")).get("name")));
+                    .anyMatch(t -> "get_datetime".equals(((Map<String, Object>) t.get("function")).get("name")));
         }
 
         @Test

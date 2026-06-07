@@ -53,7 +53,7 @@ class PresetServiceTest {
     void stubDefaults() {
         // Stub DB to return no user-defined templates by default
         when(db.queryForList(contains("FROM user_templates"), eq(OWNER))).thenReturn(List.of());
-        when(db.queryForList(contains("FROM user_templates WHERE id"), any(), any())).thenReturn(List.of());
+        when(db.queryForList(contains("FROM user_templates WHERE id"), (Object) any(), any())).thenReturn(List.of());
     }
 
     // ── listAll() ─────────────────────────────────────────────────────────────

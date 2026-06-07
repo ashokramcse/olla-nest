@@ -63,7 +63,7 @@ class ContactsServiceTest {
         @DisplayName("DB INSERT called with correct owner")
         void insertCalledWithOwner() {
             // stub getById inside create()
-            when(db.queryForList(contains("FROM contacts WHERE id"), any(), any())).thenReturn(List.of());
+            when(db.queryForList(contains("FROM contacts WHERE id"), (Object) any(), any())).thenReturn(List.of());
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.create(OWNER, Map.of("display_name", "Alice"));
             verify(db).update(contains("INSERT INTO contacts"), cap.capture());
@@ -74,7 +74,7 @@ class ContactsServiceTest {
         @Test
         @DisplayName("generated ID starts with 'cnt-'")
         void idStartsWithCntPrefix() {
-            when(db.queryForList(contains("FROM contacts WHERE id"), any(), any())).thenReturn(List.of());
+            when(db.queryForList(contains("FROM contacts WHERE id"), (Object) any(), any())).thenReturn(List.of());
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.create(OWNER, Map.of("display_name", "Bob"));
             verify(db).update(contains("INSERT INTO contacts"), cap.capture());
@@ -85,7 +85,7 @@ class ContactsServiceTest {
         @Test
         @DisplayName("display_name stored correctly")
         void displayNameStored() {
-            when(db.queryForList(contains("FROM contacts WHERE id"), any(), any())).thenReturn(List.of());
+            when(db.queryForList(contains("FROM contacts WHERE id"), (Object) any(), any())).thenReturn(List.of());
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.create(OWNER, Map.of("display_name", "Carol Chen"));
             verify(db).update(contains("INSERT INTO contacts"), cap.capture());
@@ -103,7 +103,7 @@ class ContactsServiceTest {
         @Test
         @DisplayName("calls UPDATE contacts SQL with id and owner")
         void updateCalledWithIdAndOwner() {
-            when(db.queryForList(contains("FROM contacts WHERE id"), any(), any())).thenReturn(List.of());
+            when(db.queryForList(contains("FROM contacts WHERE id"), (Object) any(), any())).thenReturn(List.of());
             svc.update("cnt-1", OWNER, Map.of("display_name", "Dave"));
             // UPDATE must be called — both id and owner scope the WHERE clause
             verify(db).update(contains("UPDATE contacts SET"), (Object[]) any());

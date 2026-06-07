@@ -183,18 +183,18 @@ class SearchCacheServiceTest {
         @DisplayName("queries for expired entries and calls evict for each")
         void deletesExpiredEntries() {
             // Stub: two expired cache entries found by the sweep query
-            when(db.queryForList(contains("WHERE expires_at <"), any()))
+            when(db.queryForList(contains("WHERE expires_at <"), (Object) any()))
                     .thenReturn(List.of(Map.of("cache_key", "key-1"), Map.of("cache_key", "key-2")));
             svc.cleanExpired();
             // Each expired entry must trigger a DELETE — both key-1 and key-2 must be evicted
-            verify(db, atLeast(2)).update(contains("DELETE FROM search_cache_index WHERE cache_key"), any());
+            verify(db, atLeast(2)).update(contains("DELETE FROM search_cache_index WHERE cache_key"), (Object) any());
         }
 
         @Test
         @DisplayName("no exception when no expired entries")
         void noExceptionWhenNoneExpired() {
             // Stub: sweep finds no expired entries — must be a no-op, not an error
-            when(db.queryForList(contains("WHERE expires_at <"), any())).thenReturn(List.of());
+            when(db.queryForList(contains("WHERE expires_at <"), (Object) any())).thenReturn(List.of());
             // No exception = cleanExpired is safe to call even when the cache is fully current
             assertThatCode(() -> svc.cleanExpired()).doesNotThrowAnyException();
         }

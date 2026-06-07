@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -50,15 +51,26 @@ class NotesServiceTest {
     @InjectMocks NotesService notesService;
 
     private Map<String, Object> noteRow(String id, String title, String noteType, int archived) {
-        return Map.of(
-                "id", id, "owner", OWNER, "title", title, "content", "Some content",
-                "items_json", null, "note_type", noteType, "color", "default",
-                "label", null, "pinned", 0, "archived", archived,
-                "due_date", null, "repeat", "none", "source", "user",
-                "session_id", null, "image_url", null, "sort_order", 0,
-                "created_at", "2026-01-01T00:00:00Z",
-                "updated_at", "2026-01-01T00:00:00Z"
-        );
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", id);
+        row.put("owner", OWNER);
+        row.put("title", title);
+        row.put("content", "Some content");
+        row.put("items_json", null);
+        row.put("note_type", noteType);
+        row.put("color", "default");
+        row.put("label", null);
+        row.put("pinned", 0);
+        row.put("archived", archived);
+        row.put("due_date", null);
+        row.put("repeat", "none");
+        row.put("source", "user");
+        row.put("session_id", null);
+        row.put("image_url", null);
+        row.put("sort_order", 0);
+        row.put("created_at", "2026-01-01T00:00:00Z");
+        row.put("updated_at", "2026-01-01T00:00:00Z");
+        return row;
     }
 
     // ── create() ──────────────────────────────────────────────────────────────

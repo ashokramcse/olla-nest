@@ -68,7 +68,7 @@ class GalleryServiceTest {
         @DisplayName("DB INSERT called with owner")
         void insertCalledWithOwner() {
             // stub getAlbum() called inside createAlbum() to return empty (new album)
-            when(db.queryForList(contains("FROM gallery_albums WHERE id"), any(), any())).thenReturn(List.of());
+            when(db.queryForList(contains("FROM gallery_albums WHERE id"), (Object) any(), any())).thenReturn(List.of());
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.createAlbum(OWNER, Map.of("name", "My Album"));
             verify(db).update(contains("INSERT INTO gallery_albums"), cap.capture());
@@ -80,7 +80,7 @@ class GalleryServiceTest {
         @DisplayName("generated id starts with 'alb-'")
         void idStartsWithAlbPrefix() {
             // Stub: read-back after INSERT returns empty (id checked via captor)
-            when(db.queryForList(contains("FROM gallery_albums WHERE id"), any(), any())).thenReturn(List.of());
+            when(db.queryForList(contains("FROM gallery_albums WHERE id"), (Object) any(), any())).thenReturn(List.of());
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.createAlbum(OWNER, Map.of("name", "Vacation"));
             verify(db).update(contains("INSERT INTO gallery_albums"), cap.capture());
@@ -92,7 +92,7 @@ class GalleryServiceTest {
         @DisplayName("name defaults to 'Album' when not provided")
         void defaultAlbumName() {
             // Stub: empty params map (no "name" key) → service must default to "Album"
-            when(db.queryForList(contains("FROM gallery_albums WHERE id"), any(), any())).thenReturn(List.of());
+            when(db.queryForList(contains("FROM gallery_albums WHERE id"), (Object) any(), any())).thenReturn(List.of());
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.createAlbum(OWNER, Map.of());
             verify(db).update(contains("INSERT INTO gallery_albums"), cap.capture());

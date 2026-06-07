@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -56,17 +57,28 @@ class SkillsServiceTest {
     }
 
     private Map<String, Object> buildSkillRow(String id, String name, String status) {
-        return Map.of(
-                "id", id, "name", name, "description", "A test skill",
-                "category", "general", "tags_json", "[]", "platforms_json", "[]",
-                "when_to_use", "When testing", "procedure_json", "[]",
-                "pitfalls_json", "[]", "verification_json", "[]",
-                "status", status, "confidence", 0.8, "source", "user",
-                "owner", OWNER, "version", "1.0.0", "use_count", 0,
-                "created_at", "2026-01-01T00:00:00Z",
-                "updated_at", "2026-01-01T00:00:00Z",
-                "teacher_model", null, "session_id", null
-        );
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", id);
+        row.put("name", name);
+        row.put("description", "A test skill");
+        row.put("category", "general");
+        row.put("tags_json", "[]");
+        row.put("platforms_json", "[]");
+        row.put("when_to_use", "When testing");
+        row.put("procedure_json", "[]");
+        row.put("pitfalls_json", "[]");
+        row.put("verification_json", "[]");
+        row.put("status", status);
+        row.put("confidence", 0.8);
+        row.put("source", "user");
+        row.put("owner", OWNER);
+        row.put("version", "1.0.0");
+        row.put("use_count", 0);
+        row.put("created_at", "2026-01-01T00:00:00Z");
+        row.put("updated_at", "2026-01-01T00:00:00Z");
+        row.put("teacher_model", null);
+        row.put("session_id", null);
+        return row;
     }
 
     // ── createSkill() ─────────────────────────────────────────────────────────

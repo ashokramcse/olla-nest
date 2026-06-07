@@ -174,7 +174,7 @@ class ApiTokenServiceTest {
 
         @Test
         @DisplayName("token_hash is absent from validate() response (never exposed)")
-        void hashNotExposedInValidateResponse() {
+        void hashNotExposedInValidateResponse() throws Exception {
             // Step 1: Mint a real token so we have a valid bcrypt hash to test against
             var minted = tokenService.mint(OWNER, "Device", List.of("chat"));
             String rawToken = (String) minted.get("token");

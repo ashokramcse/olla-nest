@@ -98,7 +98,7 @@ class StateControllerTest {
             when(db.queryForList(contains("FROM groups"))).thenReturn(List.of());
             when(db.queryForList(contains("FROM teams"))).thenReturn(List.of());
             when(db.queryForList(contains("FROM users"))).thenReturn(List.of());
-            when(workspaceService.buildWorkspaceContext(anyString())).thenReturn("");
+            when(workspaceService.workspaceForUser(anyString())).thenReturn(Map.of());
             when(databaseService.getSetting(anyString(), anyString())).thenReturn("");
             when(chatService.getActiveChat(anyString())).thenReturn(Map.of("id", "chat-1"));
             when(chatService.buildChatObject(any())).thenReturn(Map.of("id", "chat-1"));
@@ -118,7 +118,7 @@ class StateControllerTest {
             when(db.queryForList(anyString())).thenReturn(List.of());
             when(db.queryForList(anyString(), anyString())).thenReturn(List.of());
             when(db.queryForList(anyString(), anyString(), anyInt())).thenReturn(List.of());
-            when(workspaceService.buildWorkspaceContext(anyString())).thenReturn("");
+            when(workspaceService.workspaceForUser(anyString())).thenReturn(Map.of());
             when(databaseService.getSetting(anyString(), anyString())).thenReturn("");
             when(chatService.getActiveChat(anyString())).thenReturn(Map.of("id", "chat-1"));
             when(chatService.buildChatObject(any())).thenReturn(Map.of("id", "chat-1"));
@@ -150,7 +150,7 @@ class StateControllerTest {
             when(db.queryForList(contains("FROM groups"))).thenReturn(List.of());
             when(db.queryForList(contains("FROM teams"))).thenReturn(List.of());
             when(db.queryForList(contains("FROM users"))).thenReturn(List.of());
-            when(workspaceService.buildWorkspaceContext(anyString())).thenReturn("");
+            when(workspaceService.workspaceForUser(anyString())).thenReturn(Map.of());
             when(databaseService.getSetting(anyString(), anyString())).thenReturn("");
 
             ResponseEntity<Map<String, Object>> response = stateController.getState(req);
