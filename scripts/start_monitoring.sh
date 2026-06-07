@@ -6,8 +6,12 @@
 #           Linux — Ubuntu/Debian, RHEL/CentOS/Rocky, Alpine, Arch, Amazon Linux
 #
 # Installs (once) and starts:
-#   • Loki    3.3.2   — log aggregation   → http://localhost:3100
-#   • Grafana 11.4.0  — dashboards UI     → http://localhost:3200
+#   • Loki    3.3.2   — log aggregation   → http://localhost:${LOKI_PORT:-3100}
+#   • Grafana 11.4.0  — standalone log UI → http://localhost:${GRAFANA_PORT:-8082}
+#
+# Ports are configurable via the project .env (LOKI_PORT / GRAFANA_PORT) or the
+# environment. Grafana is the standalone logs UI; it is independent of the admin
+# and user apps and runs on its own port (default 8082).
 #
 # Usage:
 #   bash scripts/start_monitoring.sh            # install (once) + start
@@ -34,8 +38,24 @@ PIDS_DIR="$MONITORING_DIR/pids"
 
 LOKI_VERSION="3.3.2"
 GRAFANA_VERSION="11.4.0"
-LOKI_PORT=3100
-GRAFANA_PORT=3200
+
+# ── Ports (configurable via the project .env or the environment) ──────────────
+# The standalone log UI (Grafana) defaults to 8082; Loki's ingest/query API to
+# 3100. Both are read from the project .env if present, then the environment,
+# so they live in the same config file as the rest of Olla Nest.
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
+  # Export only the monitoring keys we care about — avoid clobbering the shell.
+  set -a
+  # shellcheck disable=SC1091
+  . "$PROJECT_ROOT/.env"
+  set +a
+fi
+LOKI_PORT="${LOKI_PORT:-3100}"
+GRAFANA_PORT="${GRAFANA_PORT:-8082}"
+# Exported so Loki's -config.expand-env and Grafana's provisioning interpolation
+# can pick up the chosen Loki port.
+export LOKI_PORT GRAFANA_PORT
 
 # ── Grafana admin password ────────────────────────────────────────────────────
 # Generated once on first run, stored locally — never committed to git.

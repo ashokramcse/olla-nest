@@ -24,7 +24,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
       "title": "Total Log Lines",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=\"olla-nest\"}[$__range])", "legendFormat": "Total", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=~\"olla-nest.*\"}[$__range])", "legendFormat": "Total", "refId": "A" }]
     },
 
     {
@@ -35,7 +35,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
       "title": "🔴 Errors",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=\"olla-nest\", level=\"ERROR\"}[$__range])", "legendFormat": "Errors", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=~\"olla-nest.*\", level=\"ERROR\"}[$__range])", "legendFormat": "Errors", "refId": "A" }]
     },
 
     {
@@ -46,7 +46,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
       "title": "⚠️ Warnings",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=\"olla-nest\", level=\"WARN\"}[$__range])", "legendFormat": "Warnings", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=~\"olla-nest.*\", level=\"WARN\"}[$__range])", "legendFormat": "Warnings", "refId": "A" }]
     },
 
     {
@@ -57,7 +57,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
       "title": "🔐 Admin Actions",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=\"olla-nest\", role=\"admin\"}[$__range])", "legendFormat": "Admin", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=~\"olla-nest.*\", role=\"admin\"}[$__range])", "legendFormat": "Admin", "refId": "A" }]
     },
 
     {
@@ -68,7 +68,7 @@
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["count"] } },
       "title": "🎙️ Voice STT Requests",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=\"olla-nest\"} |= \"/api/voice/transcribe\" [$__range])", "legendFormat": "STT", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "count_over_time({app=~\"olla-nest.*\"} |= \"/api/voice/transcribe\" [$__range])", "legendFormat": "STT", "refId": "A" }]
     },
 
     { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "id": 101, "title": "📈 Request Volume Over Time", "type": "row" },
@@ -82,9 +82,9 @@
       "title": "Log Rate by Level",
       "type": "timeseries",
       "targets": [
-        { "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "sum(rate({app=\"olla-nest\", level=\"INFO\"}[$__rate_interval]))", "legendFormat": "INFO",  "refId": "A" },
-        { "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "sum(rate({app=\"olla-nest\", level=\"WARN\"}[$__rate_interval]))", "legendFormat": "WARN",  "refId": "B" },
-        { "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "sum(rate({app=\"olla-nest\", level=\"ERROR\"}[$__rate_interval]))", "legendFormat": "ERROR", "refId": "C" }
+        { "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "sum(rate({app=~\"olla-nest.*\", level=\"INFO\"}[$__rate_interval]))", "legendFormat": "INFO",  "refId": "A" },
+        { "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "sum(rate({app=~\"olla-nest.*\", level=\"WARN\"}[$__rate_interval]))", "legendFormat": "WARN",  "refId": "B" },
+        { "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "sum(rate({app=~\"olla-nest.*\", level=\"ERROR\"}[$__rate_interval]))", "legendFormat": "ERROR", "refId": "C" }
       ]
     },
 
@@ -97,7 +97,7 @@
       "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
       "title": "All Logs (use Level filter and Search above to narrow down)",
       "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=\"olla-nest\", level=~\"$log_level\"} |~ \"$search\"", "legendFormat": "", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=~\"olla-nest.*\", level=~\"$log_level\"} |~ \"$search\"", "legendFormat": "", "refId": "A" }]
     },
 
     { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 }, "id": 103, "title": "🔴 Errors & Warnings", "type": "row" },
@@ -109,7 +109,7 @@
       "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
       "title": "Errors & Warnings Only",
       "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=\"olla-nest\", level=~\"ERROR|WARN\"}", "legendFormat": "", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=~\"olla-nest.*\", level=~\"ERROR|WARN\"}", "legendFormat": "", "refId": "A" }]
     },
 
     { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 }, "id": 104, "title": "👤 User Activity", "type": "row" },
@@ -121,7 +121,7 @@
       "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
       "title": "User Activity — filter by email in the variable above",
       "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=\"olla-nest\"} | logfmt | email=~\"$user_email\"", "legendFormat": "", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=~\"olla-nest.*\"} | logfmt | email=~\"$user_email\"", "legendFormat": "", "refId": "A" }]
     },
 
     { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 53 }, "id": 105, "title": "🔐 Admin Audit Trail", "type": "row" },
@@ -133,7 +133,7 @@
       "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
       "title": "All Admin Actions",
       "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=\"olla-nest\", role=\"admin\"}", "legendFormat": "", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=~\"olla-nest.*\", role=\"admin\"}", "legendFormat": "", "refId": "A" }]
     },
 
     { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 66 }, "id": 106, "title": "🖥️ Server & Whisper STT", "type": "row" },
@@ -145,7 +145,7 @@
       "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
       "title": "Whisper STT Logs",
       "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=\"olla-nest\"} |= \"[whisper]\"", "legendFormat": "", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=~\"olla-nest.*\"} |= \"[whisper]\"", "legendFormat": "", "refId": "A" }]
     },
 
     {
@@ -155,7 +155,7 @@
       "options": { "dedupStrategy": "none", "enableLogDetails": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
       "title": "Startup & DB Logs",
       "type": "logs",
-      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=\"olla-nest\"} |= \"[db]\"", "legendFormat": "", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "loki", "uid": "${DS_LOKI}" }, "expr": "{app=~\"olla-nest.*\"} |= \"[db]\"", "legendFormat": "", "refId": "A" }]
     }
 
   ],

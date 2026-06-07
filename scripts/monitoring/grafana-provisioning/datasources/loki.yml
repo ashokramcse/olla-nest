@@ -4,7 +4,9 @@ datasources:
   - name: Loki
     type: loki
     access: proxy
-    url: http://localhost:3100
+    # LOKI_PORT is exported by start_monitoring.sh (default 3100). Grafana
+    # interpolates ${VAR} in provisioning files from its process environment.
+    url: http://localhost:${LOKI_PORT}
     isDefault: true
     version: 1
     editable: false

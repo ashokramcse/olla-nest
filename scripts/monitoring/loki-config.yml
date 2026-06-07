@@ -5,7 +5,9 @@
 auth_enabled: false
 
 server:
-  http_listen_port: 3100
+  # LOKI_PORT is exported by start_monitoring.sh (default 3100); expanded via
+  # Loki's -config.expand-env=true flag.
+  http_listen_port: ${LOKI_PORT}
   grpc_listen_port: 9096
   log_level: warn
 

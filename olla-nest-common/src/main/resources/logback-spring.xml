@@ -93,15 +93,20 @@
     <!-- ── Application code — INFO and above ────────────────────────── -->
     <logger name="com.ollanest" level="INFO"/>
 
-    <!-- ── Root: dev / default — CONSOLE only, Loki never starts ────── -->
-    <springProfile name="!prod">
+    <!-- ── Root: dev / default — CONSOLE only, Loki never starts ──────
+         Active when neither the "prod" nor the "loki" profile is set, so a plain
+         local run produces zero Loki connection noise. -->
+    <springProfile name="!prod &amp; !loki">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
         </root>
     </springProfile>
 
-    <!-- ── Root: prod — CONSOLE + Loki (Loki must be reachable) ─────── -->
-    <springProfile name="prod">
+    <!-- ── Root: prod OR loki — CONSOLE + Loki (Loki must be reachable) ──
+         Enable log shipping to the standalone Loki/Grafana stack by running the
+         app with SPRING_PROFILES_ACTIVE=loki (or prod). Point it at a custom
+         Loki via the LOKI_URL env var (maps to the loki.url property). -->
+    <springProfile name="prod | loki">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="LOKI_ASYNC"/>

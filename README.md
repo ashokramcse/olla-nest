@@ -203,6 +203,36 @@ USER_PORT=9001 BASE_URL=http://localhost:9001 \
 3. Add environment variables in the **Environment** tab; click **Run**
 4. Repeat for `OllaNestUserApplication.java`
 
+### Logs — standalone Grafana + Loki
+
+Application logs are viewed in a **standalone Grafana UI** (not inside the admin panel), backed by **Loki**. Both run as their own service, separate from the apps.
+
+```bash
+# Start the log stack — installs Loki + Grafana on first run (no Docker, no sudo)
+bash scripts/start_monitoring.sh           # start
+bash scripts/start_monitoring.sh --status  # status
+bash scripts/start_monitoring.sh --stop    # stop
+```
+
+- **Grafana (log UI):** http://localhost:8082 — login `admin` / password in `scripts/monitoring/.grafana-password`. Open the auto-provisioned **"Olla Nest — Logs"** dashboard.
+- **Loki (ingest/query API):** http://localhost:3100
+
+Ports and endpoints are configurable in the same `.env`:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `GRAFANA_PORT` | `8082` | Standalone Grafana log UI port |
+| `LOKI_PORT` | `3100` | Loki ingest/query API port |
+| `LOKI_URL` | `http://localhost:3100/loki/api/v1/push` | Where the apps push logs |
+| `LOKI_ENABLED` | `true` | Toggle the Loki appender wiring |
+
+**Make the apps ship logs to Loki** by running them with the `loki` Spring profile (they log to console only otherwise, so a plain local run stays quiet when the stack is down):
+
+```bash
+SPRING_PROFILES_ACTIVE=loki java --enable-native-access=ALL-UNNAMED -jar olla-nest-admin/target/olla-nest-admin-2026.1.9.jar &
+SPRING_PROFILES_ACTIVE=loki java --enable-native-access=ALL-UNNAMED -jar olla-nest-user/target/olla-nest-user-2026.1.9.jar &
+```
+
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment guide.
 
 ---
