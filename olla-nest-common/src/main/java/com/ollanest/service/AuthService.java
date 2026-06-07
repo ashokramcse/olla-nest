@@ -80,8 +80,18 @@ public class AuthService {
 	/** SLF4J logger for this service. */
 	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-	/** Name of the session cookie set on the browser. */
-	private static final String COOKIE_NAME = "olla_nest_session";
+	/**
+	 * Name of the session cookie set on the browser.
+	 *
+	 * <p>Configurable per service so that the admin and user applications — which
+	 * run on the same host ({@code localhost}) but different ports — do not share a
+	 * cookie. Cookies are scoped by host, not port, so a shared name would let a
+	 * login (or logout) in one app clobber the other's session. Each app sets a
+	 * distinct {@code app.session-cookie-name}; the default preserves the original
+	 * single-app value.
+	 */
+	@Value("${app.session-cookie-name:olla_nest_session}")
+	private String cookieName;
 
 	/**
 	 * Shared SecureRandom instance — reused across all {@link #setSession} calls.
@@ -188,7 +198,7 @@ public class AuthService {
 	 *
 	 * <p>
 	 * Iterates the cookie array looking for a cookie whose name equals
-	 * {@value #COOKIE_NAME}. Returns {@code null} if the cookie is absent or if the
+	 * the configured session cookie name. Returns {@code null} if the cookie is absent or if the
 	 * request carries no cookies at all.
 	 *
 	 * @param req the current HTTP servlet request; must not be {@code null}
@@ -198,7 +208,7 @@ public class AuthService {
 	public String getToken(HttpServletRequest req) {
 		if (req.getCookies() != null) {
 			for (Cookie c : req.getCookies()) {
-				if (COOKIE_NAME.equals(c.getName())) {
+				if (cookieName.equals(c.getName())) {
 					return c.getValue();
 				}
 			}
@@ -334,7 +344,7 @@ public class AuthService {
 		// same cookie name; browsers process both, and the one without SameSite may
 		// be stored instead of the hardened one on some older browsers.
 		String secureFlag = cookieSecure ? "; Secure" : "";
-		res.setHeader("Set-Cookie", COOKIE_NAME + "=" + token
+		res.setHeader("Set-Cookie", cookieName + "=" + token
 				+ "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" + SESSION_DURATION_SECONDS + secureFlag);
 	}
 
@@ -356,7 +366,7 @@ public class AuthService {
 		if (token != null) {
 			removeSession(token);
 		}
-		res.addHeader("Set-Cookie", COOKIE_NAME + "=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+		res.addHeader("Set-Cookie", cookieName + "=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
 	}
 
 	/**
