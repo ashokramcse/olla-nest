@@ -259,6 +259,17 @@ PROV_DST="$GRAFANA_DIR/provisioning"
 rm -rf "$PROV_DST/datasources" "$PROV_DST/dashboards"
 cp -r "$PROV_SRC/datasources" "$PROV_DST/"
 cp -r "$PROV_SRC/dashboards"  "$PROV_DST/"
+
+# The dashboard provider's path must be ABSOLUTE. Grafana resolves a relative
+# path (e.g. "provisioning/dashboards") against its working directory — the
+# project root, not the homepath — so a relative path silently fails to load any
+# dashboards. Rewrite it to the real synced location. (sed -i.bak is portable
+# across BSD/macOS and GNU sed.)
+if [[ -f "$PROV_DST/dashboards/provider.yml" ]]; then
+  sed -i.bak "s|path:.*dashboards|path: $PROV_DST/dashboards|" \
+    "$PROV_DST/dashboards/provider.yml"
+  rm -f "$PROV_DST/dashboards/provider.yml.bak"
+fi
 log "Grafana provisioning synced → $PROV_DST"
 
 # ── Start Loki ────────────────────────────────────────────────────────────────

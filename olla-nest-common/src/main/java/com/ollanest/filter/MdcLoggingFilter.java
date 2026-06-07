@@ -7,6 +7,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -67,6 +69,9 @@ import java.util.UUID;
 @Order(2)
 public class MdcLoggingFilter extends OncePerRequestFilter {
 
+	/** Access logger — emits one INFO line per request so traffic is visible in Loki/Grafana. */
+	private static final Logger log = LoggerFactory.getLogger(MdcLoggingFilter.class);
+
 	// ── MDC key constants ─────────────────────────────────────────────────────
 
 	/** Unique ID for the current HTTP request. */
@@ -106,10 +111,19 @@ public class MdcLoggingFilter extends OncePerRequestFilter {
 	protected void doFilterInternal(HttpServletRequest request,
 			HttpServletResponse response,
 			FilterChain filterChain) throws ServletException, IOException {
+		long startNanos = System.nanoTime();
 		try {
 			populateMdc(request);
 			filterChain.doFilter(request, response);
 		} finally {
+			// One access-log line per request (MDC still populated, so it carries
+			// requestId/userId/path labels). Emitted before MDC.clear() so the
+			// structured context is attached. Static assets are already excluded
+			// by shouldNotFilter, keeping this signal high-value.
+			long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+			log.info("{} {} -> {} ({} ms)",
+					request.getMethod(), request.getRequestURI(),
+					response.getStatus(), elapsedMs);
 			MDC.clear();
 		}
 	}
