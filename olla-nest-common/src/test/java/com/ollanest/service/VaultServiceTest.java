@@ -52,30 +52,37 @@ class VaultServiceTest {
         @Test
         @DisplayName("returns enabled=false when no config row exists")
         void returnsEnabledFalseWhenNoRow() {
+            // Stub: no vault_config row exists (fresh install or vault never configured)
             when(db.queryForList(contains("FROM vault_config"))).thenReturn(List.of());
             var result = svc.getConfig();
+            // Safe default: vault is disabled — never "accidentally" enabled
             assertThat(result.get("enabled")).isEqualTo(false);
         }
 
         @Test
         @DisplayName("never exposes session_enc in returned map")
         void sessionEncNeverExposed() {
+            // Stub: DB row contains session_enc (the encrypted Bitwarden session token)
             var row = Map.<String, Object>of("id", "singleton", "bw_path", "bw",
                     "server_url", "https://vaultwarden.example.com",
                     "enabled", 1,
                     "session_enc", "super-secret-encrypted-session-key");
             when(db.queryForList(contains("FROM vault_config"))).thenReturn(List.of(row));
             var result = svc.getConfig();
+            // SECURITY: session_enc is an encrypted credential — it must NEVER appear in
+            // the API response (could leak the vault unlock material to the browser)
             assertThat(result).doesNotContainKey("session_enc");
         }
 
         @Test
         @DisplayName("returns bw_path and server_url when row exists")
         void returnsConfigFields() {
+            // Stub: fully configured vault row
             var row = Map.<String, Object>of("id", "singleton", "bw_path", "/usr/bin/bw",
                     "server_url", "https://vault.example.com", "enabled", 1);
             when(db.queryForList(contains("FROM vault_config"))).thenReturn(List.of(row));
             var result = svc.getConfig();
+            // Non-secret fields (bw_path, server_url) must be returned so the UI can display them
             assertThat(result.get("bw_path")).isEqualTo("/usr/bin/bw");
             assertThat(result.get("server_url")).isEqualTo("https://vault.example.com");
         }
@@ -90,32 +97,40 @@ class VaultServiceTest {
         @Test
         @DisplayName("calls UPDATE first (upsert pattern)")
         void callsUpdateFirst() {
+            // Stub: UPDATE succeeds (singleton row already exists) → INSERT must NOT run
             when(db.update(contains("UPDATE vault_config"), any(), any(), any())).thenReturn(1);
             svc.saveConfig("bw", "https://vault.example.com");
+            // Upsert step 1: attempt UPDATE first
             verify(db).update(contains("UPDATE vault_config"), any(), any(), any());
         }
 
         @Test
         @DisplayName("calls INSERT when UPDATE affects 0 rows")
         void insertsWhenNoRowUpdated() {
+            // Stub: UPDATE returns 0 (no existing row) → service must INSERT instead
             when(db.update(contains("UPDATE vault_config"), any(), any(), any())).thenReturn(0);
             svc.saveConfig("bw", "https://vault.example.com");
+            // Upsert step 2: INSERT when no existing row
             verify(db).update(contains("INSERT INTO vault_config"), any(), any(), any(), any());
         }
 
         @Test
         @DisplayName("does not INSERT when UPDATE succeeds")
         void noInsertWhenUpdateSucceeds() {
+            // Stub: UPDATE row count = 1 → no INSERT should fire (avoid duplicate singleton row)
             when(db.update(contains("UPDATE vault_config"), any(), any(), any())).thenReturn(1);
             svc.saveConfig("bw", null);
+            // INSERT must be skipped when UPDATE already persisted the row
             verify(db, never()).update(contains("INSERT INTO vault_config"), (Object[]) any());
         }
 
         @Test
         @DisplayName("null bwPath defaults to 'bw'")
         void nullBwPathDefaultsToBw() {
+            // Stub: UPDATE succeeds
             when(db.update(contains("UPDATE vault_config"), any(), any(), any())).thenReturn(1);
             svc.saveConfig(null, "https://vault.example.com");
+            // null bwPath → defaulted to "bw" (system PATH lookup) before DB write
             verify(db).update(contains("UPDATE vault_config"), eq("bw"), any(), any());
         }
     }

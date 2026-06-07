@@ -28,49 +28,94 @@ class SecurityHardeningTest {
     class SsrfProtection {
 
         @Test @DisplayName("rejects null URL")
-        void nullRejected() { assertThat(UrlValidator.isSafeUrl(null)).isFalse(); }
+        void nullRejected() {
+            // SECURITY: null URL must be treated as unsafe — no NPE allowed
+            assertThat(UrlValidator.isSafeUrl(null)).isFalse();
+        }
 
         @Test @DisplayName("rejects blank URL")
-        void blankRejected() { assertThat(UrlValidator.isSafeUrl("   ")).isFalse(); }
+        void blankRejected() {
+            // Blank string cannot be a valid external URL
+            assertThat(UrlValidator.isSafeUrl("   ")).isFalse();
+        }
 
         @Test @DisplayName("rejects file:// scheme (local filesystem access)")
-        void fileSchemeRejected() { assertThat(UrlValidator.isSafeUrl("file:///etc/passwd")).isFalse(); }
+        void fileSchemeRejected() {
+            // SECURITY: file:// would allow reading local secrets like /etc/passwd
+            assertThat(UrlValidator.isSafeUrl("file:///etc/passwd")).isFalse();
+        }
 
         @Test @DisplayName("rejects ftp:// scheme")
-        void ftpSchemeRejected() { assertThat(UrlValidator.isSafeUrl("ftp://example.com/file")).isFalse(); }
+        void ftpSchemeRejected() {
+            // Only http/https are safe for external API calls
+            assertThat(UrlValidator.isSafeUrl("ftp://example.com/file")).isFalse();
+        }
 
         @Test @DisplayName("rejects javascript: scheme (XSS via URL)")
-        void javascriptSchemeRejected() { assertThat(UrlValidator.isSafeUrl("javascript:alert(1)")).isFalse(); }
+        void javascriptSchemeRejected() {
+            // SECURITY: javascript: URIs in server-side HTTP calls would be an execution exploit
+            assertThat(UrlValidator.isSafeUrl("javascript:alert(1)")).isFalse();
+        }
 
         @Test @DisplayName("rejects 127.0.0.1 (loopback)")
-        void loopbackIpRejected() { assertThat(UrlValidator.isSafeUrl("http://127.0.0.1:8080")).isFalse(); }
+        void loopbackIpRejected() {
+            // SECURITY: SSRF — 127.0.0.1 would allow attackers to reach internal services
+            assertThat(UrlValidator.isSafeUrl("http://127.0.0.1:8080")).isFalse();
+        }
 
         @Test @DisplayName("rejects 127.x.x.x (full loopback range)")
-        void loopbackRangeRejected() { assertThat(UrlValidator.isSafeUrl("http://127.255.255.255/api")).isFalse(); }
+        void loopbackRangeRejected() {
+            // The entire 127.0.0.0/8 range is loopback — all must be blocked
+            assertThat(UrlValidator.isSafeUrl("http://127.255.255.255/api")).isFalse();
+        }
 
         @Test @DisplayName("rejects localhost (resolves to loopback)")
-        void localhostRejected() { assertThat(UrlValidator.isSafeUrl("http://localhost/api")).isFalse(); }
+        void localhostRejected() {
+            // "localhost" resolves to 127.0.0.1 — must be blocked by hostname check
+            assertThat(UrlValidator.isSafeUrl("http://localhost/api")).isFalse();
+        }
 
         @Test @DisplayName("rejects 10.0.0.1 (RFC-1918 class A private)")
-        void rfc1918ClassArejected() { assertThat(UrlValidator.isSafeUrl("http://10.0.0.1/internal")).isFalse(); }
+        void rfc1918ClassArejected() {
+            // SECURITY: 10.0.0.0/8 is RFC-1918 private — would allow internal network access
+            assertThat(UrlValidator.isSafeUrl("http://10.0.0.1/internal")).isFalse();
+        }
 
         @Test @DisplayName("rejects 172.16.0.1 (RFC-1918 class B private)")
-        void rfc1918ClassBrejected() { assertThat(UrlValidator.isSafeUrl("http://172.16.0.1/internal")).isFalse(); }
+        void rfc1918ClassBrejected() {
+            // 172.16.0.0/12 range must be blocked
+            assertThat(UrlValidator.isSafeUrl("http://172.16.0.1/internal")).isFalse();
+        }
 
         @Test @DisplayName("rejects 172.31.255.255 (top of RFC-1918 class B range)")
-        void rfc1918ClassBtopRejected() { assertThat(UrlValidator.isSafeUrl("http://172.31.255.255/admin")).isFalse(); }
+        void rfc1918ClassBtopRejected() {
+            // Top boundary of the 172.16.0.0/12 range must also be blocked
+            assertThat(UrlValidator.isSafeUrl("http://172.31.255.255/admin")).isFalse();
+        }
 
         @Test @DisplayName("rejects 192.168.1.1 (RFC-1918 class C private)")
-        void rfc1918ClassCrejected() { assertThat(UrlValidator.isSafeUrl("http://192.168.1.1/router")).isFalse(); }
+        void rfc1918ClassCrejected() {
+            // 192.168.0.0/16 is RFC-1918 private — commonly used for home routers
+            assertThat(UrlValidator.isSafeUrl("http://192.168.1.1/router")).isFalse();
+        }
 
         @Test @DisplayName("rejects 169.254.169.254 (AWS metadata / link-local)")
-        void awsMetadataRejected() { assertThat(UrlValidator.isSafeUrl("http://169.254.169.254/latest/meta-data/")).isFalse(); }
+        void awsMetadataRejected() {
+            // SECURITY: AWS/GCP metadata endpoint — must never be reachable via SSRF
+            assertThat(UrlValidator.isSafeUrl("http://169.254.169.254/latest/meta-data/")).isFalse();
+        }
 
         @Test @DisplayName("rejects malformed URL")
-        void malformedUrlRejected() { assertThat(UrlValidator.isSafeUrl("not-a-url")).isFalse(); }
+        void malformedUrlRejected() {
+            // Unparseable URLs must be treated as unsafe — not passed through
+            assertThat(UrlValidator.isSafeUrl("not-a-url")).isFalse();
+        }
 
         @Test @DisplayName("rejects URL with no host")
-        void noHostRejected() { assertThat(UrlValidator.isSafeUrl("http:///path")).isFalse(); }
+        void noHostRejected() {
+            // No-host URL would bypass hostname checks — must be rejected
+            assertThat(UrlValidator.isSafeUrl("http:///path")).isFalse();
+        }
     }
 
     // ── Token entropy ──────────────────────────────────────────────────────
@@ -82,18 +127,21 @@ class SecurityHardeningTest {
         @Test
         @DisplayName("AuthService token format: exactly 64 lowercase hex characters")
         void tokenFormatIsValid() {
+            // Verify the token generation algorithm produces the expected 64-char hex format
             java.security.SecureRandom rng = new java.security.SecureRandom();
             byte[] bytes = new byte[32];
             rng.nextBytes(bytes);
             StringBuilder sb = new StringBuilder(64);
             for (byte b : bytes) sb.append(String.format("%02x", b));
             String token = sb.toString();
+            // 32 bytes = 256 bits of entropy, formatted as 64 lowercase hex chars
             assertThat(token).hasSize(64).matches("[0-9a-f]{64}");
         }
 
         @RepeatedTest(1)
         @DisplayName("1000 tokens are all unique (256-bit entropy)")
         void tokensAreUnique() {
+            // 256-bit entropy makes collision probability astronomically low — all 1000 must be unique
             java.security.SecureRandom rng = new java.security.SecureRandom();
             java.util.Set<String> tokens = new java.util.HashSet<>();
             for (int i = 0; i < 1000; i++) {
@@ -103,6 +151,7 @@ class SecurityHardeningTest {
                 for (byte b : bytes) sb.append(String.format("%02x", b));
                 tokens.add(sb.toString());
             }
+            // Any collision would indicate a broken RNG — catastrophic for session security
             assertThat(tokens).hasSize(1000);
         }
     }
@@ -117,11 +166,13 @@ class SecurityHardeningTest {
                 java.util.regex.Pattern.compile("^[0-9a-f]{64}$");
 
         private void assertRejected(String payload) {
+            // SECURITY: any payload that does not match the exact 64-hex-char format must be rejected
             assertThat(VALID.matcher(payload).matches())
                     .as("Payload should be rejected by token format guard")
                     .isFalse();
         }
 
+        // All known injection/attack payloads must fail the token format guard
         @Test void sqlUnionInjection()    { assertRejected("' UNION SELECT * FROM users --"); }
         @Test void sqlOrInjection()       { assertRejected("' OR 1=1 --"); }
         @Test void crlfInjection()        { assertRejected("valid\r\nX-Evil: injected"); }
@@ -149,6 +200,7 @@ class SecurityHardeningTest {
             java.lang.reflect.Method m =
                     ChatService.class.getMethod("cleanStaleRateLimitEntries");
             assertThat(m).isNotNull();
+            // @Scheduled annotation must be present — missing it would cause a memory leak
             assertThat(m.isAnnotationPresent(
                     org.springframework.scheduling.annotation.Scheduled.class))
                     .as("cleanStaleRateLimitEntries must be @Scheduled")
@@ -160,6 +212,7 @@ class SecurityHardeningTest {
         void rateLimitMapIsPrivate() throws Exception {
             java.lang.reflect.Field f =
                     ChatService.class.getDeclaredField("rateLimitMap");
+            // SECURITY: rateLimitMap must be private — no external mutation of rate limit state
             assertThat(java.lang.reflect.Modifier.isPrivate(f.getModifiers()))
                     .as("rateLimitMap must be private")
                     .isTrue();
@@ -177,16 +230,19 @@ class SecurityHardeningTest {
         @Test
         @DisplayName("1-bit flip in ciphertext detected by GCM auth tag")
         void oneBitFlipDetected() {
+            // Encrypt a credential, then flip one bit in the ciphertext
             String enc = crypto.encryptKey("sensitive-credential");
             String[] parts = enc.split(":");
             char flipped = parts[2].charAt(0) == '0' ? '1' : '0';
             String tampered = parts[0] + ":" + parts[1] + ":" + flipped + parts[2].substring(1);
+            // SECURITY: AES-GCM must detect the tampered ciphertext — returns empty string
             assertThat(crypto.decryptKey(tampered)).isEqualTo("");
         }
 
         @Test
         @DisplayName("prefix prepended to ciphertext detected by GCM auth tag")
         void prependDetected() {
+            // Prepend "deadbeef" to the ciphertext — GCM auth tag must catch this
             String enc = crypto.encryptKey("credential");
             String[] parts = enc.split(":");
             String tampered = parts[0] + ":" + parts[1] + ":deadbeef" + parts[2];
@@ -196,9 +252,10 @@ class SecurityHardeningTest {
         @Test
         @DisplayName("IV swap (replay attack) fails GCM authentication")
         void replayAttackDetected() {
+            // Combine IV from one ciphertext with the ciphertext+tag of another — replay attack
             String enc1 = crypto.encryptKey("value-one");
             String enc2 = crypto.encryptKey("value-two");
-            // Use IV from enc2 with tag+ciphertext from enc1
+            // Use IV from enc2 with tag+ciphertext from enc1 — GCM must reject this
             String mixed = enc2.split(":")[0] + ":" + enc1.split(":")[1] + ":" + enc1.split(":")[2];
             assertThat(crypto.decryptKey(mixed)).isNotEqualTo("value-one");
         }
@@ -206,8 +263,10 @@ class SecurityHardeningTest {
         @Test
         @DisplayName("wrong key returns empty string — GCM authentication fails")
         void wrongKeyReturnsEmpty() {
+            // Encrypt with one key, decrypt with a different key — must not succeed
             String encrypted = crypto.encryptKey("my-secret");
             CryptoService wrongKey = new CryptoService("completely-different-key");
+            // SECURITY: wrong key must return empty string — not throw or return partial data
             assertThat(wrongKey.decryptKey(encrypted)).isEqualTo("");
         }
     }
@@ -222,6 +281,7 @@ class SecurityHardeningTest {
         @DisplayName("AuthService.SECURE_RANDOM is static")
         void authServiceSecureRandomIsStatic() throws Exception {
             java.lang.reflect.Field f = AuthService.class.getDeclaredField("SECURE_RANDOM");
+            // Static field = single shared instance; per-call instantiation wastes entropy pool seeding
             assertThat(java.lang.reflect.Modifier.isStatic(f.getModifiers()))
                     .as("AuthService.SECURE_RANDOM must be static")
                     .isTrue();

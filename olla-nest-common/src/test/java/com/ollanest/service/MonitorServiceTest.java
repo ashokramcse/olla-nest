@@ -39,9 +39,11 @@ class MonitorServiceTest {
         @DisplayName("getSnapshot() shows increased request count")
         void requestCountIncreases() {
             MonitorService monitor = new MonitorService();
+            // Simulate two incoming requests arriving at the monitor
             monitor.incrementRequests();
             monitor.incrementRequests();
             Map<String, Object> snap = monitor.getSnapshot();
+            // Both increments must be reflected — counter is not lossy
             assertThat((Long) snap.get("requests")).isEqualTo(2L);
         }
     }
@@ -56,8 +58,10 @@ class MonitorServiceTest {
         @DisplayName("getSnapshot() shows increased error count")
         void errorCountIncreases() {
             MonitorService monitor = new MonitorService();
+            // Simulate one error being recorded
             monitor.incrementErrors();
             Map<String, Object> snap = monitor.getSnapshot();
+            // Error counter must advance by exactly 1
             assertThat((Long) snap.get("errors")).isEqualTo(1L);
         }
     }
@@ -73,6 +77,7 @@ class MonitorServiceTest {
         void containsAllKeys() {
             MonitorService monitor = new MonitorService();
             Map<String, Object> snap = monitor.getSnapshot();
+            // All five telemetry fields must be present — missing keys would break the dashboard
             assertThat(snap).containsKeys("uptimeMs", "requests", "errors", "memoryUsedMb", "memoryTotalMb");
         }
 
@@ -81,6 +86,7 @@ class MonitorServiceTest {
         void uptimeNonNegative() {
             MonitorService monitor = new MonitorService();
             Map<String, Object> snap = monitor.getSnapshot();
+            // Uptime must never be negative — even if the JVM clock has low resolution
             assertThat((Long) snap.get("uptimeMs")).isGreaterThanOrEqualTo(0L);
         }
 
@@ -88,6 +94,7 @@ class MonitorServiceTest {
         @DisplayName("requests starts at 0")
         void requestsStartsAtZero() {
             MonitorService monitor = new MonitorService();
+            // Fresh instance — no requests have been processed yet
             assertThat((Long) monitor.getSnapshot().get("requests")).isEqualTo(0L);
         }
 
@@ -95,6 +102,7 @@ class MonitorServiceTest {
         @DisplayName("errors starts at 0")
         void errorsStartsAtZero() {
             MonitorService monitor = new MonitorService();
+            // Fresh instance — no errors have been recorded yet
             assertThat((Long) monitor.getSnapshot().get("errors")).isEqualTo(0L);
         }
     }
@@ -112,11 +120,13 @@ class MonitorServiceTest {
             CountDownLatch latch = new CountDownLatch(2);
             ExecutorService exec = Executors.newFixedThreadPool(2);
 
+            // Two threads increment concurrently — AtomicLong must handle both increments
             exec.submit(() -> { monitor.incrementRequests(); latch.countDown(); });
             exec.submit(() -> { monitor.incrementRequests(); latch.countDown(); });
             latch.await();
             exec.shutdown();
 
+            // Neither increment should have been lost due to a race condition
             assertThat((Long) monitor.getSnapshot().get("requests")).isEqualTo(2L);
         }
     }

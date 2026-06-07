@@ -61,6 +61,7 @@ class AtomicWriteServiceTest {
         void fileHasCorrectContent() throws Exception {
             Path dest = tempDir.resolve("output.txt");
             svc.writeText(dest, "Hello, atomic world!");
+            // Verify the file was created and contains exactly the expected content
             assertThat(Files.readString(dest, StandardCharsets.UTF_8)).isEqualTo("Hello, atomic world!");
         }
 
@@ -69,6 +70,7 @@ class AtomicWriteServiceTest {
         void noTempFileRemains() throws Exception {
             Path dest = tempDir.resolve("clean.txt");
             svc.writeText(dest, "Content");
+            // Atomic write uses a temp file then renames — temp must be cleaned up on success
             long tmpCount = Files.list(tempDir).filter(p -> p.toString().contains(".tmp.")).count();
             assertThat(tmpCount).isZero();
         }
@@ -77,7 +79,9 @@ class AtomicWriteServiceTest {
         @DisplayName("overwrites existing file atomically")
         void overwritesExistingFile() throws Exception {
             Path dest = tempDir.resolve("overwrite.txt");
+            // Step 1: write original content
             svc.writeText(dest, "Original");
+            // Step 2: overwrite atomically — old content replaced in a single rename
             svc.writeText(dest, "Updated");
             assertThat(Files.readString(dest, StandardCharsets.UTF_8)).isEqualTo("Updated");
         }
@@ -85,6 +89,7 @@ class AtomicWriteServiceTest {
         @Test
         @DisplayName("creates parent directories if they do not exist")
         void createsParentDirs() throws Exception {
+            // Deeply nested path — service must create all intermediate directories
             Path dest = tempDir.resolve("deep/nested/dir/file.txt");
             svc.writeText(dest, "Deep content");
             assertThat(Files.exists(dest)).isTrue();
@@ -96,6 +101,7 @@ class AtomicWriteServiceTest {
         void emptyStringWrittenAsEmptyFile() throws Exception {
             Path dest = tempDir.resolve("empty.txt");
             svc.writeText(dest, "");
+            // Empty string must produce a 0-byte file, not throw
             assertThat(Files.readString(dest, StandardCharsets.UTF_8)).isEmpty();
         }
     }
@@ -113,7 +119,7 @@ class AtomicWriteServiceTest {
             var data = Map.of("key", "value", "count", 42);
             svc.writeJson(dest, data);
             String written = Files.readString(dest, StandardCharsets.UTF_8);
-            // Verify it is valid JSON by re-parsing
+            // Verify it is valid JSON by re-parsing — malformed JSON would throw here
             var parsed = mapper.readTree(written);
             assertThat(parsed.get("key").asText()).isEqualTo("value");
             assertThat(parsed.get("count").asInt()).isEqualTo(42);
@@ -125,6 +131,7 @@ class AtomicWriteServiceTest {
             Path dest = tempDir.resolve("pretty.json");
             svc.writeJson(dest, Map.of("a", 1));
             String written = Files.readString(dest, StandardCharsets.UTF_8);
+            // Pretty-printing makes files human-readable and diff-friendly in git
             assertThat(written).contains("\n");
         }
     }
@@ -141,6 +148,7 @@ class AtomicWriteServiceTest {
             byte[] bytes = {0x01, 0x02, 0x03, 0x04, (byte) 0xFF};
             Path dest = tempDir.resolve("binary.bin");
             svc.writeBytes(dest, bytes);
+            // Binary content must be written verbatim — no encoding or transformation
             assertThat(Files.readAllBytes(dest)).isEqualTo(bytes);
         }
 
@@ -149,6 +157,7 @@ class AtomicWriteServiceTest {
         void emptyBytesCreatesEmptyFile() throws Exception {
             Path dest = tempDir.resolve("empty.bin");
             svc.writeBytes(dest, new byte[0]);
+            // File must exist even with zero bytes
             assertThat(Files.exists(dest)).isTrue();
             assertThat(Files.readAllBytes(dest)).isEmpty();
         }
@@ -157,7 +166,9 @@ class AtomicWriteServiceTest {
         @DisplayName("overwrites existing file with new bytes")
         void overwritesExistingBytes() throws Exception {
             Path dest = tempDir.resolve("overwrite.bin");
+            // Step 1: write 3 bytes
             svc.writeBytes(dest, new byte[]{1, 2, 3});
+            // Step 2: overwrite with 2 bytes — old content must be gone (not padded)
             svc.writeBytes(dest, new byte[]{9, 8});
             assertThat(Files.readAllBytes(dest)).isEqualTo(new byte[]{9, 8});
         }

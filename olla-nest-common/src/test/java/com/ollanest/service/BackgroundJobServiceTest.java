@@ -59,6 +59,7 @@ class BackgroundJobServiceTest {
         @DisplayName("returned ID starts with 'job-'")
         void idStartsWithJobPrefix() {
             String id = svc.register(OWNER, "download", "My Download");
+            // job- prefix makes background job IDs recognisable in logs and APIs
             assertThat(id).startsWith("job-");
         }
 
@@ -69,6 +70,7 @@ class BackgroundJobServiceTest {
             svc.register(OWNER, "research", "Deep Research");
             verify(db).update(contains("INSERT INTO background_jobs"), cap.capture());
             Object[] args = cap.getValue();
+            // args[0] = id, args[1] = owner, args[2] = job_type, args[3] = name — verify correct values
             assertThat(args[1]).isEqualTo(OWNER);
             assertThat(args[2]).isEqualTo("research");
             assertThat(args[3]).isEqualTo("Deep Research");
@@ -80,6 +82,7 @@ class BackgroundJobServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.register(OWNER, "sync", "Connector Sync");
             verify(db).update(contains("INSERT INTO background_jobs"), cap.capture());
+            // args[4] = status — must be "running" at registration time
             assertThat(cap.getValue()[4]).isEqualTo("running");
         }
 
@@ -89,6 +92,7 @@ class BackgroundJobServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.register(OWNER, "email", "Email Poll");
             verify(db).update(contains("INSERT INTO background_jobs"), cap.capture());
+            // args[5] = progress — must start at 0
             assertThat(cap.getValue()[5]).isEqualTo(0);
         }
     }
@@ -103,6 +107,7 @@ class BackgroundJobServiceTest {
         @DisplayName("calls UPDATE with progress value and message")
         void updatesProgressAndMsg() {
             svc.updateProgress("job-123", 42, "Processing...");
+            // Both progress percentage and message must be persisted
             verify(db).update(contains("UPDATE background_jobs SET progress"), eq(42), eq("Processing..."), eq("job-123"));
         }
     }
@@ -118,17 +123,20 @@ class BackgroundJobServiceTest {
         void setsCompletedStatus() throws Exception {
             when(mapper.writeValueAsString(any())).thenReturn("{\"result\":true}");
             svc.complete("job-abc", Map.of("result", true));
+            // Status must change to 'completed' and progress set to 100
             verify(db).update(contains("status='completed'"), any(), any(), any());
         }
 
         @Test
         @DisplayName("removes thread from running map — cancel after complete returns false")
         void removesThreadFromMap() {
+            // Step 1: register a job and attach a thread
             String id = svc.register(OWNER, "t", "T");
             Thread mockThread = mock(Thread.class);
             svc.registerThread(id, mockThread);
+            // Step 2: complete the job — thread must be removed from the map
             svc.complete(id, null);
-            // After complete, the thread is removed — cancel should return false (no thread)
+            // Step 3: cancel after complete returns false — no thread to interrupt
             boolean result = svc.cancel(id);
             assertThat(result).isFalse();
         }
@@ -136,6 +144,7 @@ class BackgroundJobServiceTest {
         @Test
         @DisplayName("null result does not throw (no mapper call needed)")
         void nullResultNoException() {
+            // No exception thrown = null result is handled gracefully (no serialisation needed)
             assertThatCode(() -> svc.complete("job-xyz", null)).doesNotThrowAnyException();
         }
     }
@@ -150,17 +159,20 @@ class BackgroundJobServiceTest {
         @DisplayName("calls UPDATE with status='error' and error message")
         void setsErrorStatus() {
             svc.fail("job-123", "Connection refused");
+            // Error message and status must be persisted for the UI to display
             verify(db).update(contains("status='error'"), eq("Connection refused"), any(), eq("job-123"));
         }
 
         @Test
         @DisplayName("removes thread from map after fail")
         void removesThreadFromMap() {
+            // Step 1: register a job and attach a thread
             String id = svc.register(OWNER, "t", "T");
             Thread t = mock(Thread.class);
             svc.registerThread(id, t);
+            // Step 2: mark job as failed — thread must be removed
             svc.fail(id, "error");
-            // Thread removed — cancel returns false
+            // Thread removed — cancel returns false (no thread to interrupt)
             assertThat(svc.cancel(id)).isFalse();
         }
     }
@@ -174,8 +186,10 @@ class BackgroundJobServiceTest {
         @Test
         @DisplayName("returns false and still calls UPDATE when no thread registered")
         void returnsFalseWhenNoThread() {
+            // Register a job but don't attach a thread
             String id = svc.register(OWNER, "t", "Test");
             boolean result = svc.cancel(id);
+            // No thread to interrupt → returns false, but DB status must still be updated
             assertThat(result).isFalse();
             verify(db).update(contains("status='cancelled'"), any(), any());
         }
@@ -183,9 +197,11 @@ class BackgroundJobServiceTest {
         @Test
         @DisplayName("returns true and interrupts thread when thread is registered")
         void interruptsThread() {
+            // Step 1: register a job and attach a mock thread
             String id = svc.register(OWNER, "t", "Test");
             Thread mockThread = mock(Thread.class);
             svc.registerThread(id, mockThread);
+            // Step 2: cancel — thread must be interrupted
             boolean result = svc.cancel(id);
             assertThat(result).isTrue();
             verify(mockThread).interrupt();
@@ -196,6 +212,7 @@ class BackgroundJobServiceTest {
         void alwaysUpdatesDbStatus() {
             String id = svc.register(OWNER, "t", "Test");
             svc.cancel(id);
+            // DB update must always happen regardless of whether a thread was attached
             verify(db).update(contains("status='cancelled'"), any(), any());
         }
     }
@@ -211,6 +228,7 @@ class BackgroundJobServiceTest {
         void listActiveQueriesRunning() {
             when(db.queryForList(contains("status='running'"))).thenReturn(List.of());
             svc.listActive();
+            // Must query specifically for 'running' status — not completed or failed jobs
             verify(db).queryForList(contains("status='running'"));
         }
 
@@ -226,6 +244,7 @@ class BackgroundJobServiceTest {
         @DisplayName("listByOwner() defaults limit to 20 when limit <= 0")
         void listByOwnerDefaultsLimitTo20() {
             when(db.queryForList(anyString(), eq(OWNER), eq(20))).thenReturn(List.of());
+            // 0 or negative limit must be normalised to 20 to prevent full-table scans
             svc.listByOwner(OWNER, 0);
             verify(db).queryForList(anyString(), eq(OWNER), eq(20));
         }
@@ -234,6 +253,7 @@ class BackgroundJobServiceTest {
         @DisplayName("getById() returns null when DB returns no rows")
         void getByIdReturnsNullWhenEmpty() {
             when(db.queryForList(anyString(), eq("job-missing"))).thenReturn(List.of());
+            // Missing job → null, not exception
             assertThat(svc.getById("job-missing")).isNull();
         }
 

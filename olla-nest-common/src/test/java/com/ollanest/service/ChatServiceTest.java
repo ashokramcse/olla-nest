@@ -61,30 +61,35 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("null returns 0")
 		void nullReturnsZero() {
+			// Null guard — streaming can produce null content chunks
 			assertThat(service.estimateTokens(null)).isEqualTo(0);
 		}
 
 		@Test
 		@DisplayName("empty string returns 0")
 		void emptyReturnsZero() {
+			// Empty string has no tokens — must not return 1 (ceiling of 0)
 			assertThat(service.estimateTokens("")).isEqualTo(0);
 		}
 
 		@Test
 		@DisplayName("4-character string estimates 1 token")
 		void fourCharsIsOneToken() {
+			// Heuristic: 1 token ≈ 4 chars (GPT tokenizer approximation)
 			assertThat(service.estimateTokens("abcd")).isEqualTo(1);
 		}
 
 		@Test
 		@DisplayName("8-character string estimates 2 tokens")
 		void eightCharsIsTwoTokens() {
+			// 8 chars / 4 = 2 tokens exactly
 			assertThat(service.estimateTokens("abcdefgh")).isEqualTo(2);
 		}
 
 		@Test
 		@DisplayName("ceiling applied: 5 chars → 2 tokens (⌈5/4⌉)")
 		void ceilingApplied() {
+			// Ceiling ensures partial tokens are counted — avoids underestimation
 			assertThat(service.estimateTokens("hello")).isEqualTo(2);
 		}
 	}
@@ -98,6 +103,7 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("limitPerMinute=0 always allows (rate limiting disabled)")
 		void zeroLimitAlwaysAllows() {
+			// limitPerMinute=0 is the "unlimited" sentinel — admin accounts use this
 			for (int i = 0; i < 1000; i++)
 				assertThat(service.checkChatRateLimit("user-1", 0)).isTrue();
 		}
@@ -105,12 +111,14 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("negative limit always allows")
 		void negativeLimitAlwaysAllows() {
+			// Negative value also treated as unlimited (defensive guard)
 			assertThat(service.checkChatRateLimit("user-2", -1)).isTrue();
 		}
 
 		@Test
 		@DisplayName("allows exactly limitPerMinute requests within window")
 		void allowsUpToLimit() {
+			// 5 requests for limit=5 must all be allowed (inclusive boundary)
 			for (int i = 0; i < 5; i++)
 				assertThat(service.checkChatRateLimit("user-3", 5)).isTrue();
 		}
@@ -118,20 +126,25 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("denies the (limit+1)-th request within window")
 		void deniesOnceOverLimit() {
+			// Use a unique UID per test run to avoid counter state from other tests
 			String uid = "user-over-" + System.nanoTime();
+			// Fill up the limit
 			for (int i = 0; i < 3; i++)
 				service.checkChatRateLimit(uid, 3);
+			// (limit+1)-th request must be denied
 			assertThat(service.checkChatRateLimit(uid, 3)).isFalse();
 		}
 
 		@Test
 		@DisplayName("different users have independent counters")
 		void differentUsersAreIndependent() {
+			// Use nanoTime-based UIDs to ensure isolation from other tests
 			String u1 = "u-" + System.nanoTime();
 			String u2 = "v-" + System.nanoTime();
+			// Exhaust u1's limit
 			for (int i = 0; i < 5; i++)
 				service.checkChatRateLimit(u1, 5);
-			// u1 is at limit, u2 should still be allowed
+			// u1 is at limit, u2 should still be allowed (independent counter)
 			assertThat(service.checkChatRateLimit(u2, 5)).isTrue();
 		}
 
@@ -194,6 +207,7 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("uid starts with the given prefix")
 		void hasPrefix() {
+			// Prefix encodes the entity type — makes IDs self-describing in logs
 			assertThat(service.uid("chat")).startsWith("chat-");
 			assertThat(service.uid("msg")).startsWith("msg-");
 			assertThat(service.uid("audit")).startsWith("audit-");
@@ -203,7 +217,7 @@ class ChatServiceTest {
 		@DisplayName("uid contains exactly two hyphens (prefix-ms-rand)")
 		void hasTwoHyphens() {
 			String id = service.uid("chat");
-			// format: "chat-<base36ms>-<base36rand>" → 2 hyphens
+			// Format: "chat-<base36ms>-<base36rand>" → exactly 2 hyphens
 			assertThat(id.chars().filter(c -> c == '-').count()).isEqualTo(2);
 		}
 
@@ -211,6 +225,7 @@ class ChatServiceTest {
 		@DisplayName("1000 uid() calls produce no collisions (SecureRandom entropy sufficient)")
 		void noDuplicates() {
 			// Generate 1000 IDs in a tight loop and verify uniqueness
+			// (SecureRandom suffix + ms timestamp provides sufficient collision resistance)
 			Set<String> ids = new HashSet<>();
 			for (int i = 0; i < 1000; i++)
 				ids.add(service.uid("test"));
@@ -227,6 +242,7 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("maps all core fields correctly")
 		void mapsAllFields() {
+			// Construct a full DB row with all columns populated
 			Map<String, Object> row = new java.util.LinkedHashMap<>();
 			row.put("id", "msg-001");
 			row.put("role", "user");
@@ -242,6 +258,7 @@ class ChatServiceTest {
 
 			Map<String, Object> msg = service.parseMessage(row);
 
+			// snake_case DB columns → camelCase API fields
 			assertThat(msg.get("id")).isEqualTo("msg-001");
 			assertThat(msg.get("role")).isEqualTo("user");
 			assertThat(msg.get("content")).isEqualTo("Hello world");
@@ -249,12 +266,14 @@ class ChatServiceTest {
 			assertThat(msg.get("modelId")).isEqualTo("m-llama");
 			assertThat(msg.get("modelName")).isEqualTo("Llama 3");
 			assertThat(msg.get("routeReason")).isEqualTo("Best local model");
+			// live=1 → boolean true in the API response
 			assertThat(msg.get("live")).isEqualTo(true);
 		}
 
 		@Test
 		@DisplayName("live=0 maps to false")
 		void liveZeroIsFalse() {
+			// live=0 (historical / non-streaming message) must map to boolean false
 			Map<String, Object> row = new java.util.LinkedHashMap<>();
 			row.put("role", "assistant");
 			row.put("content", "Response");
@@ -266,6 +285,7 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("null live defaults to true")
 		void nullLiveIsTrue() {
+			// Null live (column absent in older rows) defaults to true (message is considered live)
 			Map<String, Object> row = new java.util.LinkedHashMap<>();
 			row.put("role", "assistant");
 			row.put("content", "x");
@@ -277,6 +297,7 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("artifacts_json null → empty list")
 		void nullArtifactsIsEmptyList() {
+			// Null artifacts_json: message has no generated artifacts — UI receives []
 			Map<String, Object> row = new java.util.LinkedHashMap<>();
 			row.put("role", "user");
 			row.put("content", "x");
@@ -284,12 +305,14 @@ class ChatServiceTest {
 			row.put("artifacts_json", null);
 			row.put("extracted_files_json", null);
 			row.put("created_at", "now");
+			// Empty list (not null) — UI can safely iterate
 			assertThat(service.parseMessage(row).get("artifacts")).isEqualTo(List.of());
 		}
 
 		@Test
 		@DisplayName("valid artifacts_json is deserialised to a list")
 		void validArtifactsJsonDeserialised() {
+			// Artifacts stored as JSON array in DB — must be deserialised for the API
 			Map<String, Object> row = new java.util.LinkedHashMap<>();
 			row.put("role", "assistant");
 			row.put("content", "x");
@@ -299,6 +322,7 @@ class ChatServiceTest {
 			row.put("created_at", "now");
 			@SuppressWarnings("unchecked")
 			List<Object> artifacts = (List<Object>) service.parseMessage(row).get("artifacts");
+			// Two artifacts parsed in order
 			assertThat(artifacts).containsExactly("file1.py", "file2.py");
 		}
 	}
@@ -313,9 +337,11 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("writes to audit_events with correct columns")
 		void writesAuditRow() {
+			// Audit write: userId, event, detail, ip, timestamp — all parameterized
 			service.appendAudit("alice", "user.login", "Signed in", null);
 			verify(db).update(
 					contains("INSERT INTO audit_events"),
+					// args: id, userId, event, detail, ip, created_at
 					any(), eq("alice"), eq("user.login"), eq("Signed in"),
 					anyString(), anyString());
 		}
@@ -323,6 +349,7 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("null detail is written as empty string (not null)")
 		void nullDetailBecomesEmptyString() {
+			// Null detail must be coerced to "" — avoids NOT NULL constraint violation
 			service.appendAudit("system", "startup", null, null);
 			verify(db).update(
 					contains("INSERT INTO audit_events"),
@@ -333,9 +360,11 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("DB exception during audit is silently swallowed (fire-and-forget)")
 		void dbExceptionSwallowed() {
+			// Stub: DB throws during audit INSERT (e.g. disk full)
 			doThrow(new org.springframework.dao.DataAccessException("DB down") {})
 					.when(db).update(contains("INSERT INTO audit_events"),
 							any(), any(), any(), any(), any(), any());
+			// Audit is fire-and-forget — a DB failure must NEVER crash the chat flow
 			assertThatNoException()
 					.isThrownBy(() -> service.appendAudit("u", "action", "detail", null));
 		}
@@ -360,11 +389,13 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("empty history produces [system, user] messages only")
 		void emptyHistoryProducesSystemAndUser() {
+			// Stub: no prior messages in this session
 			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(List.of());
 
 			List<Map<String, Object>> msgs = service.buildContextMessages(
 					"sess-1", "You are helpful.", "Hello!", "llama3", null);
 
+			// [system prompt, user turn] — minimal valid message array for the LLM
 			assertThat(msgs).hasSize(2);
 			assertThat(msgs.get(0).get("role")).isEqualTo("system");
 			assertThat(msgs.get(1).get("role")).isEqualTo("user");
@@ -374,6 +405,7 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("history messages are included between system and user")
 		void historyMessagesIncluded() {
+			// Stub: 2 prior messages in the session
 			List<Map<String, Object>> history = List.of(
 					Map.of("role", "user",      "content", "First question"),
 					Map.of("role", "assistant",  "content", "First answer")
@@ -383,6 +415,7 @@ class ChatServiceTest {
 			List<Map<String, Object>> msgs = service.buildContextMessages(
 					"sess-2", "sys", "Follow-up?", "llama3", null);
 
+			// Order: system, history[0], history[1], user
 			assertThat(msgs).hasSize(4); // system + 2 history + user
 			assertThat(msgs.get(1).get("content")).isEqualTo("First question");
 			assertThat(msgs.get(2).get("content")).isEqualTo("First answer");
@@ -392,12 +425,14 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("images list is attached to the user message when provided")
 		void imagesAttachedToUserMessage() {
+			// Stub: no history — vision request with one image
 			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(List.of());
 
 			List<Map<String, Object>> msgs = service.buildContextMessages(
 					"sess-3", "sys", "Describe this image", "llama3",
 					List.of("base64encodedImageData=="));
 
+			// Images array must be attached to the last (user) message, not the system message
 			@SuppressWarnings("unchecked")
 			List<String> images = (List<String>) msgs.get(msgs.size() - 1).get("images");
 			assertThat(images).containsExactly("base64encodedImageData==");
@@ -414,11 +449,11 @@ class ChatServiceTest {
 			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(bigHistory);
 
 			// Context window is 8192 (fallback); system + user message use ~512 reserved
-			// So budget ~7680 tokens; 100 * 50 = 5000 tokens — all should fit
+			// So budget ~7680 tokens; 100 * 50 = 5000 tokens — all should fit here
 			List<Map<String, Object>> msgs = service.buildContextMessages(
 					"sess-4", "s".repeat(100), "m".repeat(100), "llama3", null);
 
-			// Must have system + N_history + user, and N_history ≤ 100
+			// Result must always begin with system and end with user
 			assertThat(msgs.size()).isGreaterThanOrEqualTo(2); // at minimum system + user
 			assertThat(msgs.get(0).get("role")).isEqualTo("system");
 			assertThat(msgs.get(msgs.size() - 1).get("role")).isEqualTo("user");

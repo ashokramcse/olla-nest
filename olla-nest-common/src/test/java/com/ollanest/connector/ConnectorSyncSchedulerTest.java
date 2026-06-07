@@ -48,8 +48,10 @@ class ConnectorSyncSchedulerTest {
         @Test
         @DisplayName("when no enabled connectors, no connector.sync() calls made")
         void noSyncWhenNoEnabled() {
+            // Stub: no enabled connector configs in DB
             when(db.queryForList(contains("WHERE enabled = 1"))).thenReturn(List.of());
             scheduler.scheduledSync();
+            // No connector should be looked up if there are no enabled configs
             verify(registry, never()).get(anyString());
         }
 
@@ -58,8 +60,10 @@ class ConnectorSyncSchedulerTest {
         void skipsWhenConnectorNotRegistered() {
             Map<String, Object> cfg = Map.of("id", "cfg-1", "type", "unknown_type",
                     "enabled", 1, "credentials_enc", "enc-val");
+            // Stub: one enabled config with an unrecognised type
             when(db.queryForList(contains("WHERE enabled = 1"))).thenReturn(List.of(cfg));
             when(registry.get("unknown_type")).thenReturn(null);
+            // No exception thrown = scheduler gracefully skips unknown types
             assertThatCode(() -> scheduler.scheduledSync()).doesNotThrowAnyException();
         }
 
@@ -68,15 +72,18 @@ class ConnectorSyncSchedulerTest {
         void syncLogInsertedOnSuccess() throws Exception {
             Map<String, Object> cfg = Map.of("id", "cfg-1", "type", "github",
                     "enabled", 1, "credentials_enc", "enc-val");
+            // Stub: one enabled github config
             when(db.queryForList(contains("WHERE enabled = 1"))).thenReturn(List.of(cfg));
 
             BaseConnector connector = mock(BaseConnector.class);
             when(registry.get("github")).thenReturn(connector);
+            // Stub: decrypt credentials and return a successful sync result
             when(cryptoService.decryptKey("enc-val")).thenReturn("{\"token\":\"ghp_test\"}");
             when(connector.sync(any(), anyString())).thenReturn(BaseConnector.SyncResult.ok(5, 2));
 
             scheduler.scheduledSync();
 
+            // Successful sync must be persisted to the sync log for audit/monitoring
             verify(db).update(contains("INSERT INTO connector_sync_log"), (Object[]) any());
         }
 
@@ -85,13 +92,16 @@ class ConnectorSyncSchedulerTest {
         void exceptionWritesErrorLog() {
             Map<String, Object> cfg = Map.of("id", "cfg-2", "type", "slack",
                     "enabled", 1, "credentials_enc", "enc-val");
+            // Stub: one enabled slack config
             when(db.queryForList(contains("WHERE enabled = 1"))).thenReturn(List.of(cfg));
 
             BaseConnector connector = mock(BaseConnector.class);
             when(registry.get("slack")).thenReturn(connector);
             when(cryptoService.decryptKey("enc-val")).thenReturn("{}");
+            // Stub: connector throws a network error during sync
             when(connector.sync(any(), anyString())).thenThrow(new RuntimeException("Network error"));
 
+            // No exception thrown = scheduler swallows the error (other connectors still run)
             assertThatCode(() -> scheduler.scheduledSync()).doesNotThrowAnyException();
             // Error log should be updated
             verify(db, atLeastOnce()).update(contains("status='error'"), (Object[]) any());

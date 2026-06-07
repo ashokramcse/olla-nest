@@ -51,7 +51,9 @@ class NotificationServiceTest {
         @Test
         @DisplayName("channel='none' — notify() returns without any error")
         void channelNoneNoOp() {
+            // Stub: admin has disabled notifications — channel is "none"
             when(databaseService.getSetting(eq("notificationChannel"), anyString())).thenReturn("none");
+            // No exception = service correctly skips dispatch for "none" channel
             assertThatCode(() -> svc.notify(OWNER, "Title", "Body", 3))
                     .doesNotThrowAnyException();
         }
@@ -59,7 +61,9 @@ class NotificationServiceTest {
         @Test
         @DisplayName("channel='email' — logs notification, no exception thrown")
         void channelEmailNoException() {
+            // Stub: email channel is configured — the service logs but does not send real email
             when(databaseService.getSetting(eq("notificationChannel"), anyString())).thenReturn("email");
+            // No exception = email path is handled gracefully even without a real SMTP server
             assertThatCode(() -> svc.notify(OWNER, "Reminder", "Your task is due", 3))
                     .doesNotThrowAnyException();
         }
@@ -67,23 +71,27 @@ class NotificationServiceTest {
         @Test
         @DisplayName("channel='ntfy' — getSetting called for ntfyUrl")
         void channelNtfyCallsGetSetting() {
+            // Stub: ntfy channel with all required settings
             when(databaseService.getSetting(eq("notificationChannel"), anyString())).thenReturn("ntfy");
             when(databaseService.getSetting(eq("ntfyUrl"), anyString())).thenReturn("https://ntfy.sh");
             when(databaseService.getSetting(eq("ntfyTopic"), anyString())).thenReturn("test-topic");
             when(databaseService.getSetting(eq("ntfyAuth"), anyString())).thenReturn("");
-            // ntfy is async — just verify no exception and getSetting is called
+            // ntfy is async — just verify no exception and getSetting is called for the URL
             assertThatCode(() -> svc.notify(OWNER, "Alert", "Something happened", 5))
                     .doesNotThrowAnyException();
+            // ntfyUrl must be read from settings — hardcoding it would be a configuration bug
             verify(databaseService, atLeastOnce()).getSetting(eq("ntfyUrl"), anyString());
         }
 
         @Test
         @DisplayName("channel='ntfy' with auth header — no exception")
         void channelNtfyWithAuth() {
+            // Stub: ntfy with Basic auth credentials configured
             when(databaseService.getSetting(eq("notificationChannel"), anyString())).thenReturn("ntfy");
             when(databaseService.getSetting(eq("ntfyUrl"), anyString())).thenReturn("https://ntfy.example.com");
             when(databaseService.getSetting(eq("ntfyTopic"), anyString())).thenReturn("my-topic");
             when(databaseService.getSetting(eq("ntfyAuth"), anyString())).thenReturn("user:pass");
+            // Auth header path must not throw even though HTTP call is async
             assertThatCode(() -> svc.notify(OWNER, "T", "M", 1))
                     .doesNotThrowAnyException();
         }
@@ -91,7 +99,9 @@ class NotificationServiceTest {
         @Test
         @DisplayName("unknown channel — no exception (graceful fallback)")
         void unknownChannelNoException() {
+            // Stub: an unconfigured/future channel type the service doesn't know about
             when(databaseService.getSetting(eq("notificationChannel"), anyString())).thenReturn("slack");
+            // No exception = service has a safe fallback for unrecognised channel names
             assertThatCode(() -> svc.notify(OWNER, "Title", "Body", 3))
                     .doesNotThrowAnyException();
         }
@@ -99,7 +109,9 @@ class NotificationServiceTest {
         @Test
         @DisplayName("priority is clamped — no exception for extreme values")
         void extremePriorityNoException() {
+            // Stub: "none" channel so we test priority validation in isolation
             when(databaseService.getSetting(eq("notificationChannel"), anyString())).thenReturn("none");
+            // Out-of-range priority values must be clamped/ignored — not throw
             assertThatCode(() -> svc.notify(OWNER, "T", "M", 999)).doesNotThrowAnyException();
             assertThatCode(() -> svc.notify(OWNER, "T", "M", -5)).doesNotThrowAnyException();
         }

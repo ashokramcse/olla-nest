@@ -70,66 +70,77 @@ class NotesServiceTest {
         @Test
         @DisplayName("inserts a row into the notes table")
         void insertsRow() {
+            // Stub DB to return the newly created note after INSERT
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(noteRow("note-1", "My Note", "note", 0)));
             notesService.create(OWNER, Map.of("title", "My Note", "content", "body text"));
+            // Verify the INSERT was executed — note must be persisted
             verify(db).update(contains("INSERT INTO notes"), (Object[]) any());
         }
 
         @Test
         @DisplayName("note ID starts with 'note-'")
         void idStartsWithNotePrefix() {
+            // Stub DB to return a note row after creation
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(noteRow("note-abc", "Note", "note", 0)));
             notesService.create(OWNER, Map.of("title", "Note"));
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             verify(db).update(contains("INSERT INTO notes"), cap.capture());
+            // arg[0] = id — must use the "note-" prefix for consistent ID namespace
             assertThat(cap.getValue()[0].toString()).startsWith("note-");
         }
 
         @Test
         @DisplayName("default note_type is 'note' when not specified")
         void defaultNoteType() {
+            // Stub DB to return a basic note row
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(noteRow("note-1", "Note", "note", 0)));
             notesService.create(OWNER, Map.of("title", "Note"));
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             verify(db).update(contains("INSERT INTO notes"), cap.capture());
-            // note_type is at index 5 in the INSERT args
+            // note_type is at index 5 in the INSERT args — must default to "note"
             assertThat(cap.getValue()[5]).isEqualTo("note");
         }
 
         @Test
         @DisplayName("checklist note type is persisted when explicitly set")
         void checklistTypePersistedWhenSet() {
+            // Stub DB to return a checklist note row
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(noteRow("note-1", "Checklist", "checklist", 0)));
             notesService.create(OWNER, Map.of("title", "Checklist", "note_type", "checklist",
                     "items", List.of(Map.of("text", "Task 1", "checked", false))));
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             verify(db).update(contains("INSERT INTO notes"), cap.capture());
+            // note_type at index 5 must be "checklist" when explicitly specified
             assertThat(cap.getValue()[5]).isEqualTo("checklist");
         }
 
         @Test
         @DisplayName("owner is stored from the argument — not from request body")
         void ownerFromArgument() {
+            // SECURITY: owner must come from the authenticated session argument, not the request body
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(noteRow("note-1", "Note", "note", 0)));
             notesService.create(OWNER, Map.of("title", "Note"));
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             verify(db).update(contains("INSERT INTO notes"), cap.capture());
-            assertThat(cap.getValue()[1]).isEqualTo(OWNER); // owner at index 1
+            // args[1] = owner — must be exactly the owner passed to create()
+            assertThat(cap.getValue()[1]).isEqualTo(OWNER);
         }
 
         @Test
         @DisplayName("default color is 'default' when not specified")
         void defaultColorIsDefault() {
+            // Stub DB for the post-insert fetch
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(noteRow("note-1", "Note", "note", 0)));
             notesService.create(OWNER, Map.of("title", "Note"));
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             verify(db).update(contains("INSERT INTO notes"), cap.capture());
+            // args[6] = color — must default to "default" when not provided
             assertThat(cap.getValue()[6]).isEqualTo("default");
         }
 
@@ -137,11 +148,13 @@ class NotesServiceTest {
         @ValueSource(strings = {"yellow", "green", "blue", "pink", "purple", "orange"})
         @DisplayName("custom color is stored correctly")
         void customColorStored(String color) {
+            // Stub DB to return note row with the specified color
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(noteRow("note-1", "Note", "note", 0)));
             notesService.create(OWNER, Map.of("title", "Note", "color", color));
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             verify(db).update(contains("INSERT INTO notes"), cap.capture());
+            // args[6] = color — the caller-supplied value must be persisted verbatim
             assertThat(cap.getValue()[6]).isEqualTo(color);
         }
     }
@@ -155,24 +168,30 @@ class NotesServiceTest {
         @Test
         @DisplayName("executes DELETE WHERE id=? AND owner=?")
         void deletesOwnedNote() {
+            // Stub: DB reports one row deleted (note found and owned)
             when(db.update(contains("DELETE FROM notes"), anyString(), anyString())).thenReturn(1);
             assertThatCode(() -> notesService.delete("note-1", OWNER)).doesNotThrowAnyException();
+            // Both id and owner must be in the WHERE clause to prevent cross-user deletion
             verify(db).update(contains("DELETE FROM notes"), eq("note-1"), eq(OWNER));
         }
 
         @Test
         @DisplayName("throws NoSuchElementException when note not owned or missing")
         void throwsWhenNotFound() {
+            // Stub: DB reports 0 rows deleted — note not found or not owned by this user
             when(db.update(contains("DELETE FROM notes"), anyString(), anyString())).thenReturn(0);
             assertThatThrownBy(() -> notesService.delete("note-999", OWNER))
                     .isInstanceOf(NoSuchElementException.class)
+                    // Exception message must include the note ID for diagnostics
                     .hasMessageContaining("note-999");
         }
 
         @Test
         @DisplayName("does not delete notes owned by other users (WHERE owner=?)")
         void doesNotDeleteOtherOwnerNotes() {
+            // Stub: deletion attempt for a different owner returns 0 rows
             when(db.update(contains("DELETE FROM notes"), anyString(), anyString())).thenReturn(0);
+            // SECURITY: attempting to delete another user's note must fail with NoSuchElementException
             assertThatThrownBy(() -> notesService.delete("note-1", "other-user"))
                     .isInstanceOf(NoSuchElementException.class);
         }
@@ -187,18 +206,22 @@ class NotesServiceTest {
         @Test
         @DisplayName("returns null when not found")
         void returnsNullWhenNotFound() {
+            // Stub: DB returns empty list — note does not exist for this owner
             when(db.queryForList(anyString(), anyString(), anyString())).thenReturn(List.of());
+            // Null is the contract for "not found" — must not throw
             assertThat(notesService.getById("note-999", OWNER)).isNull();
         }
 
         @Test
         @DisplayName("returns mapped note when found")
         void returnsMappedNote() throws Exception {
+            // Stub: DB returns one matching row
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(noteRow("note-1", "My Note", "note", 0)));
             when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(null);
 
             var note = notesService.getById("note-1", OWNER);
+            // Non-null result means the row was found and mapped successfully
             assertThat(note).isNotNull();
         }
     }
@@ -212,27 +235,33 @@ class NotesServiceTest {
         @Test
         @DisplayName("non-archived query uses WHERE archived=0")
         void nonArchivedQueryFiltersArchived() throws Exception {
+            // Stub: query with archived=0 filter returns empty list
             when(db.queryForList(contains("archived=0"), eq(OWNER))).thenReturn(List.of());
             when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(null);
             notesService.list(OWNER, false, null);
+            // Verify the SQL includes the archived=0 guard — default view must exclude archived notes
             verify(db).queryForList(contains("archived=0"), eq(OWNER));
         }
 
         @Test
         @DisplayName("archived=true does not add archived=0 filter")
         void archivedTrueNoFilter() throws Exception {
+            // Stub: archived list query includes all notes regardless of archived flag
             when(db.queryForList(contains("WHERE owner=?"), eq(OWNER))).thenReturn(List.of());
             when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(null);
             notesService.list(OWNER, true, null);
+            // When requesting archived notes, the "archived=0" clause must NOT appear
             verify(db, never()).queryForList(contains("archived=0"), (Object[]) any());
         }
 
         @Test
         @DisplayName("label filter adds AND label=? clause")
         void labelFilterAddsClause() throws Exception {
+            // Stub: query with label filter returns empty list
             when(db.queryForList(contains("label=?"), eq(OWNER), eq("work"))).thenReturn(List.of());
             when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(null);
             notesService.list(OWNER, false, "work");
+            // Label filter must be appended as a bound parameter — not string-concatenated
             verify(db).queryForList(contains("label=?"), eq(OWNER), eq("work"));
         }
     }

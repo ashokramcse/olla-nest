@@ -50,6 +50,7 @@ class AgentLoopServiceTest {
         @Test
         @DisplayName("returns false for unknown sessionId")
         void falseForUnknown() {
+            // No active run registered for this session — must return false, not throw
             assertThat(agentLoopService.isRunning("unknown-session-xyz")).isFalse();
         }
     }
@@ -63,6 +64,7 @@ class AgentLoopServiceTest {
         @Test
         @DisplayName("no exception for unknown sessionId")
         void noExceptionForUnknown() {
+            // Cancelling an unknown session must be a no-op (idempotent)
             assertThatCode(() -> agentLoopService.cancel("unknown-session-abc"))
                     .doesNotThrowAnyException();
         }
@@ -70,8 +72,9 @@ class AgentLoopServiceTest {
         @Test
         @DisplayName("after cancel, isRunning returns false")
         void isRunningFalseAfterCancel() {
-            // Put a session in the active runs by calling cancel first (no exception)
+            // Step 1: cancel a session that was never started (no-op)
             agentLoopService.cancel("session-123");
+            // Step 2: isRunning must still return false — cancel must not accidentally register the session
             assertThat(agentLoopService.isRunning("session-123")).isFalse();
         }
     }

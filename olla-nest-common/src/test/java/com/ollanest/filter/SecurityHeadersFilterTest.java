@@ -33,6 +33,7 @@ class SecurityHeadersFilterTest {
 	@DisplayName("sets X-Content-Type-Options: nosniff on every response")
 	void setsXContentTypeOptions() throws Exception {
 		filter.doFilterInternal(request, response, chain);
+		// Prevents MIME-type sniffing that could turn benign content into executable
 		verify(response).setHeader("X-Content-Type-Options", "nosniff");
 	}
 
@@ -40,6 +41,7 @@ class SecurityHeadersFilterTest {
 	@DisplayName("sets X-Frame-Options: DENY on every response")
 	void setsXFrameOptions() throws Exception {
 		filter.doFilterInternal(request, response, chain);
+		// DENY prevents clickjacking via iframes on any domain
 		verify(response).setHeader("X-Frame-Options", "DENY");
 	}
 
@@ -57,6 +59,7 @@ class SecurityHeadersFilterTest {
 	@DisplayName("sets Referrer-Policy on every response")
 	void setsReferrerPolicy() throws Exception {
 		filter.doFilterInternal(request, response, chain);
+		// Restricts referrer information sent to third-party sites
 		verify(response).setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 	}
 
@@ -64,6 +67,7 @@ class SecurityHeadersFilterTest {
 	@DisplayName("sets Content-Security-Policy on every response")
 	void setsContentSecurityPolicy() throws Exception {
 		filter.doFilterInternal(request, response, chain);
+		// CSP must restrict default source, forbid framing, and restrict base URI
 		verify(response).setHeader(eq("Content-Security-Policy"), argThat(v ->
 				v.contains("default-src 'self'")
 				&& v.contains("frame-ancestors 'none'")
@@ -88,16 +92,20 @@ class SecurityHeadersFilterTest {
 	@Test
 	@DisplayName("HSTS header NOT added on plain HTTP (isSecure=false)")
 	void noHstsOnHttp() throws Exception {
+		// Stub: plain HTTP connection — HSTS must NOT be set (would break HTTP access)
 		when(request.isSecure()).thenReturn(false);
 		filter.doFilterInternal(request, response, chain);
+		// SECURITY: HSTS on plain HTTP would poison the browser and block future HTTP access
 		verify(response, never()).setHeader(eq("Strict-Transport-Security"), anyString());
 	}
 
 	@Test
 	@DisplayName("HSTS header added on HTTPS (isSecure=true)")
 	void hstsOnHttps() throws Exception {
+		// Stub: HTTPS connection — HSTS must be set
 		when(request.isSecure()).thenReturn(true);
 		filter.doFilterInternal(request, response, chain);
+		// HSTS must include a long max-age and cover subdomains
 		verify(response).setHeader(eq("Strict-Transport-Security"), argThat(v ->
 				v.contains("max-age=31536000")
 				&& v.contains("includeSubDomains")
@@ -108,6 +116,7 @@ class SecurityHeadersFilterTest {
 	@DisplayName("filter chain always continues — response is never committed early")
 	void chainAlwaysContinues() throws Exception {
 		filter.doFilterInternal(request, response, chain);
+		// Security headers are added but the request continues to the next filter/handler
 		verify(chain).doFilter(request, response);
 	}
 }

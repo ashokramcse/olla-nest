@@ -58,7 +58,9 @@ class YouTubeServiceTest {
         @Test
         @DisplayName("returns cached transcript when DB has a record")
         void returnsCachedTranscript() {
+            // Stub: DB already has a cached transcript for this video ID
             stubCachedTranscript("dQw4w9WgXcQ", "Never gonna give you up...");
+            // Cache hit — no external API call needed
             String result = svc.getTranscript("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
             assertThat(result).isEqualTo("Never gonna give you up...");
         }
@@ -66,6 +68,7 @@ class YouTubeServiceTest {
         @Test
         @DisplayName("standard watch URL extracts 11-char video ID correctly")
         void standardWatchUrl() {
+            // Most common YouTube URL format: ?v=<11-char-ID>
             stubCachedTranscript("dQw4w9WgXcQ", "cached");
             assertThat(svc.getTranscript("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).isEqualTo("cached");
         }
@@ -73,6 +76,7 @@ class YouTubeServiceTest {
         @Test
         @DisplayName("youtu.be short URL extracts video ID correctly")
         void youtuBeShortUrl() {
+            // Short-link format: youtu.be/<ID>
             stubCachedTranscript("dQw4w9WgXcQ", "short-url-transcript");
             assertThat(svc.getTranscript("https://youtu.be/dQw4w9WgXcQ")).isEqualTo("short-url-transcript");
         }
@@ -80,6 +84,7 @@ class YouTubeServiceTest {
         @Test
         @DisplayName("shorts URL extracts video ID correctly")
         void shortsUrl() {
+            // YouTube Shorts format: /shorts/<ID>
             stubCachedTranscript("dQw4w9WgXcQ", "shorts-transcript");
             assertThat(svc.getTranscript("https://www.youtube.com/shorts/dQw4w9WgXcQ")).isEqualTo("shorts-transcript");
         }
@@ -87,6 +92,7 @@ class YouTubeServiceTest {
         @Test
         @DisplayName("direct 11-char video ID returns cached transcript")
         void directVideoId() {
+            // User pastes just the raw 11-character ID (no URL prefix)
             stubCachedTranscript("dQw4w9WgXcQ", "direct-id-transcript");
             assertThat(svc.getTranscript("dQw4w9WgXcQ")).isEqualTo("direct-id-transcript");
         }
@@ -101,18 +107,21 @@ class YouTubeServiceTest {
         @Test
         @DisplayName("returns null for null input")
         void returnsNullForNull() {
+            // Null guard — agent may pass null when no URL was provided
             assertThat(svc.getTranscript(null)).isNull();
         }
 
         @Test
         @DisplayName("returns null for blank input")
         void returnsNullForBlank() {
+            // Blank guard — whitespace-only input has no video ID to extract
             assertThat(svc.getTranscript("   ")).isNull();
         }
 
         @Test
         @DisplayName("returns null when video ID cannot be extracted from URL")
         void returnsNullForUnextractableUrl() {
+            // Non-YouTube domain: no video ID pattern matches — graceful null
             assertThat(svc.getTranscript("https://vimeo.com/123456789")).isNull();
         }
 
@@ -126,6 +135,7 @@ class YouTubeServiceTest {
         @DisplayName("returns null for inputs that have no valid YouTube video ID")
         void returnsNullForVariousInvalidInputs(String input) {
             // No cache stub → extractVideoId returns null → getTranscript returns null
+            // (tests the private extractVideoId indirectly via public getTranscript)
             assertThat(svc.getTranscript(input)).isNull();
         }
     }

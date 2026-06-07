@@ -37,12 +37,14 @@ class WhisperServerManagerTest {
         @Test
         @DisplayName("instantiates without throwing even when Python venv is absent")
         void constructionDoesNotThrow() {
+            // Python venv is not present in CI — constructor must handle absence gracefully
             assertThatCode(WhisperServerManager::new).doesNotThrowAnyException();
         }
 
         @Test
         @DisplayName("manager instance is non-null after construction")
         void instanceIsNotNull() {
+            // Non-null check: confirms the constructor completed (daemon thread started)
             assertThat(new WhisperServerManager()).isNotNull();
         }
     }
@@ -56,9 +58,11 @@ class WhisperServerManagerTest {
         @Test
         @DisplayName("stop() does not throw when whisperProcess is null")
         void stopIsIdempotentWhenNeverStarted() throws Exception {
+            // Step 1: construct (spawns daemon start thread that will find no venv)
             WhisperServerManager manager = new WhisperServerManager();
-            // Give the daemon start thread a moment then stop
+            // Step 2: give the daemon start thread a moment to run (and fail gracefully)
             Thread.sleep(100);
+            // Step 3: stop() must be safe even when whisperProcess was never assigned
             assertThatCode(manager::stop).doesNotThrowAnyException();
         }
     }

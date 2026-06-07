@@ -67,6 +67,7 @@ class ContactsServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.create(OWNER, Map.of("display_name", "Alice"));
             verify(db).update(contains("INSERT INTO contacts"), cap.capture());
+            // args[0] = id, args[1] = owner — verify owner is stored correctly
             assertThat(cap.getValue()[1]).isEqualTo(OWNER);
         }
 
@@ -77,6 +78,7 @@ class ContactsServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.create(OWNER, Map.of("display_name", "Bob"));
             verify(db).update(contains("INSERT INTO contacts"), cap.capture());
+            // cnt- prefix makes contact IDs recognisable across the API
             assertThat(cap.getValue()[0].toString()).startsWith("cnt-");
         }
 
@@ -87,6 +89,7 @@ class ContactsServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.create(OWNER, Map.of("display_name", "Carol Chen"));
             verify(db).update(contains("INSERT INTO contacts"), cap.capture());
+            // args[0] = id, args[1] = owner, args[2] = display_name — verify correct position
             assertThat(cap.getValue()[2]).isEqualTo("Carol Chen");
         }
     }
@@ -102,6 +105,7 @@ class ContactsServiceTest {
         void updateCalledWithIdAndOwner() {
             when(db.queryForList(contains("FROM contacts WHERE id"), any(), any())).thenReturn(List.of());
             svc.update("cnt-1", OWNER, Map.of("display_name", "Dave"));
+            // UPDATE must be called — both id and owner scope the WHERE clause
             verify(db).update(contains("UPDATE contacts SET"), (Object[]) any());
         }
     }
@@ -116,6 +120,7 @@ class ContactsServiceTest {
         @DisplayName("calls DELETE WHERE id=? AND owner=?")
         void deleteScopedToIdAndOwner() {
             svc.delete("cnt-999", OWNER);
+            // Both id and owner in WHERE clause — prevents cross-user deletion
             verify(db).update(contains("DELETE FROM contacts WHERE id"), eq("cnt-999"), eq(OWNER));
         }
 
@@ -123,6 +128,7 @@ class ContactsServiceTest {
         @DisplayName("does not delete contacts belonging to other owners")
         void doesNotDeleteOtherOwners() {
             svc.delete("cnt-999", OWNER);
+            // Confirm no other owner is ever passed to the DELETE statement
             verify(db, never()).update(anyString(), eq("other-owner"), any());
         }
     }
@@ -136,6 +142,7 @@ class ContactsServiceTest {
         @Test
         @DisplayName("returns null when DB has no matching row")
         void returnsNullWhenEmpty() {
+            // Stub: no rows returned — contact not found or belongs to another owner
             when(db.queryForList(anyString(), eq("cnt-missing"), eq(OWNER))).thenReturn(List.of());
             assertThat(svc.getById("cnt-missing", OWNER)).isNull();
         }
@@ -145,6 +152,7 @@ class ContactsServiceTest {
         void returnsMappedRow() {
             var row = Map.<String, Object>of("id", "cnt-1", "owner", OWNER,
                     "display_name", "Alice", "email_json", "[]", "phone_json", "[]", "address_json", "[]");
+            // Stub: contact found
             when(db.queryForList(anyString(), eq("cnt-1"), eq(OWNER))).thenReturn(List.of(row));
             var result = svc.getById("cnt-1", OWNER);
             assertThat(result).isNotNull();
@@ -162,6 +170,7 @@ class ContactsServiceTest {
         void queriesWithOwnerAndLimit() {
             when(db.queryForList(anyString(), eq(OWNER), eq(50))).thenReturn(List.of());
             svc.list(OWNER, 50);
+            // Both owner and limit must be passed to scope results correctly
             verify(db).queryForList(anyString(), eq(OWNER), eq(50));
         }
 
@@ -169,6 +178,7 @@ class ContactsServiceTest {
         @DisplayName("defaults limit to 100 when limit <= 0")
         void defaultsLimitWhenZero() {
             when(db.queryForList(anyString(), eq(OWNER), eq(100))).thenReturn(List.of());
+            // Zero or negative limit must be normalised to 100 to prevent full-table scans
             svc.list(OWNER, 0);
             verify(db).queryForList(anyString(), eq(OWNER), eq(100));
         }

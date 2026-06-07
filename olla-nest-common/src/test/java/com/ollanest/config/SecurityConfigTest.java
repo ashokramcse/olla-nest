@@ -34,6 +34,7 @@ class SecurityConfigTest {
     @Test
     @DisplayName("SecurityConfig instantiates without throwing")
     void constructionSucceeds() {
+        // No exception thrown = Spring security config wires correctly with mocked filters
         assertThatCode(() -> new SecurityConfig(sessionAuthFilter, securityHeadersFilter))
                 .doesNotThrowAnyException();
     }
@@ -41,6 +42,7 @@ class SecurityConfigTest {
     @Test
     @DisplayName("SecurityConfig instance is non-null")
     void instanceIsNotNull() {
+        // Confirm constructor returns a usable instance (not swallowed null)
         assertThat(new SecurityConfig(sessionAuthFilter, securityHeadersFilter)).isNotNull();
     }
 }

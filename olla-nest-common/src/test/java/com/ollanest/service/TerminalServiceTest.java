@@ -43,6 +43,7 @@ class TerminalServiceTest {
     @Test
     @DisplayName("service instantiates without throwing")
     void constructionSucceeds() {
+        // No shell process spawned during construction — just state initialization
         assertThat(service).isNotNull();
     }
 
@@ -55,11 +56,13 @@ class TerminalServiceTest {
         @Test
         @DisplayName("does not throw when session is not in the process map")
         void noThrowForUnknownSession() {
+            // Stub: WebSocket session ID that was never in the active process map
             when(session.getId()).thenReturn("ws-session-unknown");
             when(session.getAttributes()).thenReturn(new HashMap<>());
             // Stub audit DB write to succeed silently
             when(db.update(anyString(), any(), any(), any(), any(), any(), any())).thenReturn(1);
 
+            // Closing a session with no associated process must be a safe no-op
             assertThatCode(() -> service.afterConnectionClosed(session, CloseStatus.NORMAL))
                     .doesNotThrowAnyException();
         }
@@ -67,11 +70,13 @@ class TerminalServiceTest {
         @Test
         @DisplayName("attempts to write audit event to DB on close")
         void writesAuditEventOnClose() throws Exception {
+            // Stub: valid session ID and empty attribute map
             when(session.getId()).thenReturn("ws-session-123");
             when(session.getAttributes()).thenReturn(new HashMap<>());
 
             service.afterConnectionClosed(session, CloseStatus.NORMAL);
 
+            // Audit event must be written on close for SOC 2 availability logging
             verify(db, atLeastOnce()).update(contains("INSERT INTO audit_events"), (Object[]) any());
         }
     }

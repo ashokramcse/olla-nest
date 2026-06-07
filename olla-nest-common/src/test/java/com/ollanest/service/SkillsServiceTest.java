@@ -51,6 +51,7 @@ class SkillsServiceTest {
 
     @BeforeEach
     void stubMapper() throws Exception {
+        // Stub mapper to return empty JSON arrays for tag/platform serialization
         when(mapper.writeValueAsString(any())).thenReturn("[]");
     }
 
@@ -77,17 +78,20 @@ class SkillsServiceTest {
         @Test
         @DisplayName("inserts a row into the skills table")
         void insertsRow() {
+            // Stub: DB returns the newly created skill after INSERT
             var row = buildSkillRow("skill-1", "Deploy Docker", "active");
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(row));
 
             skillsService.createSkill(Map.of("name", "Deploy Docker", "category", "devops"), OWNER);
+            // Verify the INSERT was executed — skill must be persisted
             verify(db).update(contains("INSERT INTO skills"), (Object[]) any());
         }
 
         @Test
         @DisplayName("skill ID starts with 'skill-'")
         void idStartsWithSkillPrefix() {
+            // Stub: DB returns a skill row after creation
             var row = buildSkillRow("skill-abc", "Test Skill", "active");
             when(db.queryForList(anyString(), anyString(), anyString())).thenReturn(List.of(row));
 
@@ -95,12 +99,14 @@ class SkillsServiceTest {
 
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             verify(db).update(contains("INSERT INTO skills"), cap.capture());
+            // args[0] = id — must use the "skill-" prefix for consistent ID namespace
             assertThat(cap.getValue()[0].toString()).startsWith("skill-");
         }
 
         @Test
         @DisplayName("user-sourced skill gets status 'active' immediately")
         void userSkillStatusIsActive() {
+            // Stub: DB returns an active skill row
             var row = buildSkillRow("skill-1", "Skill", "active");
             when(db.queryForList(anyString(), anyString(), anyString())).thenReturn(List.of(row));
 
@@ -108,13 +114,14 @@ class SkillsServiceTest {
 
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             verify(db).update(contains("INSERT INTO skills"), cap.capture());
-            // status is at index 10 in the INSERT
+            // status is at index 10 in the INSERT — user skills are trusted and active immediately
             assertThat(cap.getValue()[10]).isEqualTo("active");
         }
 
         @Test
         @DisplayName("agent-learned skill gets status 'draft' (requires admin approval)")
         void learnedSkillStatusIsDraft() {
+            // Stub: DB returns a draft skill row
             var row = buildSkillRow("skill-1", "Skill", "draft");
             when(db.queryForList(anyString(), anyString(), anyString())).thenReturn(List.of(row));
 
@@ -122,6 +129,7 @@ class SkillsServiceTest {
 
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             verify(db).update(contains("INSERT INTO skills"), cap.capture());
+            // Agent-learned skills need admin review before activation — must start as "draft"
             assertThat(cap.getValue()[10]).isEqualTo("draft");
         }
     }
@@ -135,7 +143,9 @@ class SkillsServiceTest {
         @Test
         @DisplayName("executes DELETE WHERE id=? AND (owner=? OR owner IS NULL)")
         void deletesOwnedSkill() {
+            // Stub: DB reports one row deleted (skill found and owned or is a global skill)
             when(db.update(contains("DELETE FROM skills"), anyString(), anyString())).thenReturn(1);
+            // No exception = deletion succeeded for the owned skill
             assertThatCode(() -> skillsService.deleteSkill("skill-1", OWNER))
                     .doesNotThrowAnyException();
         }
@@ -143,7 +153,9 @@ class SkillsServiceTest {
         @Test
         @DisplayName("throws NoSuchElementException when no row deleted")
         void throwsWhenNotFound() {
+            // Stub: DB reports 0 rows deleted — skill not found or not owned by this user
             when(db.update(contains("DELETE FROM skills"), anyString(), anyString())).thenReturn(0);
+            // SECURITY: attempt to delete another user's skill must throw, not silently succeed
             assertThatThrownBy(() -> skillsService.deleteSkill("skill-missing", OWNER))
                     .isInstanceOf(NoSuchElementException.class);
         }
@@ -158,6 +170,7 @@ class SkillsServiceTest {
         @Test
         @DisplayName("approve() sets status='active'")
         void approveSetsActive() {
+            // approve() is an admin action that moves a draft skill to production
             skillsService.approve("skill-1");
             verify(db).update(contains("UPDATE skills SET status='active'"), anyString(), eq("skill-1"));
         }
@@ -165,6 +178,7 @@ class SkillsServiceTest {
         @Test
         @DisplayName("archive() sets status='archived'")
         void archiveSetsArchived() {
+            // archive() removes a skill from active use without deleting it (preserves history)
             skillsService.archive("skill-1");
             verify(db).update(contains("UPDATE skills SET status='archived'"), anyString(), eq("skill-1"));
         }
@@ -179,6 +193,7 @@ class SkillsServiceTest {
         @Test
         @DisplayName("increments use_count = use_count + 1")
         void incrementsUseCount() {
+            // use_count tracks how often a skill is applied — must increment by exactly 1
             skillsService.recordUse("skill-1");
             verify(db).update(contains("use_count = use_count + 1"), eq("skill-1"));
         }
@@ -193,22 +208,26 @@ class SkillsServiceTest {
         @Test
         @DisplayName("returns empty list when no skills stored")
         void emptyWhenNoSkills() throws Exception {
+            // Stub: DB returns empty list — no skills exist yet for this owner
             when(db.queryForList(contains("SELECT"), eq(OWNER), eq(null), eq("active"), eq(1000)))
                     .thenReturn(List.of());
             when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(List.of());
 
+            // Empty skill store must return an empty list, not throw
             assertThat(skillsService.search(OWNER, "docker deploy", 5)).isEmpty();
         }
 
         @Test
         @DisplayName("keyword match on name returns the matching skill")
         void keywordMatchOnName() throws Exception {
+            // Stub: DB returns a skill whose name contains the keyword
             var row = buildSkillRow("skill-1", "Deploy Docker container", "active");
             when(db.queryForList(contains("SELECT"), (Object[]) any()))
                     .thenReturn(List.of(row));
             when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(List.of());
 
             var results = skillsService.search(OWNER, "docker", 10);
+            // The matching skill must be returned — keyword search on name must work
             assertThat(results).isNotEmpty();
             assertThat(results.get(0).get("name")).isEqualTo("Deploy Docker container");
         }

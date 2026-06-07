@@ -62,9 +62,11 @@ class WebSocketAuthInterceptorTest {
         void falseWhenUnauthenticated() throws Exception {
             HttpServletRequest servletReq = mock(HttpServletRequest.class);
             ServletServerHttpRequest request = mockRequest(servletReq);
+            // Stub: no session → user is null (not authenticated)
             when(authService.getSessionUser(servletReq)).thenReturn(null);
 
             boolean result = interceptor.beforeHandshake(request, response, wsHandler, new HashMap<>());
+            // SECURITY: unauthenticated users must never be allowed to upgrade to WebSocket
             assertThat(result).isFalse();
         }
 
@@ -72,6 +74,7 @@ class WebSocketAuthInterceptorTest {
         @DisplayName("returns false when user has no workspace:build right and is not admin")
         void falseWhenNoRights() throws Exception {
             User user = UserFactory.regularUser();
+            // User has only chat:use — not enough for WebSocket agent loop access
             user.rights = Arrays.asList("chat:use");
 
             HttpServletRequest servletReq = mock(HttpServletRequest.class);
@@ -79,6 +82,7 @@ class WebSocketAuthInterceptorTest {
             when(authService.getSessionUser(servletReq)).thenReturn(user);
 
             boolean result = interceptor.beforeHandshake(request, response, wsHandler, new HashMap<>());
+            // SECURITY: workspace:build right is required for WebSocket access
             assertThat(result).isFalse();
         }
 
@@ -89,9 +93,11 @@ class WebSocketAuthInterceptorTest {
 
             HttpServletRequest servletReq = mock(HttpServletRequest.class);
             ServletServerHttpRequest request = mockRequest(servletReq);
+            // Stub: admin user authenticated
             when(authService.getSessionUser(servletReq)).thenReturn(user);
 
             boolean result = interceptor.beforeHandshake(request, response, wsHandler, new HashMap<>());
+            // Admins bypass role check and always have WebSocket access
             assertThat(result).isTrue();
         }
 
@@ -99,6 +105,7 @@ class WebSocketAuthInterceptorTest {
         @DisplayName("returns true when user has workspace:build right")
         void trueWhenHasWorkspaceBuild() throws Exception {
             User user = UserFactory.regularUser();
+            // User explicitly granted workspace:build — sufficient for WebSocket
             user.rights = Arrays.asList("chat:use", "workspace:build");
 
             HttpServletRequest servletReq = mock(HttpServletRequest.class);
@@ -120,6 +127,7 @@ class WebSocketAuthInterceptorTest {
 
             Map<String, Object> attrs = new HashMap<>();
             interceptor.beforeHandshake(request, response, wsHandler, attrs);
+            // authenticatedUserId must be stored in session attributes for downstream handlers
             assertThat(attrs.get("authenticatedUserId")).isEqualTo(user.id);
         }
     }

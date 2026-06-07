@@ -61,12 +61,14 @@ class CookbookServiceTest {
         @DisplayName("returns a map with a 'type' (backend) key")
         void returnsMapWithBackend() {
             Map<String, Object> hw = service.detectHardware();
+            // backend key tells the UI which compute backend is being used (cpu/metal/cuda)
             assertThat(hw).containsKey("backend");
         }
 
         @Test
         @DisplayName("does not throw on any OS")
         void doesNotThrow() {
+            // No exception thrown = hardware detection handles all OS types gracefully
             assertThatCode(() -> service.detectHardware()).doesNotThrowAnyException();
         }
 
@@ -74,6 +76,7 @@ class CookbookServiceTest {
         @DisplayName("result contains os, has_gpu, gpu_vram_gb, available_ram_gb keys")
         void containsExpectedKeys() {
             Map<String, Object> hw = service.detectHardware();
+            // All keys must be present so the UI can make model-fitting decisions
             assertThat(hw).containsKeys("os", "has_gpu", "gpu_vram_gb", "available_ram_gb", "gpu_count");
         }
 
@@ -82,6 +85,7 @@ class CookbookServiceTest {
         void ramGbPositive() {
             Map<String, Object> hw = service.detectHardware();
             double ram = ((Number) hw.get("available_ram_gb")).doubleValue();
+            // Available RAM must be a non-negative number — 0 is valid on constrained systems
             assertThat(ram).isGreaterThanOrEqualTo(0.0);
         }
     }
@@ -95,6 +99,7 @@ class CookbookServiceTest {
         @Test
         @DisplayName("returns non-empty list of models")
         void returnsNonEmptyList() {
+            // Catalog must always have entries — it's hardcoded and must not be empty
             List<Map<String, Object>> catalog = service.getCatalog();
             assertThat(catalog).isNotEmpty();
         }
@@ -104,6 +109,7 @@ class CookbookServiceTest {
         void entriesHaveExpectedKeys() {
             List<Map<String, Object>> catalog = service.getCatalog();
             for (Map<String, Object> entry : catalog) {
+                // Every catalog entry must have all required fields for the UI download card
                 assertThat(entry).containsKeys("name", "hf_repo", "quantization", "fits", "is_downloaded");
             }
         }
@@ -111,6 +117,7 @@ class CookbookServiceTest {
         @Test
         @DisplayName("contains at least 10 models in the hardcoded catalog")
         void atLeast10Models() {
+            // Minimum viable catalog size — ensures a useful selection of models
             assertThat(service.getCatalog()).hasSizeGreaterThanOrEqualTo(10);
         }
     }
@@ -124,6 +131,7 @@ class CookbookServiceTest {
         @Test
         @DisplayName("returns empty list when no active downloads")
         void returnsEmptyWhenNoDownloads() {
+            // No downloads started → in-memory map is empty → returns empty list
             List<Map<String, Object>> downloads = service.getDownloads();
             assertThat(downloads).isNotNull().isEmpty();
         }

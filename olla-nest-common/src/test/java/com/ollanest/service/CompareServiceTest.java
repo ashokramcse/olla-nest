@@ -57,6 +57,7 @@ class CompareServiceTest {
         void resultContainsSessionIds() {
             var req = Map.<String, Object>of("model_a", "llama3", "model_b", "mistral", "prompt", "Hello");
             var result = svc.create(OWNER, req);
+            // Two independent session IDs — one per model — needed for parallel LLM calls
             assertThat(result).containsKey("session_id_a").containsKey("session_id_b");
             assertThat(result.get("session_id_a").toString()).startsWith("cmp-sess-a-");
             assertThat(result.get("session_id_b").toString()).startsWith("cmp-sess-b-");
@@ -67,6 +68,7 @@ class CompareServiceTest {
         void isBlindDefaultsTrue() {
             var req = Map.<String, Object>of("model_a", "llama3", "model_b", "mistral", "prompt", "Q");
             var result = svc.create(OWNER, req);
+            // Blind mode is the default to prevent anchoring bias in evaluations
             assertThat(result.get("is_blind")).isEqualTo(true);
         }
 
@@ -76,6 +78,7 @@ class CompareServiceTest {
             var req = Map.<String, Object>of("model_a", "llama3", "model_b", "mistral",
                     "prompt", "Q", "is_blind", true);
             var result = svc.create(OWNER, req);
+            // In blind mode, model identity must be hidden to prevent evaluation bias
             assertThat(result.get("label_a")).isEqualTo("Model A");
             assertThat(result.get("label_b")).isEqualTo("Model B");
         }
@@ -86,6 +89,7 @@ class CompareServiceTest {
             var req = Map.<String, Object>of("model_a", "llama3", "model_b", "mistral",
                     "prompt", "Q", "is_blind", false);
             var result = svc.create(OWNER, req);
+            // Non-blind mode shows real model identifiers for transparent comparison
             assertThat(result.get("label_a")).isEqualTo("llama3");
             assertThat(result.get("label_b")).isEqualTo("mistral");
         }
@@ -95,6 +99,7 @@ class CompareServiceTest {
         void dbInsertCalled() {
             var req = Map.<String, Object>of("model_a", "a", "model_b", "b", "prompt", "P");
             svc.create(OWNER, req);
+            // Comparison must be persisted for later vote recording
             verify(db).update(contains("INSERT INTO comparisons"), (Object[]) any());
         }
 
@@ -103,6 +108,7 @@ class CompareServiceTest {
         void resultContainsCreatedAt() {
             var req = Map.<String, Object>of("model_a", "a", "model_b", "b", "prompt", "P");
             var result = svc.create(OWNER, req);
+            // Timestamp needed for sorting and expiry logic
             assertThat(result).containsKey("created_at");
         }
     }
@@ -116,8 +122,10 @@ class CompareServiceTest {
         @Test
         @DisplayName("throws NoSuchElementException when comparison not found")
         void throwsWhenNotFound() {
+            // Stub: no comparison row for this id and owner
             when(db.queryForList(contains("FROM comparisons WHERE id"), eq("cmp-x"), eq(OWNER)))
                     .thenReturn(List.of());
+            // Must throw with the comparison ID in the message for debugging
             assertThatThrownBy(() -> svc.vote("cmp-x", OWNER, "a"))
                     .isInstanceOf(NoSuchElementException.class)
                     .hasMessageContaining("cmp-x");
@@ -126,10 +134,12 @@ class CompareServiceTest {
         @Test
         @DisplayName("throws IllegalStateException when winner already set")
         void throwsWhenAlreadyVoted() {
+            // Stub: comparison already has a winner ("a")
             var row = Map.<String, Object>of("id", "cmp-1", "owner", OWNER, "winner", "a",
                     "model_a", "llama3", "model_b", "mistral");
             when(db.queryForList(contains("FROM comparisons WHERE id"), eq("cmp-1"), eq(OWNER)))
                     .thenReturn(List.of(row));
+            // Second vote on the same comparison must be rejected — no vote changing allowed
             assertThatThrownBy(() -> svc.vote("cmp-1", OWNER, "b"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Already voted");
@@ -138,10 +148,12 @@ class CompareServiceTest {
         @Test
         @DisplayName("DB UPDATE called with winner when first vote")
         void dbUpdateCalledWithWinner() {
+            // Stub: comparison found with no winner yet
             var row = Map.<String, Object>of("id", "cmp-2", "owner", OWNER, "model_a", "a", "model_b", "b");
             when(db.queryForList(contains("FROM comparisons WHERE id"), eq("cmp-2"), eq(OWNER)))
                     .thenReturn(List.of(row));
             svc.vote("cmp-2", OWNER, "a");
+            // Winner and voted_at timestamp must be persisted
             verify(db).update(contains("UPDATE comparisons SET winner"), eq("a"), any(), eq("cmp-2"), eq(OWNER));
         }
     }

@@ -62,10 +62,12 @@ class CalendarServiceTest {
         @Test
         @DisplayName("INSERT is called with the owner")
         void insertsOwner() {
+            // Stub: no existing calendars (count=0), then return the created row
             when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), eq(OWNER))).thenReturn(0);
             when(db.queryForList(contains("FROM calendars WHERE id"), anyString(), anyString()))
                     .thenReturn(List.of(calRow("cal-abc")));
             calendarService.createCalendar(OWNER, Map.of("name", "Work"));
+            // Verify INSERT was called — owner must be persisted
             verify(db).update(contains("INSERT INTO calendars"), (Object[]) any());
         }
 
@@ -76,6 +78,7 @@ class CalendarServiceTest {
             when(db.queryForList(contains("FROM calendars WHERE id"), anyString(), anyString()))
                     .thenReturn(List.of(calRow("cal-xyz")));
             Map<String, Object> result = calendarService.createCalendar(OWNER, Map.of());
+            // cal- prefix identifies calendar IDs across the system
             assertThat(result.get("id").toString()).startsWith("cal-");
         }
 
@@ -99,6 +102,7 @@ class CalendarServiceTest {
         @Test
         @DisplayName("returns null when empty result")
         void nullWhenEmpty() {
+            // Stub: no rows found — calendar does not exist or belongs to another owner
             when(db.queryForList(anyString(), anyString(), anyString())).thenReturn(List.of());
             assertThat(calendarService.getCalendar("cal-1", OWNER)).isNull();
         }
@@ -106,6 +110,7 @@ class CalendarServiceTest {
         @Test
         @DisplayName("returns mapped row when found")
         void returnsMappedRow() {
+            // Stub: calendar found in DB
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(calRow("cal-1")));
             Map<String, Object> result = calendarService.getCalendar("cal-1", OWNER);
@@ -123,9 +128,11 @@ class CalendarServiceTest {
         @Test
         @DisplayName("queries with owner parameter")
         void queriesWithOwner() {
+            // Stub: one calendar for this owner
             when(db.queryForList(anyString(), eq(OWNER))).thenReturn(List.of(calRow("cal-1")));
             List<Map<String, Object>> results = calendarService.listCalendars(OWNER);
             assertThat(results).hasSize(1);
+            // Verify owner was passed as WHERE parameter — no cross-user data leakage
             verify(db).queryForList(anyString(), eq(OWNER));
         }
     }
@@ -140,6 +147,7 @@ class CalendarServiceTest {
         @DisplayName("DELETE WHERE id=? AND owner=? is called")
         void deletesWithIdAndOwner() {
             calendarService.deleteCalendar("cal-1", OWNER);
+            // Both id and owner must be in WHERE clause — prevents cross-user deletion
             verify(db).update(contains("DELETE FROM calendars WHERE id=? AND owner=?"), eq("cal-1"), eq(OWNER));
         }
     }
@@ -153,6 +161,7 @@ class CalendarServiceTest {
         @Test
         @DisplayName("INSERT is called, id starts with 'evt-'")
         void insertsEvent() {
+            // Stub: calendar exists (count > 0), then return the created event row
             when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), anyString(), anyString())).thenReturn(1);
             when(db.queryForList(contains("FROM calendar_events WHERE id"), anyString()))
                     .thenReturn(List.of(evtRow("evt-1", "cal-1")));
@@ -169,6 +178,7 @@ class CalendarServiceTest {
             when(db.queryForList(contains("FROM calendar_events WHERE id"), anyString()))
                     .thenReturn(List.of(evtRow("evt-1", "cal-1")));
             Map<String, Object> result = calendarService.createEvent("cal-1", OWNER, Map.of());
+            // calendar_id must be stored so events can be listed by calendar
             assertThat(result.get("calendar_id")).isEqualTo("cal-1");
         }
     }
@@ -182,6 +192,7 @@ class CalendarServiceTest {
         @Test
         @DisplayName("UPDATE WHERE id=? is called")
         void updatesById() {
+            // Stub: event exists in the calendar
             when(db.queryForList(contains("FROM calendar_events WHERE id"), eq("evt-1")))
                     .thenReturn(List.of(evtRow("evt-1", "cal-1")));
             when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), anyString(), anyString())).thenReturn(1);
@@ -199,6 +210,7 @@ class CalendarServiceTest {
         @Test
         @DisplayName("DELETE WHERE id=? is called when event exists")
         void deletesWhenFound() {
+            // Stub: event exists and belongs to the owner's calendar
             when(db.queryForList(contains("FROM calendar_events WHERE id"), eq("evt-1")))
                     .thenReturn(List.of(evtRow("evt-1", "cal-1")));
             when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), anyString(), anyString())).thenReturn(1);
@@ -209,8 +221,10 @@ class CalendarServiceTest {
         @Test
         @DisplayName("no delete when event not found")
         void noDeleteWhenMissing() {
+            // Stub: event not found — no rows returned
             when(db.queryForList(contains("FROM calendar_events WHERE id"), anyString())).thenReturn(List.of());
             calendarService.deleteEvent("evt-999", OWNER);
+            // No delete should occur for a non-existent event
             verify(db, never()).update(contains("DELETE FROM calendar_events"), (Object[]) any());
         }
     }
@@ -224,9 +238,11 @@ class CalendarServiceTest {
         @Test
         @DisplayName("queries with owner, from, to parameters")
         void queriesWithAllParams() {
+            // Stub: one event in the date range
             when(db.queryForList(anyString(), eq(OWNER), eq("2026-06-01T00:00:00Z"), eq("2026-06-30T23:59:59Z")))
                     .thenReturn(List.of(evtRow("evt-1", "cal-1")));
             List<Map<String, Object>> results = calendarService.listEventsInRange(OWNER, "2026-06-01T00:00:00Z", "2026-06-30T23:59:59Z");
+            // All three parameters (owner, from, to) must be passed for correct filtering
             assertThat(results).hasSize(1);
         }
     }
@@ -240,10 +256,12 @@ class CalendarServiceTest {
         @Test
         @DisplayName("returns string starting with BEGIN:VCALENDAR")
         void returnsValidIcs() {
+            // Stub: calendar exists and has one event
             when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), anyString(), anyString())).thenReturn(1);
             when(db.queryForList(contains("FROM calendar_events WHERE calendar_id"), anyString()))
                     .thenReturn(List.of(evtRow("evt-1", "cal-1")));
             String ics = calendarService.exportCalendarAsIcs("cal-1", OWNER);
+            // Valid iCalendar format requires BEGIN/END:VCALENDAR wrapping
             assertThat(ics).startsWith("BEGIN:VCALENDAR");
             assertThat(ics).contains("END:VCALENDAR");
         }
@@ -256,9 +274,11 @@ class CalendarServiceTest {
                     "title", "Team Meeting", "start_at", "2026-06-01T09:00:00Z",
                     "end_at", "2026-06-01T10:00:00Z", "status", "confirmed");
             when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), anyString(), anyString())).thenReturn(1);
+            // Stub: calendar has one specific event to verify ICS content
             when(db.queryForList(contains("FROM calendar_events WHERE calendar_id"), anyString()))
                     .thenReturn(List.of(evt));
             String ics = calendarService.exportCalendarAsIcs("cal-1", OWNER);
+            // Each event must produce BEGIN:VEVENT / END:VEVENT blocks with the event title
             assertThat(ics).contains("BEGIN:VEVENT");
             assertThat(ics).contains("END:VEVENT");
             assertThat(ics).contains("Team Meeting");

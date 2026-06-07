@@ -53,6 +53,7 @@ class ConnectorRegistryTest {
         void returnsGithubConnector() {
             BaseConnector github = mockConnector("github");
             ConnectorRegistry registry = new ConnectorRegistry(List.of(github), db, ragService, cryptoService);
+            // Lookup by type key must return the exact same instance
             assertThat(registry.get("github")).isSameAs(github);
         }
 
@@ -61,6 +62,7 @@ class ConnectorRegistryTest {
         void nullForNonexistent() {
             BaseConnector github = mockConnector("github");
             ConnectorRegistry registry = new ConnectorRegistry(List.of(github), db, ragService, cryptoService);
+            // Unknown type → null, not an exception
             assertThat(registry.get("nonexistent")).isNull();
         }
 
@@ -69,6 +71,7 @@ class ConnectorRegistryTest {
         void setsDependencies() {
             BaseConnector c = mockConnector("test");
             new ConnectorRegistry(List.of(c), db, ragService, cryptoService);
+            // Registry must inject shared dependencies into each connector at construction time
             verify(c).setDependencies(db, ragService, cryptoService);
         }
     }
@@ -85,6 +88,7 @@ class ConnectorRegistryTest {
             ConnectorRegistry registry = new ConnectorRegistry(
                     List.of(mockConnector("github"), mockConnector("slack"), mockConnector("notion")),
                     db, ragService, cryptoService);
+            // All three type keys must be present regardless of registration order
             assertThat(registry.types()).containsExactlyInAnyOrder("github", "slack", "notion");
         }
 
@@ -94,6 +98,7 @@ class ConnectorRegistryTest {
             ConnectorRegistry registry = new ConnectorRegistry(
                     List.of(mockConnector("slack"), mockConnector("github"), mockConnector("notion")),
                     db, ragService, cryptoService);
+            // Alphabetical sort ensures stable UI ordering
             assertThat(registry.types()).isSortedAccordingTo(String::compareTo);
         }
 

@@ -28,12 +28,14 @@ class WebConfigTest {
     @Test
     @DisplayName("WebConfig instantiates without throwing")
     void constructionSucceeds() {
+        // No exception thrown = static-resource config wires without a Spring context
         assertThatCode(WebConfig::new).doesNotThrowAnyException();
     }
 
     @Test
     @DisplayName("WebConfig instance is non-null")
     void instanceIsNotNull() {
+        // Constructor must return a usable instance
         assertThat(new WebConfig()).isNotNull();
     }
 }

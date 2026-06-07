@@ -51,6 +51,7 @@ class PresetServiceTest {
 
     @BeforeEach
     void stubDefaults() {
+        // Stub DB to return no user-defined templates by default
         when(db.queryForList(contains("FROM user_templates"), eq(OWNER))).thenReturn(List.of());
         when(db.queryForList(contains("FROM user_templates WHERE id"), any(), any())).thenReturn(List.of());
     }
@@ -65,7 +66,9 @@ class PresetServiceTest {
         @DisplayName("always includes exactly 7 system presets")
         void alwaysHas7SystemPresets() {
             var result = svc.listAll(OWNER);
+            // Step 1: count hardcoded system presets — must always be exactly 7
             long systemCount = result.stream().filter(p -> "system".equals(p.get("source"))).count();
+            // Step 2: 7 hardcoded system presets must be present regardless of DB content
             assertThat(systemCount).isEqualTo(7);
         }
 
@@ -77,6 +80,7 @@ class PresetServiceTest {
                     .filter(p -> "system".equals(p.get("source")))
                     .map(p -> (String) p.get("id"))
                     .collect(Collectors.toSet());
+            // These 7 IDs are referenced by the front-end — any name change is a breaking change
             assertThat(ids).containsExactlyInAnyOrder(
                     "default", "precise", "creative", "coding", "research", "writer", "analyst");
         }
@@ -84,17 +88,20 @@ class PresetServiceTest {
         @Test
         @DisplayName("user templates are appended after system presets")
         void userTemplatesAppendedAfterSystem() {
+            // Stub: DB returns one user-defined template
             var userTemplate = Map.<String, Object>of("id", "tpl-abc", "name", "My Custom",
                     "system_prompt", "Act as...", "temperature", 0.7, "max_tokens", 0,
                     "inject_prefix", "", "inject_suffix", "");
             when(db.queryForList(contains("FROM user_templates"), eq(OWNER))).thenReturn(List.of(userTemplate));
             var result = svc.listAll(OWNER);
-            assertThat(result.size()).isEqualTo(8); // 7 system + 1 user
+            // 7 system presets + 1 user template = 8 total
+            assertThat(result.size()).isEqualTo(8);
         }
 
         @Test
         @DisplayName("total count equals system presets when no user templates exist")
         void totalCountWhenNoUserTemplates() {
+            // Default stub returns no user templates — only 7 system presets must appear
             var result = svc.listAll(OWNER);
             assertThat(result).hasSize(7);
         }
@@ -112,6 +119,7 @@ class PresetServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.createTemplate(OWNER, Map.of("name", "My Preset", "system_prompt", "Be helpful"));
             verify(db).update(contains("INSERT INTO user_templates"), cap.capture());
+            // args[1] = owner — must be scoped to the authenticated user
             assertThat(cap.getValue()[1]).isEqualTo(OWNER);
         }
 
@@ -121,6 +129,7 @@ class PresetServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.createTemplate(OWNER, Map.of("name", "Preset X"));
             verify(db).update(contains("INSERT INTO user_templates"), cap.capture());
+            // args[0] = id — must use the "tpl-" prefix for consistent ID namespace
             assertThat(cap.getValue()[0].toString()).startsWith("tpl-");
         }
 
@@ -130,6 +139,7 @@ class PresetServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.createTemplate(OWNER, Map.of());
             verify(db).update(contains("INSERT INTO user_templates"), cap.capture());
+            // args[2] = name — must default to a sensible value rather than null
             assertThat(cap.getValue()[2]).isEqualTo("My Preset");
         }
     }
@@ -144,6 +154,7 @@ class PresetServiceTest {
         @DisplayName("calls DELETE WHERE id=? AND owner=?")
         void deleteScopedToIdAndOwner() {
             svc.deleteTemplate("tpl-123", OWNER);
+            // SECURITY: DELETE must be scoped to both id AND owner to prevent cross-user deletion
             verify(db).update(contains("DELETE FROM user_templates WHERE id"), eq("tpl-123"), eq(OWNER));
         }
     }
@@ -157,15 +168,19 @@ class PresetServiceTest {
         @Test
         @DisplayName("returns null when DB has no row")
         void returnsNullWhenNotFound() {
+            // Stub: no template with this ID for this owner
             when(db.queryForList(anyString(), eq("tpl-missing"), eq(OWNER))).thenReturn(List.of());
+            // Null is the contract for "not found" — must not throw
             assertThat(svc.getTemplate("tpl-missing", OWNER)).isNull();
         }
 
         @Test
         @DisplayName("returns the row when found")
         void returnsRowWhenFound() {
+            // Stub: DB returns the template row for this owner
             var row = Map.<String, Object>of("id", "tpl-1", "owner", OWNER, "name", "My Preset");
             when(db.queryForList(anyString(), eq("tpl-1"), eq(OWNER))).thenReturn(List.of(row));
+            // Returned map must be exactly the DB row — no data loss or mutation
             assertThat(svc.getTemplate("tpl-1", OWNER)).isEqualTo(row);
         }
     }

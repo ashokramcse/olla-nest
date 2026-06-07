@@ -157,15 +157,20 @@ class MemoryServiceTest {
         @Test
         @DisplayName("executes DELETE WHERE id=? AND owner=?")
         void deletesOwnedMemory() {
+            // Stub: DELETE affects 1 row (user owns this memory)
             when(db.update(contains("DELETE FROM memories WHERE id"), eq("mem-abc"), eq(OWNER))).thenReturn(1);
             assertThatCode(() -> memoryService.forget("mem-abc", OWNER)).doesNotThrowAnyException();
+            // DELETE must be scoped to BOTH id and owner — prevents cross-user deletion
             verify(db).update(contains("DELETE FROM memories WHERE id"), eq("mem-abc"), eq(OWNER));
         }
 
         @Test
         @DisplayName("throws NoSuchElementException when no row deleted (ownership check)")
         void throwsWhenNotOwned() {
+            // Stub: DELETE affects 0 rows (wrong owner or already deleted)
             when(db.update(contains("DELETE FROM memories WHERE id"), anyString(), anyString())).thenReturn(0);
+            // SECURITY: 0-row DELETE must throw NoSuchElementException — prevents silent
+            // cross-user deletion attempts (attacker cannot know if ID belongs to another user)
             assertThatThrownBy(() -> memoryService.forget("mem-xyz", OWNER))
                     .isInstanceOf(NoSuchElementException.class)
                     .hasMessageContaining("mem-xyz");
@@ -182,6 +187,7 @@ class MemoryServiceTest {
         @DisplayName("executes DELETE WHERE owner=?")
         void deletesAllForOwner() {
             memoryService.forgetAll(OWNER);
+            // Bulk delete scoped to the requesting owner
             verify(db).update(contains("DELETE FROM memories WHERE owner"), eq(OWNER));
         }
 
@@ -189,7 +195,8 @@ class MemoryServiceTest {
         @DisplayName("does not affect other owners")
         void scopedToOwner() {
             memoryService.forgetAll(OWNER);
-            verify(db).update(anyString(), eq(OWNER)); // exactly the owner
+            // Only OWNER's memories deleted — "other-owner" must never appear as a parameter
+            verify(db).update(anyString(), eq(OWNER));
             verify(db, never()).update(anyString(), eq("other-owner"));
         }
     }
@@ -203,15 +210,19 @@ class MemoryServiceTest {
         @Test
         @DisplayName("queries DB with owner and limit")
         void queriesWithOwnerAndLimit() {
+            // Stub: empty result for this owner/limit combination
             when(db.queryForList(anyString(), eq(OWNER), eq(50))).thenReturn(List.of());
             memoryService.list(OWNER, 50);
+            // Query must pass both owner (isolation) and limit (prevent unbounded scans)
             verify(db).queryForList(anyString(), eq(OWNER), eq(50));
         }
 
         @Test
         @DisplayName("defaults to limit 100 when limit <= 0")
         void defaultLimitWhenZero() {
+            // Stub: expects the defaulted limit=100 to be passed to DB
             when(db.queryForList(anyString(), eq(OWNER), eq(100))).thenReturn(List.of());
+            // limit=0 is treated as "use default" rather than "unlimited" (safety guard)
             memoryService.list(OWNER, 0);
             verify(db).queryForList(anyString(), eq(OWNER), eq(100));
         }
@@ -219,7 +230,9 @@ class MemoryServiceTest {
         @Test
         @DisplayName("returns empty list when DB returns no rows")
         void emptyResultWhenNoRows() {
+            // Stub: no memories stored for this owner
             when(db.queryForList(anyString(), eq(OWNER), anyInt())).thenReturn(List.of());
+            // Empty list (not null) — callers can safely iterate
             assertThat(memoryService.list(OWNER, 10)).isEmpty();
         }
     }
@@ -233,6 +246,7 @@ class MemoryServiceTest {
         @Test
         @DisplayName("returns empty list when no memories stored")
         void emptyWhenNoMemories() {
+            // Stub: no memories in DB → nothing to search
             when(db.queryForList(anyString(), eq(OWNER))).thenReturn(List.of());
             assertThat(memoryService.recall(OWNER, "dark mode", 5)).isEmpty();
         }
@@ -240,15 +254,18 @@ class MemoryServiceTest {
         @Test
         @DisplayName("keyword match on text field returns hit")
         void keywordMatchReturnsHit() throws Exception {
+            // Stub: one memory with text matching the query keywords
             var row = Map.<String, Object>of(
                     "id", "mem-1", "owner", OWNER, "text", "User prefers dark mode",
                     "source", "user", "session_id", "", "importance", 5,
                     "embedding_json", null, "created_at", "2026-01-01T00:00:00Z",
                     "tags_json", "[]");
             when(db.queryForList(contains("SELECT"), eq(OWNER))).thenReturn(List.of(row));
+            // Stub: mapper deserializes empty tags array
             when(mapper.readValue(eq("[]"), eq(java.util.List.class))).thenReturn(List.of());
 
             var results = memoryService.recall(OWNER, "dark mode", 5);
+            // "dark mode" matches the memory text — result must be non-empty
             assertThat(results).isNotEmpty();
             assertThat(results.get(0).get("text")).isEqualTo("User prefers dark mode");
         }
@@ -256,6 +273,7 @@ class MemoryServiceTest {
         @Test
         @DisplayName("query with no keyword match returns empty list")
         void noKeywordMatchReturnsEmpty() throws Exception {
+            // Stub: memory is about Java development — unrelated to the query
             var row = Map.<String, Object>of(
                     "id", "mem-1", "owner", OWNER, "text", "User is a Java developer",
                     "source", "user", "session_id", "", "importance", 5,
@@ -264,6 +282,7 @@ class MemoryServiceTest {
             when(db.queryForList(contains("SELECT"), eq(OWNER))).thenReturn(List.of(row));
             when(mapper.readValue(eq("[]"), eq(java.util.List.class))).thenReturn(List.of());
 
+            // "quantum physics research" has no overlap with the Java developer text
             var results = memoryService.recall(OWNER, "quantum physics research", 5);
             assertThat(results).isEmpty();
         }
@@ -271,6 +290,7 @@ class MemoryServiceTest {
         @Test
         @DisplayName("results are limited by topK parameter")
         void topKLimitsResults() throws Exception {
+            // Stub: 10 memories all matching "coding" keyword
             var rows = java.util.stream.IntStream.rangeClosed(1, 10)
                     .mapToObj(i -> Map.<String, Object>of(
                             "id", "mem-" + i, "owner", OWNER, "text", "coding fact " + i,
@@ -281,6 +301,7 @@ class MemoryServiceTest {
             when(db.queryForList(contains("SELECT"), eq(OWNER))).thenReturn(rows);
             when(mapper.readValue(eq("[]"), eq(java.util.List.class))).thenReturn(List.of());
 
+            // topK=3 must limit the returned results to at most 3 even though 10 match
             var results = memoryService.recall(OWNER, "coding", 3);
             assertThat(results).hasSizeLessThanOrEqualTo(3);
         }
@@ -295,24 +316,30 @@ class MemoryServiceTest {
         @Test
         @DisplayName("inserts one row per non-blank text and returns count")
         void insertsRowsForEachText() {
+            // 3 valid facts → 3 INSERT calls, count=3 returned to caller
             int count = memoryService.importMemories(OWNER,
                     List.of("Fact 1", "Fact 2", "Fact 3"), "import");
             assertThat(count).isEqualTo(3);
+            // Each fact stored as its own memory row
             verify(db, times(3)).update(contains("INSERT INTO memories"), (Object[]) any());
         }
 
         @Test
         @DisplayName("skips blank and null entries")
         void skipsBlankEntries() {
+            // List has 4 entries but only 1 is non-blank — 3 must be skipped
             int count = memoryService.importMemories(OWNER,
                     List.of("Fact 1", "", "  ", null), "import");
+            // Only 1 import counted
             assertThat(count).isEqualTo(1);
+            // Only 1 INSERT call issued (blank/null entries skipped)
             verify(db, times(1)).update(contains("INSERT INTO memories"), (Object[]) any());
         }
 
         @Test
         @DisplayName("empty list imports zero memories")
         void emptyListImportsZero() {
+            // Empty input: nothing to import, no DB calls
             int count = memoryService.importMemories(OWNER, List.of(), "import");
             assertThat(count).isEqualTo(0);
             verify(db, never()).update(contains("INSERT INTO memories"), (Object[]) any());

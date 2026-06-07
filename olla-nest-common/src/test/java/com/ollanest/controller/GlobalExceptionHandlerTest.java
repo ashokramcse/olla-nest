@@ -34,6 +34,7 @@ class GlobalExceptionHandlerTest {
 	void handlesNoHandlerFound() {
 		NoHandlerFoundException ex = new NoHandlerFoundException("GET", "/missing", null);
 		ResponseEntity<Map<String, Object>> r = handler.handleNotFound(ex);
+		// 404 must be returned with ok=false and a generic "Not found" message
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 		assertThat(r.getBody()).containsEntry("ok", false);
 		assertThat(r.getBody().get("error")).isEqualTo("Not found");
@@ -46,6 +47,7 @@ class GlobalExceptionHandlerTest {
 		NoResourceFoundException ex = new NoResourceFoundException(
 				org.springframework.http.HttpMethod.GET, "/static/missing.js");
 		ResponseEntity<Map<String, Object>> r = handler.handleNotFound(ex);
+		// Static resource 404 must produce the same envelope as route 404
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
 		assertThat(r.getBody()).containsEntry("ok", false);
 	}
@@ -57,6 +59,7 @@ class GlobalExceptionHandlerTest {
 				new HttpRequestMethodNotSupportedException("DELETE",
 						Set.of("GET", "POST"));
 		ResponseEntity<Map<String, Object>> r = handler.handleMethodNotAllowed(ex);
+		// 405 must include the unsupported method name so the client understands the rejection
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
 		assertThat(r.getBody()).containsEntry("ok", false);
 		assertThat(r.getBody().get("error").toString()).contains("DELETE");
@@ -67,6 +70,7 @@ class GlobalExceptionHandlerTest {
 	void handlesBadJson() {
 		HttpMessageNotReadableException ex = mock(HttpMessageNotReadableException.class);
 		ResponseEntity<Map<String, Object>> r = handler.handleBadJson(ex);
+		// Malformed request body must return 400 with a descriptive but safe error message
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 		assertThat(r.getBody()).containsEntry("ok", false);
 		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("malformed");
@@ -77,6 +81,7 @@ class GlobalExceptionHandlerTest {
 	void handlesUnsupportedMediaType() {
 		HttpMediaTypeNotSupportedException ex = new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN, java.util.List.of(MediaType.APPLICATION_JSON));
 		ResponseEntity<Map<String, Object>> r = handler.handleUnsupportedMediaType(ex);
+		// 415 must identify the unsupported content-type in the error message
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
 		assertThat(r.getBody()).containsEntry("ok", false);
 		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("text/plain");
@@ -89,7 +94,7 @@ class GlobalExceptionHandlerTest {
 		ResponseEntity<Map<String, Object>> r = handler.handleGeneric(ex);
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 		assertThat(r.getBody()).containsEntry("ok", false);
-		// Must NOT expose internal detail
+		// SECURITY: internal detail must NOT be exposed — generic message only
 		assertThat(r.getBody().get("error").toString())
 				.doesNotContain("DB connection pool", "RuntimeException")
 				.isEqualTo("Internal server error");
@@ -101,6 +106,7 @@ class GlobalExceptionHandlerTest {
 		NullPointerException ex = new NullPointerException("null ref in service layer");
 		ResponseEntity<Map<String, Object>> r = handler.handleGeneric(ex);
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+		// SECURITY: NPE message containing internal details must not appear in response
 		assertThat(r.getBody().get("error").toString()).doesNotContain("null ref");
 	}
 }

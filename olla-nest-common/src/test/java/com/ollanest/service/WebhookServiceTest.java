@@ -57,30 +57,36 @@ class WebhookServiceTest {
         @Test
         @DisplayName("INSERT is called")
         void insertsRow() throws Exception {
+            // Stub: mapper serializes events list to JSON; DB read-back returns the created row
             when(mapper.writeValueAsString(any())).thenReturn("[\"chat.completed\"]");
             when(db.queryForList(contains("FROM webhooks WHERE id"), anyString(), anyString()))
                     .thenReturn(List.of(webhookRow("wh-abc")));
             webhookService.create(OWNER, Map.of("url", "https://hooks.example.com/recv", "name", "Hook"));
+            // Verify the INSERT into webhooks was executed
             verify(db).update(contains("INSERT INTO webhooks"), (Object[]) any());
         }
 
         @Test
         @DisplayName("id starts with 'wh-'")
         void idPrefix() throws Exception {
+            // Stub mapper + DB read-back returning the created row
             when(mapper.writeValueAsString(any())).thenReturn("[\"chat.completed\"]");
             when(db.queryForList(contains("FROM webhooks WHERE id"), anyString(), anyString()))
                     .thenReturn(List.of(webhookRow("wh-xyz")));
             Map<String, Object> result = webhookService.create(OWNER, Map.of("url", "https://example.com/hook"));
+            // "wh-" prefix identifies webhook records in URLs and logs
             assertThat(result.get("id").toString()).startsWith("wh-");
         }
 
         @Test
         @DisplayName("owner is stored in returned record")
         void ownerStored() throws Exception {
+            // Stub DB read-back returns row with OWNER
             when(mapper.writeValueAsString(any())).thenReturn("[\"chat.completed\"]");
             when(db.queryForList(contains("FROM webhooks WHERE id"), anyString(), anyString()))
                     .thenReturn(List.of(webhookRow("wh-1")));
             Map<String, Object> result = webhookService.create(OWNER, Map.of("url", "https://example.com/hook"));
+            // Owner stored so that getById / list can scope queries correctly
             assertThat(result.get("owner")).isEqualTo(OWNER);
         }
     }
@@ -94,19 +100,23 @@ class WebhookServiceTest {
         @Test
         @DisplayName("returns null when not found")
         void nullWhenEmpty() {
+            // Stub: no row found (wrong id or wrong owner)
             when(db.queryForList(contains("FROM webhooks WHERE id"), anyString(), anyString()))
                     .thenReturn(List.of());
+            // Null returned (not a 404 exception) — caller decides how to respond
             assertThat(webhookService.getById("wh-999", OWNER)).isNull();
         }
 
         @Test
         @DisplayName("returns mapped row when found")
         void returnsMappedRow() throws Exception {
+            // Stub: mapper deserializes events_json to a list; DB returns the row
             when(mapper.readValue(anyString(), eq(List.class))).thenReturn(List.of("chat.completed"));
             when(db.queryForList(contains("FROM webhooks WHERE id"), eq("wh-1"), eq(OWNER)))
                     .thenReturn(List.of(webhookRow("wh-1")));
             Map<String, Object> result = webhookService.getById("wh-1", OWNER);
             assertThat(result).isNotNull();
+            // ID preserved in the returned map
             assertThat(result.get("id")).isEqualTo("wh-1");
         }
     }
@@ -120,10 +130,12 @@ class WebhookServiceTest {
         @Test
         @DisplayName("queries with owner")
         void queriesWithOwner() throws Exception {
+            // Stub: mapper for events_json field; DB returns one webhook row
             when(mapper.readValue(anyString(), eq(List.class))).thenReturn(List.of("chat.completed"));
             when(db.queryForList(anyString(), eq(OWNER))).thenReturn(List.of(webhookRow("wh-1")));
             List<Map<String, Object>> results = webhookService.list(OWNER);
             assertThat(results).isNotNull();
+            // DB query must be scoped to the caller's owner ID
             verify(db).queryForList(anyString(), eq(OWNER));
         }
     }
@@ -138,6 +150,7 @@ class WebhookServiceTest {
         @DisplayName("DELETE WHERE id=? AND owner=? is called")
         void deletesWithIdAndOwner() {
             webhookService.delete("wh-1", OWNER);
+            // DELETE scoped to BOTH id and owner — prevents cross-user deletion
             verify(db).update(contains("DELETE FROM webhooks WHERE id=? AND owner=?"), eq("wh-1"), eq(OWNER));
         }
     }
@@ -152,6 +165,7 @@ class WebhookServiceTest {
         @DisplayName("UPDATE SET enabled=1 when enabled=true")
         void setsEnabledTrue() {
             webhookService.setEnabled("wh-1", OWNER, true);
+            // true → integer 1 (SQLite boolean encoding)
             verify(db).update(contains("UPDATE webhooks SET enabled=?"), eq(1), eq("wh-1"), eq(OWNER));
         }
 
@@ -159,6 +173,7 @@ class WebhookServiceTest {
         @DisplayName("UPDATE SET enabled=0 when enabled=false")
         void setsEnabledFalse() {
             webhookService.setEnabled("wh-1", OWNER, false);
+            // false → integer 0
             verify(db).update(contains("UPDATE webhooks SET enabled=?"), eq(0), eq("wh-1"), eq(OWNER));
         }
     }

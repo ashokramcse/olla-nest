@@ -50,6 +50,7 @@ class DatabaseServiceTest {
 		@Test
 		@DisplayName("returns stored value when key exists")
 		void returnsStoredValue() {
+			// Stub DB to return a row with "myValue" for key "myKey"
 			when(db.queryForList("SELECT value FROM settings WHERE key = ?", "myKey"))
 					.thenReturn(List.of(Map.of("value", "myValue")));
 			assertThat(service.getSetting("myKey", "fallback")).isEqualTo("myValue");
@@ -58,6 +59,7 @@ class DatabaseServiceTest {
 		@Test
 		@DisplayName("returns fallback when key is absent")
 		void returnsFallbackWhenAbsent() {
+			// Stub DB to return empty list — key does not exist
 			when(db.queryForList("SELECT value FROM settings WHERE key = ?", "missing"))
 					.thenReturn(List.of());
 			assertThat(service.getSetting("missing", "default")).isEqualTo("default");
@@ -66,6 +68,7 @@ class DatabaseServiceTest {
 		@Test
 		@DisplayName("returns fallback when stored value is null")
 		void returnsFallbackWhenValueNull() {
+			// Stub DB to return a row with null value — treat same as absent
 			Map<String, Object> row = new java.util.HashMap<>();
 			row.put("value", null);
 			when(db.queryForList("SELECT value FROM settings WHERE key = ?", "k"))
@@ -76,8 +79,10 @@ class DatabaseServiceTest {
 		@Test
 		@DisplayName("returns fallback on DataAccessException (e.g. table missing at early startup)")
 		void returnsFallbackOnException() {
+			// Stub DB to throw — settings table may not exist during early startup
 			when(db.queryForList(anyString(), anyString()))
 					.thenThrow(new DataAccessException("table not found") {});
+			// No exception thrown = service degrades gracefully using fallback
 			assertThat(service.getSetting("k", "safe")).isEqualTo("safe");
 		}
 
@@ -99,6 +104,7 @@ class DatabaseServiceTest {
 		@DisplayName("writes value via INSERT OR REPLACE")
 		void writesValue() {
 			service.setSetting("theme", "dark");
+			// INSERT OR REPLACE upserts the key — no separate UPDATE needed
 			verify(db).update(
 					"INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
 					"theme", "dark");
@@ -108,6 +114,7 @@ class DatabaseServiceTest {
 		@DisplayName("null value is coerced to empty string — never violates NOT NULL constraint")
 		void nullValueBecomesEmptyString() {
 			service.setSetting("someKey", null);
+			// SECURITY: null must not be stored — settings column is NOT NULL
 			verify(db).update(
 					"INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
 					"someKey", "");
@@ -174,6 +181,7 @@ class DatabaseServiceTest {
 		@DisplayName("non-boolean string returns fallback")
 		@MockitoSettings(strictness = Strictness.LENIENT)
 		void nonBooleanStringReturnsFallback() {
+			// "yes" is not "true" — must fall back rather than try to parse ambiguously
 			stubSetting("yes"); // not "true" or "false"
 			assertThat(service.getSettingBool("flag", true)).isTrue();
 		}
@@ -190,7 +198,7 @@ class DatabaseServiceTest {
 		@DisplayName("valid table name passes validation")
 		void validTableNameAccepted() {
 			when(db.queryForObject(anyString(), eq(Integer.class))).thenReturn(5);
-			// Invoke via seedDatabase → seedSettings guard calls tableCount("settings")
+			// Set up AppConfig stubs for seedDatabase to run
 			when(appConfig.getDataDir()).thenReturn("/tmp");
 			when(appConfig.getDefaultAdminPassword()).thenReturn("CHANGE_ME_ON_FIRST_BOOT");
 			when(appConfig.getDefaultAdminEmail()).thenReturn("admin@test.com");
@@ -209,7 +217,7 @@ class DatabaseServiceTest {
 
 		@BeforeEach
 		void stubNonZeroTables() {
-			// All tables already have rows → seeding must be skipped entirely
+			// Stub: all tables already have rows → seeding must be skipped entirely
 			when(db.queryForObject(anyString(), eq(Integer.class))).thenReturn(5);
 			when(appConfig.getDataDir()).thenReturn("/tmp");
 			when(appConfig.getDefaultAdminPassword()).thenReturn("SomePassword123!");
@@ -228,6 +236,7 @@ class DatabaseServiceTest {
 		@Test
 		@DisplayName("seedDatabase is safe to call multiple times (idempotent)")
 		void callableManyTimes() {
+			// No exception thrown = calling seedDatabase multiple times is safe
 			assertThatNoException().isThrownBy(() -> {
 				service.seedDatabase();
 				service.seedDatabase();
@@ -240,6 +249,7 @@ class DatabaseServiceTest {
 		void exceptionSwallowed() {
 			when(db.queryForObject(anyString(), eq(Integer.class)))
 					.thenThrow(new DataAccessException("DB down") {});
+			// No exception thrown = DB failures during seeding do not prevent server startup
 			assertThatNoException().isThrownBy(() -> service.seedDatabase());
 		}
 	}

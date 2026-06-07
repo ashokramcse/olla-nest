@@ -66,9 +66,13 @@ class VoiceServiceTest {
         @Test
         @DisplayName("throws RuntimeException (not NPE) when openai provider configured but key blank")
         void throwsMeaningfulExceptionWhenKeyBlank() {
+            // Stub: STT provider is "openai" but the API key is blank (misconfiguration)
             when(dbService.getSetting(eq("sttProvider"), anyString())).thenReturn("openai");
             when(dbService.getSetting(eq("openaiApiKey"), anyString())).thenReturn("");
 
+            // SECURITY: blank key must throw an informative error rather than sending
+            // a request with an empty Authorization header (which would 401 but also
+            // expose that the endpoint is being called without credentials)
             assertThatThrownBy(() -> service.transcribe(new byte[]{1, 2, 3}, "audio.webm"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("OpenAI API key not configured");
@@ -84,8 +88,11 @@ class VoiceServiceTest {
         @Test
         @DisplayName("throws RuntimeException (not NPE) when openaiApiKey is blank")
         void throwsMeaningfulExceptionWhenKeyBlank() {
+            // Stub: TTS always uses OpenAI; key is blank
             when(dbService.getSetting(eq("openaiApiKey"), anyString())).thenReturn("");
 
+            // SECURITY: must fail loudly — a blank key is a configuration error,
+            // not a valid state that should produce silent fallback behaviour
             assertThatThrownBy(() -> service.speak("Hello world", "alloy"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("OpenAI API key not configured");

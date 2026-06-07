@@ -44,14 +44,17 @@ class VisualReportServiceTest {
         @Test
         @DisplayName("result starts with <!DOCTYPE html>")
         void startsWithDoctype() {
+            // Full report with one source — well-formed HTML5 document required
             String html = svc.generate("AI trends", "## Intro\nContent here.",
                     List.of(Map.of("title", "Source 1", "url", "https://example.com")), 5000);
+            // DOCTYPE required for browsers to render in standards mode
             assertThat(html.trim()).startsWith("<!DOCTYPE html>");
         }
 
         @Test
         @DisplayName("query string appears in output (in title or hero)")
         void queryAppearsInOutput() {
+            // Query should appear in the report title or hero section for context
             String html = svc.generate("quantum computing research", "# Body",
                     List.of(), 3000);
             assertThat(html).contains("quantum computing research");
@@ -60,8 +63,10 @@ class VisualReportServiceTest {
         @Test
         @DisplayName("null markdown produces valid HTML without NPE")
         void nullMarkdownNoException() {
+            // Null markdown: sometimes the LLM produces no body text — must not crash
             assertThatCode(() -> svc.generate("test query", null, List.of(), 1000))
                     .doesNotThrowAnyException();
+            // Even without markdown the HTML skeleton must be complete
             String html = svc.generate("test query", null, List.of(), 1000);
             assertThat(html.trim()).startsWith("<!DOCTYPE html>");
         }
@@ -69,6 +74,7 @@ class VisualReportServiceTest {
         @Test
         @DisplayName("empty sources list produces valid HTML")
         void emptySourcesValidHtml() {
+            // No citations — report is still generated (pure LLM synthesis path)
             String html = svc.generate("test", "# Title", List.of(), 0);
             assertThat(html).contains("<!DOCTYPE html>");
         }
@@ -76,6 +82,7 @@ class VisualReportServiceTest {
         @Test
         @DisplayName("null sources list produces valid HTML (no NPE)")
         void nullSourcesNoException() {
+            // Null sources list must be treated as empty — no NPE
             assertThatCode(() -> svc.generate("query", "content", null, 2000))
                     .doesNotThrowAnyException();
         }
@@ -83,6 +90,7 @@ class VisualReportServiceTest {
         @Test
         @DisplayName("duration is included in output (seconds format)")
         void durationInOutput() {
+            // durationMs 7500 → durationS = 7500/1000.0 = 7.5 — displayed in the report footer
             String html = svc.generate("test", "body", List.of(), 7500);
             // durationS = 7500/1000.0 = 7.5
             assertThat(html).contains("7.5");
@@ -91,6 +99,7 @@ class VisualReportServiceTest {
         @Test
         @DisplayName("source count appears in output when sources provided")
         void sourceCountInOutput() {
+            // Two sources → source count "2" must appear somewhere in the rendered page
             var sources = List.of(
                     Map.<String, Object>of("title", "A", "url", "https://a.com"),
                     Map.<String, Object>of("title", "B", "url", "https://b.com")
@@ -102,6 +111,7 @@ class VisualReportServiceTest {
         @Test
         @DisplayName("markdown headings appear in rendered body")
         void markdownHeadingsRendered() {
+            // Markdown ## headings should be converted to HTML <h2> (or similar) in the body
             String html = svc.generate("topic", "## Key Findings\nSome text.", List.of(), 1000);
             assertThat(html).contains("Key Findings");
         }
@@ -109,7 +119,9 @@ class VisualReportServiceTest {
         @Test
         @DisplayName("HTML special chars in query are escaped")
         void htmlCharsInQueryEscaped() {
+            // SECURITY: query with XSS payload must be escaped so script tag is not injected
             String html = svc.generate("<script>alert(1)</script>", "body", List.of(), 0);
+            // Raw <script> tag must never appear in the HTML output
             assertThat(html).doesNotContain("<script>");
         }
     }

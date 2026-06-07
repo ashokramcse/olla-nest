@@ -33,6 +33,7 @@ class WebSocketConfigTest {
     @Test
     @DisplayName("WebSocketConfig instantiates without throwing")
     void constructionSucceeds() {
+        // No exception thrown = WebSocket config wires with mocked handler + interceptor
         assertThatCode(() -> new WebSocketConfig(terminalService, authInterceptor))
                 .doesNotThrowAnyException();
     }
@@ -40,6 +41,7 @@ class WebSocketConfigTest {
     @Test
     @DisplayName("WebSocketConfig instance is non-null")
     void instanceIsNotNull() {
+        // Constructor must return a usable config instance
         assertThat(new WebSocketConfig(terminalService, authInterceptor)).isNotNull();
     }
 }

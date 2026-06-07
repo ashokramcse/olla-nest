@@ -78,6 +78,7 @@ class AuthControllerTest {
 			stubNoRateLimit();
 
 			ResponseEntity<Map<String, Object>> result = controller.login(body, req, res);
+			// Missing required field must return 400 Bad Request immediately
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 			assertThat(result.getBody()).containsEntry("ok", false);
 		}
@@ -99,6 +100,7 @@ class AuthControllerTest {
 			stubNoRateLimit();
 
 			ResponseEntity<Map<String, Object>> result = controller.login(body, req, res);
+			// Blank strings are treated the same as missing fields
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 		}
 
@@ -108,13 +110,14 @@ class AuthControllerTest {
 			Map<String, Object> body = Map.of("email", "unknown@example.com", "password", PLAIN_PASSWORD);
 			stubNoRateLimit();
 			when(req.getRemoteAddr()).thenReturn("127.0.0.1");
+			// Stub DB to return empty list — user does not exist
 			when(db.queryForList(contains("users WHERE email"), eq("unknown@example.com")))
 					.thenReturn(Collections.emptyList());
 
 			ResponseEntity<Map<String, Object>> result = controller.login(body, req, res);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 			assertThat(result.getBody()).containsEntry("ok", false);
-			// Error message must not distinguish between "user not found" vs "wrong password"
+			// SECURITY: error message must not distinguish between "user not found" vs "wrong password"
 			assertThat(result.getBody().get("error").toString()).isEqualTo("Invalid email or password");
 		}
 
@@ -127,13 +130,14 @@ class AuthControllerTest {
 			stubNoRateLimit();
 			when(req.getRemoteAddr()).thenReturn("127.0.0.1");
 
+			// Stub DB to return the admin row (which has a known BCrypt hash)
 			Map<String, Object> row = UserFactory.adminRow();
 			when(db.queryForList(contains("users WHERE email"), eq("junit-integration-test-only@example.com")))
 					.thenReturn(List.of(row));
 
 			ResponseEntity<Map<String, Object>> result = controller.login(body, req, res);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-			// Same message — prevents user enumeration
+			// Same message — prevents user enumeration via different error texts
 			assertThat(result.getBody().get("error").toString()).isEqualTo("Invalid email or password");
 		}
 
@@ -146,6 +150,7 @@ class AuthControllerTest {
 			stubNoRateLimit();
 			when(req.getRemoteAddr()).thenReturn("127.0.0.1");
 
+			// Stub DB to return an admin row with a real BCrypt hash matching PLAIN_PASSWORD
 			Map<String, Object> row = adminRowWithHash();
 			when(db.queryForList(contains("users WHERE email"), anyString()))
 					.thenReturn(List.of(row));
@@ -156,8 +161,10 @@ class AuthControllerTest {
 			ResponseEntity<Map<String, Object>> result = controller.login(body, req, res);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
 			assertThat(result.getBody()).containsEntry("ok", true);
+			// Admin users must be redirected to /admin, not /app
 			assertThat(result.getBody().get("redirectTo")).isEqualTo("/admin");
 			assertThat(result.getBody().get("user")).isEqualTo(admin);
+			// Session must be set and audit logged on every successful login
 			verify(authService).setSession(res, req, admin);
 			verify(chatService).appendAudit(eq(admin.name), eq("auth.login"), anyString(), any());
 		}
@@ -171,6 +178,7 @@ class AuthControllerTest {
 			stubNoRateLimit();
 			when(req.getRemoteAddr()).thenReturn("10.0.0.1");
 
+			// Stub DB to return a regular user row with a matching hash
 			Map<String, Object> row = userRowWithHash();
 			when(db.queryForList(contains("users WHERE email"), anyString()))
 					.thenReturn(List.of(row));
@@ -180,6 +188,7 @@ class AuthControllerTest {
 
 			ResponseEntity<Map<String, Object>> result = controller.login(body, req, res);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+			// Regular users redirect to /app, not /admin
 			assertThat(result.getBody().get("redirectTo")).isEqualTo("/app");
 		}
 
@@ -189,11 +198,13 @@ class AuthControllerTest {
 			Map<String, Object> body = Map.of("email", "admin@example.com", "password", PLAIN_PASSWORD);
 			when(req.getRemoteAddr()).thenReturn("192.168.1.1");
 
+			// Stub DB to return 10 failed attempts with a future reset time
 			long futureReset = System.currentTimeMillis() + 900_000; // 15 min from now
 			when(db.queryForList(contains("login_attempts"), eq("192.168.1.1")))
 					.thenReturn(List.of(Map.of("count", 10L, "reset_at", futureReset)));
 
 			ResponseEntity<Map<String, Object>> result = controller.login(body, req, res);
+			// 429 Too Many Requests must be returned before any DB user lookup
 			assertThat(result.getStatusCodeValue()).isEqualTo(429);
 			assertThat(result.getBody().get("error").toString()).containsIgnoringCase("Too many");
 		}
@@ -203,13 +214,16 @@ class AuthControllerTest {
 		void incrementsRateLimitCounterOnFailure() {
 			Map<String, Object> body = Map.of("email", "bad@example.com", "password", "wrong");
 			when(req.getRemoteAddr()).thenReturn("10.1.2.3");
+			// Stub: no prior failed attempts for this IP
 			when(db.queryForList(contains("login_attempts"), anyString()))
 					.thenReturn(Collections.emptyList()); // no prior attempts
+			// Stub: user not found → 401
 			when(db.queryForList(contains("users WHERE email"), anyString()))
 					.thenReturn(Collections.emptyList());
 
 			controller.login(body, req, res);
 
+			// Rate-limit counter must be incremented to 1 after first failed attempt
 			verify(db).update(contains("INSERT OR REPLACE INTO login_attempts"),
 					eq("10.1.2.3"), eq(1L), anyLong()); // count goes to 1
 		}
@@ -230,16 +244,19 @@ class AuthControllerTest {
 
 			controller.login(body, req, res);
 
+			// Rate-limit record must be purged after a successful login
 			verify(db).update(contains("DELETE FROM login_attempts"), eq("127.0.0.1"));
 		}
 
 		@Test
 		@DisplayName("trusted proxy: uses X-Forwarded-For IP for rate limiting")
 		void usesTrustedProxyForwardedIp() {
+			// Configure controller to trust 10.0.0.1 as a reverse proxy
 			ReflectionTestUtils.setField(controller, "trustedProxy", "10.0.0.1");
 			when(req.getRemoteAddr()).thenReturn("10.0.0.1"); // proxy IP
 			when(req.getHeader("x-forwarded-for")).thenReturn("203.0.113.5, 10.0.0.1");
 
+			// Rate-limit check must use the real client IP extracted from X-Forwarded-For
 			when(db.queryForList(contains("login_attempts"), eq("203.0.113.5")))
 					.thenReturn(Collections.emptyList());
 			when(db.queryForList(contains("users WHERE email"), anyString()))
@@ -265,6 +282,7 @@ class AuthControllerTest {
 		@Test
 		@DisplayName("403 when X-Requested-With header is missing")
 		void returns403WhenCsrfHeaderMissing() {
+			// Missing CSRF header → logout rejected to prevent CSRF logout attacks
 			when(req.getHeader("x-requested-with")).thenReturn(null);
 			ResponseEntity<Map<String, Object>> result = controller.logout(req, res);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
@@ -275,12 +293,14 @@ class AuthControllerTest {
 		@DisplayName("200 OK and session cleared when CSRF header present")
 		void returns200AndClearsSession() {
 			String token = "c".repeat(64);
+			// Stub: CSRF header present and session token extracted
 			when(req.getHeader("x-requested-with")).thenReturn("XMLHttpRequest");
 			when(authService.getToken(req)).thenReturn(token);
 
 			ResponseEntity<Map<String, Object>> result = controller.logout(req, res);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
 			assertThat(result.getBody()).containsEntry("ok", true);
+			// Session cookie must be cleared on successful logout
 			verify(authService).clearSession(res, token);
 		}
 
@@ -288,10 +308,12 @@ class AuthControllerTest {
 		@DisplayName("200 OK even when no token present (already logged out)")
 		void returns200WhenAlreadyLoggedOut() {
 			when(req.getHeader("x-requested-with")).thenReturn("XMLHttpRequest");
+			// Stub: no session token — user already logged out
 			when(authService.getToken(req)).thenReturn(null);
 
 			ResponseEntity<Map<String, Object>> result = controller.logout(req, res);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+			// clearSession must still be called even with null token (idempotent logout)
 			verify(authService).clearSession(res, null);
 		}
 	}
@@ -308,6 +330,7 @@ class AuthControllerTest {
 		@DisplayName("returns authenticated=true and user object when session is valid")
 		void returnsAuthenticatedTrueWithUser() {
 			User admin = UserFactory.admin();
+			// Stub: SessionAuthFilter has already placed the user in the request attribute
 			when(req.getAttribute("authenticatedUser")).thenReturn(admin);
 
 			ResponseEntity<Map<String, Object>> result = controller.me(req);
@@ -319,11 +342,13 @@ class AuthControllerTest {
 		@Test
 		@DisplayName("returns authenticated=false and null user when no session")
 		void returnsAuthenticatedFalseForUnauthenticated() {
+			// Stub: no user in request attribute — not authenticated
 			when(req.getAttribute("authenticatedUser")).thenReturn(null);
 
 			ResponseEntity<Map<String, Object>> result = controller.me(req);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK); // NOT 401 — by design
 			assertThat(result.getBody()).containsEntry("authenticated", false);
+			// user must be explicitly null in the response body, not absent
 			assertThat(result.getBody()).containsEntry("user", null);
 		}
 	}

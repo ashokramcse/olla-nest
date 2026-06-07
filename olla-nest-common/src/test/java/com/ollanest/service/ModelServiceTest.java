@@ -51,6 +51,7 @@ class ModelServiceTest {
 		@Test
 		@DisplayName("maps all non-null fields correctly")
 		void mapsAllFields() {
+			// Build a fully-populated DB row to verify every field mapping
 			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("id", "m-001");
 			row.put("name", "Llama 3");
@@ -71,35 +72,43 @@ class ModelServiceTest {
 
 			ModelRecord m = service.parseModel(row);
 
+			// Verify all scalar fields are correctly hydrated
 			assertThat(m.id).isEqualTo("m-001");
 			assertThat(m.name).isEqualTo("Llama 3");
 			assertThat(m.provider).isEqualTo("ollama");
 			assertThat(m.model).isEqualTo("llama3:8b");
 			assertThat(m.status).isEqualTo("available");
+			// Capabilities JSON is parsed into a list
 			assertThat(m.capabilities).containsExactlyInAnyOrder("coding", "general");
 			assertThat(m.speedScore).isEqualTo(85);
 			assertThat(m.qualityScore).isEqualTo(70);
 			assertThat(m.privacy).isEqualTo("local");
+			// gpu_required=0 must map to false (not true)
 			assertThat(m.gpuRequired).isFalse();
 			assertThat(m.maxConcurrency).isEqualTo(4);
 			assertThat(m.contextSize).isEqualTo(8192L);
+			// sensitive_allowed=1 must map to true
 			assertThat(m.sensitiveAllowed).isTrue();
 		}
 
 		@Test
 		@DisplayName("null row values produce safe defaults")
 		void nullValuesProduceSafeDefaults() {
+			// All fields absent — verify the service returns safe defaults rather than NPE
 			Map<String, Object> row = new HashMap<>();
-			// All fields absent
 
 			ModelRecord m = service.parseModel(row);
 
 			assertThat(m.id).isNull();
+			// Missing capabilities JSON should yield an empty list, not null
 			assertThat(m.capabilities).isEmpty();
 			assertThat(m.speedScore).isEqualTo(0);
 			assertThat(m.qualityScore).isEqualTo(0);
+			// Default concurrency guard prevents unlimited parallel requests
 			assertThat(m.maxConcurrency).isEqualTo(2);
-			assertThat(m.contextSize).isNull(); // zero context_size → null
+			// zero context_size is treated as "not set" → null
+			assertThat(m.contextSize).isNull();
+			// Governance/resource/cost tiers have safe hardcoded defaults
 			assertThat(m.governanceTier).isEqualTo("approved-local");
 			assertThat(m.resourceTier).isEqualTo("standard");
 			assertThat(m.externalCostTier).isEqualTo("local-free");
@@ -108,6 +117,8 @@ class ModelServiceTest {
 		@Test
 		@DisplayName("context_size=0 is stored as null, not 0")
 		void zeroContextSizeIsStoredAsNull() {
+			// A row with context_size=0 means "unknown" — must be stored as null to
+			// avoid router treating it as a 0-token window
 			Map<String, Object> row = new HashMap<>();
 			row.put("context_size", 0);
 
@@ -118,6 +129,7 @@ class ModelServiceTest {
 		@Test
 		@DisplayName("max_context_size fallback used when context_size is absent")
 		void maxContextSizeFallback() {
+			// Some DB rows use max_context_size instead of context_size — verify fallback
 			Map<String, Object> row = new HashMap<>();
 			row.put("max_context_size", 16384);
 
@@ -128,6 +140,7 @@ class ModelServiceTest {
 		@Test
 		@DisplayName("sensitive_allowed=0 maps to false")
 		void sensitiveAllowedZeroIsFalse() {
+			// SECURITY: sensitive_allowed=0 must deny sensitive data routing to this model
 			Map<String, Object> row = new HashMap<>();
 			row.put("sensitive_allowed", 0);
 
@@ -138,6 +151,7 @@ class ModelServiceTest {
 		@Test
 		@DisplayName("sensitive_allowed=null maps to true (default allow)")
 		void sensitiveAllowedNullIsTrue() {
+			// Default is permissive — absence of the flag does not block sensitive routing
 			Map<String, Object> row = new HashMap<>();
 			// sensitive_allowed absent
 
@@ -148,6 +162,7 @@ class ModelServiceTest {
 		@Test
 		@DisplayName("malformed capabilities JSON returns empty list")
 		void malformedCapabilitiesJson() {
+			// Corrupt JSON must not crash the parser — graceful degradation to empty list
 			Map<String, Object> row = new HashMap<>();
 			row.put("capabilities", "{not-an-array}");
 
@@ -158,6 +173,7 @@ class ModelServiceTest {
 		@Test
 		@DisplayName("gpu_required=1 maps to true")
 		void gpuRequired() {
+			// gpu_required=1 must map to true so the router skips GPU models on CPU-only deployments
 			Map<String, Object> row = new HashMap<>();
 			row.put("gpu_required", 1);
 
@@ -194,8 +210,10 @@ class ModelServiceTest {
 		@Test
 		@DisplayName("returns only models matching user's allowed IDs")
 		void filtersToAllowedIds() {
+			// Stub: user is granted access to m-1 and m-2 only
 			when(userService.allowedModelIds(user)).thenReturn(List.of("m-1", "m-2"));
 			when(databaseService.getSettingBool(eq("allowApiModels"), anyBoolean())).thenReturn(true);
+			// DB returns 3 models — m-3 is in the DB but not in the user's grant list
 			when(db.queryForList(anyString())).thenReturn(List.of(
 					modelRow("m-1", "ollama", "available"),
 					modelRow("m-2", "ollama", "available"),
@@ -203,12 +221,14 @@ class ModelServiceTest {
 			));
 
 			List<ModelRecord> result = service.allowedModels(user);
+			// Only the two granted models must appear — m-3 is silently dropped
 			assertThat(result).extracting(m -> m.id).containsExactlyInAnyOrder("m-1", "m-2");
 		}
 
 		@Test
 		@DisplayName("excludes API models when allowApiModels=false")
 		void excludesApiModelsWhenFlagFalse() {
+			// Stub: user is granted both, but the global flag prohibits API models
 			when(userService.allowedModelIds(user)).thenReturn(List.of("m-local", "m-api"));
 			when(databaseService.getSettingBool(eq("allowApiModels"), anyBoolean())).thenReturn(false);
 			when(db.queryForList(anyString())).thenReturn(List.of(
@@ -217,12 +237,14 @@ class ModelServiceTest {
 			));
 
 			List<ModelRecord> result = service.allowedModels(user);
+			// API model must be filtered out when the admin flag is off
 			assertThat(result).extracting(m -> m.id).containsExactly("m-local");
 		}
 
 		@Test
 		@DisplayName("includes API models when allowApiModels=true")
 		void includesApiModelsWhenFlagTrue() {
+			// Stub: global flag allows API models
 			when(userService.allowedModelIds(user)).thenReturn(List.of("m-local", "m-api"));
 			when(databaseService.getSettingBool(eq("allowApiModels"), anyBoolean())).thenReturn(true);
 			when(db.queryForList(anyString())).thenReturn(List.of(
@@ -231,23 +253,27 @@ class ModelServiceTest {
 			));
 
 			List<ModelRecord> result = service.allowedModels(user);
+			// Both models must be present when the admin permits API access
 			assertThat(result).extracting(m -> m.id).containsExactlyInAnyOrder("m-local", "m-api");
 		}
 
 		@Test
 		@DisplayName("returns empty list when user has no allowed IDs")
 		void emptyAllowedIds() {
+			// Stub: user has zero model grants — should not see any models at all
 			when(userService.allowedModelIds(user)).thenReturn(Collections.emptyList());
 			when(databaseService.getSettingBool(eq("allowApiModels"), anyBoolean())).thenReturn(false);
 			when(db.queryForList(anyString())).thenReturn(List.of(modelRow("m-1", "ollama", "available")));
 
 			List<ModelRecord> result = service.allowedModels(user);
+			// Empty grant list must result in empty response — not all models
 			assertThat(result).isEmpty();
 		}
 
 		@Test
 		@DisplayName("returns empty list when DB returns no models")
 		void emptyDbResult() {
+			// Stub: DB is empty (no models configured) — must not throw
 			when(userService.allowedModelIds(user)).thenReturn(List.of("m-1"));
 			when(databaseService.getSettingBool(eq("allowApiModels"), anyBoolean())).thenReturn(false);
 			when(db.queryForList(anyString())).thenReturn(Collections.emptyList());

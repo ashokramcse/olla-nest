@@ -67,10 +67,12 @@ class EmailServiceTest {
         @Test
         @DisplayName("INSERT is called")
         void insertsRow() {
+            // Stub: encrypt password and return the created account row
             when(cryptoService.encryptKey(anyString())).thenReturn("enc-pass");
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(acctRow("email-abc")));
             emailService.createAccount(OWNER, Map.of("imap_host", "imap.gmail.com"));
+            // Account credentials must be persisted (with encrypted password)
             verify(db).update(contains("INSERT INTO email_accounts"), (Object[]) any());
         }
 
@@ -81,6 +83,7 @@ class EmailServiceTest {
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(acctRow("email-xyz")));
             Map<String, Object> result = emailService.createAccount(OWNER, Map.of());
+            // email- prefix makes account IDs recognisable in logs and APIs
             assertThat(result.get("id").toString()).startsWith("email-");
         }
 
@@ -104,6 +107,7 @@ class EmailServiceTest {
         @Test
         @DisplayName("returns null when not found")
         void nullWhenEmpty() {
+            // Stub: no rows found — account doesn't exist or belongs to another owner
             when(db.queryForList(anyString(), anyString(), anyString())).thenReturn(List.of());
             assertThat(emailService.getAccount("email-1", OWNER)).isNull();
         }
@@ -113,8 +117,10 @@ class EmailServiceTest {
         void stripsPassword() {
             Map<String, Object> row = new java.util.LinkedHashMap<>(acctRow("email-1"));
             row.put("password_enc", "secret-enc");
+            // Stub: account found with encrypted password in DB row
             when(db.queryForList(anyString(), anyString(), anyString())).thenReturn(List.of(row));
             Map<String, Object> result = emailService.getAccount("email-1", OWNER);
+            // SECURITY: encrypted password must never be returned to the client
             assertThat(result).doesNotContainKey("password_enc");
         }
     }
@@ -128,8 +134,10 @@ class EmailServiceTest {
         @Test
         @DisplayName("queries with owner parameter")
         void queriesWithOwner() {
+            // Stub: one account for this owner
             when(db.queryForList(anyString(), eq(OWNER), eq(OWNER))).thenReturn(List.of(acctRow("email-1")));
             List<Map<String, Object>> results = emailService.listAccounts(OWNER);
+            // List must not be null even if empty
             assertThat(results).isNotNull();
         }
     }
@@ -144,6 +152,7 @@ class EmailServiceTest {
         @DisplayName("DELETE WHERE id=? AND owner=? is called")
         void deletesWithIdAndOwner() {
             emailService.deleteAccount("email-1", OWNER);
+            // Both id and owner in WHERE clause — prevents cross-user deletion
             verify(db).update(contains("DELETE FROM email_accounts WHERE id = ? AND owner = ?"),
                     eq("email-1"), eq(OWNER));
         }
@@ -158,6 +167,7 @@ class EmailServiceTest {
         @Test
         @DisplayName("queries with accountId and applies page/pageSize")
         void queriesWithAccountId() {
+            // Stub: one message for this account in INBOX
             when(db.queryForList(anyString(), anyString(), anyString(), anyInt(), anyInt()))
                     .thenReturn(List.of(msgRow("eml-1", "email-1")));
             List<Map<String, Object>> results = emailService.listMessages("email-1", OWNER, "INBOX", 1, 20);
@@ -174,6 +184,7 @@ class EmailServiceTest {
         @Test
         @DisplayName("returns null when not found")
         void nullWhenEmpty() {
+            // Stub: message not found
             when(db.queryForList(anyString(), anyString(), anyString())).thenReturn(List.of());
             assertThat(emailService.getMessage("eml-1", "email-1")).isNull();
         }
@@ -189,6 +200,7 @@ class EmailServiceTest {
         @DisplayName("UPDATE SET is_read=1 is called")
         void updatesIsRead() {
             emailService.markRead("eml-1", "email-1");
+            // is_read must be set to 1 for both the local DB and IMAP server sync
             verify(db).update(contains("UPDATE email_messages SET is_read=1"), eq("eml-1"), eq("email-1"));
         }
     }
@@ -203,6 +215,7 @@ class EmailServiceTest {
         @DisplayName("UPDATE SET is_starred=1 when starred=true")
         void setsStarredTrue() {
             emailService.markStarred("eml-1", "email-1", true);
+            // is_starred=1 when marking as starred
             verify(db).update(contains("UPDATE email_messages SET is_starred=?"), eq(1), eq("eml-1"), eq("email-1"));
         }
 
@@ -210,6 +223,7 @@ class EmailServiceTest {
         @DisplayName("UPDATE SET is_starred=0 when starred=false")
         void setsStarredFalse() {
             emailService.markStarred("eml-1", "email-1", false);
+            // is_starred=0 when un-starring
             verify(db).update(contains("UPDATE email_messages SET is_starred=?"), eq(0), eq("eml-1"), eq("email-1"));
         }
     }
@@ -224,6 +238,7 @@ class EmailServiceTest {
         @DisplayName("DELETE called for id and accountId")
         void deletesMessage() {
             emailService.deleteMessage("eml-1", "email-1");
+            // Message must be deleted by both id and accountId for safety
             verify(db).update(contains("DELETE FROM email_messages WHERE id=?"), eq("eml-1"), eq("email-1"));
         }
     }

@@ -58,6 +58,7 @@ class BaseControllerTest {
 		@DisplayName("returns User when authenticatedUser attribute is set")
 		void returnsUserWhenAttributePresent() {
 			User admin = UserFactory.admin();
+			// Stub: SessionAuthFilter placed the user into the request attribute
 			when(req.getAttribute("authenticatedUser")).thenReturn(admin);
 			assertThat(controller.publicGetUser(req)).isSameAs(admin);
 		}
@@ -65,6 +66,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("returns null when authenticatedUser attribute is absent")
 		void returnsNullWhenNoAttribute() {
+			// Stub: no user attribute → unauthenticated request
 			when(req.getAttribute("authenticatedUser")).thenReturn(null);
 			assertThat(controller.publicGetUser(req)).isNull();
 		}
@@ -81,6 +83,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("returns null (pass) when user is authenticated")
 		void passesForAuthenticatedUser() {
+			// Stub: authenticated user in attribute → guard should pass (return null)
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.regularUser());
 			assertThat(controller.publicRequireAuth(req)).isNull();
 		}
@@ -88,11 +91,13 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("returns 401 when user is null (unauthenticated)")
 		void returns401ForUnauthenticated() {
+			// Stub: no user → unauthenticated → must return 401
 			when(req.getAttribute("authenticatedUser")).thenReturn(null);
 			ResponseEntity<Map<String,Object>> result = controller.publicRequireAuth(req);
 			assertThat(result).isNotNull();
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 			assertThat(result.getBody()).containsEntry("ok", false);
+			// Error message must indicate login is required
 			assertThat(result.getBody().get("error").toString()).containsIgnoringCase("login");
 		}
 	}
@@ -108,6 +113,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("returns null (pass) for admin GET request with no CSRF needed")
 		void passesForAdminGetRequest() {
+			// Stub: admin user on a GET request — no CSRF header needed for safe methods
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.admin());
 			when(req.getMethod()).thenReturn("GET");
 			assertThat(controller.publicRequireAdmin(req)).isNull();
@@ -116,6 +122,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("returns null (pass) for admin POST with X-Requested-With header")
 		void passesForAdminPostWithCsrf() {
+			// Stub: admin user on a POST with the required CSRF header
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.admin());
 			when(req.getMethod()).thenReturn("POST");
 			when(req.getHeader("x-requested-with")).thenReturn("XMLHttpRequest");
@@ -125,6 +132,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("returns 401 when user is not authenticated")
 		void returns401WhenNotAuthenticated() {
+			// Stub: no user → unauthenticated, not just non-admin
 			when(req.getAttribute("authenticatedUser")).thenReturn(null);
 			ResponseEntity<Map<String,Object>> result = controller.publicRequireAdmin(req);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -133,32 +141,38 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("returns 403 when user is authenticated but not admin")
 		void returns403WhenNotAdmin() {
+			// Stub: regular user (role = "user") — authenticated but lacks admin role
 			User regularUser = UserFactory.regularUser(); // role = "user"
 			when(req.getAttribute("authenticatedUser")).thenReturn(regularUser);
 			ResponseEntity<Map<String,Object>> result = controller.publicRequireAdmin(req);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
 			assertThat(result.getBody()).containsEntry("ok", false);
+			// Error message must mention "admin" so the client understands the access level required
 			assertThat(result.getBody().get("error").toString()).containsIgnoringCase("admin");
 		}
 
 		@Test
 		@DisplayName("returns 403 when admin POST is missing X-Requested-With (CSRF blocked)")
 		void returns403WhenAdminPostMissingCsrf() {
+			// Stub: admin user on a POST without the CSRF header → blocked
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.admin());
 			when(req.getMethod()).thenReturn("POST");
 			when(req.getHeader("x-requested-with")).thenReturn(null);
 			ResponseEntity<Map<String,Object>> result = controller.publicRequireAdmin(req);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+			// SECURITY: error must reference CSRF so the client knows what header is missing
 			assertThat(result.getBody().get("error").toString()).containsIgnoringCase("CSRF");
 		}
 
 		@Test
 		@DisplayName("CSRF check applies to DELETE method too")
 		void returns403ForDeleteWithoutCsrf() {
+			// Stub: admin user on a DELETE without the CSRF header
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.admin());
 			when(req.getMethod()).thenReturn("DELETE");
 			when(req.getHeader("x-requested-with")).thenReturn(null);
 			ResponseEntity<Map<String,Object>> result = controller.publicRequireAdmin(req);
+			// DELETE is a mutating method — CSRF check applies the same as POST
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
 		}
 	}
@@ -174,6 +188,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("passes for any authenticated GET — no CSRF needed")
 		void passesForAuthenticatedGet() {
+			// GET is a safe method — CSRF protection not required
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.regularUser());
 			when(req.getMethod()).thenReturn("GET");
 			assertThat(controller.publicRequireAuthWithCsrf(req)).isNull();
@@ -182,6 +197,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("passes for authenticated POST with X-Requested-With")
 		void passesForAuthenticatedPostWithCsrf() {
+			// Stub: regular user on POST with the required CSRF header
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.regularUser());
 			when(req.getMethod()).thenReturn("POST");
 			when(req.getHeader("x-requested-with")).thenReturn("XMLHttpRequest");
@@ -191,6 +207,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("returns 401 for unauthenticated request")
 		void returns401ForUnauthenticated() {
+			// Stub: no user → authentication check fails before CSRF check
 			when(req.getAttribute("authenticatedUser")).thenReturn(null);
 			assertThat(controller.publicRequireAuthWithCsrf(req).getStatusCode())
 					.isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -199,6 +216,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("returns 403 for authenticated POST without X-Requested-With (CSRF)")
 		void returns403ForMissingCsrf() {
+			// Stub: authenticated user but missing CSRF header on POST → blocked
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.regularUser());
 			when(req.getMethod()).thenReturn("POST");
 			when(req.getHeader("x-requested-with")).thenReturn(null);
@@ -218,6 +236,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("GET always passes CSRF check")
 		void getAlwaysPasses() {
+			// Safe methods (GET, HEAD) do not require CSRF headers
 			when(req.getMethod()).thenReturn("GET");
 			assertThat(controller.publicIsCsrfOk(req)).isTrue();
 		}
@@ -225,6 +244,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("POST with X-Requested-With passes CSRF check")
 		void postWithHeaderPasses() {
+			// XMLHttpRequest header proves the request was made by JS, not a cross-origin form
 			when(req.getMethod()).thenReturn("POST");
 			when(req.getHeader("x-requested-with")).thenReturn("XMLHttpRequest");
 			assertThat(controller.publicIsCsrfOk(req)).isTrue();
@@ -233,6 +253,7 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("POST without X-Requested-With fails CSRF check")
 		void postWithoutHeaderFails() {
+			// SECURITY: POST without CSRF header must be rejected
 			when(req.getMethod()).thenReturn("POST");
 			when(req.getHeader("x-requested-with")).thenReturn(null);
 			assertThat(controller.publicIsCsrfOk(req)).isFalse();
@@ -250,12 +271,14 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("null input returns null without NPE")
 		void nullInputReturnsNull() {
+			// Null must pass through as null — callers may use null to indicate "not provided"
 			assertThat(TestableController.publicSanitize(null)).isNull();
 		}
 
 		@ParameterizedTest(name = "blank input ''{0}'' returns empty string")
 		@ValueSource(strings = {"", "   ", "\t", "\n"})
 		void blankInputReturnsEmpty(String input) {
+			// Blank/whitespace-only input should be normalised to empty string
 			assertThat(TestableController.publicSanitize(input)).isEmpty();
 		}
 
@@ -272,6 +295,7 @@ class BaseControllerTest {
 		@DisplayName("& is HTML-escaped to &amp;")
 		void escapesAmpersand() {
 			String result = TestableController.publicSanitize("AT&T");
+			// Raw & must be escaped to prevent HTML entity injection
 			assertThat(result).contains("&amp;");
 			assertThat(result).doesNotContain("AT&T"); // raw & gone
 		}
@@ -280,6 +304,7 @@ class BaseControllerTest {
 		@DisplayName("double quote is HTML-escaped to &quot;")
 		void escapesDoubleQuote() {
 			String result = TestableController.publicSanitize("say \"hello\"");
+			// Unescaped double quotes in HTML attributes could break out of attribute context
 			assertThat(result).contains("&quot;");
 		}
 
@@ -309,6 +334,7 @@ class BaseControllerTest {
 		@DisplayName("clean text passes through unchanged (no unnecessary escaping)")
 		void cleanTextPassesThrough() {
 			String input = "Hello, World! This is a clean message.";
+			// Sanitizer must not corrupt clean input
 			assertThat(TestableController.publicSanitize(input)).isEqualTo(input);
 		}
 

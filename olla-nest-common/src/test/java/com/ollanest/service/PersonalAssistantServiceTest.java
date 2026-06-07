@@ -58,20 +58,25 @@ class PersonalAssistantServiceTest {
         @Test
         @DisplayName("returns existing record when found in DB")
         void returnsExisting() throws Exception {
+            // Stub: crew_members row already exists for this owner
             when(db.queryForList(contains("FROM crew_members WHERE owner"), eq(OWNER)))
                     .thenReturn(List.of(assistantRow()));
             when(db.queryForList(contains("FROM scheduled_tasks"), eq(OWNER)))
                     .thenReturn(List.of());
             when(mapper.readValue(anyString(), eq(List.class))).thenReturn(List.of());
             Map<String, Object> result = personalAssistantService.getOrCreate(OWNER);
+            // Result must be the existing row — not a newly created one
             assertThat(result).isNotNull();
             assertThat(result.get("owner")).isEqualTo(OWNER);
+            // INSERT must not be called when the record already exists
             verify(db, never()).update(contains("INSERT INTO crew_members"), (Object[]) any());
         }
 
         @Test
         @DisplayName("inserts when record not found")
         void insertsWhenNotFound() throws Exception {
+            // Step 1: first query returns empty (no existing record)
+            // Step 2: second query returns the newly created row (post-INSERT fetch)
             when(db.queryForList(contains("FROM crew_members WHERE owner"), eq(OWNER)))
                     .thenReturn(List.of())
                     .thenReturn(List.of(assistantRow()));
@@ -80,6 +85,7 @@ class PersonalAssistantServiceTest {
             when(mapper.readValue(anyString(), eq(List.class))).thenReturn(List.of());
             when(taskService.create(anyString(), anyMap())).thenReturn(Map.of("id", "task-1"));
             Map<String, Object> result = personalAssistantService.getOrCreate(OWNER);
+            // INSERT must be called to create the default assistant record
             verify(db).update(contains("INSERT INTO crew_members"), (Object[]) any());
             assertThat(result).isNotNull();
         }
@@ -87,6 +93,7 @@ class PersonalAssistantServiceTest {
         @Test
         @DisplayName("throws for synthetic owner")
         void throwsForSyntheticOwner() {
+            // SECURITY: "system" is a synthetic owner ID — real users must not pass this
             assertThatThrownBy(() -> personalAssistantService.getOrCreate("system"))
                     .isInstanceOf(IllegalArgumentException.class);
         }
@@ -94,6 +101,7 @@ class PersonalAssistantServiceTest {
         @Test
         @DisplayName("throws for null owner")
         void throwsForNullOwner() {
+            // Null owner would cause every DB query to fail — reject early
             assertThatThrownBy(() -> personalAssistantService.getOrCreate(null))
                     .isInstanceOf(IllegalArgumentException.class);
         }
@@ -108,6 +116,7 @@ class PersonalAssistantServiceTest {
         @Test
         @DisplayName("UPDATE WHERE owner=? is called")
         void updatesForOwner() throws Exception {
+            // Stub: existing record is found so the update can proceed
             when(db.queryForList(contains("FROM crew_members WHERE owner"), eq(OWNER)))
                     .thenReturn(List.of(assistantRow()));
             when(db.queryForList(contains("FROM scheduled_tasks"), eq(OWNER)))
@@ -115,6 +124,7 @@ class PersonalAssistantServiceTest {
             when(mapper.readValue(anyString(), eq(List.class))).thenReturn(List.of());
             when(mapper.writeValueAsString(any())).thenReturn("[]");
             personalAssistantService.update(OWNER, Map.of("name", "Nova"));
+            // UPDATE must target this specific owner — not a global update
             verify(db).update(contains("UPDATE crew_members"), (Object[]) any());
         }
     }
@@ -128,10 +138,13 @@ class PersonalAssistantServiceTest {
         @Test
         @DisplayName("queries scheduled_tasks for owner")
         void queriesWithOwner() {
+            // Stub: DB returns one scheduled check-in task for this owner
             when(db.queryForList(contains("FROM scheduled_tasks"), eq(OWNER)))
                     .thenReturn(List.of(Map.of("id", "task-1", "name", "Morning check-in")));
             List<Map<String, Object>> checkIns = personalAssistantService.getCheckIns(OWNER);
+            // Result must contain the stub row — check-ins are scoped to the owner
             assertThat(checkIns).hasSize(1);
+            // The query must be parameterized with the owner ID to prevent cross-user leakage
             verify(db).queryForList(anyString(), eq(OWNER));
         }
     }

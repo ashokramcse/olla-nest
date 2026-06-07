@@ -66,6 +66,7 @@ class DeepResearchServiceTest {
         @Test
         @DisplayName("does not throw for an unknown taskId")
         void noThrowForUnknownTask() {
+            // Cancelling a non-existent task must be a no-op — not an error
             assertThatCode(() -> service.cancel("res-unknown-task"))
                     .doesNotThrowAnyException();
         }
@@ -74,6 +75,7 @@ class DeepResearchServiceTest {
         @DisplayName("calls DB update to mark task as cancelled")
         void callsDbUpdate() {
             service.cancel("res-abc123");
+            // Cancel must persist the cancellation status so the UI updates correctly
             verify(db, atLeastOnce()).update(contains("cancelled"), any(), eq("res-abc123"));
         }
     }
@@ -87,6 +89,7 @@ class DeepResearchServiceTest {
         @Test
         @DisplayName("returns empty list when no tasks exist")
         void returnsEmptyList() {
+            // Stub: no tasks for this user
             when(db.queryForList(anyString(), eq("user-test-001"))).thenReturn(List.of());
             List<Map<String, Object>> result = service.listTasks("user-test-001");
             assertThat(result).isNotNull().isEmpty();
@@ -95,6 +98,7 @@ class DeepResearchServiceTest {
         @Test
         @DisplayName("returns rows from DB")
         void returnsDbRows() {
+            // Stub: one completed research task for this user
             List<Map<String, Object>> rows = List.of(
                     Map.of("id", "res-1", "owner", "user-test-001", "status", "completed")
             );
@@ -114,9 +118,11 @@ class DeepResearchServiceTest {
         @Test
         @DisplayName("returns null when task not found")
         void returnsNullWhenNotFound() {
+            // Stub: no rows returned — task doesn't exist or belongs to another user
             when(db.queryForList(anyString(), eq("res-unknown"), eq("user-test-001")))
                     .thenReturn(List.of());
             String result = service.getReport("res-unknown", "user-test-001");
+            // Null indicates "not found" — callers convert to 404
             assertThat(result).isNull();
         }
 
@@ -124,6 +130,7 @@ class DeepResearchServiceTest {
         @DisplayName("returns report_html when task found")
         void returnsReportHtml() {
             Map<String, Object> row = Map.of("report_html", "<h1>Report</h1>");
+            // Stub: task found with completed report HTML
             when(db.queryForList(anyString(), eq("res-abc"), eq("user-test-001")))
                     .thenReturn(List.of(row));
             String result = service.getReport("res-abc", "user-test-001");
@@ -133,11 +140,13 @@ class DeepResearchServiceTest {
         @Test
         @DisplayName("returns null when report_html is null in row")
         void returnsNullWhenReportHtmlNull() {
+            // Stub: task exists but report_html not yet generated (task still running)
             Map<String, Object> row = new java.util.HashMap<>();
             row.put("report_html", null);
             when(db.queryForList(anyString(), eq("res-null"), eq("user-test-001")))
                     .thenReturn(List.of(row));
             String result = service.getReport("res-null", "user-test-001");
+            // Null report_html = report not ready yet — callers show "in progress" message
             assertThat(result).isNull();
         }
     }

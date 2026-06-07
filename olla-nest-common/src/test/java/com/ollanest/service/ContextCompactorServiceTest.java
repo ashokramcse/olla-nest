@@ -45,6 +45,7 @@ class ContextCompactorServiceTest {
         @Test
         @DisplayName("returns 0 for null text")
         void zeroForNull() {
+            // Null text must return 0 without NPE
             assertThat(contextCompactorService.estimateTokens(null)).isEqualTo(0);
         }
 
@@ -57,15 +58,17 @@ class ContextCompactorServiceTest {
         @Test
         @DisplayName("proportional to text length (~4 chars per token)")
         void proportionalToLength() {
-            // 400 chars → ~100 tokens
+            // 400 chars → ~100 tokens (4 chars/token heuristic)
             String text = "a".repeat(400);
             int tokens = contextCompactorService.estimateTokens(text);
+            // Allow ±10% tolerance for rounding differences
             assertThat(tokens).isGreaterThanOrEqualTo(90).isLessThanOrEqualTo(110);
         }
 
         @Test
         @DisplayName("always non-negative")
         void nonNegative() {
+            // Token estimates must never be negative
             assertThat(contextCompactorService.estimateTokens("hi")).isGreaterThanOrEqualTo(0);
         }
     }
@@ -79,6 +82,7 @@ class ContextCompactorServiceTest {
         @Test
         @DisplayName("false when messages fit within context window")
         void falseWhenFit() {
+            // A tiny message (~1 token) fits easily in an 8192-token window
             List<Map<String, Object>> msgs = List.of(
                     Map.of("role", "user", "content", "hi") // ~1 token
             );
@@ -93,7 +97,7 @@ class ContextCompactorServiceTest {
             List<Map<String, Object>> msgs = List.of(
                     Map.of("role", "user", "content", bigContent)
             );
-            // context of 100 tokens → 85% = 85 → 1000 > 85
+            // Context of 100 tokens → 85% threshold = 85 tokens; 1000 > 85 → must compact
             assertThat(contextCompactorService.needsCompaction(msgs, 100)).isTrue();
         }
 
@@ -103,7 +107,7 @@ class ContextCompactorServiceTest {
             List<Map<String, Object>> msgs = List.of(
                     Map.of("role", "user", "content", "hello")
             );
-            // Should not throw
+            // Should not throw — falls back to a sensible default context window
             boolean result = contextCompactorService.needsCompaction(msgs, 0);
             assertThat(result).isIn(true, false);
         }
@@ -129,6 +133,7 @@ class ContextCompactorServiceTest {
         @DisplayName("returns fewer messages than input when large history")
         void reduceMessageCount() {
             List<Map<String, Object>> msgs = buildMessages(20);
+            // Compact 20 messages — result must be smaller than the input
             List<Map<String, Object>> compacted = contextCompactorService.compact(
                     msgs, 8192, "http://localhost:11434", "llama3.2");
             assertThat(compacted.size()).isLessThan(msgs.size());
@@ -141,6 +146,7 @@ class ContextCompactorServiceTest {
             Map<String, Object> last = msgs.get(msgs.size() - 1);
             List<Map<String, Object>> compacted = contextCompactorService.compact(
                     msgs, 8192, "http://localhost:11434", "llama3.2");
+            // Most recent user message must always be in the compacted result — it's the current query
             assertThat(compacted).contains(last);
         }
 
@@ -150,6 +156,7 @@ class ContextCompactorServiceTest {
             List<Map<String, Object>> msgs = buildMessages(20);
             List<Map<String, Object>> compacted = contextCompactorService.compact(
                     msgs, 8192, "http://localhost:11434", "llama3.2");
+            // Compacted context must include a system message with the conversation summary
             assertThat(compacted).anyMatch(m -> "system".equals(m.get("role")));
         }
 
@@ -159,6 +166,7 @@ class ContextCompactorServiceTest {
             List<Map<String, Object>> msgs = buildMessages(5); // <= 8
             List<Map<String, Object>> compacted = contextCompactorService.compact(
                     msgs, 8192, "http://localhost:11434", "llama3.2");
+            // Small histories must be returned as-is — no unnecessary compaction overhead
             assertThat(compacted).isSameAs(msgs);
         }
     }

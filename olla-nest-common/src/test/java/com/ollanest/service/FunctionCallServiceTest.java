@@ -57,12 +57,15 @@ class FunctionCallServiceTest {
         @Test
         @DisplayName("returns non-empty list")
         void returnsNonEmpty() {
+            // The LLM needs at least one tool to use function calling
             assertThat(functionCallService.getToolDefinitions()).isNotEmpty();
         }
 
         @Test
         @DisplayName("each tool has name and description keys")
         void eachHasNameAndDescription() {
+            // OpenAI function-calling spec: each tool object must have function.name
+            // and function.description for the model to understand what to invoke
             functionCallService.getToolDefinitions().forEach(tool -> {
                 Map<?, ?> func = (Map<?, ?>) tool.get("function");
                 assertThat(func).containsKey("name");
@@ -73,6 +76,7 @@ class FunctionCallServiceTest {
         @Test
         @DisplayName("includes get_datetime tool")
         void includesGetDatetime() {
+            // get_datetime is the most frequently used built-in — must always be present
             assertThat(functionCallService.getToolDefinitions())
                     .anyMatch(t -> "get_datetime".equals(((Map<?, ?>) t.get("function")).get("name")));
         }
@@ -80,6 +84,7 @@ class FunctionCallServiceTest {
         @Test
         @DisplayName("includes calculate tool")
         void includesCalculate() {
+            // calculate enables the LLM to delegate arithmetic to a safe evaluator
             assertThat(functionCallService.getToolDefinitions())
                     .anyMatch(t -> "calculate".equals(((Map<?, ?>) t.get("function")).get("name")));
         }
@@ -87,6 +92,7 @@ class FunctionCallServiceTest {
         @Test
         @DisplayName("includes search_knowledge_base tool")
         void includesSearchKnowledgeBase() {
+            // search_knowledge_base enables RAG retrieval via function call
             assertThat(functionCallService.getToolDefinitions())
                     .anyMatch(t -> "search_knowledge_base".equals(((Map<?, ?>) t.get("function")).get("name")));
         }
@@ -101,12 +107,14 @@ class FunctionCallServiceTest {
         @Test
         @DisplayName("returns empty list for null message")
         void emptyForNull() {
+            // Null guard — streaming responses can produce null message nodes
             assertThat(functionCallService.parseToolCalls(null)).isEmpty();
         }
 
         @Test
         @DisplayName("returns empty list when no tool_calls array")
         void emptyWhenNoToolCalls() throws Exception {
+            // Standard text response (no function call invoked by the model)
             JsonNode msg = realMapper.readTree("{\"role\":\"assistant\",\"content\":\"hello\"}");
             assertThat(functionCallService.parseToolCalls(msg)).isEmpty();
         }
@@ -114,13 +122,16 @@ class FunctionCallServiceTest {
         @Test
         @DisplayName("parses valid tool_calls array correctly")
         void parsesValidToolCalls() throws Exception {
+            // Construct a message node matching the OpenAI tool_calls format
             String json = "{\"tool_calls\":[{\"function\":{\"name\":\"calculate\",\"arguments\":{\"expression\":\"2+2\"}}}]}";
             JsonNode msg = realMapper.readTree(json);
             List<Map<String, Object>> calls = functionCallService.parseToolCalls(msg);
+            // Exactly one tool call extracted
             assertThat(calls).hasSize(1);
             assertThat(calls.get(0).get("name")).isEqualTo("calculate");
             @SuppressWarnings("unchecked")
             Map<String, Object> args = (Map<String, Object>) calls.get(0).get("args");
+            // args map populated from the "arguments" node
             assertThat(args.get("expression")).isEqualTo("2+2");
         }
     }
@@ -134,21 +145,26 @@ class FunctionCallServiceTest {
         @Test
         @DisplayName("get_datetime returns non-null string with date info")
         void getDatetime() {
+            // No external dependencies — returns current system time as JSON string
             String result = functionCallService.executeTool("get_datetime", Map.of(), USER_ID);
+            // Result must be a non-null JSON-ish string containing the "datetime" key
             assertThat(result).isNotNull().contains("datetime");
         }
 
         @Test
         @DisplayName("calculate returns result for simple expression 2+2")
         void calculateSimpleExpression() {
+            // Simple arithmetic expression evaluated by the built-in calculator
             String result = functionCallService.executeTool("calculate",
                     Map.of("expression", "2+2"), USER_ID);
+            // Result string must contain the numeric answer
             assertThat(result).contains("4");
         }
 
         @Test
         @DisplayName("unknown tool returns error response without exception")
         void unknownToolNoException() {
+            // Unknown tool names must return a graceful error, not throw (would crash the LLM loop)
             assertThatCode(() -> {
                 String result = functionCallService.executeTool("nonexistent_tool", Map.of(), USER_ID);
                 assertThat(result).contains("Unknown tool");
@@ -158,6 +174,7 @@ class FunctionCallServiceTest {
         @Test
         @DisplayName("get_system_info returns Olla Nest product info")
         void getSystemInfo() {
+            // get_system_info is used by the LLM to describe the platform to users
             String result = functionCallService.executeTool("get_system_info", Map.of(), USER_ID);
             assertThat(result).contains("Olla Nest");
         }

@@ -32,11 +32,13 @@ class ConnectorImplTest {
     class GitHubConnectorTests {
         @Test @DisplayName("construction succeeds")
         void constructionSucceeds() {
+            // No exception = no required constructor args missing
             assertThat(new GitHubConnector()).isNotNull();
         }
 
         @Test @DisplayName("getType() returns 'github'")
         void getType() {
+            // Stable type key used as map key in ConnectorRegistry — must never change
             assertThat(new GitHubConnector().getType()).isEqualTo("github");
         }
     }

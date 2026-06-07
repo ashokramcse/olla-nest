@@ -72,6 +72,7 @@ class StateControllerTest {
         @Test
         @DisplayName("returns 401 when no authenticated user")
         void returns401WhenNoUser() {
+            // Unauthenticated request must be rejected before any DB queries
             ResponseEntity<Map<String, Object>> response = stateController.getState(unauthenticatedRequest());
             assertThat(response.getStatusCodeValue()).isEqualTo(401);
         }
@@ -89,6 +90,7 @@ class StateControllerTest {
             User user = UserFactory.regularUser();
             HttpServletRequest req = authenticatedRequest(user);
 
+            // Stub all DB queries that getState() performs to build the app state snapshot
             when(db.queryForList(contains("FROM models"))).thenReturn(List.of());
             when(db.queryForList(contains("FROM chat_sessions"), anyString())).thenReturn(List.of());
             when(db.queryForList(contains("FROM settings"))).thenReturn(List.of());
@@ -112,6 +114,7 @@ class StateControllerTest {
             User user = UserFactory.regularUser();
             HttpServletRequest req = authenticatedRequest(user);
 
+            // Stub all DB overloads to handle any signature getState() may invoke
             when(db.queryForList(anyString())).thenReturn(List.of());
             when(db.queryForList(anyString(), anyString())).thenReturn(List.of());
             when(db.queryForList(anyString(), anyString(), anyInt())).thenReturn(List.of());
@@ -121,6 +124,7 @@ class StateControllerTest {
             when(chatService.buildChatObject(any())).thenReturn(Map.of("id", "chat-1"));
 
             ResponseEntity<Map<String, Object>> response = stateController.getState(req);
+            // User info must be present so the frontend can initialise the session
             assertThat(response.getBody()).containsKey("user");
         }
     }
@@ -137,6 +141,7 @@ class StateControllerTest {
             User admin = UserFactory.admin();
             HttpServletRequest req = authenticatedRequest(admin);
 
+            // Stub admin-specific DB queries (audit_events, all users, etc.)
             when(db.queryForList(contains("FROM models"))).thenReturn(List.of());
             when(db.queryForList(contains("FROM chat_sessions WHERE is_active"))).thenReturn(List.of());
             when(db.queryForList(contains("FROM audit_events"))).thenReturn(List.of());

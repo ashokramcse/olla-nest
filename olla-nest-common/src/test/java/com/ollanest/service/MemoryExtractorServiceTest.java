@@ -69,14 +69,17 @@ class MemoryExtractorServiceTest {
         @Test
         @DisplayName("does nothing when user message count is 0")
         void skipsWhenCountZero() throws Exception {
+            // 0 user messages → no extraction trigger (count % 10 != 0 for count=0 guard)
             svc.maybeExtract(OWNER, SESSION, messages(0, 5));
             Thread.sleep(100);
+            // memoryService.remember() must never be called synchronously here
             verify(memoryService, never()).remember(any(), any(), any(), any(), any());
         }
 
         @Test
         @DisplayName("does nothing when user message count is 1 (not multiple of 10)")
         void skipsWhenCountOne() throws Exception {
+            // 1 is not a multiple of 10 — extraction skipped
             svc.maybeExtract(OWNER, SESSION, messages(1, 3));
             Thread.sleep(100);
             verify(memoryService, never()).remember(any(), any(), any(), any(), any());
@@ -85,6 +88,7 @@ class MemoryExtractorServiceTest {
         @Test
         @DisplayName("does nothing when user message count is 9 (not multiple of 10)")
         void skipsWhenCountNine() throws Exception {
+            // 9 < 10 — boundary check: extraction fires only at multiples of 10
             svc.maybeExtract(OWNER, SESSION, messages(9, 4));
             Thread.sleep(100);
             verify(memoryService, never()).remember(any(), any(), any(), any(), any());
@@ -93,6 +97,7 @@ class MemoryExtractorServiceTest {
         @Test
         @DisplayName("does nothing when user message count is 11 (not multiple of 10)")
         void skipsWhenCountEleven() throws Exception {
+            // 11 % 10 = 1 ≠ 0 — no extraction between the 10 and 20 triggers
             svc.maybeExtract(OWNER, SESSION, messages(11, 2));
             Thread.sleep(100);
             verify(memoryService, never()).remember(any(), any(), any(), any(), any());
@@ -101,7 +106,7 @@ class MemoryExtractorServiceTest {
         @Test
         @DisplayName("does not throw when count is exactly 10 (triggers async extraction)")
         void noExceptionWhenCountTen() {
-            // HTTP call to Ollama will fail (offline in test) but is swallowed
+            // HTTP call to Ollama will fail (offline in test) but is swallowed — async path
             assertThatCode(() -> svc.maybeExtract(OWNER, SESSION, messages(10, 5)))
                     .doesNotThrowAnyException();
         }
@@ -109,6 +114,7 @@ class MemoryExtractorServiceTest {
         @Test
         @DisplayName("does not throw when count is exactly 20 (another valid interval)")
         void noExceptionWhenCountTwenty() {
+            // 20 % 10 = 0 — another valid extraction trigger; same fire-and-forget semantics
             assertThatCode(() -> svc.maybeExtract(OWNER, SESSION, messages(20, 8)))
                     .doesNotThrowAnyException();
         }
@@ -116,10 +122,12 @@ class MemoryExtractorServiceTest {
         @Test
         @DisplayName("returns immediately (non-blocking) for non-trigger count")
         void returnsImmediatelyForNonTrigger() {
+            // The synchronous check (count % 10 != 0) must be near-instant — no I/O
             long start = System.currentTimeMillis();
             svc.maybeExtract(OWNER, SESSION, messages(7, 3));
             long elapsed = System.currentTimeMillis() - start;
-            assertThat(elapsed).isLessThan(500); // well under any HTTP timeout
+            // Must return well under any HTTP timeout (500 ms generous upper bound)
+            assertThat(elapsed).isLessThan(500);
         }
     }
 }

@@ -67,6 +67,7 @@ class EventBusServiceTest {
         @DisplayName("fire() inserts event into event_log table")
         void persistsEventToDb() {
             svc.fire("chat.completed", OWNER, Map.of("tokens", 100));
+            // Every fired event must be persisted for audit trail and replay
             verify(db).update(contains("INSERT INTO event_log"), any(), any(), any(), any(), any());
         }
 
@@ -74,6 +75,7 @@ class EventBusServiceTest {
         @DisplayName("fire() no-payload overload also persists event")
         void noPayloadOverloadPersists() {
             svc.fire("session.created", OWNER);
+            // No-payload events must also be logged
             verify(db).update(contains("INSERT INTO event_log"), any(), any(), any(), any(), any());
         }
     }
@@ -89,11 +91,13 @@ class EventBusServiceTest {
         void specificSubscriberMatchesOnly() throws Exception {
             CountDownLatch latch = new CountDownLatch(1);
             List<String> received = new ArrayList<>();
+            // Subscribe to "chat.completed" — must only fire for that event
             svc.subscribe("chat.completed", (owner, payload) -> {
                 received.add("chat.completed");
                 latch.countDown();
             });
             svc.fire("chat.completed", OWNER, Map.of());
+            // Wait up to 2 seconds for async virtual-thread delivery
             latch.await(2, TimeUnit.SECONDS);
             assertThat(received).containsExactly("chat.completed");
         }
@@ -102,18 +106,22 @@ class EventBusServiceTest {
         @DisplayName("specific subscriber NOT invoked for a different event name")
         void specificSubscriberNotCalledForOtherEvent() throws Exception {
             List<String> received = new ArrayList<>();
+            // Subscribe to "email.received" — must not fire for "chat.completed"
             svc.subscribe("email.received", (owner, payload) -> received.add("called"));
             svc.fire("chat.completed", OWNER, Map.of());
-            // give virtual thread a moment
+            // give virtual thread a moment to process
             Thread.sleep(200);
+            // Handler must not have been called for a different event
             assertThat(received).isEmpty();
         }
 
         @Test
         @DisplayName("'*' wildcard subscriber receives all events")
         void wildcardReceivesAllEvents() throws Exception {
+            // Latch for 2 events
             CountDownLatch latch = new CountDownLatch(2);
             List<String> received = new ArrayList<>();
+            // Wildcard subscriber must receive every event regardless of name
             svc.subscribe("*", (owner, payload) -> {
                 received.add("received");
                 latch.countDown();
@@ -127,9 +135,11 @@ class EventBusServiceTest {
         @Test
         @DisplayName("handler exception is swallowed — no exception escapes fire()")
         void handlerExceptionSwallowed() {
+            // Subscribe a handler that throws to test fault isolation
             svc.subscribe("bad.event", (owner, payload) -> {
                 throw new RuntimeException("Handler exploded!");
             });
+            // No exception thrown = handler errors are isolated; other subscribers still run
             assertThatCode(() -> svc.fire("bad.event", OWNER, Map.of()))
                     .doesNotThrowAnyException();
         }
@@ -143,6 +153,7 @@ class EventBusServiceTest {
                 payloads.add(payload);
                 latch.countDown();
             });
+            // Fire with no payload — handler must receive an empty map, not null
             svc.fire("test.event", OWNER);
             latch.await(2, TimeUnit.SECONDS);
             assertThat(payloads).hasSize(1);
@@ -154,6 +165,7 @@ class EventBusServiceTest {
         void multipleSubscribersAllInvoked() throws Exception {
             CountDownLatch latch = new CountDownLatch(2);
             List<String> received = new ArrayList<>();
+            // Two subscribers on the same event — both must be invoked
             svc.subscribe("msg.sent", (o, p) -> { received.add("A"); latch.countDown(); });
             svc.subscribe("msg.sent", (o, p) -> { received.add("B"); latch.countDown(); });
             svc.fire("msg.sent", OWNER, Map.of());

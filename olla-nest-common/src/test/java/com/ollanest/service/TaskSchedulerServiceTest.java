@@ -52,6 +52,7 @@ class TaskSchedulerServiceTest {
 
     @BeforeEach
     void stubGetById() {
+        // Stub: default to empty list so getById returns null unless overridden in specific tests
         when(db.queryForList(contains("FROM scheduled_tasks WHERE id"), any(), any()))
                 .thenReturn(List.of());
     }
@@ -68,6 +69,7 @@ class TaskSchedulerServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.create(OWNER, Map.of("name", "My Task", "schedule", "daily", "scheduled_time", "09:00"));
             verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            // args[1] = owner — task must be scoped to the creating user for RBAC enforcement
             assertThat(cap.getValue()[1]).isEqualTo(OWNER);
         }
 
@@ -77,6 +79,7 @@ class TaskSchedulerServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.create(OWNER, Map.of("schedule", "daily", "scheduled_time", "09:00"));
             verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            // args[0] = id — must use the "task-" prefix for consistent ID namespace
             assertThat(cap.getValue()[0].toString()).startsWith("task-");
         }
 
@@ -87,6 +90,7 @@ class TaskSchedulerServiceTest {
             svc.create(OWNER, Map.of("name", "Task", "schedule", "daily", "scheduled_time", "09:00"));
             verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
             // notifications_enabled is the 19th param (index 18)
+            // Defaulting to 1 ensures users receive task completion notifications unless explicitly disabled
             assertThat(cap.getValue()[18]).isEqualTo(1);
         }
 
@@ -97,6 +101,7 @@ class TaskSchedulerServiceTest {
             svc.create(OWNER, Map.of("name", "Task", "schedule", "daily",
                     "scheduled_time", "09:00", "notifications_enabled", false));
             verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            // Explicit false must be respected — must not be overridden by the default
             assertThat(cap.getValue()[18]).isEqualTo(0);
         }
 
@@ -106,6 +111,7 @@ class TaskSchedulerServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             svc.create(OWNER, Map.of("schedule", "daily", "scheduled_time", "09:00"));
             verify(db).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            // New tasks are immediately active — no manual activation step required
             assertThat(cap.getValue()[19]).isEqualTo("active");
         }
     }
@@ -119,8 +125,10 @@ class TaskSchedulerServiceTest {
         @Test
         @DisplayName("throws NoSuchElementException when task not found")
         void throwsWhenNotFound() {
+            // Stub: task not found — either missing or belongs to different owner
             when(db.queryForList(contains("FROM scheduled_tasks WHERE id"), eq("task-x"), eq(OWNER)))
                     .thenReturn(List.of());
+            // SECURITY: must throw with task ID — not silently modify another user's task
             assertThatThrownBy(() -> svc.update("task-x", OWNER, Map.of("name", "New Name")))
                     .isInstanceOf(NoSuchElementException.class)
                     .hasMessageContaining("task-x");
@@ -137,6 +145,7 @@ class TaskSchedulerServiceTest {
         @DisplayName("calls DELETE WHERE id=? AND owner=?")
         void deleteScopedToIdAndOwner() {
             svc.delete("task-123", OWNER);
+            // DELETE must include both id AND owner to prevent cross-user deletion
             verify(db).update(contains("DELETE FROM scheduled_tasks WHERE id"), eq("task-123"), eq(OWNER));
         }
     }
@@ -150,7 +159,9 @@ class TaskSchedulerServiceTest {
         @Test
         @DisplayName("returns null when DB has no row")
         void returnsNullWhenNotFound() {
+            // Stub: task not found (covered by BeforeEach stub)
             when(db.queryForList(anyString(), eq("task-missing"), eq(OWNER))).thenReturn(List.of());
+            // Must return null — not throw — when the task is absent
             assertThat(svc.getById("task-missing", OWNER)).isNull();
         }
     }
@@ -164,16 +175,20 @@ class TaskSchedulerServiceTest {
         @Test
         @DisplayName("queries without status filter when status is null")
         void noStatusFilter() {
+            // Stub: DB returns empty list
             when(db.queryForList(anyString(), eq(OWNER))).thenReturn(List.of());
             svc.list(OWNER, null);
+            // Null status = no WHERE status= clause — all tasks returned
             verify(db).queryForList(anyString(), eq(OWNER));
         }
 
         @Test
         @DisplayName("queries with status filter when status provided")
         void withStatusFilter() {
+            // Stub: DB returns empty active task list
             when(db.queryForList(anyString(), eq(OWNER), eq("active"))).thenReturn(List.of());
             svc.list(OWNER, "active");
+            // Status filter must be applied to prevent returning paused/cancelled tasks
             verify(db).queryForList(anyString(), eq(OWNER), eq("active"));
         }
     }
@@ -187,6 +202,7 @@ class TaskSchedulerServiceTest {
         @Test
         @DisplayName("daily schedule returns a non-null future ISO instant")
         void dailyReturnsInstant() {
+            // Daily tasks must always have a next_run timestamp so they get picked up by the scheduler
             String next = svc.computeNextRun(Map.of("schedule", "daily", "scheduled_time", "09:00"));
             assertThat(next).isNotNull().matches("\\d{4}-\\d{2}-\\d{2}T.*Z");
         }
@@ -194,6 +210,7 @@ class TaskSchedulerServiceTest {
         @Test
         @DisplayName("weekly schedule returns a non-null future ISO instant")
         void weeklyReturnsInstant() {
+            // Weekly schedule must also resolve to a future timestamp
             String next = svc.computeNextRun(Map.of("schedule", "weekly", "scheduled_time", "08:00", "scheduled_day", 1));
             assertThat(next).isNotNull().matches("\\d{4}-\\d{2}-\\d{2}T.*Z");
         }
@@ -201,6 +218,7 @@ class TaskSchedulerServiceTest {
         @Test
         @DisplayName("unknown schedule falls back to next-day instant")
         void unknownScheduleFallback() {
+            // Unknown schedules must not return null — a safe fallback prevents the task from being orphaned
             String next = svc.computeNextRun(Map.of("schedule", "unknown", "scheduled_time", "09:00"));
             assertThat(next).isNotNull();
         }

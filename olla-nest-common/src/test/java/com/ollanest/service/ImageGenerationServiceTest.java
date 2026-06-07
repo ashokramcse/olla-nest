@@ -52,20 +52,25 @@ class ImageGenerationServiceTest {
         @Test
         @DisplayName("url accessor returns the URL passed to constructor")
         void urlAccessor() {
+            // Construct a result with a URL and verify the record component accessor
             var r = new ImageGenerationService.ImageResult("https://cdn.openai.com/img.png", null, "dalle", "dall-e-3");
+            // url() must return exactly the value supplied — no truncation or modification
             assertThat(r.url()).isEqualTo("https://cdn.openai.com/img.png");
         }
 
         @Test
         @DisplayName("base64 accessor returns the base64 string")
         void base64Accessor() {
+            // base64 variant: url=null, base64 holds the image bytes
             var r = new ImageGenerationService.ImageResult(null, "aGVsbG8=", "stable-diffusion", "sd");
+            // base64() must return the raw base64 string — no decoding
             assertThat(r.base64()).isEqualTo("aGVsbG8=");
         }
 
         @Test
         @DisplayName("provider and model accessors return expected values")
         void providerAndModelAccessors() {
+            // Both provider and model are used by the UI to label generated images
             var r = new ImageGenerationService.ImageResult("url", null, "dalle", "dall-e-3");
             assertThat(r.provider()).isEqualTo("dalle");
             assertThat(r.model()).isEqualTo("dall-e-3");
@@ -81,11 +86,14 @@ class ImageGenerationServiceTest {
         @Test
         @DisplayName("throws RuntimeException (not NPE) when openaiApiKey is blank")
         void throwsWhenApiKeyBlank() {
+            // Stub: provider resolved from DB as "dalle", but API key is blank
             when(dbService.getSetting(eq("imageProvider"), anyString())).thenReturn("dalle");
             when(dbService.getSetting(eq("openaiApiKey"), anyString())).thenReturn("");
             when(dbService.getSetting(eq("imageModel"), anyString())).thenReturn("dall-e-3");
             when(dbService.getSetting(eq("imageSize"), anyString())).thenReturn("1024x1024");
 
+            // SECURITY: a blank key must fail loudly — not silently dispatch a request
+            // with an empty Authorization header (which could succeed if the key was leaked)
             assertThatThrownBy(() -> service.generate("a red cat", null))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("OpenAI API key not configured");
@@ -94,10 +102,12 @@ class ImageGenerationServiceTest {
         @Test
         @DisplayName("requestedProvider 'dalle' overrides setting and also throws when key blank")
         void requestedProviderOverride() {
+            // Stub: caller explicitly requests "dalle" provider; key still blank
             when(dbService.getSetting(eq("openaiApiKey"), anyString())).thenReturn("");
             when(dbService.getSetting(eq("imageModel"), anyString())).thenReturn("dall-e-3");
             when(dbService.getSetting(eq("imageSize"), anyString())).thenReturn("1024x1024");
 
+            // Even when the provider is passed explicitly, blank key must still throw
             assertThatThrownBy(() -> service.generate("a blue sky", "dalle"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("OpenAI API key not configured");

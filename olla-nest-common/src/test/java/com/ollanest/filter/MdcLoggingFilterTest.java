@@ -47,6 +47,7 @@ class MdcLoggingFilterTest {
 		user.email = "alice@example.com";
 		user.role  = "admin";
 
+		// Stub: authenticated user placed in request attribute by SessionAuthFilter
 		when(req.getAttribute("authenticatedUser")).thenReturn(user);
 		when(req.getMethod()).thenReturn("GET");
 		when(req.getRequestURI()).thenReturn("/api/state");
@@ -54,7 +55,7 @@ class MdcLoggingFilterTest {
 		when(req.getHeader("X-Real-IP")).thenReturn(null);
 		when(req.getRemoteAddr()).thenReturn("127.0.0.1");
 
-		// Capture MDC state inside the chain
+		// Capture MDC state inside the chain — we must read it before the filter clears it
 		final String[] capturedUserId    = {null};
 		final String[] capturedUserEmail = {null};
 		final String[] capturedUserRole  = {null};
@@ -74,6 +75,7 @@ class MdcLoggingFilterTest {
 
 		filter.doFilterInternal(req, res, chain);
 
+		// All MDC keys must be populated with the correct values during chain execution
 		assertThat(capturedUserId[0]).isEqualTo("u-123");
 		assertThat(capturedUserEmail[0]).isEqualTo("alice@example.com");
 		assertThat(capturedUserRole[0]).isEqualTo("admin");
@@ -87,6 +89,7 @@ class MdcLoggingFilterTest {
 	@Test
 	@DisplayName("unauthenticated request sets userId/userEmail/userRole to 'anon'")
 	void anonymousRequestSetsAnonKeys() throws Exception {
+		// Stub: no authenticated user — anonymous request (e.g. login attempt)
 		when(req.getAttribute("authenticatedUser")).thenReturn(null);
 		when(req.getMethod()).thenReturn("POST");
 		when(req.getRequestURI()).thenReturn("/api/auth/login");
@@ -104,6 +107,7 @@ class MdcLoggingFilterTest {
 
 		filter.doFilterInternal(req, res, chain);
 
+		// Anonymous requests must use "anon" sentinel — never null — so log queries work cleanly
 		assertThat(userId[0]).isEqualTo("anon");
 		assertThat(email[0]).isEqualTo("anon");
 		assertThat(role[0]).isEqualTo("anon");
@@ -123,6 +127,7 @@ class MdcLoggingFilterTest {
 
 		filter.doFilterInternal(req, res, chain);
 
+		// MDC must be empty after the filter completes — no MDC leakage into the next request
 		assertThat(MDC.get(MdcLoggingFilter.KEY_REQUEST_ID)).isNull();
 		assertThat(MDC.get(MdcLoggingFilter.KEY_USER_ID)).isNull();
 	}
@@ -136,12 +141,14 @@ class MdcLoggingFilterTest {
 		when(req.getHeader("X-Forwarded-For")).thenReturn(null);
 		when(req.getHeader("X-Real-IP")).thenReturn(null);
 		when(req.getRemoteAddr()).thenReturn("127.0.0.1");
+		// Stub: downstream filter throws — MDC cleanup must still happen (finally block)
 		doThrow(new RuntimeException("downstream error")).when(chain).doFilter(req, res);
 
 		try {
 			filter.doFilterInternal(req, res, chain);
 		} catch (RuntimeException ignored) {}
 
+		// MDC must be cleared even after an exception — thread pool reuse makes this critical
 		assertThat(MDC.get(MdcLoggingFilter.KEY_REQUEST_ID)).isNull();
 	}
 
@@ -153,6 +160,7 @@ class MdcLoggingFilterTest {
 		when(req.getAttribute("authenticatedUser")).thenReturn(null);
 		when(req.getMethod()).thenReturn("GET");
 		when(req.getRequestURI()).thenReturn("/api/health");
+		// Stub: X-Forwarded-For contains the real client IP followed by the proxy IP
 		when(req.getHeader("X-Forwarded-For")).thenReturn("203.0.113.5, 10.0.0.1");
 		// X-Real-IP should not be called since X-Forwarded-For is set
 
@@ -161,6 +169,7 @@ class MdcLoggingFilterTest {
 
 		filter.doFilterInternal(req, res, chain);
 
+		// First IP in the comma-list is the original client IP
 		assertThat(ip[0]).isEqualTo("203.0.113.5"); // first IP from comma-list
 	}
 
@@ -171,6 +180,7 @@ class MdcLoggingFilterTest {
 		when(req.getMethod()).thenReturn("GET");
 		when(req.getRequestURI()).thenReturn("/api/health");
 		when(req.getHeader("X-Forwarded-For")).thenReturn(null);
+		// Stub: only X-Real-IP is available (set by some reverse proxies)
 		when(req.getHeader("X-Real-IP")).thenReturn("198.51.100.42");
 
 		final String[] ip = {null};
@@ -187,6 +197,7 @@ class MdcLoggingFilterTest {
 		when(req.getAttribute("authenticatedUser")).thenReturn(null);
 		when(req.getMethod()).thenReturn("GET");
 		when(req.getRequestURI()).thenReturn("/api/health");
+		// Stub: neither forwarding header is present — use socket remote addr
 		when(req.getHeader("X-Forwarded-For")).thenReturn(null);
 		when(req.getHeader("X-Real-IP")).thenReturn(null);
 		when(req.getRemoteAddr()).thenReturn("192.168.1.10");
@@ -205,6 +216,7 @@ class MdcLoggingFilterTest {
 	@DisplayName("shouldNotFilter returns true for .js files")
 	void skipsJsFiles() {
 		when(req.getRequestURI()).thenReturn("/assets/app.js");
+		// Static assets must bypass the filter to avoid MDC overhead on every chunk
 		assertThat(filter.shouldNotFilter(req)).isTrue();
 	}
 
@@ -240,6 +252,7 @@ class MdcLoggingFilterTest {
 	@DisplayName("shouldNotFilter returns false for API paths")
 	void doesNotSkipApiPaths() {
 		when(req.getRequestURI()).thenReturn("/api/auth/me");
+		// API paths must be filtered so every request gets a requestId in logs
 		assertThat(filter.shouldNotFilter(req)).isFalse();
 	}
 
@@ -247,6 +260,7 @@ class MdcLoggingFilterTest {
 	@DisplayName("shouldNotFilter returns false for /admin path")
 	void doesNotSkipAdminPath() {
 		when(req.getRequestURI()).thenReturn("/admin");
+		// /admin is not a static file — it must be filtered
 		assertThat(filter.shouldNotFilter(req)).isFalse();
 	}
 }
