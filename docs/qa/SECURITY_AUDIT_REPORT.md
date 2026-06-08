@@ -30,7 +30,22 @@
 | `GET /api/admin/users` with admin cookie | 200 | 200 | ✅ |
 | `GET /api/admin/health` unauthenticated | 401/403 | 401 | ✅ |
 
-> **IDOR / cross-user data access (Phase 4/6):** Not fully exercised — only one seeded account (admin) exists in the test DB. Requires creating a second non-admin user to prove `/api/.../{id}` ownership scoping and admin-only enforcement against a *forbidden role* (vs. merely unauthenticated). **Follow-up required.**
+### 2a. Forbidden-role, IDOR & privilege escalation (multi-user, EXECUTED)
+Created two disposable non-admin users (`role=user`) and tested with real authenticated sessions:
+
+| Check | Expected | Actual | Verdict |
+|---|---|---|---|
+| Authenticated **non-admin** → `GET /api/admin/users` | 403 | 403 | ✅ |
+| non-admin → `/api/admin/sessions/active`, `/settings`, `/enterprise/audit`, `/providers`, `/health` | 403 | 403 (all) | ✅ |
+| non-admin → `POST /api/admin/users` (create) | 403 | 403 | ✅ |
+| non-admin → `PATCH /api/admin/users/{self}` `role=admin` (priv-esc) | 403 | 403 | ✅ |
+| non-admin → `PATCH /api/account/profile` `role=admin` (mass-assignment) | role unchanged | 200 but **role stays `user`** | ✅ ignored |
+| **IDOR:** user B `GET /api/notes/{A's note}` | 403/404 | **404** | ✅ |
+| user B `PUT`/`DELETE` A's note | 403/404 | **404** (both) | ✅ |
+| owner A `GET` own note | 200 | 200 | ✅ |
+| A's note intact after B's attempts | unchanged | unchanged | ✅ |
+
+**Function-level access control, ownership scoping (no IDOR), privilege-escalation, and mass-assignment protections are all PROVEN with multi-user fixtures.**
 
 ## 3. CSRF
 

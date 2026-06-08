@@ -20,8 +20,15 @@
 | Live security probes run | **16** (all passed) |
 | DB/migration integrity checks | **5** (all passed) |
 
+### Update 2026-06-08 (run 2): Frontend E2E + load + multi-user security executed
+- **Playwright E2E: 12/12 green** (admin+user login render, responsive 320–1920px, error state, Enter-submit login, logout regression, user→/app, security headers). Found & fixed **BUG-007** (admin-login console 404) and **BUG-008** (320px overflow).
+- **Multi-user RBAC/IDOR (real fixtures): all PASS** — forbidden-role 403 across admin APIs, privilege-escalation 403, mass-assignment ignored, **IDOR cross-user note access = 404**. See `SECURITY_AUDIT_REPORT.md §2a`.
+- **Load (50 concurrent):** `/api/auth/me` & `/api/admin/users` → 0% error, p99 ≤ 6ms, **0 DB lock errors, integrity OK**. See `PERFORMANCE_REPORT.md`.
+- Backend remains **green** after the DevHints module move + scan change (`mvn test` BUILD SUCCESS).
+- **Still outstanding:** authenticated deep-journey E2E (all admin tabs / workspace panels), accessibility (axe), k6 staged load + soak, live chat/RAG/AI-injection (needs Ollama), connector live syncs, backup restore.
+
 ### Release verdict
-**CONDITIONAL PASS** (backend + security + DB proven; frontend E2E / load / soak still outstanding).
+**CONDITIONAL PASS** (backend + security + DB + login/responsive E2E + basic load proven; deep-journey E2E / a11y / staged-load / soak still outstanding).
 - Core authentication, RBAC, session isolation, CSRF, brute-force lockout, security headers, secret non-leakage, and DB integrity are **proven PASS with evidence**.
 - Backend test suite is now **fully green: 2069 tests, 0 failures, 0 errors, 0 skipped.**
 - **2 genuine product bugs** found and fixed: **BUG-001** (session-cookie NPE regression — broke all SOC2/auth tests) and **BUG-006** (`calculate` built-in tool returned an error on JDK 15+ because Nashorn was removed; replaced with a safe arithmetic evaluator).

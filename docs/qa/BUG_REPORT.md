@@ -68,6 +68,18 @@
 
 ---
 
+## BUG-007 — Console 404 on admin login page — **MINOR (frontend)** — FIXED
+- **Feature:** Admin login page (`admin-login.html`).
+- **Cause:** the dev-autofill panel fetches `/api/dev/hints`, but the admin app's `@ComponentScan` excludeFilter blocked `DevHintsController` → 404 + browser console error on every admin login load (localhost-dev only; production short-circuits before the fetch via the `isLocal` guard).
+- **Evidence:** Playwright test "admin login page loads … no console errors" failed; network capture showed `404 /api/dev/hints`.
+- **Fix:** moved `DevHintsController` to the **common** module; removed `DevHints` from the admin exclusion regex (generic localhost helper used by both login pages). `/api/dev/hints` → 200 on admin (loopback). Re-verified green.
+
+## BUG-008 — Horizontal overflow at 320px on admin login — **MINOR (responsive)** — FIXED
+- **Feature:** Admin login responsive layout.
+- **Cause:** `.login-topbar` was 354px wide at a 320px viewport (logo `min-width:180px` + paddings + right links) → 34px horizontal overflow. 375–1920px were unaffected.
+- **Evidence:** Playwright responsive test reported `horizontal overflow 34px at 320px`; widest element `DIV.login-topbar`.
+- **Fix:** `@media (max-width:360px)` tightening logo/right padding and hiding the logo sub-label. Re-verified 0 overflow at 320px.
+
 ## OBS-001 — SQLite foreign-key enforcement is per-connection — **INFO**
 - `PRAGMA foreign_keys` returned `0` on a fresh CLI connection. FK enforcement relies on Hikari `connection-init-sql` (`PRAGMA foreign_keys=ON`) running on **every** pooled connection. Verified configured in `application.properties`. Recommend an integration test that asserts a FK violation is actually rejected through the app's datasource (not just configured). See `DB_AUDIT_REPORT.md`.
 
@@ -78,7 +90,7 @@
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
 | Major | 2 | BUG-006 (product: calculate tool), BUG-003 (test-debt) | FIXED |
-| Minor | 3 | BUG-002, BUG-004, BUG-005 | FIXED |
+| Minor | 5 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
 **All identified bugs are fixed. Full suite is green: 2069 tests, 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS).**
