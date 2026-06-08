@@ -8,6 +8,9 @@ const { collect, loginUser } = require('../helpers');
 async function openNotes(page) {
   await page.evaluate(() => window.openFeaturePanel('notes'));
   await expect(page.locator('#fp-notes')).toHaveClass(/open/);
+  // Force a fresh load under the (already-armed) route so the interception is
+  // deterministically exercised — avoids a race with the panel's auto-load.
+  await page.evaluate(() => window.loadNotes && window.loadNotes());
 }
 
 test('GET /api/notes 500 -> panel shows "Failed to load" error state (not blank/crash)', async ({ page }) => {
