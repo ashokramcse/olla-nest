@@ -13,6 +13,13 @@
 - `crud-calendar.spec.js` (1) — **Calendar create** via UI → backend-verified + grid dot rendered (API cleanup).
 - `negative.spec.js` (4) — **error-state interception**: GET 500 / network-abort → "Failed to load" state; POST 500 → error toast; 401 → session-expiry navigation. Proves graceful degradation (no blank/broken panels, no uncaught errors).
 
+### Accessibility (axe-core, WCAG 2.0/2.1 A + AA) — `a11y.spec.js` (4 tests)
+Scanned admin-login, user-login, admin dashboard, workspace shell + notes panel. **Zero critical** violations on every page. Findings:
+- **BUG-011 (nested-interactive, serious) — FIXED:** the sidebar profile/logout nested two focusable controls; restructured into siblings. workspace-shell serious 2 → 1.
+- **BUG-010 (color-contrast, serious) — documented, design sign-off needed:** muted grey `#888888`/white (3.54:1) and brand yellow `#f5c800`/near-white (1.44:1) fail AA. Recommended ≥ `#767676` for muted text and a darker accent for yellow text-on-light. The a11y gate allows only this one known serious finding so it can't regress further.
+
+Full per-page violation detail is written to `e2e/evidence/a11y-*.json` on each run.
+
 ### UX/functionality observation (OBS-003, not a bug)
 The calendar **month grid renders events as anonymous dots** with no per-event title, edit, or delete control. Users can create events but cannot view details, edit, or delete them from the grid — only via the API. Recommend an event detail/edit popover and a delete affordance.
 
