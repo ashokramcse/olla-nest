@@ -80,6 +80,15 @@
 - **Evidence:** Playwright responsive test reported `horizontal overflow 34px at 320px`; widest element `DIV.login-topbar`.
 - **Fix:** `@media (max-width:360px)` tightening logo/right padding and hiding the logo sub-label. Re-verified 0 overflow at 320px.
 
+## BUG-009 — Personal Assistant 500 from colliding task IDs — **MAJOR (product)** — FIXED
+- **Feature:** Personal Assistant (`GET /api/assistant` → `PersonalAssistantService.getOrCreate` → `seedCheckIns`).
+- **Severity:** Major (a core workspace panel returns HTTP 500 on first load for **every new user**; intermittent — succeeds on retry once the assistant row exists).
+- **Discovery:** Playwright `workspace.spec.js` "assistant panel opens … no console errors" failed with `Failed to load resource: 500`.
+- **Root cause:** `TaskSchedulerService.create()` and `executeTask()` built IDs from `System.currentTimeMillis()` **only** (no random component). `seedCheckIns()` inserts 3 check-in tasks in a tight loop, so two created in the same millisecond produced identical IDs → `SQLITE_CONSTRAINT_PRIMARYKEY: scheduled_tasks.id` → 500.
+- **Evidence:** server stack `PersonalAssistantService.seedCheckIns:142 → JdbcTemplate … SQLITE_CONSTRAINT_PRIMARYKEY (scheduled_tasks.id)`; `GET /api/assistant -> 500` in access log.
+- **Fix:** appended `UUID.randomUUID().substring(0,6)` to both `task-` and `run-` IDs (matching the pattern used by `MemoryService`).
+- **Verification:** fresh user `GET /api/assistant` → **200**; `scheduled_tasks` 6 total / 6 distinct. **Regression test** `TaskSchedulerServiceTest.rapidCreatesProduceUniqueIds` (50 creates → 50 distinct IDs). Workspace E2E now green.
+
 ## OBS-001 — SQLite foreign-key enforcement is per-connection — **INFO**
 - `PRAGMA foreign_keys` returned `0` on a fresh CLI connection. FK enforcement relies on Hikari `connection-init-sql` (`PRAGMA foreign_keys=ON`) running on **every** pooled connection. Verified configured in `application.properties`. Recommend an integration test that asserts a FK violation is actually rejected through the app's datasource (not just configured). See `DB_AUDIT_REPORT.md`.
 
@@ -89,9 +98,11 @@
 | Severity | Count | IDs | Status |
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
-| Major | 2 | BUG-006 (product: calculate tool), BUG-003 (test-debt) | FIXED |
+| Major | 3 | BUG-006 (calculate tool), BUG-009 (assistant 500 / task-id collision), BUG-003 (test-debt) | FIXED |
 | Minor | 5 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
+
+**Cumulative: 9 bugs found, all FIXED. 3 genuine product bugs (BUG-001 cookie NPE, BUG-006 calculate tool, BUG-009 task-id collision) — each with a regression test.**
 
 **All identified bugs are fixed. Full suite is green: 2069 tests, 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS).**
 

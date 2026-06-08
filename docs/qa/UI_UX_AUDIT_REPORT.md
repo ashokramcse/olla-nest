@@ -3,7 +3,18 @@
 **Date:** 2026-06-08 · **Tooling:** Playwright (Chromium headless) — harness in `e2e/`. Evidence (screenshots/traces) in `e2e/evidence/` (git-ignored; regenerate with `npx playwright test`).
 
 ## Summary
-**12 E2E tests, all green** after fixing 2 real frontend defects found during the audit. Login journeys for both apps, responsive behavior (320–1920px), error states, the logout regression, and security headers are all proven.
+**37 E2E tests, all green** (Chromium) across 3 specs:
+- `login.spec.js` (12) — login render/responsive/error-state/logout/headers.
+- `admin.spec.js` (11) — **every admin tab** deep-journey (authenticated).
+- `workspace.spec.js` (14) — **all 13 feature panels** deep-journey (authenticated).
+
+Found & fixed **3 real defects**: BUG-007 (admin console 404), BUG-008 (320px overflow), and **BUG-009** (Personal Assistant panel returned HTTP 500 — a Major product bug; see `BUG_REPORT.md`).
+
+### Admin deep-journey (11, PASS)
+Every tab (overview/models/users/access/settings/providers/connectors/sso/reports) opens, the matching view renders non-empty, **no console errors**, **no horizontal overflow**; dashboard metric cards present; Users tab loads the seeded admin from the API.
+
+### Workspace deep-journey (14, PASS)
+All 13 panels (memory/skills/notes/tasks/email/calendar/compare/cookbook/assistant/research/contacts/gallery/presets) open, render, **no console errors**, **no overflow**, and **Escape closes the modal** (a11y). The assistant panel's 500 (BUG-009) was caught and fixed here.
 
 ## E2E coverage (executed, PASS)
 

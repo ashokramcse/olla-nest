@@ -20,6 +20,12 @@
 | Live security probes run | **16** (all passed) |
 | DB/migration integrity checks | **5** (all passed) |
 
+### Update 2026-06-08 (run 3): Deep-journey E2E across all admin tabs + workspace panels
+- **Playwright E2E expanded to 37/37 green** (12 login + 11 admin tabs + 14 workspace panels). Reusable login fixtures in `e2e/helpers.js`.
+- **BUG-009 (Major, product) found & fixed:** Personal Assistant panel → HTTP 500 on first load for every new user (task-id collision in `seedCheckIns` → `SQLITE_CONSTRAINT_PRIMARYKEY`). Fixed with UUID-suffixed IDs + regression test (`rapidCreatesProduceUniqueIds`). Verified: fresh-user `/api/assistant` → 200, `scheduled_tasks` 6/6 distinct.
+- Every admin tab & workspace panel: opens, renders non-empty, **no console errors, no horizontal overflow**; panels close on **Escape** (a11y).
+- **Cumulative bugs: 9 found, all fixed** (3 genuine product: BUG-001/006/009).
+
 ### Update 2026-06-08 (run 2): Frontend E2E + load + multi-user security executed
 - **Playwright E2E: 12/12 green** (admin+user login render, responsive 320–1920px, error state, Enter-submit login, logout regression, user→/app, security headers). Found & fixed **BUG-007** (admin-login console 404) and **BUG-008** (320px overflow).
 - **Multi-user RBAC/IDOR (real fixtures): all PASS** — forbidden-role 403 across admin APIs, privilege-escalation 403, mass-assignment ignored, **IDOR cross-user note access = 404**. See `SECURITY_AUDIT_REPORT.md §2a`.
