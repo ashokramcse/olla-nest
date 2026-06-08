@@ -79,11 +79,11 @@ function computeDayTokens(hex) {
     hdrBg:           "#ffffff",
     hdrDiv:          hslToHex(h, Math.min(s * 0.20, 14), 88),
     hdrText:         "#0f0f0f",
-    hdrMuted:        "#888888",
+    hdrMuted:        "#6b6b6b",   // WCAG AA on white (5.3:1); was #888888 (3.54:1)
     border:          hslToHex(h, Math.min(s * 0.20, 14), 88),
     bodyText:        "#1a1a1a",
     muted1:          "#555555",
-    muted2:          "#888888",
+    muted2:          "#6b6b6b",   // WCAG AA on white (5.3:1); was #888888 (3.54:1)
     midx:            hslToHex(h, Math.min(s + 5, 100), Math.max(l * 0.35, 20)),
     bubble:          "#ffffff",
     bubbleReply:     hslToHex(h, Math.min(s * 0.12, 8), 96),

@@ -25,7 +25,7 @@
   --hdr-bg:           #ffffff;
   --hdr-div:          #e5e3dc;
   --hdr-text:         #0f0f0f;
-  --hdr-muted:        #888888;
+  --hdr-muted:        #6b6b6b;   /* WCAG AA on white (5.3:1); was #888888 (3.54:1) */
   --nav-bg:           #ffffff;
   --nav-border:       #e5e3dc;
   --div:              #eeece6;
@@ -34,7 +34,7 @@
   /* Text */
   --body-text:        #1a1a1a;
   --muted1:           #555555;
-  --muted2:           #888888;
+  --muted2:           #6b6b6b;   /* WCAG AA on white (5.3:1); was #888888 (3.54:1) */
   --midx:             #7a5c00;
   --active-text:      #1a1a1a;
 
@@ -458,7 +458,7 @@ tbody tr:hover { background: var(--ac-pale); }
   content: ''; width: 6px; height: 6px; border-radius: 50%;
   background: var(--muted2); flex-shrink: 0;
 }
-.status-pill.ok  { color: #16a34a; border-color: var(--success-border); background: var(--success-light); }
+.status-pill.ok  { color: #15803d; border-color: var(--success-border); background: var(--success-light); } /* green-700 for AA on pale-green */
 .status-pill.ok::before  { background: var(--success); animation: pulse 2s infinite; }
 .status-pill.off { color: var(--danger); border-color: var(--danger-border); background: var(--danger-light); }
 .status-pill.off::before { background: var(--danger); }
@@ -542,7 +542,7 @@ tbody tr:hover { background: var(--ac-pale); }
 .badge-default { background: var(--track); color: var(--muted1); border-color: var(--border); }
 .badge-yellow  { background: var(--ac-pale); color: var(--ac-dark); border-color: var(--ac-mid); }
 .badge-amber   { background: var(--warning-light); color: #92400e; border-color: var(--warning-border); }
-.badge-green   { background: var(--success-light); color: #16a34a; border-color: var(--success-border); }
+.badge-green   { background: var(--success-light); color: #15803d; border-color: var(--success-border); } /* green-700: AA on pale-green (was #16a34a, 3.02:1) */
 .badge-red     { background: var(--danger-light);  color: #dc2626; border-color: var(--danger-border); }
 .badge-indigo  { background: rgba(99,102,241,0.10); color: #4338ca; border-color: rgba(99,102,241,0.25); }
 .badge-blue    { background: rgba(59,130,246,0.10); color: #1d4ed8; border-color: rgba(59,130,246,0.25); }

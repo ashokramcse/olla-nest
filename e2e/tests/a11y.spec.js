@@ -22,15 +22,12 @@ async function audit(page, label) {
   return { counts, summary };
 }
 
-// Gate: zero CRITICAL, and no SERIOUS issues other than the known, design-owned
-// color-contrast finding (tracked as BUG-010 — documented, not hidden). Any new
-// serious/critical type (e.g. a regressed nested-interactive) fails the suite.
-const KNOWN_SERIOUS = new Set(['color-contrast']);
+// Gate: zero CRITICAL and zero SERIOUS violations (BUG-010 contrast + BUG-011
+// nested-interactive are now fixed). Moderate/minor are logged for improvement
+// but do not fail the build.
 function expectNoBlockers({ counts, summary }, label) {
-  expect(counts.critical || 0, `${label} critical a11y violations`).toBe(0);
-  const unexpected = summary.filter(
-    (s) => (s.impact === 'critical' || s.impact === 'serious') && !KNOWN_SERIOUS.has(s.id));
-  expect(unexpected, `${label} unexpected serious/critical: ${unexpected.map((b) => b.id).join(', ')}`).toEqual([]);
+  const blockers = summary.filter((s) => s.impact === 'critical' || s.impact === 'serious');
+  expect(blockers, `${label} serious/critical a11y: ${blockers.map((b) => `${b.impact}:${b.id}`).join(', ')}`).toEqual([]);
 }
 
 test('a11y: admin login page (WCAG A/AA)', async ({ page }) => {
