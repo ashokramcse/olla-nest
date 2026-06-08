@@ -3,12 +3,18 @@
 **Date:** 2026-06-08 · **Tooling:** Playwright (Chromium headless) — harness in `e2e/`. Evidence (screenshots/traces) in `e2e/evidence/` (git-ignored; regenerate with `npx playwright test`).
 
 ## Summary
-**39 E2E tests, all green** (Chromium) across 5 specs:
+**45 E2E tests, all green** (Chromium) across 8 specs:
 - `login.spec.js` (12) — login render/responsive/error-state/logout/headers.
 - `admin.spec.js` (11) — **every admin tab** deep-journey (authenticated).
 - `workspace.spec.js` (14) — **all 13 feature panels** deep-journey (authenticated).
-- `crud-notes.spec.js` (1) — **full Notes CRUD round-trip** (create→reload-persist→update→delete) with backend verification at every step.
-- `crud-tasks.spec.js` (1) — **Tasks create→read→delete round-trip** with backend verification (also a UI-level guard for BUG-009).
+- `crud-notes.spec.js` (1) — **full Notes CRUD round-trip** (create→reload-persist→update→delete), backend-verified at every step.
+- `crud-tasks.spec.js` (1) — **Tasks create→read→delete round-trip**, backend-verified (also a UI guard for BUG-009).
+- `crud-contacts.spec.js` (1) — **full Contacts CRUD round-trip**, backend-verified.
+- `crud-calendar.spec.js` (1) — **Calendar create** via UI → backend-verified + grid dot rendered (API cleanup).
+- `negative.spec.js` (4) — **error-state interception**: GET 500 / network-abort → "Failed to load" state; POST 500 → error toast; 401 → session-expiry navigation. Proves graceful degradation (no blank/broken panels, no uncaught errors).
+
+### UX/functionality observation (OBS-003, not a bug)
+The calendar **month grid renders events as anonymous dots** with no per-event title, edit, or delete control. Users can create events but cannot view details, edit, or delete them from the grid — only via the API. Recommend an event detail/edit popover and a delete affordance.
 
 ### UX observation (OBS-002, not a bug)
 Notes and Tasks CRUD are driven by native `prompt()` / `confirm()` dialogs (the source notes "Simple inline edit via prompts for now"). This blocks the JS thread, can't validate input, isn't styled or screen-reader-friendly, and is awkward on mobile. Recommend replacing with in-app modal forms. Functionally correct (round-trips pass); flagged as a UX-quality improvement.
