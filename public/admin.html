@@ -512,7 +512,6 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
       <button class="nav-item" data-tab="connectors">Connectors</button>
       <button class="nav-item" data-tab="sso">SSO</button>
       <button class="nav-item" data-tab="reports">Reports</button>
-      <button class="nav-item" data-tab="logs">Logs</button>
       <button class="nav-item" data-tab="audit" style="display:none;">Audit Log</button>
 
     </div>
@@ -1431,64 +1430,6 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
         </div>
       </div>
 
-      <div class="tab-view" id="tab-logs">
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-head" style="flex-wrap:wrap;gap:8px;">
-            <div>
-              <div class="card-title">Application Logs</div>
-              <div style="font-size:13px;color:var(--muted1);margin-top:2px;">Live tail of <code>olla-nest.log</code> — admin only</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;">
-              <!-- Level filter pills -->
-              <div id="logLevelBtns" style="display:flex;gap:4px;">
-                <button class="log-level-btn active" data-level="">ALL</button>
-                <button class="log-level-btn log-error" data-level="ERROR">ERROR</button>
-                <button class="log-level-btn log-warn"  data-level="WARN">WARN</button>
-                <button class="log-level-btn log-info"  data-level="INFO">INFO</button>
-                <button class="log-level-btn log-debug" data-level="DEBUG">DEBUG</button>
-              </div>
-              <!-- Search -->
-              <input id="logSearch" type="text" placeholder="Search…"
-                style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:160px;background:var(--surface);color:var(--body-text);">
-              <!-- Lines selector -->
-              <select id="logLines"
-                style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--surface);color:var(--body-text);">
-                <option value="100">100 lines</option>
-                <option value="200" selected>200 lines</option>
-                <option value="500">500 lines</option>
-                <option value="1000">1000 lines</option>
-                <option value="2000">2000 lines</option>
-              </select>
-              <!-- Auto-refresh toggle -->
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                <input type="checkbox" id="logAutoRefresh"> Auto-refresh
-              </label>
-              <!-- Manual refresh -->
-              <button id="logRefreshBtn" class="btn-primary" style="padding:5px 14px;font-size:13px;">Refresh</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="card" style="padding:0;overflow:hidden;">
-          <div id="logStatus" style="padding:8px 16px;font-size:12px;color:var(--muted1);border-bottom:1px solid var(--border);display:none;"></div>
-          <div id="logTableWrap" style="overflow-x:auto;">
-            <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;" id="logTable">
-              <thead>
-                <tr style="background:var(--surface2,var(--surface));border-bottom:1px solid var(--border);">
-                  <th style="padding:6px 12px;text-align:left;white-space:nowrap;color:var(--muted1);font-weight:600;width:160px;">Timestamp</th>
-                  <th style="padding:6px 8px;text-align:left;white-space:nowrap;color:var(--muted1);font-weight:600;width:52px;">Level</th>
-                  <th style="padding:6px 8px;text-align:left;white-space:nowrap;color:var(--muted1);font-weight:600;width:220px;">Logger</th>
-                  <th style="padding:6px 8px;text-align:left;color:var(--muted1);font-weight:600;">Message</th>
-                </tr>
-              </thead>
-              <tbody id="logTbody">
-                <tr><td colspan="4" style="padding:32px;text-align:center;color:var(--muted1);">Click <strong>Refresh</strong> or select the Logs tab to load.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
       <div class="tab-view" id="tab-audit">
         <div class="card">
           <div class="card-head"><div class="card-title">Audit Log</div></div>
@@ -1534,7 +1475,7 @@ td:last-child .badge { margin: 2px; font-size: 11px; }
 
 
 <script src="/dropdown.js"></script>
-<script src="/admin.js?v=2026.2.1"></script>
+<script src="/admin.js?v=2026.2.2"></script>
 
 
 
