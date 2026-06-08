@@ -303,7 +303,7 @@ public class AdminEnterpriseController extends BaseController {
         // Assign user to team, apply team preset, and log
         db.update("UPDATE users SET team=? WHERE id=?", teamId, userId);
         db.update("INSERT INTO audit_events (id, actor, action, detail, created_at) VALUES (?,?,?,?,?)",
-                "ae-" + Long.toString(System.currentTimeMillis(), 36),
+                "ae-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6),
                 "admin", "team.onboard",
                 "User " + userId + " onboarded to team " + teamId,
                 Instant.now().toString());

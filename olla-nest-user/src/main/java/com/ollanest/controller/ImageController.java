@@ -114,7 +114,7 @@ public class ImageController extends BaseController {
 		if (prompt.isBlank())
 			return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "prompt is required"));
 
-		String logId = "ig-" + Long.toString(System.currentTimeMillis(), 36);
+		String logId = "ig-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
 		try {
 			ImageGenerationService.ImageResult result = imageService.generate(prompt, provider);
 

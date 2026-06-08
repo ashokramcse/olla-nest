@@ -93,7 +93,7 @@ public class GalleryService {
      * @since v2026.2.1
      */
     public Map<String, Object> createAlbum(String owner, Map<String, Object> req) {
-        String id = "alb-" + Long.toString(System.currentTimeMillis(), 36);
+        String id = "alb-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
         db.update("INSERT INTO gallery_albums (id, owner, name, description, team_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
                 id, owner, req.getOrDefault("name", "Album"), req.get("description"), req.get("team_id"), now, now);
@@ -169,7 +169,7 @@ public class GalleryService {
         int width = exif.containsKey("width") ? ((Number) exif.get("width")).intValue() : 0;
         int height = exif.containsKey("height") ? ((Number) exif.get("height")).intValue() : 0;
 
-        String id = "img-" + Long.toString(System.currentTimeMillis(), 36);
+        String id = "img-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String mime = guessMime(filename);
         db.update("""
                 INSERT INTO gallery_images (id, owner, album_id, filename, file_path, file_hash, file_size, mime_type, width, height, exif_json, is_active, created_at)
@@ -236,7 +236,7 @@ public class GalleryService {
                     now, existingId, owner);
             return getDraft(existingId, owner);
         }
-        String id = "dft-" + Long.toString(System.currentTimeMillis(), 36);
+        String id = "dft-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         db.update("INSERT INTO editor_drafts (id, owner, name, source_image_id, width, height, payload_json, thumbnail, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 id, owner,
                 req.getOrDefault("name", "Draft"),

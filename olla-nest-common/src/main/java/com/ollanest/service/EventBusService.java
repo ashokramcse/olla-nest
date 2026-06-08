@@ -140,7 +140,7 @@ public class EventBusService {
 
     private void persistEvent(String eventName, String owner, Map<String, Object> payload) {
         try {
-            String id = "ev-" + Long.toString(System.currentTimeMillis(), 36);
+            String id = "ev-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
             String payloadJson = mapper.writeValueAsString(payload);
             db.update("INSERT INTO event_log (id, event_name, owner, payload_json, created_at) VALUES (?,?,?,?,?)",
                     id, eventName, owner, payloadJson, Instant.now().toString());

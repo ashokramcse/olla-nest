@@ -76,7 +76,7 @@ public class ContactsService {
      * @since v2026.2.1
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
-        String id = "cnt-" + Long.toString(System.currentTimeMillis(), 36);
+        String id = "cnt-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
         db.update("""
                 INSERT INTO contacts (id, owner, display_name, first_name, last_name,

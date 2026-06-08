@@ -97,7 +97,7 @@ public class CalendarService {
      * @since v2026.2.1
      */
     public Map<String, Object> createCalendar(String owner, Map<String, Object> req) {
-        String id = "cal-" + Long.toString(System.currentTimeMillis(), 36);
+        String id = "cal-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
 
         // Ensure only one default calendar per user
@@ -176,7 +176,7 @@ public class CalendarService {
      */
     public Map<String, Object> createEvent(String calendarId, String owner, Map<String, Object> req) {
         verifyCalendarOwner(calendarId, owner);
-        String id = "evt-" + Long.toString(System.currentTimeMillis(), 36);
+        String id = "evt-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String uid = req.getOrDefault("uid", UUID.randomUUID().toString()).toString();
         String now = Instant.now().toString();
 

@@ -298,7 +298,7 @@ public abstract class BaseConnector {
 
 		String now = Instant.now().toString();
 		if (existing.isEmpty()) {
-			String cdId = "cd-" + Long.toString(System.currentTimeMillis(), 36);
+			String cdId = "cd-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
 			db.update("INSERT INTO connector_documents "
 					+ "(id, connector_id, external_id, title, url, content_hash, rag_doc_id, synced_at) "
 					+ "VALUES (?,?,?,?,?,?,?,?)", cdId, connectorId, externalId, title, url, hash, docId, now);

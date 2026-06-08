@@ -107,7 +107,7 @@ public class PersonalAssistantService {
     }
 
     private Map<String, Object> create(String owner) {
-        String id = "crew-" + Long.toString(System.currentTimeMillis(), 36);
+        String id = "crew-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
 
         db.update("""

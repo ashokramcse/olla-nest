@@ -203,7 +203,7 @@ public class DeepResearchService {
 	 */
 	public void executeResearch(String query, User user, SseEmitter emitter, String sessionId) {
 		// Create persistent task record
-		String taskId = "res-" + Long.toString(System.currentTimeMillis(), 36);
+		String taskId = "res-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
 		try {
 			db.update("INSERT INTO research_tasks (id, owner, session_id, query, status, started_at) VALUES (?,?,?,?,?,?)",
 					taskId, user.id, sessionId, query, "running", java.time.Instant.now().toString());

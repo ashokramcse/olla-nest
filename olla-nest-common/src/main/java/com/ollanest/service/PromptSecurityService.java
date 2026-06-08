@@ -150,7 +150,7 @@ public class PromptSecurityService {
      */
     public void logSecurityEvent(String owner, String sessionId, String sourceType, boolean flagged) {
         try {
-            String id = "ps-" + Long.toString(System.currentTimeMillis(), 36);
+            String id = "ps-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
             db.update("INSERT INTO prompt_security_log (id, owner, session_id, source_type, flagged, created_at) VALUES (?,?,?,?,?,?)",
                     id, owner, sessionId, sourceType, flagged ? 1 : 0, Instant.now().toString());
         } catch (Exception ignore) {}

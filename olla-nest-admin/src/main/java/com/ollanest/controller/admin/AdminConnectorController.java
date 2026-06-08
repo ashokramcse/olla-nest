@@ -168,7 +168,7 @@ public class AdminConnectorController extends BaseController {
 		if (err != null)
 			return err;
 
-		String id = "conn-" + body.get("type") + "-" + Long.toString(System.currentTimeMillis(), 36);
+		String id = "conn-" + body.get("type") + "-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
 		String credEnc = "";
 		if (body.containsKey("credentials") && body.get("credentials") != null) {
 			try {
@@ -307,7 +307,7 @@ public class AdminConnectorController extends BaseController {
 
 		// Run sync in background thread
 		Thread.ofVirtual().start(() -> {
-			String logId = "csl-" + Long.toString(System.currentTimeMillis(), 36);
+			String logId = "csl-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
 			db.update("INSERT INTO connector_sync_log (id, connector_id, started_at, status) VALUES (?,?,?,?)", logId,
 					id, Instant.now().toString(), "running");
 			db.update("UPDATE connector_configs SET sync_status='syncing', updated_at=? WHERE id=?",

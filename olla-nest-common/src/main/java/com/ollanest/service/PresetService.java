@@ -116,7 +116,7 @@ public class PresetService {
      * @since v2026.2.1
      */
     public Map<String, Object> createTemplate(String owner, Map<String, Object> req) {
-        String id = "tpl-" + Long.toString(System.currentTimeMillis(), 36);
+        String id = "tpl-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
         db.update("""
                 INSERT INTO user_templates (id, owner, name, system_prompt, temperature, max_tokens,

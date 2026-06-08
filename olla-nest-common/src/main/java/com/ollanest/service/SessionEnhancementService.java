@@ -168,7 +168,7 @@ public class SessionEnhancementService {
                 sessionId, messageIndex + 1);
 
         // Create new session
-        String newId = "sess-fork-" + Long.toString(System.currentTimeMillis(), 36);
+        String newId = "sess-fork-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
         String origTitle = (String) session.get(0).get("title");
         db.update("INSERT INTO chat_sessions (id, user_id, title, created_at, updated_at) VALUES (?,?,?,?,?)",

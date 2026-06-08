@@ -104,6 +104,21 @@ class NotesServiceTest {
         }
 
         @Test
+        @DisplayName("rapid creates produce UNIQUE ids (BUG-013 concurrency regression)")
+        void rapidCreatesProduceUniqueIds() {
+            // Note ids were timestamp-only -> PK collisions under concurrent load
+            // (k6: ~73% of POST /api/notes failed at 30 VUs). Ids must be unique.
+            when(db.queryForList(anyString(), anyString(), anyString()))
+                    .thenReturn(List.of(noteRow("note-x", "N", "note", 0)));
+            ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
+            for (int i = 0; i < 50; i++) notesService.create(OWNER, Map.of("title", "N" + i));
+            verify(db, times(50)).update(contains("INSERT INTO notes"), cap.capture());
+            var ids = new java.util.HashSet<String>();
+            for (Object[] a : cap.getAllValues()) ids.add(a[0].toString());
+            assertThat(ids).hasSize(50);
+        }
+
+        @Test
         @DisplayName("default note_type is 'note' when not specified")
         void defaultNoteType() {
             // Stub DB to return a basic note row

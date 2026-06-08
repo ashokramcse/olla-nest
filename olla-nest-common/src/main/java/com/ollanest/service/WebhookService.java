@@ -120,7 +120,7 @@ public class WebhookService {
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         validateUrl((String) req.get("url"));
-        String id = "wh-" + Long.toString(System.currentTimeMillis(), 36);
+        String id = "wh-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
 
         db.update("""

@@ -373,7 +373,7 @@ public class SsoController {
 		ResponseEntity<Map<String, Object>> err = requireAdmin(req);
 		if (err != null)
 			return err;
-		String id = "sso-" + body.get("type") + "-" + Long.toString(System.currentTimeMillis(), 36);
+		String id = "sso-" + body.get("type") + "-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
 		String secretEnc = "";
 		if (body.containsKey("clientSecret") && !body.get("clientSecret").toString().isBlank())
 			secretEnc = cryptoService.encryptKey(body.get("clientSecret").toString());
@@ -467,7 +467,7 @@ public class SsoController {
 	private User provisionUser(SsoService.ClaimsResult claims) {
 		User user = userService.findUserByEmail(claims.email());
 		if (user == null) {
-			String newId = "u-sso-" + Long.toString(System.currentTimeMillis(), 36);
+			String newId = "u-sso-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
 			db.update(
 					"INSERT INTO users (id, name, email, password_hash, role, auth_provider, access_status, created_at) VALUES (?,?,?,NULL,'user',?,?,?)",
 					newId, claims.name(), claims.email(), claims.provider(), "active", Instant.now().toString());

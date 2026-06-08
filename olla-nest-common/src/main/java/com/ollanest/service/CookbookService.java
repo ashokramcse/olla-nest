@@ -292,7 +292,7 @@ public class CookbookService {
      * @since v2026.2.1
      */
     public String startDownload(String hfRepo, String hfFile, SseEmitter emitter) {
-        String jobId = "dl-" + Long.toString(System.currentTimeMillis(), 36);
+        String jobId = "dl-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         activeDownloads.put(jobId, new LinkedHashMap<>(Map.of(
                 "job_id", jobId, "status", "downloading", "hf_repo", hfRepo,
                 "progress", 0, "started_at", Instant.now().toString()
@@ -342,7 +342,7 @@ public class CookbookService {
                 }
 
                 // Record in DB
-                String modelId = "cm-" + Long.toString(System.currentTimeMillis(), 36);
+                String modelId = "cm-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
                 db.update("""
                         INSERT OR REPLACE INTO cookbook_models (id, hf_repo, hf_filename, display_name,
                           is_downloaded, local_path, updated_at)
