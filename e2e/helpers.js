@@ -17,7 +17,13 @@ function collect(page) {
 }
 
 function appErrors(bag) {
-  return bag.consoleErrors.filter((e) => !/favicon|manifest|the server responded with a status of 404/i.test(e));
+  // Filter benign/environmental noise that is not an application defect:
+  // - favicon/manifest 404s
+  // - Google Fonts (fonts.gstatic.com) download failures when the test sandbox
+  //   has no external network — Firefox logs these as JS errors; the app falls
+  //   back to system fonts (tracked as OBS-004, external font-CDN dependency).
+  return bag.consoleErrors.filter(
+    (e) => !/favicon|manifest|the server responded with a status of 404|downloadable font|fonts\.gstatic\.com|fonts\.googleapis\.com/i.test(e));
 }
 
 async function horizontalOverflow(page) {
