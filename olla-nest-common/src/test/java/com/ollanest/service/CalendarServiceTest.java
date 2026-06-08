@@ -68,7 +68,7 @@ class CalendarServiceTest {
                     .thenReturn(List.of(calRow("cal-abc")));
             calendarService.createCalendar(OWNER, Map.of("name", "Work"));
             // Verify INSERT was called — owner must be persisted
-            verify(db).update(contains("INSERT INTO calendars"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO calendars"), any(Object[].class));
         }
 
         @Test
@@ -167,7 +167,7 @@ class CalendarServiceTest {
                     .thenReturn(List.of(evtRow("evt-1", "cal-1")));
             Map<String, Object> result = calendarService.createEvent("cal-1", OWNER,
                     Map.of("title", "Meeting", "start_at", "2026-06-01T09:00:00Z", "end_at", "2026-06-01T10:00:00Z"));
-            verify(db).update(contains("INSERT INTO calendar_events"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO calendar_events"), any(Object[].class));
             assertThat(result.get("id").toString()).startsWith("evt-");
         }
 
@@ -197,7 +197,7 @@ class CalendarServiceTest {
                     .thenReturn(List.of(evtRow("evt-1", "cal-1")));
             when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), anyString(), anyString())).thenReturn(1);
             calendarService.updateEvent("evt-1", OWNER, Map.of("title", "Updated Meeting"));
-            verify(db).update(contains("UPDATE calendar_events"), (Object[]) any());
+            verify(db).update(contains("UPDATE calendar_events"), any(Object[].class));
         }
     }
 
@@ -225,7 +225,7 @@ class CalendarServiceTest {
             when(db.queryForList(contains("FROM calendar_events WHERE id"), anyString())).thenReturn(List.of());
             calendarService.deleteEvent("evt-999", OWNER);
             // No delete should occur for a non-existent event
-            verify(db, never()).update(contains("DELETE FROM calendar_events"), (Object[]) any());
+            verify(db, never()).update(contains("DELETE FROM calendar_events"), any(Object[].class));
         }
     }
 

@@ -107,7 +107,7 @@ class SessionEnhancementServiceTest {
                     .thenReturn(List.of(msg));
             svc.forkSession(SESSION_ID, OWNER, 0);
             // Each message must be copied to the new session via INSERT
-            verify(db, atLeastOnce()).update(contains("INSERT INTO chat_messages"), (Object[]) any());
+            verify(db, atLeastOnce()).update(contains("INSERT INTO chat_messages"), any(Object[].class));
         }
 
         @Test

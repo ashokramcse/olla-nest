@@ -18,6 +18,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -98,7 +100,10 @@ class MemoryServiceTest {
         @Test
         @DisplayName("embedding failure is swallowed — null stored instead (keyword fallback)")
         void embeddingFailureSwallowed() {
-            when(embeddingService.embed(anyString())).thenThrow(new RuntimeException("LLM offline"));
+            // doThrow form (not when().thenThrow) — the embed stub is already a
+            // throwing stub from @BeforeEach, so when(embeddingService.embed(...))
+            // would invoke it and throw during stubbing. doThrow avoids that call.
+            doThrow(new RuntimeException("LLM offline")).when(embeddingService).embed(anyString());
 
             assertThatCode(() ->
                 memoryService.remember(OWNER, "Some fact", null, "extractor", List.of("auto"))
@@ -132,9 +137,9 @@ class MemoryServiceTest {
 
             memoryService.remember(OWNER, "New fact", null, "user", null);
 
-            // Eviction DELETE called before INSERT
-            verify(db, atLeastOnce()).update(contains("DELETE FROM memories"));
-            verify(db).update(contains("INSERT INTO memories"), (Object[]) any());
+            // Eviction DELETE called before INSERT (DELETE binds owner + limit varargs)
+            verify(db, atLeastOnce()).update(contains("DELETE FROM memories"), any(Object[].class));
+            verify(db).update(contains("INSERT INTO memories"), any(Object[].class));
         }
 
         @Test
@@ -251,15 +256,20 @@ class MemoryServiceTest {
             assertThat(memoryService.recall(OWNER, "dark mode", 5)).isEmpty();
         }
 
+        // Null-safe memory row (embedding_json is null, which Map.of forbids).
+        private Map<String, Object> memRow(String id, String text, String created) {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("id", id); r.put("owner", OWNER); r.put("text", text);
+            r.put("source", "user"); r.put("session_id", ""); r.put("importance", 5);
+            r.put("embedding_json", null); r.put("created_at", created); r.put("tags_json", "[]");
+            return r;
+        }
+
         @Test
         @DisplayName("keyword match on text field returns hit")
         void keywordMatchReturnsHit() throws Exception {
             // Stub: one memory with text matching the query keywords
-            var row = Map.<String, Object>of(
-                    "id", "mem-1", "owner", OWNER, "text", "User prefers dark mode",
-                    "source", "user", "session_id", "", "importance", 5,
-                    "embedding_json", null, "created_at", "2026-01-01T00:00:00Z",
-                    "tags_json", "[]");
+            var row = memRow("mem-1", "User prefers dark mode", "2026-01-01T00:00:00Z");
             when(db.queryForList(contains("SELECT"), eq(OWNER))).thenReturn(List.of(row));
             // Stub: mapper deserializes empty tags array
             when(mapper.readValue(eq("[]"), eq(java.util.List.class))).thenReturn(List.of());
@@ -274,11 +284,7 @@ class MemoryServiceTest {
         @DisplayName("query with no keyword match returns empty list")
         void noKeywordMatchReturnsEmpty() throws Exception {
             // Stub: memory is about Java development — unrelated to the query
-            var row = Map.<String, Object>of(
-                    "id", "mem-1", "owner", OWNER, "text", "User is a Java developer",
-                    "source", "user", "session_id", "", "importance", 5,
-                    "embedding_json", null, "created_at", "2026-01-01T00:00:00Z",
-                    "tags_json", "[]");
+            var row = memRow("mem-1", "User is a Java developer", "2026-01-01T00:00:00Z");
             when(db.queryForList(contains("SELECT"), eq(OWNER))).thenReturn(List.of(row));
             when(mapper.readValue(eq("[]"), eq(java.util.List.class))).thenReturn(List.of());
 
@@ -292,11 +298,8 @@ class MemoryServiceTest {
         void topKLimitsResults() throws Exception {
             // Stub: 10 memories all matching "coding" keyword
             var rows = java.util.stream.IntStream.rangeClosed(1, 10)
-                    .mapToObj(i -> Map.<String, Object>of(
-                            "id", "mem-" + i, "owner", OWNER, "text", "coding fact " + i,
-                            "source", "user", "session_id", "", "importance", 5,
-                            "embedding_json", null, "created_at", "2026-01-0" + Math.min(i, 9) + "T00:00:00Z",
-                            "tags_json", "[]"))
+                    .mapToObj(i -> memRow("mem-" + i, "coding fact " + i,
+                            "2026-01-0" + Math.min(i, 9) + "T00:00:00Z"))
                     .toList();
             when(db.queryForList(contains("SELECT"), eq(OWNER))).thenReturn(rows);
             when(mapper.readValue(eq("[]"), eq(java.util.List.class))).thenReturn(List.of());
@@ -321,19 +324,20 @@ class MemoryServiceTest {
                     List.of("Fact 1", "Fact 2", "Fact 3"), "import");
             assertThat(count).isEqualTo(3);
             // Each fact stored as its own memory row
-            verify(db, times(3)).update(contains("INSERT INTO memories"), (Object[]) any());
+            verify(db, times(3)).update(contains("INSERT INTO memories"), any(Object[].class));
         }
 
         @Test
         @DisplayName("skips blank and null entries")
         void skipsBlankEntries() {
-            // List has 4 entries but only 1 is non-blank — 3 must be skipped
+            // List has 4 entries but only 1 is non-blank — 3 must be skipped.
+            // Arrays.asList (not List.of) because the list contains a null entry.
             int count = memoryService.importMemories(OWNER,
-                    List.of("Fact 1", "", "  ", null), "import");
+                    Arrays.asList("Fact 1", "", "  ", null), "import");
             // Only 1 import counted
             assertThat(count).isEqualTo(1);
             // Only 1 INSERT call issued (blank/null entries skipped)
-            verify(db, times(1)).update(contains("INSERT INTO memories"), (Object[]) any());
+            verify(db, times(1)).update(contains("INSERT INTO memories"), any(Object[].class));
         }
 
         @Test
@@ -342,7 +346,7 @@ class MemoryServiceTest {
             // Empty input: nothing to import, no DB calls
             int count = memoryService.importMemories(OWNER, List.of(), "import");
             assertThat(count).isEqualTo(0);
-            verify(db, never()).update(contains("INSERT INTO memories"), (Object[]) any());
+            verify(db, never()).update(contains("INSERT INTO memories"), any(Object[].class));
         }
     }
 }

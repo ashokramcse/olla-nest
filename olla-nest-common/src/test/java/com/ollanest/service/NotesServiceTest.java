@@ -87,7 +87,7 @@ class NotesServiceTest {
                     .thenReturn(List.of(noteRow("note-1", "My Note", "note", 0)));
             notesService.create(OWNER, Map.of("title", "My Note", "content", "body text"));
             // Verify the INSERT was executed — note must be persisted
-            verify(db).update(contains("INSERT INTO notes"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO notes"), any(Object[].class));
         }
 
         @Test
@@ -263,7 +263,7 @@ class NotesServiceTest {
             when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(null);
             notesService.list(OWNER, true, null);
             // When requesting archived notes, the "archived=0" clause must NOT appear
-            verify(db, never()).queryForList(contains("archived=0"), (Object[]) any());
+            verify(db, never()).queryForList(contains("archived=0"), any(Object[].class));
         }
 
         @Test

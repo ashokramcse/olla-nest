@@ -240,15 +240,90 @@ public class FunctionCallService {
 		if (safe.isBlank())
 			return "{\"error\": \"Expression contains unsafe characters\"}";
 		try {
-			javax.script.ScriptEngineManager mgr = new javax.script.ScriptEngineManager();
-			javax.script.ScriptEngine engine = mgr.getEngineByName("JavaScript");
-			if (engine == null) {
-				return "{\"result\": \"Script engine unavailable — try a simpler expression\"}";
-			}
-			Object result = engine.eval(safe);
-			return "{\"expression\": \"" + expression + "\", \"result\": " + result + "}";
+			// Self-contained arithmetic evaluator. Replaces the legacy Nashorn/JS
+			// ScriptEngine, which is absent on JDK 15+ (the platform runs Java 26),
+			// so the tool now works without any external script engine and without
+			// the code-execution surface of eval().
+			double result = new ArithmeticEvaluator(safe).parse();
+			String num = (result == Math.rint(result) && !Double.isInfinite(result))
+					? String.valueOf((long) result)
+					: String.valueOf(result);
+			return "{\"expression\": \"" + expression + "\", \"result\": " + num + "}";
+		} catch (ArithmeticException e) {
+			return "{\"error\": \"" + e.getMessage().replace("\"", "'") + "\"}";
 		} catch (Exception e) {
-			return "{\"error\": \"Could not evaluate: " + e.getMessage().replace("\"", "'") + "\"}";
+			return "{\"error\": \"Could not evaluate expression\"}";
+		}
+	}
+
+	/**
+	 * Minimal, dependency-free recursive-descent evaluator for {@code + - * / %},
+	 * parentheses, unary minus, and decimals. No reflection, no script engine, no
+	 * I/O — safe for evaluating the pre-whitelisted {@code calculate} expression.
+	 */
+	private static final class ArithmeticEvaluator {
+		private final String s;
+		private int pos = -1, ch;
+
+		ArithmeticEvaluator(String s) { this.s = s; }
+
+		double parse() {
+			nextChar();
+			double x = parseExpression();
+			if (pos < s.length()) throw new ArithmeticException("Unexpected: '" + (char) ch + "'");
+			return x;
+		}
+
+		private void nextChar() { ch = (++pos < s.length()) ? s.charAt(pos) : -1; }
+
+		private boolean eat(int c) {
+			while (ch == ' ') nextChar();
+			if (ch == c) { nextChar(); return true; }
+			return false;
+		}
+
+		// expression = term | expression '+' term | expression '-' term
+		private double parseExpression() {
+			double x = parseTerm();
+			for (;;) {
+				if (eat('+')) x += parseTerm();
+				else if (eat('-')) x -= parseTerm();
+				else return x;
+			}
+		}
+
+		// term = factor | term '*' factor | term '/' factor | term '%' factor
+		private double parseTerm() {
+			double x = parseFactor();
+			for (;;) {
+				if (eat('*')) x *= parseFactor();
+				else if (eat('/')) {
+					double d = parseFactor();
+					if (d == 0) throw new ArithmeticException("Division by zero");
+					x /= d;
+				} else if (eat('%')) {
+					double d = parseFactor();
+					if (d == 0) throw new ArithmeticException("Division by zero");
+					x %= d;
+				} else return x;
+			}
+		}
+
+		private double parseFactor() {
+			if (eat('+')) return parseFactor();
+			if (eat('-')) return -parseFactor();
+			double x;
+			int startPos = pos;
+			if (eat('(')) {
+				x = parseExpression();
+				if (!eat(')')) throw new ArithmeticException("Missing ')'");
+			} else if ((ch >= '0' && ch <= '9') || ch == '.') {
+				while ((ch >= '0' && ch <= '9') || ch == '.') nextChar();
+				x = Double.parseDouble(s.substring(startPos, pos));
+			} else {
+				throw new ArithmeticException("Unexpected: '" + (ch == -1 ? "EOF" : (char) ch) + "'");
+			}
+			return x;
 		}
 	}
 

@@ -79,7 +79,7 @@ class PersonalAssistantServiceTest {
             assertThat(result).isNotNull();
             assertThat(result.get("owner")).isEqualTo(OWNER);
             // INSERT must not be called when the record already exists
-            verify(db, never()).update(contains("INSERT INTO crew_members"), (Object[]) any());
+            verify(db, never()).update(contains("INSERT INTO crew_members"), any(Object[].class));
         }
 
         @Test
@@ -96,7 +96,7 @@ class PersonalAssistantServiceTest {
             when(taskService.create(anyString(), anyMap())).thenReturn(Map.of("id", "task-1"));
             Map<String, Object> result = personalAssistantService.getOrCreate(OWNER);
             // INSERT must be called to create the default assistant record
-            verify(db).update(contains("INSERT INTO crew_members"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO crew_members"), any(Object[].class));
             assertThat(result).isNotNull();
         }
 
@@ -135,7 +135,7 @@ class PersonalAssistantServiceTest {
             when(mapper.writeValueAsString(any())).thenReturn("[]");
             personalAssistantService.update(OWNER, Map.of("name", "Nova"));
             // UPDATE must target this specific owner — not a global update
-            verify(db).update(contains("UPDATE crew_members"), (Object[]) any());
+            verify(db).update(contains("UPDATE crew_members"), any(Object[].class));
         }
     }
 

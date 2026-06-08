@@ -61,9 +61,11 @@ class WebhookServiceTest {
             when(mapper.writeValueAsString(any())).thenReturn("[\"chat.completed\"]");
             when(db.queryForList(contains("FROM webhooks WHERE id"), anyString(), anyString()))
                     .thenReturn(List.of(webhookRow("wh-abc")));
-            webhookService.create(OWNER, Map.of("url", "https://hooks.example.com/recv", "name", "Hook"));
+            // Public IP literal (not a hostname) so validateUrl's SSRF check resolves
+            // without a DNS lookup — deterministic offline; still a non-private address.
+            webhookService.create(OWNER, Map.of("url", "https://93.184.216.34/recv", "name", "Hook"));
             // Verify the INSERT into webhooks was executed
-            verify(db).update(contains("INSERT INTO webhooks"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO webhooks"), any(Object[].class));
         }
 
         @Test

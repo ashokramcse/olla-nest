@@ -102,7 +102,7 @@ class ApiTokenServiceTest {
         void dbInsertCallsWithOwnerAndName() {
             var result = tokenService.mint(OWNER, "My Device", List.of("chat"));
             // INSERT must be called — raw token is never stored, only the bcrypt hash
-            verify(db).update(contains("INSERT INTO api_tokens"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO api_tokens"), any(Object[].class));
         }
 
         @Test

@@ -124,8 +124,10 @@ class StateControllerTest {
             when(chatService.buildChatObject(any())).thenReturn(Map.of("id", "chat-1"));
 
             ResponseEntity<Map<String, Object>> response = stateController.getState(req);
-            // User info must be present so the frontend can initialise the session
-            assertThat(response.getBody()).containsKey("user");
+            // User info must be present so the frontend can initialise the session.
+            // The state contract exposes the signed-in user under "activeUser" (the
+            // key the frontend reads — see app.js/admin.js state.activeUser).
+            assertThat(response.getBody()).containsKey("activeUser");
         }
     }
 

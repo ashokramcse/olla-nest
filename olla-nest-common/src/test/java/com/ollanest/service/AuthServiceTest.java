@@ -273,7 +273,7 @@ class AuthServiceTest {
 		void nullTokenSkipsDbDelete() {
 			authService.clearSession(res, null);
 
-			verify(db, never()).update(anyString(), (Object[]) any());
+			verify(db, never()).update(anyString(), any(Object[].class));
 			verify(res).addHeader(eq("Set-Cookie"), argThat(v -> v.contains("Max-Age=0")));
 		}
 	}

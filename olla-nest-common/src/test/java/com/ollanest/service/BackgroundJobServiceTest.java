@@ -191,7 +191,7 @@ class BackgroundJobServiceTest {
             boolean result = svc.cancel(id);
             // No thread to interrupt → returns false, but DB status must still be updated
             assertThat(result).isFalse();
-            verify(db).update(contains("status='cancelled'"), any(), any());
+            verify(db).update(contains("status='cancelled'"), any(Object[].class));
         }
 
         @Test
@@ -213,7 +213,7 @@ class BackgroundJobServiceTest {
             String id = svc.register(OWNER, "t", "Test");
             svc.cancel(id);
             // DB update must always happen regardless of whether a thread was attached
-            verify(db).update(contains("status='cancelled'"), any(), any());
+            verify(db).update(contains("status='cancelled'"), any(Object[].class));
         }
     }
 

@@ -77,7 +77,7 @@ class TerminalServiceTest {
             service.afterConnectionClosed(session, CloseStatus.NORMAL);
 
             // Audit event must be written on close for SOC 2 availability logging
-            verify(db, atLeastOnce()).update(contains("INSERT INTO audit_events"), (Object[]) any());
+            verify(db, atLeastOnce()).update(contains("INSERT INTO audit_events"), any(Object[].class));
         }
     }
 }

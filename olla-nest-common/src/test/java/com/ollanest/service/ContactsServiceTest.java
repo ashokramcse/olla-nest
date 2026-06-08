@@ -106,7 +106,7 @@ class ContactsServiceTest {
             when(db.queryForList(contains("FROM contacts WHERE id"), (Object) any(), any())).thenReturn(List.of());
             svc.update("cnt-1", OWNER, Map.of("display_name", "Dave"));
             // UPDATE must be called — both id and owner scope the WHERE clause
-            verify(db).update(contains("UPDATE contacts SET"), (Object[]) any());
+            verify(db).update(contains("UPDATE contacts SET"), any(Object[].class));
         }
     }
 

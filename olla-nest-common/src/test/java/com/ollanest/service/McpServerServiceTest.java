@@ -70,7 +70,7 @@ class McpServerServiceTest {
                     .thenReturn(List.of(serverRow("mcp-abc", "My Server")));
             mcpServerService.create(Map.of("name", "My Server"));
             // Verify the INSERT into mcp_servers was called
-            verify(db).update(contains("INSERT INTO mcp_servers"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO mcp_servers"), any(Object[].class));
         }
 
         @Test

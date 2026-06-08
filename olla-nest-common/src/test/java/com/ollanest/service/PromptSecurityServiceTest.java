@@ -250,14 +250,14 @@ class PromptSecurityServiceTest {
         void insertsRow() {
             // Security event must be persisted to DB for audit trail
             svc.logSecurityEvent("user-1", "sess-1", "rag", false);
-            verify(db).update(contains("INSERT INTO prompt_security_log"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO prompt_security_log"), any(Object[].class));
         }
 
         @Test
         @DisplayName("DB exception is swallowed — no exception propagated to caller")
         void dbExceptionSwallowed() {
             // Stub: DB is unavailable during security logging
-            when(db.update(anyString(), (Object[]) any())).thenThrow(new RuntimeException("DB down"));
+            when(db.update(anyString(), any(Object[].class))).thenThrow(new RuntimeException("DB down"));
             // No exception = logging failure must never crash the request that triggered it
             assertThatCode(() -> svc.logSecurityEvent("user-1", "sess-1", "web", true))
                     .doesNotThrowAnyException();

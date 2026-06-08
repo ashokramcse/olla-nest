@@ -234,7 +234,7 @@ class DatabaseServiceTest {
 		void noInsertsWhenTablesPopulated() {
 			service.seedDatabase();
 			// db.update() must never be called — all tables already have rows
-			verify(db, never()).update(contains("INSERT"), (Object[]) any());
+			verify(db, never()).update(contains("INSERT"), any(Object[].class));
 		}
 
 		@Test

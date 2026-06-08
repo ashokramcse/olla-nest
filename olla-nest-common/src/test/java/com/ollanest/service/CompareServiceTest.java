@@ -100,7 +100,7 @@ class CompareServiceTest {
             var req = Map.<String, Object>of("model_a", "a", "model_b", "b", "prompt", "P");
             svc.create(OWNER, req);
             // Comparison must be persisted for later vote recording
-            verify(db).update(contains("INSERT INTO comparisons"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO comparisons"), any(Object[].class));
         }
 
         @Test

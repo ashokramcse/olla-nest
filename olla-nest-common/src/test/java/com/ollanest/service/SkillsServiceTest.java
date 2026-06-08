@@ -97,7 +97,7 @@ class SkillsServiceTest {
 
             skillsService.createSkill(Map.of("name", "Deploy Docker", "category", "devops"), OWNER);
             // Verify the INSERT was executed — skill must be persisted
-            verify(db).update(contains("INSERT INTO skills"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO skills"), any(Object[].class));
         }
 
         @Test
@@ -234,7 +234,7 @@ class SkillsServiceTest {
         void keywordMatchOnName() throws Exception {
             // Stub: DB returns a skill whose name contains the keyword
             var row = buildSkillRow("skill-1", "Deploy Docker container", "active");
-            when(db.queryForList(contains("SELECT"), (Object[]) any()))
+            when(db.queryForList(contains("SELECT"), any(Object[].class)))
                     .thenReturn(List.of(row));
             when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(List.of());
 

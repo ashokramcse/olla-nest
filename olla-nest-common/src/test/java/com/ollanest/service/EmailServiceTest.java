@@ -85,7 +85,7 @@ class EmailServiceTest {
                     .thenReturn(List.of(acctRow("email-abc")));
             emailService.createAccount(OWNER, Map.of("imap_host", "imap.gmail.com"));
             // Account credentials must be persisted (with encrypted password)
-            verify(db).update(contains("INSERT INTO email_accounts"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO email_accounts"), any(Object[].class));
         }
 
         @Test

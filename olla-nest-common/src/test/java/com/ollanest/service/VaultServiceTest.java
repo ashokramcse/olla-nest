@@ -110,8 +110,8 @@ class VaultServiceTest {
             // Stub: UPDATE returns 0 (no existing row) → service must INSERT instead
             when(db.update(contains("UPDATE vault_config"), any(), any(), any())).thenReturn(0);
             svc.saveConfig("bw", "https://vault.example.com");
-            // Upsert step 2: INSERT when no existing row
-            verify(db).update(contains("INSERT INTO vault_config"), any(), any(), any(), any());
+            // Upsert step 2: INSERT when no existing row (3 bind args; match any varargs)
+            verify(db).update(contains("INSERT INTO vault_config"), any(Object[].class));
         }
 
         @Test
@@ -121,7 +121,7 @@ class VaultServiceTest {
             when(db.update(contains("UPDATE vault_config"), any(), any(), any())).thenReturn(1);
             svc.saveConfig("bw", null);
             // INSERT must be skipped when UPDATE already persisted the row
-            verify(db, never()).update(contains("INSERT INTO vault_config"), (Object[]) any());
+            verify(db, never()).update(contains("INSERT INTO vault_config"), any(Object[].class));
         }
 
         @Test

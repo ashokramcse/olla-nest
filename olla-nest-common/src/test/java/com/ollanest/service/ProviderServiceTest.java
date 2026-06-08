@@ -160,7 +160,7 @@ class ProviderServiceTest {
                     "display_name", "GPT-4");
             providerService.mirrorApiModelToModels(provider, apiModel);
             // INSERT must be called to add the approved model to the local models registry
-            verify(db).update(contains("INSERT INTO models"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO models"), any(Object[].class));
         }
 
         @Test

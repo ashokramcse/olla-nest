@@ -84,7 +84,7 @@ class ConnectorSyncSchedulerTest {
             scheduler.scheduledSync();
 
             // Successful sync must be persisted to the sync log for audit/monitoring
-            verify(db).update(contains("INSERT INTO connector_sync_log"), (Object[]) any());
+            verify(db).update(contains("INSERT INTO connector_sync_log"), any(Object[].class));
         }
 
         @Test
@@ -104,7 +104,7 @@ class ConnectorSyncSchedulerTest {
             // No exception thrown = scheduler swallows the error (other connectors still run)
             assertThatCode(() -> scheduler.scheduledSync()).doesNotThrowAnyException();
             // Error log should be updated
-            verify(db, atLeastOnce()).update(contains("status='error'"), (Object[]) any());
+            verify(db, atLeastOnce()).update(contains("status='error'"), any(Object[].class));
         }
     }
 }
