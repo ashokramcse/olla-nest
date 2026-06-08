@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,9 +41,18 @@ class McpServerServiceTest {
     @InjectMocks McpServerService mcpServerService;
 
     private Map<String, Object> serverRow(String id, String name) {
-        return Map.of("id", id, "name", name, "command", "node",
-                "args_json", "[]", "env_json", "{}", "transport", "stdio",
-                "url", null, "disabled_tools_json", "[]", "enabled", 1);
+        // LinkedHashMap (not Map.of) because the "url" value is null, which Map.of rejects.
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", id);
+        row.put("name", name);
+        row.put("command", "node");
+        row.put("args_json", "[]");
+        row.put("env_json", "{}");
+        row.put("transport", "stdio");
+        row.put("url", null);
+        row.put("disabled_tools_json", "[]");
+        row.put("enabled", 1);
+        return row;
     }
 
     // ── create() ─────────────────────────────────────────────────────────────

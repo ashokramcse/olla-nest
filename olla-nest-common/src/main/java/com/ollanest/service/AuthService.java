@@ -93,7 +93,7 @@ public class AuthService {
 	 * single-app value.
 	 */
 	@Value("${app.session-cookie-name:olla_nest_session}")
-	private String cookieName;
+	private String cookieName = "olla_nest_session";
 
 	/**
 	 * Shared SecureRandom instance — reused across all {@link #setSession} calls.
