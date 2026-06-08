@@ -233,7 +233,7 @@ SPRING_PROFILES_ACTIVE=loki java --enable-native-access=ALL-UNNAMED -jar olla-ne
 SPRING_PROFILES_ACTIVE=loki java --enable-native-access=ALL-UNNAMED -jar olla-nest-user/target/olla-nest-user-2026.1.9.jar &
 ```
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment guide.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment guide, and [docs/FEATURES.md](docs/FEATURES.md) for the complete end-to-end feature reference.
 
 ---
 
