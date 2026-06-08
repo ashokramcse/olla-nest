@@ -541,10 +541,10 @@ class Soc2AuditTest {
             // structurally since it's a simple filter.
             String csp = "default-src 'self'; "
                     + "script-src 'self' 'unsafe-inline'; "
-                    + "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                    + "style-src 'self' 'unsafe-inline'; "
                     + "img-src 'self' data: blob:; "
                     + "connect-src 'self' ws: wss:; "
-                    + "font-src 'self' data: https://fonts.gstatic.com; "
+                    + "font-src 'self' data:; "
                     + "frame-ancestors 'none'; "
                     + "base-uri 'self'; "
                     + "form-action 'self'";

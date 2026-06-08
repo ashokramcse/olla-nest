@@ -6,8 +6,11 @@
               Chart.js 4.5.1 | xterm.js 5.3.0
    ============================================================ */
 
-/* ── Google Fonts ────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@300;400;500;600;700&family=Inconsolata:wght@400;500;600;700&display=swap');
+/* ── Fonts: self-hosted (Archivo, Archivo Black, Inconsolata) ──
+   Was an external @import from fonts.googleapis.com — now local for offline /
+   air-gapped resilience and to avoid the third-party request (OBS-004). Font
+   files live in /fonts/, declared in /fonts.css. */
+@import url('/fonts.css');
 
 /* ── CSS variable declarations (values written by theme.js) ─ */
 :root {

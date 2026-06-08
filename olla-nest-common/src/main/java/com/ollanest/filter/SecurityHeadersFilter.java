@@ -102,10 +102,12 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
 		response.setHeader("Content-Security-Policy",
 				"default-src 'self'; "
 						+ "script-src 'self' 'unsafe-inline'; "
-						+ "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+						// Fonts are self-hosted (see public/fonts.css) — no external
+						// font/style origins needed, tightening the CSP.
+						+ "style-src 'self' 'unsafe-inline'; "
 						+ "img-src 'self' data: blob:; "
 						+ "connect-src 'self' ws: wss:; "
-						+ "font-src 'self' data: https://fonts.gstatic.com; "
+						+ "font-src 'self' data:; "
 						+ "frame-ancestors 'none'; "
 						+ "base-uri 'self'; "
 						+ "form-action 'self'");
