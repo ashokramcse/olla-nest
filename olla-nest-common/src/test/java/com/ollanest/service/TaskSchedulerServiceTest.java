@@ -114,6 +114,22 @@ class TaskSchedulerServiceTest {
             // New tasks are immediately active — no manual activation step required
             assertThat(cap.getValue()[19]).isEqualTo("active");
         }
+
+        @Test
+        @DisplayName("rapid creates in the same millisecond produce UNIQUE ids (BUG-009 regression)")
+        void rapidCreatesProduceUniqueIds() {
+            // Regression for the seedCheckIns 500: task ids were timestamp-only, so
+            // several creates in the same millisecond collided on the primary key.
+            ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
+            for (int i = 0; i < 50; i++) {
+                svc.create(OWNER, Map.of("name", "Check-in " + i, "schedule", "daily", "scheduled_time", "09:00"));
+            }
+            verify(db, times(50)).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
+            var ids = new java.util.HashSet<String>();
+            for (Object[] args : cap.getAllValues()) ids.add(args[0].toString());
+            // All 50 generated ids must be distinct — no PRIMARY KEY collision possible.
+            assertThat(ids).hasSize(50);
+        }
     }
 
     // ── update() ──────────────────────────────────────────────────────────────

@@ -89,7 +89,10 @@ public class TaskSchedulerService {
      * @since v2026.2.1
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
-        String id = "task-" + Long.toString(System.currentTimeMillis(), 36);
+        // Append a random suffix so rapid creates (e.g. seeding multiple assistant
+        // check-ins in the same millisecond) cannot collide on the primary key.
+        String id = "task-" + Long.toString(System.currentTimeMillis(), 36)
+                + "-" + UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
         String nextRun = computeNextRun(req);
 
@@ -247,7 +250,8 @@ public class TaskSchedulerService {
 
     private void executeTask(Map<String, Object> task) {
         String taskId = (String) task.get("id");
-        String runId = "run-" + Long.toString(System.currentTimeMillis(), 36);
+        String runId = "run-" + Long.toString(System.currentTimeMillis(), 36)
+                + "-" + UUID.randomUUID().toString().substring(0, 6);
         String owner = (String) task.get("owner");
         long startMs = System.currentTimeMillis();
 
