@@ -19,12 +19,13 @@ module.exports = defineConfig({
   // only (engine-agnostic results) to avoid redundant duplicate findings.
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: /a11y\.spec\.js/ },
+    // a11y (axe) and visual-regression baselines run on Chromium only.
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: /(a11y|visual)\.spec\.js/ },
     // WebKit also skips negative.spec: page.route() request interception races in
     // the WebKit driver for these tests (verified the app behavior IS identical
     // via a standalone WebKit debug — only the harness flakes). Functional/CRUD
     // journeys still run on all three engines.
-    { name: 'webkit', use: { ...devices['Desktop Safari'] }, testIgnore: /(a11y|negative)\.spec\.js/ },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] }, testIgnore: /(a11y|negative|visual)\.spec\.js/ },
   ],
   outputDir: 'evidence',
 });
