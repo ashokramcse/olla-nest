@@ -3,10 +3,15 @@
 **Date:** 2026-06-08 · **Tooling:** Playwright (Chromium headless) — harness in `e2e/`. Evidence (screenshots/traces) in `e2e/evidence/` (git-ignored; regenerate with `npx playwright test`).
 
 ## Summary
-**37 E2E tests, all green** (Chromium) across 3 specs:
+**39 E2E tests, all green** (Chromium) across 5 specs:
 - `login.spec.js` (12) — login render/responsive/error-state/logout/headers.
 - `admin.spec.js` (11) — **every admin tab** deep-journey (authenticated).
 - `workspace.spec.js` (14) — **all 13 feature panels** deep-journey (authenticated).
+- `crud-notes.spec.js` (1) — **full Notes CRUD round-trip** (create→reload-persist→update→delete) with backend verification at every step.
+- `crud-tasks.spec.js` (1) — **Tasks create→read→delete round-trip** with backend verification (also a UI-level guard for BUG-009).
+
+### UX observation (OBS-002, not a bug)
+Notes and Tasks CRUD are driven by native `prompt()` / `confirm()` dialogs (the source notes "Simple inline edit via prompts for now"). This blocks the JS thread, can't validate input, isn't styled or screen-reader-friendly, and is awkward on mobile. Recommend replacing with in-app modal forms. Functionally correct (round-trips pass); flagged as a UX-quality improvement.
 
 Found & fixed **3 real defects**: BUG-007 (admin console 404), BUG-008 (320px overflow), and **BUG-009** (Personal Assistant panel returned HTTP 500 — a Major product bug; see `BUG_REPORT.md`).
 
