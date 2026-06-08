@@ -11,22 +11,23 @@
 
 | Metric | Value |
 |---|---|
-| Backend tests (total) | **1978** |
+| Backend tests (total, all modules) | **2069** |
 | Failing at start of audit | **71** (27 failures + 44 errors) |
-| Failing after fixes | **32** (26 failures + 6 errors) |
-| Net fixed this run | **39** |
-| Critical product/regression bugs found | **1** (fixed) |
+| Failing after remediation | **0** — `mvn test` **BUILD SUCCESS** |
+| Net fixed this run | **71** |
+| Genuine product bugs found | **2** (both fixed): BUG-001 cookie NPE, BUG-006 calculate tool |
+| Test-debt defects remediated | **69** (no assertions weakened) |
 | Live security probes run | **16** (all passed) |
 | DB/migration integrity checks | **5** (all passed) |
 
 ### Release verdict
-**CONDITIONAL PASS.**
+**CONDITIONAL PASS** (backend + security + DB proven; frontend E2E / load / soak still outstanding).
 - Core authentication, RBAC, session isolation, CSRF, brute-force lockout, security headers, secret non-leakage, and DB integrity are **proven PASS with evidence**.
-- One **Critical regression** (session-cookie NPE) was found and **fixed + verified**.
-- **32 backend tests remain red** — all classified as **pre-existing test-suite defects** (stale `db.update` verifications, unstubbed mocks) or **environmental** (DNS-based SSRF check, embedding runtime). They are **not** product or security regressions, but they **block a clean `mvn test`** and must be remediated before a true "green build" release gate.
-- Full **frontend E2E, load, and soak** testing is outstanding.
+- Backend test suite is now **fully green: 2069 tests, 0 failures, 0 errors, 0 skipped.**
+- **2 genuine product bugs** found and fixed: **BUG-001** (session-cookie NPE regression — broke all SOC2/auth tests) and **BUG-006** (`calculate` built-in tool returned an error on JDK 15+ because Nashorn was removed; replaced with a safe arithmetic evaluator).
+- The remaining 69 were **pre-existing test-debt** (Mockito varargs matcher `(Object[]) any()`, `Map.of(null)`, re-stub gotchas, DNS dependency) — remediated without weakening assertions.
 
-> Not eligible for unconditional **PASS FOR RELEASE** until: (a) the 32 red tests are remediated to green or formally quarantined, and (b) E2E + load suites are executed.
+> Not eligible for unconditional **PASS FOR RELEASE** until **frontend E2E + load/soak** suites are executed (Phases 6–18). Backend, security, and DB gates are now **GREEN**.
 
 ---
 
@@ -77,11 +78,12 @@ Session cookie flags: **HttpOnly; SameSite=Lax; Path=/; Max-Age=43200** (Secure 
 
 | ID | Severity | Title | Status |
 |---|---|---|---|
-| BUG-001 | **Critical** | `AuthService.cookieName` `@Value` field had no default → NPE in unit/non-Spring contexts; broke 44 tests incl. SOC2 security suite | **FIXED + verified** |
+| BUG-001 | **Critical** (product) | `AuthService.cookieName` `@Value` field had no default → NPE in unit/non-Spring contexts; broke 44 tests incl. SOC2 security suite | **FIXED + verified** |
+| BUG-006 | **Major** (product) | `calculate` tool used Nashorn JS engine (removed in JDK 15); returned "Script engine unavailable" on Java 26. Replaced with safe arithmetic evaluator | **FIXED + verified** |
 | BUG-002 | Minor (test) | `McpServerServiceTest.serverRow` used `Map.of(...,null,...)` → NPE | **FIXED** |
-| BUG-003 | Major (test-debt) | ~24 unit tests verify `db.update(INSERT…)` but services insert via `db.queryForObject` / leave the COUNT query unstubbed → false-negative failures | **OPEN** (recommend remediation) |
-| BUG-004 | Minor (test) | `WebhookServiceTest.insertsRow` performs real DNS (`InetAddress.getByName`) and fails offline | **OPEN** (mock DNS / use resolvable host) |
-| BUG-005 | Minor (test) | `MemoryServiceTest` requires live embedding runtime | **OPEN** (mock embeddings) |
+| BUG-003 | Major (test-debt) | ~25 verifications failed on Mockito varargs matcher `(Object[]) any()`; replaced with `any(Object[].class)` | **FIXED** |
+| BUG-004 | Minor (test) | `WebhookServiceTest.insertsRow` did real DNS and failed offline | **FIXED** (public IP literal) |
+| BUG-005 | Minor (test) | `MemoryServiceTest` null-map rows + re-stub gotcha + varargs verify | **FIXED** |
 | OBS-001 | Info | SQLite `PRAGMA foreign_keys` is per-connection; enforced only via Hikari `connection-init-sql`. Verified configured, but FK enforcement is implicit, not schema-level | Note in `DB_AUDIT_REPORT.md` |
 
 ---

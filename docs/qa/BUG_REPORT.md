@@ -25,30 +25,46 @@
 
 ---
 
-## BUG-003 — Stale `db.update` verifications / unstubbed mocks — **MAJOR (test-debt)** — OPEN
+## BUG-006 — `calculate` function-call tool non-functional on JDK 15+ — **MAJOR (product)** — FIXED
+- **Feature:** AI function/tool calling — built-in `calculate` tool (`FunctionCallService.executeCalculate`).
+- **Severity:** Major (a documented built-in tool returns an error instead of a result for every invocation on the deployed runtime).
+- **Root cause:** Used `new ScriptEngineManager().getEngineByName("JavaScript")`. The Nashorn JS engine was removed in **JDK 15**; the project targets **Java 26**, so `getEngineByName` returns `null` and the tool responded `{"result": "Script engine unavailable — try a simpler expression"}`.
+- **Evidence:** `FunctionCallServiceTest.calculateSimpleExpression` — expected `"2+2"` → contains `"4"`; actual `Script engine unavailable`.
+- **Fix:** Replaced the JS engine with a self-contained recursive-descent arithmetic evaluator (`+ - * / %`, parentheses, unary minus, decimals; division-by-zero guarded; no `eval`, no script engine, no I/O — also removes a code-execution surface).
+- **Verification:** `FunctionCallServiceTest` → 12 tests, 0 failures.
+- **Regression test:** existing `calculateSimpleExpression` now guards it.
+
+---
+
+## BUG-003 — Stale `db.update` verifications / unstubbed mocks — **MAJOR (test-debt)** — **FIXED**
 - **Affected (≈24 tests):** `CalendarServiceTest` (insertsEvent/insertsOwner/updatesById), `EmailServiceTest.insertsRow`, `NotesServiceTest.insertsRow`, `ContactsServiceTest.updateCalledWithIdAndOwner`, `CompareServiceTest.dbInsertCalled`, `ApiTokenServiceTest.dbInsertCallsWithOwnerAndName`, `BackgroundJobServiceTest` (×2), `PersonalAssistantServiceTest` (×2), `PromptSecurityServiceTest.insertsRow`, `ProviderServiceTest.upsertWhenApproved`, `SessionEnhancementServiceTest.copiesMessages`, `SkillsServiceTest` (×2), `TerminalServiceTest.writesAuditEventOnClose`, `VaultServiceTest.insertsWhenNoRowUpdated`, `McpServerServiceTest.insertsRow`, `FunctionCallServiceTest.calculateSimpleExpression`, `ConnectorSyncSchedulerTest` (×2), `StateControllerTest.bodyContainsUser`.
 - **Root cause(s):**
   1. Tests `verify(db).update(contains("INSERT INTO …"), <any>)`, but the service either inserts via a different code path or the method **aborts earlier** because a prerequisite query (e.g. `db.queryForObject("SELECT COUNT(*) …")`) is **left unstubbed** → returns `null` → NPE on unboxing → INSERT never reached.
   - Evidence (Calendar): `Argument(s) are different! Wanted: db.update(contains("INSERT INTO calendars"), <any>); Actual invocations: db.queryForObject(…)`.
 - **Why not a product bug:** The services' insert paths are real and correct; the **tests** under-stub the mock or assert the wrong JdbcTemplate method. Reproducible in isolation (Calendar: 15 run / 3 fail standalone), so not order-dependent.
 - **Pre-existing:** Present in the very first `mvn test` of the audit, before any change in this run.
-- **Fix recommendation (do NOT weaken assertions):** For each test, stub the prerequisite query (e.g. `when(db.queryForObject(contains("SELECT COUNT"), eq(Integer.class), any())).thenReturn(0)`) and/or correct the verified method to match the implementation. Add the missing-stub as the regression guard.
-- **Impact:** Blocks a green `mvn test` gate; masks true coverage signal.
+- **Resolution (no assertions weakened):** Root cause was a **Mockito varargs matching defect** — `(Object[]) any()` silently fails to match multi-argument varargs in this Mockito version, so every `verify(db).update(sql, (Object[]) any())` reported "argument(s) are different". Replaced all 30 occurrences with `any(Object[].class)` (count-independent, compiles unambiguously, matches the varargs array). Also fixed `Map.of(null)`/`List.of(null)` row builders and a `when().thenThrow` re-stub gotcha.
+- **Verification:** all affected classes now green; full `mvn test` BUILD SUCCESS.
+- **Impact:** Gate restored to green.
 
 ---
 
-## BUG-004 — Webhook test does real DNS — **MINOR (test/env)** — OPEN
+## BUG-004 — Webhook test does real DNS — **MINOR (test/env)** — **FIXED**
 - **Test:** `WebhookServiceTest.insertsRow`.
 - **Cause:** `WebhookService.validateUrl()` calls `InetAddress.getByName(host)` (a legitimate **SSRF guard** that rejects private IPs). The test URL `hooks.example.com` does not resolve in an offline CI box → `Cannot validate webhook URL: … nodename nor servname provided`.
 - **Product:** Correct & desirable (SSRF prevention). **Test** is the defect.
-- **Fix:** Use a resolvable public host, or inject/mocked resolver, or assert the validation rejects private IPs explicitly.
+- **Fix:** Switched the test URL to a public **IP literal** (`93.184.216.34`), so `getByName` resolves without a DNS lookup — deterministic offline, still a non-private address that exercises the SSRF guard.
 
 ---
 
-## BUG-005 — Memory tests require embedding runtime — **MINOR (test/env)** — OPEN
-- **Tests:** `MemoryServiceTest` (keywordMatchReturnsHit, topKLimitsResults, skipsBlankEntries, noKeywordMatchReturnsEmpty, embeddingFailureSwallowed, insertsRowsForEachText, evictionRunsBeforeInsert).
-- **Cause:** Depend on a live embedding/Ollama runtime ("Runtime offline") and/or unstubbed mocks (NPE).
-- **Fix:** Mock `EmbeddingService` deterministically; remove runtime dependency.
+## BUG-005 — Memory tests broken (null-map / re-stub / varargs) — **MINOR (test)** — **FIXED**
+- **Tests:** `MemoryServiceTest` (keywordMatchReturnsHit, topKLimitsResults, skipsBlankEntries, noKeywordMatchReturnsEmpty, embeddingFailureSwallowed, evictionRunsBeforeInsert).
+- **Cause (all test-side; product verified correct):**
+  1. Row builders used `Map.of(..., "embedding_json", null, ...)` and `List.of(..., null)` → NPE (Map.of/List.of forbid null).
+  2. `embeddingFailureSwallowed` re-stubbed with `when(embeddingService.embed(...)).thenThrow(...)` while `@BeforeEach` already made `embed` throw → the inner call threw during stubbing.
+  3. `evictionRunsBeforeInsert` verified the eviction `DELETE` with no varargs matcher.
+- **Note:** `MemoryService.remember()` and `recall()` already catch embedding failures and fall back to keyword search — graceful degradation confirmed by reading the source.
+- **Fix:** null-safe `LinkedHashMap` row helper, `Arrays.asList`, `doThrow(...).when(...)`, and `any(Object[].class)` on the DELETE verify. `MemoryServiceTest` → 21 tests, 0 failures.
 
 ---
 
@@ -58,11 +74,15 @@
 ---
 
 ## Severity ledger
-| Severity | Count | IDs |
-|---|---|---|
-| Critical | 1 | BUG-001 (fixed) |
-| Major | 1 | BUG-003 (open, test-debt) |
-| Minor | 3 | BUG-002 (fixed), BUG-004, BUG-005 |
-| Info | 1 | OBS-001 |
+| Severity | Count | IDs | Status |
+|---|---|---|---|
+| Critical | 1 | BUG-001 | FIXED |
+| Major | 2 | BUG-006 (product: calculate tool), BUG-003 (test-debt) | FIXED |
+| Minor | 3 | BUG-002, BUG-004, BUG-005 | FIXED |
+| Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**No product security or data-integrity blocker found in the tested surface.** The single Critical was a test-breaking regression in cookie handling, now fixed and verified.
+**All identified bugs are fixed. Full suite is green: 2069 tests, 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS).**
+
+- 2 genuine product bugs found and fixed: **BUG-001** (session-cookie NPE regression) and **BUG-006** (`calculate` tool dead on JDK 15+).
+- The rest were pre-existing **test-debt** (Mockito varargs matching, `Map.of(null)`, re-stub gotchas, DNS dependency) — fixed without weakening any assertion.
+- **No product security or data-integrity blocker found.**
