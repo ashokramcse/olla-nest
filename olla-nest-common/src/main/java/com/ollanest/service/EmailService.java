@@ -116,8 +116,28 @@ public class EmailService {
      * @return the created account row (password_enc stripped); never null
      * @since v2026.2.1
      */
+    /** Null-safe String coercion for JSON request values. */
+    private static String asString(Object o) {
+        return o == null ? null : (o instanceof String s ? s : o.toString());
+    }
+
     public Map<String, Object> createAccount(String owner, Map<String, Object> req) {
-        String id = "email-" + Long.toString(System.currentTimeMillis(), 36);
+        // Validate the NOT NULL columns that have no DB default, so a malformed
+        // request returns a clean 400 (IllegalArgumentException -> BAD_REQUEST)
+        // instead of leaking a SQLITE_CONSTRAINT_NOTNULL as a 500.
+        String imapHost = asString(req.get("imap_host"));
+        String smtpHost = asString(req.get("smtp_host"));
+        String username = asString(req.get("username"));
+        if (imapHost == null || imapHost.isBlank())
+            throw new IllegalArgumentException("imap_host is required");
+        if (smtpHost == null || smtpHost.isBlank())
+            throw new IllegalArgumentException("smtp_host is required");
+        if (username == null || username.isBlank())
+            throw new IllegalArgumentException("username (email address) is required");
+
+        // Random-suffixed id so rapid creates in the same millisecond cannot collide.
+        String id = "email-" + Long.toString(System.currentTimeMillis(), 36)
+                + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String password = (String) req.get("password");
         String encPassword = cryptoService.encryptKey(password != null ? password : "");
         String now = Instant.now().toString();
@@ -129,13 +149,13 @@ public class EmailService {
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 id, owner,
                 req.getOrDefault("name", "Email"),
-                req.get("imap_host"),
+                imapHost,
                 req.getOrDefault("imap_port", 993),
                 req.getOrDefault("imap_security", "SSL"),
-                req.get("smtp_host"),
+                smtpHost,
                 req.getOrDefault("smtp_port", 587),
                 req.getOrDefault("smtp_security", "STARTTLS"),
-                req.get("username"),
+                username,
                 encPassword,
                 req.getOrDefault("display_name", ""),
                 req.getOrDefault("signature", ""),

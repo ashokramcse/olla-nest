@@ -83,9 +83,24 @@ class EmailServiceTest {
             when(cryptoService.encryptKey(anyString())).thenReturn("enc-pass");
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(acctRow("email-abc")));
-            emailService.createAccount(OWNER, Map.of("imap_host", "imap.gmail.com"));
+            emailService.createAccount(OWNER, Map.of(
+                    "imap_host", "imap.gmail.com", "smtp_host", "smtp.gmail.com", "username", "u@x.com"));
             // Account credentials must be persisted (with encrypted password)
             verify(db).update(contains("INSERT INTO email_accounts"), any(Object[].class));
+        }
+
+        @Test
+        @DisplayName("missing required fields throw IllegalArgumentException -> 400 (BUG-012 regression)")
+        void missingRequiredFieldsRejected() {
+            // No imap_host/smtp_host/username -> must NOT leak a DB NOT NULL 500.
+            assertThatThrownBy(() -> emailService.createAccount(OWNER, Map.of()))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> emailService.createAccount(OWNER,
+                    Map.of("imap_host", "imap.x", "smtp_host", "smtp.x")))   // missing username
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("username");
+            // No INSERT should have been attempted for invalid input.
+            verify(db, never()).update(contains("INSERT INTO email_accounts"), any(Object[].class));
         }
 
         @Test
@@ -94,7 +109,8 @@ class EmailServiceTest {
             when(cryptoService.encryptKey(anyString())).thenReturn("enc-pass");
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(acctRow("email-xyz")));
-            Map<String, Object> result = emailService.createAccount(OWNER, Map.of());
+            Map<String, Object> result = emailService.createAccount(OWNER, Map.of(
+                    "imap_host", "imap.x", "smtp_host", "smtp.x", "username", "u@x.com"));
             // email- prefix makes account IDs recognisable in logs and APIs
             assertThat(result.get("id").toString()).startsWith("email-");
         }
@@ -105,7 +121,8 @@ class EmailServiceTest {
             when(cryptoService.encryptKey(anyString())).thenReturn("enc-pass");
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(acctRow("email-1")));
-            Map<String, Object> result = emailService.createAccount(OWNER, Map.of());
+            Map<String, Object> result = emailService.createAccount(OWNER, Map.of(
+                    "imap_host", "imap.x", "smtp_host", "smtp.x", "username", "u@x.com"));
             assertThat(result.get("owner")).isEqualTo(OWNER);
         }
     }
