@@ -32,7 +32,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 	excludeFilters = @ComponentScan.Filter(
 		type = FilterType.REGEX,
 		// Exclude all user-workspace controllers (chat/thread live on user service only).
-		pattern = "com\\.ollanest\\.controller\\.(Chat|Thread|Document|Workspace|Voice|CodeSandbox|Image|Account|Sso|DevHints|Bootstrap|User).*Controller.*"
+		pattern = "com\\.ollanest\\.controller\\.(Chat|Thread|Document|Workspace|Voice|CodeSandbox|Image|Account|Sso|Bootstrap|User).*Controller.*"
 	)
 )
 public class OllaNestAdminApplication {

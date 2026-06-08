@@ -81,6 +81,14 @@
     }
     .login-topbar-right a:hover { color: var(--hdr-text); }
 
+    /* Narrow phones (<=360px): tighten the topbar so it never overflows horizontally. */
+    @media (max-width: 360px) {
+      .login-topbar .logo { min-width: 0; padding: 0 12px; gap: 6px; }
+      .login-topbar .logo-sub { display: none; }
+      .login-topbar-right { padding: 0 12px; gap: 8px; }
+      .login-topbar-right a { font-size: 10px; letter-spacing: 0.02em; }
+    }
+
     /* Admin badge on topbar */
     .admin-badge-top {
       display: inline-flex;
