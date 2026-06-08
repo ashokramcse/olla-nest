@@ -20,6 +20,19 @@ Scanned admin-login, user-login, admin dashboard, workspace shell + notes panel.
 
 Full per-page violation detail is written to `e2e/evidence/a11y-*.json` on each run.
 
+**BUG-010 fully fixed (2026-06-08):** root source was `theme.js` (applies CSS vars at runtime). Light-theme muted `#888888` → `#6b6b6b`; brand-yellow eyebrow/emphasis `#f5c800` → dark gold `#7a5c00`; green badges `#16a34a` → `#15803d`. **axe-core WCAG A/AA now reports 0 violations** on all scanned pages; the a11y gate is tightened to **zero serious/critical**.
+
+### Cross-browser coverage
+The full functional + CRUD + negative suite runs on **Chromium, Firefox, and WebKit** (3 browser projects). **146 tests green.** Notes:
+- a11y axe scans run on Chromium only (engine-agnostic results).
+- WebKit skips the `page.route()`-interception negative specs — the WebKit driver races on request interception for these (app behavior verified identical via standalone WebKit debug; only the harness flakes). All functional/CRUD journeys run on all three engines.
+
+### OBS-004 — external font-CDN dependency (not a bug)
+The frontend loads brand fonts (Archivo, Inconsolata) from **`fonts.gstatic.com`**. In an offline/air-gapped or strict-privacy deployment these fail to download; the app falls back to system fonts (graceful). Firefox logs the failures as console errors. Recommend self-hosting the fonts for offline resilience and to avoid the third-party request.
+
+### Admin negative-path coverage (`admin-negative.spec.js`, 4)
+Admin user-create: **duplicate email** → `#userMsg` error (no new user); **server 500** (intercepted) → error message, no crash; **missing required fields** → HTML5 validation blocks the POST; **valid create** → success + backend-persistence verification + disposable-user cleanup.
+
 ### UX/functionality observation (OBS-003, not a bug)
 The calendar **month grid renders events as anonymous dots** with no per-event title, edit, or delete control. Users can create events but cannot view details, edit, or delete them from the grid — only via the API. Recommend an event detail/edit popover and a delete affordance.
 

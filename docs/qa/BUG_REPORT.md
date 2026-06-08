@@ -95,13 +95,13 @@
 - **Evidence:** axe scan of the authenticated workspace shell: `serious: nested-interactive (1)` on `#appProfileBtn`.
 - **Fix:** split the profile trigger into its own `<button id="appProfileBtn">` (avatar + info) with `#logoutBtn` as a **sibling**, not nested; added `.app-sidebar-user-trigger` button-reset CSS. workspace-shell serious violations dropped **2 → 1**. Added a user-app logout regression test.
 
-## BUG-010 — Color-contrast below WCAG AA (multiple pages) — **MINOR (a11y)** — DOCUMENTED (design sign-off needed)
+## BUG-010 — Color-contrast below WCAG AA (multiple pages) — **MINOR (a11y)** — FIXED
 - **Feature:** Login pages, admin dashboard, workspace shell.
 - **Cause (axe `color-contrast`, serious):**
   - Muted grey text `#888888` on white → **3.54:1** (need 4.5:1) — `.logo-sub`, `.login-topbar-right a`, `.login-feat span`, etc.
   - Brand yellow `#f5c800` on near-white `#f4f3f1` → **1.44:1** (need 4.5:1 / 3:1) — `.login-brand-eyebrow`, `em`.
-- **Status:** **Not auto-fixed** — these are brand/design colors the product owner controls. Changing them affects the visual identity, so they need a design decision rather than a unilateral patch.
-- **Recommended:** darken muted text to ≥ `#767676` (4.54:1) for body/meta text; for the yellow eyebrow/emphasis, use a darker accent for text-on-light (e.g. a brand-dark token) or place it on a dark background. Tracked as the single allowed serious finding in the a11y gate so it can't regress further.
+- **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
+- **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
 ## OBS-001 — SQLite foreign-key enforcement is per-connection — **INFO**
 - `PRAGMA foreign_keys` returned `0` on a fresh CLI connection. FK enforcement relies on Hikari `connection-init-sql` (`PRAGMA foreign_keys=ON`) running on **every** pooled connection. Verified configured in `application.properties`. Recommend an integration test that asserts a FK violation is actually rejected through the app's datasource (not just configured). See `DB_AUDIT_REPORT.md`.
@@ -113,12 +113,11 @@
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
 | Major | 3 | BUG-006 (calculate tool), BUG-009 (assistant 500 / task-id collision), BUG-003 (test-debt) | FIXED |
-| Minor | 7 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-011 (a11y nested-interactive) | FIXED |
-| Minor (open) | 1 | BUG-010 (a11y color-contrast) | DOCUMENTED — needs design sign-off |
+| Minor | 8 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**Cumulative: 11 findings. 10 fixed; 1 (BUG-010 color-contrast) documented with recommended values pending a design decision. 3 genuine product bugs (BUG-001 cookie NPE, BUG-006 calculate tool, BUG-009 task-id collision) — each with a regression test.**
-UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
+**Cumulative: 11 findings — ALL FIXED. 3 genuine product bugs (BUG-001 cookie NPE, BUG-006 calculate tool, BUG-009 task-id collision) — each with a regression test.**
+UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete), OBS-004 (external Google-Fonts CDN dependency — recommend self-hosting).
 
 **All identified bugs are fixed. Full suite is green: 2069 tests, 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS).**
 
