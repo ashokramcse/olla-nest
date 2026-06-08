@@ -146,14 +146,18 @@
       </div>
 
       <!-- User profile trigger -->
-      <div class="app-sidebar-user" id="appProfileBtn" role="button" tabindex="0" aria-label="View your profile" title="View your profile">
-        <div class="user-av" id="userAvatar" style="width:34px;height:34px;font-size:12px;flex-shrink:0;">?</div>
-        <div class="app-sidebar-user-info">
-          <div class="app-sidebar-user-name" id="userName">Loading…</div>
-          <div class="app-sidebar-user-meta" id="userMeta"></div>
-        </div>
-        <!-- Logout icon -->
-        <button class="app-sidebar-logout" id="logoutBtn" aria-label="Sign out" title="Sign out" onclick="event.stopPropagation()">
+      <div class="app-sidebar-user">
+        <!-- Profile trigger is its own button so it does not nest the logout
+             button inside another interactive element (a11y: nested-interactive). -->
+        <button class="app-sidebar-user-trigger" id="appProfileBtn" aria-label="View your profile" title="View your profile">
+          <div class="user-av" id="userAvatar" style="width:34px;height:34px;font-size:12px;flex-shrink:0;">?</div>
+          <div class="app-sidebar-user-info">
+            <div class="app-sidebar-user-name" id="userName">Loading…</div>
+            <div class="app-sidebar-user-meta" id="userMeta"></div>
+          </div>
+        </button>
+        <!-- Logout icon — sibling of the profile trigger, not nested inside it -->
+        <button class="app-sidebar-logout" id="logoutBtn" aria-label="Sign out" title="Sign out">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
       </div>

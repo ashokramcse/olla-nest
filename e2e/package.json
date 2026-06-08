@@ -1,2 +1,1 @@
-{ "name": "olla-nest-e2e", "version": "1.0.0", "private": true,
-  "devDependencies": { "@playwright/test": "^1.48.0" } }
+{"name":"olla-nest-e2e","version":"1.0.0","private":true,"devDependencies":{"@axe-core/playwright":"^4.11.3","@playwright/test":"^1.48.0"}}

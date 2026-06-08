@@ -101,6 +101,20 @@ test('user: valid non-admin login -> workspace app', async ({ page }) => {
   expect(page.url()).toContain('/app');
 });
 
+test('user: profile trigger + logout work after sidebar a11y restructure', async ({ page }) => {
+  await page.goto(USER + '/login', { waitUntil: 'domcontentloaded' });
+  await page.fill('#email', QA_EMAIL);
+  await page.fill('#password', QA_PASS);
+  await page.click('#submitBtn');
+  await page.waitForURL(/\/app(\b|$|\?)/, { timeout: 15000 });
+  // Profile trigger is now its own button (sibling of logout) — both must work.
+  await expect(page.locator('#appProfileBtn')).toBeVisible();
+  await expect(page.locator('#logoutBtn')).toBeVisible();
+  await page.click('#logoutBtn');
+  await page.waitForURL(/\/login(\b|$|\?)/, { timeout: 10000 });
+  expect(page.url()).toContain('/login');
+});
+
 test('security headers present on login document', async ({ page }) => {
   const resp = await page.goto(ADMIN + '/admin-login', { waitUntil: 'domcontentloaded' });
   const h = resp.headers();
