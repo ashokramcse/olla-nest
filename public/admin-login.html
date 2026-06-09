@@ -1,565 +1,714 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8" />
-<meta name="generator" content="Olla Nest v2026.1.0 — Spring Boot 3.5.3 / Java 26" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Olla Nest — Admin Sign in</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <script src="/theme.js"></script>
-  <link rel="stylesheet" href="/styles.css" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; }
-    body {
-      font-family: var(--font-body), system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--body-text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      -webkit-font-smoothing: antialiased;
-    }
+	<meta charset="utf-8" />
+	<meta name="generator" content="Olla Nest v2026.1.0 — Spring Boot 3.5.3 / Java 26" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Olla Nest — Admin Sign in</title>
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<script src="/theme.js"></script>
+	<link rel="stylesheet" href="/styles.css" />
+	<style>
+		*,
+		*::before,
+		*::after {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
 
-    /* ── Top bar ── */
-    .login-topbar {
-      height: 56px;
-      background: var(--hdr-bg);
-      border-bottom: 3px solid var(--ac);
-      display: flex;
-      align-items: stretch;
-      flex-shrink: 0;
-    }
-    .login-topbar .logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 180px;
-      padding: 0 20px;
-      border-right: 1px solid var(--hdr-div);
-      cursor: default;
-      text-decoration: none;
-    }
-    .login-topbar .logo-icon {
-      width: 30px; height: 30px;
-      flex-shrink: 0;
-    }
-    .login-topbar .logo-text {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .login-topbar .logo-name {
-      font-family: var(--font-brand);
-      font-size: 15px;
-      color: var(--hdr-text);
-      letter-spacing: 0.03em;
-      line-height: 1;
-    }
-    .login-topbar .logo-sub {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      color: var(--hdr-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      line-height: 1;
-    }
-    .login-topbar-right {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-      gap: 12px;
-    }
-    .login-topbar-right a {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--hdr-muted);
-      text-decoration: none;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .login-topbar-right a:hover { color: var(--hdr-text); }
+		html,
+		body {
+			height: 100%;
+		}
 
-    /* Narrow phones (<=360px): tighten the topbar so it never overflows horizontally. */
-    @media (max-width: 360px) {
-      .login-topbar .logo { min-width: 0; padding: 0 12px; gap: 6px; }
-      .login-topbar .logo-sub { display: none; }
-      .login-topbar-right { padding: 0 12px; gap: 8px; }
-      .login-topbar-right a { font-size: 10px; letter-spacing: 0.02em; }
-    }
+		body {
+			font-family: var(--font-body), system-ui, sans-serif;
+			background: var(--bg);
+			color: var(--body-text);
+			min-height: 100vh;
+			display: flex;
+			flex-direction: column;
+			-webkit-font-smoothing: antialiased;
+		}
 
-    /* Admin badge on topbar */
-    .admin-badge-top {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--ac-pale);
-      border: 1px solid var(--ac-mid);
-      border-radius: 999px;
-      padding: 4px 12px;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--ac-dark);
-    }
-    .admin-badge-top .pulse {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--ac);
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%,100% { opacity:1; transform:scale(1); }
-      50% { opacity:.5; transform:scale(0.75); }
-    }
+		/* ── Top bar ── */
+		.login-topbar {
+			height: 56px;
+			background: var(--hdr-bg);
+			border-bottom: 3px solid var(--ac);
+			display: flex;
+			align-items: stretch;
+			flex-shrink: 0;
+		}
 
-    /* ── Main layout — both panels centred as a pair ── */
-    .login-body {
-      flex: 1;
-      min-height: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 40px;
-      gap: 60px;
-    }
+		.login-topbar .logo {
+			display: inline-flex;
+			align-items: center;
+			gap: 10px;
+			min-width: 180px;
+			padding: 0 20px;
+			border-right: 1px solid var(--hdr-div);
+			cursor: default;
+			text-decoration: none;
+		}
 
-    /* ── Left brand panel ── */
-    .login-brand {
-      flex: 1;
-      max-width: 480px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-    }
-    .login-brand-eyebrow {
-      font-family: var(--font-mono);
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: var(--ac-dark);   /* dark brand-gold: AA on light bg (was --ac yellow, 1.44:1) */
-      margin-bottom: 20px;
-      justify-content: center;
-    }
-    .login-brand-title {
-      font-family: var(--font-brand);
-      font-size: clamp(42px, 5vw, 56px);
-      font-weight: 400;
-      letter-spacing: -0.02em;
-      line-height: 0.95;
-      color: var(--body-text);
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    .login-brand-title em {
-      font-style: normal;
-      color: var(--ac-dark);   /* dark brand-gold for AA contrast on light bg */
-    }
-    .login-brand-sub {
-      font-size: 15px;
-      color: var(--muted1);
-      line-height: 1.6;
-      max-width: 360px;
-      margin-bottom: 36px;
-      text-align: center;
-    }
-    .login-features {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      width: 100%;
-    }
-    .login-feat {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 16px;
-      background: var(--bubble);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-    }
-    .login-feat-icon {
-      width: 34px; height: 34px;
-      border-radius: 9px;
-      background: var(--ac-pale);
-      border: 1px solid var(--ac-mid);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      color: var(--ac-dark);
-    }
-    .login-feat-text strong {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--body-text);
-      margin-bottom: 2px;
-    }
-    .login-feat-text span {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--muted2);
-    }
+		.login-topbar .logo-icon {
+			width: 30px;
+			height: 30px;
+			flex-shrink: 0;
+		}
 
-    /* ── Right sign-in card (floating, centred in its column) ── */
-    .login-card {
-      width: clamp(360px, 38vw, 460px);
-      flex-shrink: 0;
-      background: var(--bubble);
-      border: 1px solid var(--border);
-      border-top: 3px solid var(--ac);
-      border-radius: 24px;
-      box-shadow: 0 20px 60px -20px rgba(0,0,0,0.12);
-      display: flex;
-      flex-direction: column;
-      padding: 44px 40px;
-    }
-    .login-card-label {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--muted2);
-      margin-bottom: 6px;
-    }
-    .login-card-title {
-      font-family: var(--font-brand);
-      font-size: 30px;
-      font-weight: 400;
-      letter-spacing: -0.02em;
-      line-height: 1.1;
-      color: var(--body-text);
-      margin-bottom: 26px;
-    }
-    .login-error-box {
-      background: var(--danger-light);
-      border: 1px solid var(--danger-border);
-      color: var(--danger);
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 13px;
-      margin-bottom: 14px;
-      display: none;
-    }
-    .login-error-box.show { display: block; }
-    .login-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-    .login-field label {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted1);
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .login-field input {
-      width: 100%;
-      padding: 11px 14px;
-      border-radius: 12px;
-      border: 1.5px solid var(--border);
-      background: var(--bg);
-      font-size: 14px;
-      font-family: var(--font-body), system-ui, sans-serif;
-      color: var(--body-text);
-      outline: none;
-      transition: border-color .15s, box-shadow .15s;
-    }
-    .login-field input::placeholder { color: var(--muted2); }
-    .login-field input:focus {
-      border-color: var(--ac);
-      box-shadow: 0 0 0 3px var(--ac-pale);
-    }
-    .toggle-pw-btn {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted1);
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 0;
-    }
-    .toggle-pw-btn:hover { color: var(--body-text); }
-    .login-submit {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      background: var(--body-text);
-      color: var(--bg);
-      border: none;
-      border-radius: 999px;
-      padding: 13px 14px 13px 22px;
-      font-size: 15px;
-      font-weight: 700;
-      font-family: var(--font-body), system-ui, sans-serif;
-      cursor: pointer;
-      margin-top: 20px;
-      transition: opacity .15s, transform .15s;
-    }
-    .login-submit:hover { opacity: .85; transform: translateY(-1px); }
-    .login-submit:active { transform: none; }
-    .login-submit:disabled { opacity: .45; cursor: not-allowed; transform: none; }
-    .login-submit .arr {
-      width: 34px; height: 34px;
-      border-radius: 50%;
-      background: var(--ac);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .login-submit .arr svg { color: var(--ac-text); }
-    .login-divider {
-      height: 1px;
-      background: var(--div);
-      margin: 22px 0 16px;
-    }
-    .login-footer-link {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--muted1);
-      text-decoration: none;
-      padding: 9px;
-      border-radius: 10px;
-      transition: background .15s, color .15s;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .login-footer-link:hover { color: var(--body-text); background: var(--ac-pale); }
-    .login-security-note {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      margin-top: 12px;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--muted2);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .login-security-note svg { color: var(--ac); opacity: .7; flex-shrink: 0; }
+		.login-topbar .logo-text {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+		}
 
-    @media (max-width: 840px) {
-      .login-brand { display: none; }
-      .login-body { padding: 24px 16px; justify-content: center; }
-      .login-card {
-        width: 100%; max-width: 420px;
-        margin-right: 0;
-        border-radius: 20px;
-      }
-    }
-  </style>
+		.login-topbar .logo-name {
+			font-family: var(--font-brand);
+			font-size: 15px;
+			color: var(--hdr-text);
+			letter-spacing: 0.03em;
+			line-height: 1;
+		}
+
+		.login-topbar .logo-sub {
+			font-family: var(--font-mono);
+			font-size: 9px;
+			color: var(--hdr-muted);
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			line-height: 1;
+		}
+
+		.login-topbar-right {
+			margin-left: auto;
+			display: flex;
+			align-items: center;
+			padding: 0 20px;
+			gap: 12px;
+		}
+
+		.login-topbar-right a {
+			font-family: var(--font-mono);
+			font-size: 11px;
+			color: var(--hdr-muted);
+			text-decoration: none;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+		}
+
+		.login-topbar-right a:hover {
+			color: var(--hdr-text);
+		}
+
+		/* Narrow phones (<=360px): tighten the topbar so it never overflows horizontally. */
+		@media (max-width: 360px) {
+			.login-topbar .logo {
+				min-width: 0;
+				padding: 0 12px;
+				gap: 6px;
+			}
+
+			.login-topbar .logo-sub {
+				display: none;
+			}
+
+			.login-topbar-right {
+				padding: 0 12px;
+				gap: 8px;
+			}
+
+			.login-topbar-right a {
+				font-size: 10px;
+				letter-spacing: 0.02em;
+			}
+		}
+
+		/* Admin badge on topbar */
+		.admin-badge-top {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			background: var(--ac-pale);
+			border: 1px solid var(--ac-mid);
+			border-radius: 999px;
+			padding: 4px 12px;
+			font-family: var(--font-mono);
+			font-size: 10px;
+			font-weight: 700;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: var(--ac-dark);
+		}
+
+		.admin-badge-top .pulse {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: var(--ac);
+			animation: pulse 2s infinite;
+		}
+
+		@keyframes pulse {
+
+			0%,
+			100% {
+				opacity: 1;
+				transform: scale(1);
+			}
+
+			50% {
+				opacity: .5;
+				transform: scale(0.75);
+			}
+		}
+
+		/* ── Main layout — both panels centred as a pair ── */
+		.login-body {
+			flex: 1;
+			min-height: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 48px 40px;
+			gap: 60px;
+		}
+
+		/* ── Left brand panel ── */
+		.login-brand {
+			flex: 1;
+			max-width: 480px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			text-align: center;
+		}
+
+		.login-brand-eyebrow {
+			font-family: var(--font-mono);
+			font-size: 13px;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.14em;
+			color: var(--ac-dark);
+			/* dark brand-gold: AA on light bg (was --ac yellow, 1.44:1) */
+			margin-bottom: 20px;
+			justify-content: center;
+		}
+
+		.login-brand-title {
+			font-family: var(--font-brand);
+			font-size: clamp(42px, 5vw, 56px);
+			font-weight: 400;
+			letter-spacing: -0.02em;
+			line-height: 0.95;
+			color: var(--body-text);
+			margin-bottom: 20px;
+			text-align: center;
+		}
+
+		.login-brand-title em {
+			font-style: normal;
+			color: var(--ac-dark);
+			/* dark brand-gold for AA contrast on light bg */
+		}
+
+		.login-brand-sub {
+			font-size: 15px;
+			color: var(--muted1);
+			line-height: 1.6;
+			max-width: 360px;
+			margin-bottom: 36px;
+			text-align: center;
+		}
+
+		.login-features {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+			width: 100%;
+		}
+
+		.login-feat {
+			display: flex;
+			align-items: center;
+			gap: 14px;
+			padding: 14px 16px;
+			background: var(--bubble);
+			border: 1px solid var(--border);
+			border-radius: 14px;
+		}
+
+		.login-feat-icon {
+			width: 34px;
+			height: 34px;
+			border-radius: 9px;
+			background: var(--ac-pale);
+			border: 1px solid var(--ac-mid);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-shrink: 0;
+			color: var(--ac-dark);
+		}
+
+		.login-feat-text strong {
+			display: block;
+			font-size: 13px;
+			font-weight: 600;
+			color: var(--body-text);
+			margin-bottom: 2px;
+		}
+
+		.login-feat-text span {
+			font-family: var(--font-mono);
+			font-size: 11px;
+			color: var(--muted2);
+		}
+
+		/* ── Right sign-in card (floating, centred in its column) ── */
+		.login-card {
+			width: clamp(360px, 38vw, 460px);
+			flex-shrink: 0;
+			background: var(--bubble);
+			border: 1px solid var(--border);
+			border-top: 3px solid var(--ac);
+			border-radius: 24px;
+			box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.12);
+			display: flex;
+			flex-direction: column;
+			padding: 44px 40px;
+		}
+
+		.login-card-label {
+			font-family: var(--font-mono);
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: var(--muted2);
+			margin-bottom: 6px;
+		}
+
+		.login-card-title {
+			font-family: var(--font-brand);
+			font-size: 30px;
+			font-weight: 400;
+			letter-spacing: -0.02em;
+			line-height: 1.1;
+			color: var(--body-text);
+			margin-bottom: 26px;
+		}
+
+		.login-error-box {
+			background: var(--danger-light);
+			border: 1px solid var(--danger-border);
+			color: var(--danger);
+			border-radius: 10px;
+			padding: 10px 14px;
+			font-size: 13px;
+			margin-bottom: 14px;
+			display: none;
+		}
+
+		.login-error-box.show {
+			display: block;
+		}
+
+		.login-field {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			margin-bottom: 14px;
+		}
+
+		.login-field label {
+			font-family: var(--font-mono);
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: var(--muted1);
+			font-weight: 600;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+		}
+
+		.login-field input {
+			width: 100%;
+			padding: 11px 14px;
+			border-radius: 12px;
+			border: 1.5px solid var(--border);
+			background: var(--bg);
+			font-size: 14px;
+			font-family: var(--font-body), system-ui, sans-serif;
+			color: var(--body-text);
+			outline: none;
+			transition: border-color .15s, box-shadow .15s;
+		}
+
+		.login-field input::placeholder {
+			color: var(--muted2);
+		}
+
+		.login-field input:focus {
+			border-color: var(--ac);
+			box-shadow: 0 0 0 3px var(--ac-pale);
+		}
+
+		.toggle-pw-btn {
+			font-family: var(--font-mono);
+			font-size: 10px;
+			text-transform: uppercase;
+			letter-spacing: 0.06em;
+			color: var(--muted1);
+			background: none;
+			border: none;
+			cursor: pointer;
+			padding: 0;
+		}
+
+		.toggle-pw-btn:hover {
+			color: var(--body-text);
+		}
+
+		.login-submit {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			width: 100%;
+			background: var(--body-text);
+			color: var(--bg);
+			border: none;
+			border-radius: 999px;
+			padding: 13px 14px 13px 22px;
+			font-size: 15px;
+			font-weight: 700;
+			font-family: var(--font-body), system-ui, sans-serif;
+			cursor: pointer;
+			margin-top: 20px;
+			transition: opacity .15s, transform .15s;
+		}
+
+		.login-submit:hover {
+			opacity: .85;
+			transform: translateY(-1px);
+		}
+
+		.login-submit:active {
+			transform: none;
+		}
+
+		.login-submit:disabled {
+			opacity: .45;
+			cursor: not-allowed;
+			transform: none;
+		}
+
+		.login-submit .arr {
+			width: 34px;
+			height: 34px;
+			border-radius: 50%;
+			background: var(--ac);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-shrink: 0;
+		}
+
+		.login-submit .arr svg {
+			color: var(--ac-text);
+		}
+
+		.login-divider {
+			height: 1px;
+			background: var(--div);
+			margin: 22px 0 16px;
+		}
+
+		.login-footer-link {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 7px;
+			font-family: var(--font-mono);
+			font-size: 11px;
+			color: var(--muted1);
+			text-decoration: none;
+			padding: 9px;
+			border-radius: 10px;
+			transition: background .15s, color .15s;
+			text-transform: uppercase;
+			letter-spacing: 0.06em;
+		}
+
+		.login-footer-link:hover {
+			color: var(--body-text);
+			background: var(--ac-pale);
+		}
+
+		.login-security-note {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 7px;
+			margin-top: 12px;
+			font-family: var(--font-mono);
+			font-size: 10px;
+			color: var(--muted2);
+			text-transform: uppercase;
+			letter-spacing: 0.06em;
+		}
+
+		.login-security-note svg {
+			color: var(--ac);
+			opacity: .7;
+			flex-shrink: 0;
+		}
+
+		@media (max-width: 840px) {
+			.login-brand {
+				display: none;
+			}
+
+			.login-body {
+				padding: 24px 16px;
+				justify-content: center;
+			}
+
+			.login-card {
+				width: 100%;
+				max-width: 420px;
+				margin-right: 0;
+				border-radius: 20px;
+			}
+		}
+	</style>
 </head>
+
 <body>
 
-<div class="login-topbar">
-  <a class="logo" href="/">
-    <svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="40" height="40" rx="11" fill="var(--ac)"/>
-      <path d="M20 8 A12 12 0 1 1 8 20" stroke="var(--ac-text)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-      <path d="M20 13 A7 7 0 1 1 13 20" stroke="var(--ac-text)" stroke-width="2" stroke-linecap="round" fill="none"/>
-      <circle cx="20" cy="20" r="2.2" fill="var(--ac-text)"/>
-    </svg>
-    <div class="logo-text">
-      <span class="logo-name">OLLA·NEST</span>
-      <span class="logo-sub">// Admin Panel</span>
-    </div>
-  </a>
-  <div class="login-topbar-right">
-    <div class="admin-badge-top"><span class="pulse"></span>Admin Access</div>
-    <a href="/login">Employee login →</a>
-  </div>
-</div>
+	<div class="login-topbar">
+		<a class="logo" href="/">
+			<svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<rect width="40" height="40" rx="11" fill="var(--ac)" />
+				<path d="M20 8 A12 12 0 1 1 8 20" stroke="var(--ac-text)" stroke-width="2.5" stroke-linecap="round"
+					fill="none" />
+				<path d="M20 13 A7 7 0 1 1 13 20" stroke="var(--ac-text)" stroke-width="2" stroke-linecap="round"
+					fill="none" />
+				<circle cx="20" cy="20" r="2.2" fill="var(--ac-text)" />
+			</svg>
+			<div class="logo-text">
+				<span class="logo-name">OLLA·NEST</span>
+				<span class="logo-sub">// Admin Panel</span>
+			</div>
+		</a>
+		<div class="login-topbar-right">
+			<div class="admin-badge-top"><span class="pulse"></span>Admin Access</div>
+			<a href="/login">Employee login →</a>
+		</div>
+	</div>
 
-<div class="login-body">
+	<div class="login-body">
 
-  <!-- Left brand -->
-  <div class="login-brand">
-    <div class="login-brand-eyebrow">Admin Control Panel</div>
-    <div class="login-brand-title">Admin<br><em>control</em><br>panel.</div>
-    <p class="login-brand-sub">Secure access for platform administrators. Manage users, models, governance, and the full AI workspace from here.</p>
+		<!-- Left brand -->
+		<div class="login-brand">
+			<div class="login-brand-eyebrow">Admin Control Panel</div>
+			<div class="login-brand-title">Admin<br><em>control</em><br>panel.</div>
+			<p class="login-brand-sub">Secure access for platform administrators. Manage users, models, governance, and
+				the full AI workspace from here.</p>
 
-    <div class="login-features">
-      <div class="login-feat">
-        <div class="login-feat-icon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div class="login-feat-text">
-          <strong>User &amp; Team Management</strong>
-          <span>Create employees, assign roles, reset passwords</span>
-        </div>
-      </div>
-      <div class="login-feat">
-        <div class="login-feat-icon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        </div>
-        <div class="login-feat-text">
-          <strong>Model Governance</strong>
-          <span>Approve, restrict and monitor Ollama models</span>
-        </div>
-      </div>
-      <div class="login-feat">
-        <div class="login-feat-icon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        </div>
-        <div class="login-feat-text">
-          <strong>Reports &amp; Audit Trail</strong>
-          <span>Token usage, latency, full audit log</span>
-        </div>
-      </div>
-    </div>
-  </div>
+			<div class="login-features">
+				<div class="login-feat">
+					<div class="login-feat-icon">
+						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+							<circle cx="9" cy="7" r="4" />
+							<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+							<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+						</svg>
+					</div>
+					<div class="login-feat-text">
+						<strong>User &amp; Team Management</strong>
+						<span>Create employees, assign roles, reset passwords</span>
+					</div>
+				</div>
+				<div class="login-feat">
+					<div class="login-feat-icon">
+						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<circle cx="12" cy="12" r="3" />
+							<path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+						</svg>
+					</div>
+					<div class="login-feat-text">
+						<strong>Model Governance</strong>
+						<span>Approve, restrict and monitor Ollama models</span>
+					</div>
+				</div>
+				<div class="login-feat">
+					<div class="login-feat-icon">
+						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+						</svg>
+					</div>
+					<div class="login-feat-text">
+						<strong>Reports &amp; Audit Trail</strong>
+						<span>Token usage, latency, full audit log</span>
+					</div>
+				</div>
+			</div>
+		</div>
 
-  <!-- Right card -->
-  <div class="login-card">
-    <div class="login-card-label">Administrator access</div>
-    <div class="login-card-title">Sign in<br>as admin.</div>
+		<!-- Right card -->
+		<div class="login-card">
+			<div class="login-card-label">Administrator access</div>
+			<div class="login-card-title">Sign in<br>as admin.</div>
 
-    <form id="loginForm" novalidate autocomplete="off">
-      <div class="login-error-box" id="loginError"></div>
+			<form id="loginForm" novalidate autocomplete="off">
+				<div class="login-error-box" id="loginError"></div>
 
-      <div class="login-field">
-        <label for="email">Admin Email</label>
-        <input id="email" type="email" autocomplete="username"
-               placeholder="admin@yourcompany.com" required />
-      </div>
+				<div class="login-field">
+					<label for="email">Admin Email</label>
+					<input id="email" type="email" autocomplete="username" placeholder="admin@yourcompany.com"
+						required />
+				</div>
 
-      <div class="login-field">
-        <label for="password">
-          Password
-          <button type="button" id="togglePassword" class="toggle-pw-btn">Show</button>
-        </label>
-        <input id="password" type="password" autocomplete="current-password"
-               placeholder="••••••••••••" required />
-      </div>
+				<div class="login-field">
+					<label for="password">
+						Password
+						<button type="button" id="togglePassword" class="toggle-pw-btn">Show</button>
+					</label>
+					<input id="password" type="password" autocomplete="current-password" placeholder="••••••••••••"
+						required />
+				</div>
 
-      <button class="login-submit" type="submit" id="submitBtn">
-        <span>Sign in to Admin</span>
-        <span class="arr">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-        </span>
-      </button>
-    </form>
+				<button class="login-submit" type="submit" id="submitBtn">
+					<span>Sign in to Admin</span>
+					<span class="arr">
+						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2.5" stroke-linecap="round">
+							<path d="M5 12h14M12 5l7 7-7 7" />
+						</svg>
+					</span>
+				</button>
+			</form>
 
-    <div class="login-divider"></div>
+			<div class="login-divider"></div>
 
-    <a href="/login" class="login-footer-link">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Employee? Sign in here instead
-    </a>
+			<a href="/login" class="login-footer-link">
+				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+					<circle cx="12" cy="7" r="4" />
+				</svg>
+				Employee? Sign in here instead
+			</a>
 
-    <div class="login-security-note">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      Admin sessions are audited · All actions logged
-    </div>
-  </div>
+			<div class="login-security-note">
+				<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="3" y="11" width="18" height="11" rx="2" />
+					<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+				</svg>
+				Admin sessions are audited · All actions logged
+			</div>
+		</div>
 
-</div>
+	</div>
 
-<!-- Dev quick-login — localhost only -->
-<div id="devPanel" style="display:none;position:fixed;bottom:20px;right:20px;background:var(--bubble);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-width:200px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.12);">
-  <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted2);text-transform:uppercase;margin-bottom:10px;">⚡ Dev Quick Login</div>
-  <button id="devAdminBtn" style="width:100%;background:var(--ac-pale);border:1px solid var(--ac-mid);color:var(--ac-dark);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Admin</button>
-</div>
+	<!-- Dev quick-login — localhost only -->
+	<div id="devPanel"
+		style="display:none;position:fixed;bottom:20px;right:20px;background:var(--bubble);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-width:200px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.12);">
+		<div
+			style="font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--muted2);text-transform:uppercase;margin-bottom:10px;">
+			⚡ Dev Quick Login</div>
+		<button id="devAdminBtn"
+			style="width:100%;background:var(--ac-pale);border:1px solid var(--ac-mid);color:var(--ac-dark);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Admin</button>
+	</div>
 
-<script>
-(function () {
-  var CSRF = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" };
+	<script>
+		(function () {
+			var CSRF = {"Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest"};
 
-  async function init() {
-    try {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
-      const me = await res.json();
-      if (me.authenticated && me.user.role === "admin") { window.location.href = "/admin"; return; }
-      if (me.authenticated) { window.location.href = "/app"; return; }
-    } catch {}
-  }
+			async function init() {
+				try {
+					const res = await fetch("/api/auth/me", {credentials: "include"});
+					const me = await res.json();
+					if (me.authenticated && me.user.role === "admin") {window.location.href = "/admin"; return;}
+					if (me.authenticated) {window.location.href = "/app"; return;}
+				} catch { }
+			}
 
-  document.getElementById("togglePassword").addEventListener("click", function () {
-    var pw = document.getElementById("password");
-    var isHidden = pw.type === "password";
-    pw.type = isHidden ? "text" : "password";
-    this.textContent = isHidden ? "Hide" : "Show";
-  });
+			document.getElementById("togglePassword").addEventListener("click", function () {
+				var pw = document.getElementById("password");
+				var isHidden = pw.type === "password";
+				pw.type = isHidden ? "text" : "password";
+				this.textContent = isHidden ? "Hide" : "Show";
+			});
 
-  document.getElementById("loginForm").addEventListener("submit", async function (e) {
-    e.preventDefault();
-    var err = document.getElementById("loginError");
-    var btn = document.getElementById("submitBtn");
-    err.classList.remove("show");
-    btn.disabled = true;
-    btn.querySelector("span").textContent = "Signing in…";
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST", credentials: "include", headers: CSRF,
-        body: JSON.stringify({
-          email: document.getElementById("email").value.trim(),
-          password: document.getElementById("password").value,
-          adminOnly: true,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Sign in failed");
-      if (data.user && data.user.role !== "admin") throw new Error("This login is for administrators only.");
-      window.location.href = "/admin";
-    } catch (ex) {
-      err.textContent = ex.message;
-      err.classList.add("show");
-      btn.disabled = false;
-      btn.querySelector("span").textContent = "Sign in to Admin";
-    }
-  });
+			document.getElementById("loginForm").addEventListener("submit", async function (e) {
+				e.preventDefault();
+				var err = document.getElementById("loginError");
+				var btn = document.getElementById("submitBtn");
+				err.classList.remove("show");
+				btn.disabled = true;
+				btn.querySelector("span").textContent = "Signing in…";
+				try {
+					const res = await fetch("/api/auth/login", {
+						method: "POST", credentials: "include", headers: CSRF,
+						body: JSON.stringify({
+							email: document.getElementById("email").value.trim(),
+							password: document.getElementById("password").value,
+							adminOnly: true,
+						}),
+					});
+					const data = await res.json();
+					if (!res.ok) throw new Error(data.error || "Sign in failed");
+					if (data.user && data.user.role !== "admin") throw new Error("This login is for administrators only.");
+					window.location.href = "/admin";
+				} catch (ex) {
+					err.textContent = ex.message;
+					err.classList.add("show");
+					btn.disabled = false;
+					btn.querySelector("span").textContent = "Sign in to Admin";
+				}
+			});
 
-  init();
+			init();
 
-  // Dev panel
-  // Dev panel — credentials fetched from server, never hardcoded in source.
-  const isLocal = ["localhost","127.0.0.1","::1"].includes(location.hostname);
-  if (!isLocal) return;
+			// Dev panel
+			// Dev panel — credentials fetched from server, never hardcoded in source.
+			const isLocal = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+			if (!isLocal) return;
 
-  fetch("/api/dev/hints", { headers: { "X-Requested-With": "XMLHttpRequest" } })
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      const admin = data && data.accounts && data.accounts.find(a => a.label === "Admin");
-      if (!admin) return;
-      document.getElementById("devPanel").style.display = "block";
-      const btn = document.getElementById("devAdminBtn");
-      btn.onclick = async () => {
-        document.getElementById("email").value = admin.email;
-        document.getElementById("password").value = admin.password;
-        btn.textContent = "Signing in…"; btn.disabled = true;
-        try {
-          const r = await fetch("/api/auth/login", {
-            method: "POST", credentials: "include", headers: CSRF,
-            body: JSON.stringify({ email: admin.email, password: admin.password }),
-          });
-          const d = await r.json();
-          if (d.ok) location.href = d.redirectTo || "/admin";
-          else { btn.textContent = "Admin"; btn.disabled = false; }
-        } catch { btn.textContent = "Admin"; btn.disabled = false; }
-      };
-    })
-    .catch(() => {});
-})();
-</script>
+			fetch("/api/dev/hints", {headers: {"X-Requested-With": "XMLHttpRequest"}})
+				.then(r => r.ok ? r.json() : null)
+				.then(data => {
+					const admin = data && data.accounts && data.accounts.find(a => a.label === "Admin");
+					if (!admin) return;
+					document.getElementById("devPanel").style.display = "block";
+					const btn = document.getElementById("devAdminBtn");
+					btn.onclick = async () => {
+						document.getElementById("email").value = admin.email;
+						document.getElementById("password").value = admin.password;
+						btn.textContent = "Signing in…"; btn.disabled = true;
+						try {
+							const r = await fetch("/api/auth/login", {
+								method: "POST", credentials: "include", headers: CSRF,
+								body: JSON.stringify({email: admin.email, password: admin.password}),
+							});
+							const d = await r.json();
+							if (d.ok) location.href = d.redirectTo || "/admin";
+							else {btn.textContent = "Admin"; btn.disabled = false;}
+						} catch {btn.textContent = "Admin"; btn.disabled = false;}
+					};
+				})
+				.catch(() => { });
+		})();
+	</script>
 </body>
+
 </html>

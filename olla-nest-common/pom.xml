@@ -13,7 +13,8 @@
 	<artifactId>olla-nest-common</artifactId>
 	<packaging>jar</packaging>
 	<name>olla-nest-common</name>
-	<description>Shared services, models, connectors, config, filters — used by both admin and user apps</description>
+	<description>Shared services, models, connectors, config, filters — used by
+		both admin and user apps</description>
 
 	<dependencies>
 
@@ -155,7 +156,8 @@
 			<version>1.20.0</version>
 		</dependency>
 
-		<!-- ChromaDB integration uses plain HTTP via HttpClient — no extra library needed -->
+		<!-- ChromaDB integration uses plain HTTP via HttpClient — no extra
+		library needed -->
 
 		<!-- ── SSO: JWT / OIDC -->
 		<dependency>

@@ -11,8 +11,8 @@
 // helpers.js / login.spec.js / k6 resolve credentials in this order:
 //   process.env.*  ->  ./.e2e-creds.js  ->  hard failure (no committed default)
 module.exports = {
-  ADMIN_EMAIL: 'admin@ollanest.local',
-  ADMIN_PASS:  'CHANGE_ME_ADMIN_PASS',
-  QA_EMAIL:    'qa.user@test.local',
-  QA_PASS:     'CHANGE_ME_QA_PASS',
+    ADMIN_EMAIL: 'admin@ollanest.local',
+    ADMIN_PASS: 'CHANGE_ME_ADMIN_PASS',
+    QA_EMAIL: 'qa.user@test.local',
+    QA_PASS: 'CHANGE_ME_QA_PASS',
 };

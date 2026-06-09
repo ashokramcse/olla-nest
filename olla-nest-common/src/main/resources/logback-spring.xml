@@ -26,91 +26,100 @@
 -->
 <configuration status="OFF">
 
-    <!-- ── Properties ──────────────────────────────────────────────── -->
-    <springProperty name="APP_NAME" source="spring.application.name" defaultValue="olla-nest"/>
-    <springProperty name="LOKI_URL" source="loki.url"                defaultValue="http://localhost:3100/loki/api/v1/push"/>
-    <springProperty name="LOKI_ENABLED" source="loki.enabled"        defaultValue="true"/>
+	<!-- ── Properties ──────────────────────────────────────────────── -->
+	<springProperty name="APP_NAME" source="spring.application.name"
+		defaultValue="olla-nest" />
+	<springProperty name="LOKI_URL" source="loki.url"
+		defaultValue="http://localhost:3100/loki/api/v1/push" />
+	<springProperty name="LOKI_ENABLED" source="loki.enabled"
+		defaultValue="true" />
 
-    <!-- ── Console appender ─────────────────────────────────────────── -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%15.15t] %-40.40logger{39} : %msg%n%ex</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-    </appender>
+	<!-- ── Console appender ─────────────────────────────────────────── -->
+	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%15.15t]
+				%-40.40logger{39} : %msg%n%ex</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+	</appender>
 
-    <!-- ── Loki appender ────────────────────────────────────────────── -->
-    <!--
+	<!-- ── Loki appender ────────────────────────────────────────────── -->
+	<!--
       Labels must be low-cardinality — Loki indexes on these.
       High-cardinality values (userId, requestId, path) go in the message body.
       Labels must never be empty strings.
     -->
-    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
-        <!-- Flush every 1 s or 500 events, whichever comes first -->
-        <batchMaxItems>500</batchMaxItems>
-        <batchTimeoutMs>1000</batchTimeoutMs>
+	<appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+		<!-- Flush every 1 s or 500 events, whichever comes first -->
+		<batchMaxItems>500</batchMaxItems>
+		<batchTimeoutMs>1000</batchTimeoutMs>
 
-        <http class="com.github.loki4j.logback.JavaHttpSender">
-            <url>${LOKI_URL}</url>
-            <!-- loki4j 1.5.x renamed connectTimeoutMs → connectionTimeoutMs -->
-            <connectionTimeoutMs>5000</connectionTimeoutMs>
-            <requestTimeoutMs>5000</requestTimeoutMs>
-        </http>
+		<http class="com.github.loki4j.logback.JavaHttpSender">
+			<url>${LOKI_URL}</url>
+			<!-- loki4j 1.5.x renamed connectTimeoutMs → connectionTimeoutMs -->
+			<connectionTimeoutMs>5000</connectionTimeoutMs>
+			<requestTimeoutMs>5000</requestTimeoutMs>
+		</http>
 
-        <format>
-            <label>
-                <!-- Static / low-cardinality labels only — no MDC to avoid empty-value crashes -->
-                <pattern>app=${APP_NAME},level=%level,logger=%logger{20}</pattern>
-            </label>
-            <message>
-                <!--
+		<format>
+			<label>
+				<!-- Static / low-cardinality labels only — no MDC to avoid
+				empty-value crashes -->
+				<pattern>app=${APP_NAME},level=%level,logger=%logger{20}</pattern>
+			</label>
+			<message>
+				<!--
                   Full structured line — every field queryable with LogQL in Grafana.
                   MDC keys fall back to safe defaults for startup / non-HTTP log lines.
                 -->
-                <pattern>level=%level requestId=%X{requestId:-startup} userId=%X{userId:-system} email=%X{userEmail:-system} role=%X{userRole:-system} method=%X{method:-INTERNAL} path=%X{path:-/} ip=%X{ip:-localhost} logger=%logger{30} thread=%thread msg=%msg%n%ex{5}</pattern>
-            </message>
-        </format>
-    </appender>
+				<pattern>level=%level requestId=%X{requestId:-startup}
+					userId=%X{userId:-system} email=%X{userEmail:-system}
+					role=%X{userRole:-system} method=%X{method:-INTERNAL}
+					path=%X{path:-/} ip=%X{ip:-localhost} logger=%logger{30}
+					thread=%thread msg=%msg%n%ex{5}</pattern>
+			</message>
+		</format>
+	</appender>
 
-    <!-- ── Async wrapper — non-blocking, never blocks the app thread ── -->
-    <appender name="LOKI_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="LOKI"/>
-        <queueSize>10000</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <!-- neverBlock: drop log events rather than stall the caller thread -->
-        <neverBlock>true</neverBlock>
-    </appender>
+	<!-- ── Async wrapper — non-blocking, never blocks the app thread ── -->
+	<appender name="LOKI_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+		<appender-ref ref="LOKI" />
+		<queueSize>10000</queueSize>
+		<discardingThreshold>0</discardingThreshold>
+		<!-- neverBlock: drop log events rather than stall the caller thread -->
+		<neverBlock>true</neverBlock>
+	</appender>
 
-    <!-- ── Noise reduction ──────────────────────────────────────────── -->
-    <logger name="com.github.loki4j"            level="WARN"/>
-    <logger name="org.flywaydb"                 level="WARN"/>
-    <logger name="org.springframework.security" level="WARN"/>
-    <logger name="org.springframework.web"      level="WARN"/>
-    <logger name="com.zaxxer.hikari"            level="WARN"/>
-    <logger name="org.apache.catalina"          level="WARN"/>
-    <logger name="org.apache.tomcat"            level="WARN"/>
+	<!-- ── Noise reduction ──────────────────────────────────────────── -->
+	<logger name="com.github.loki4j" level="WARN" />
+	<logger name="org.flywaydb" level="WARN" />
+	<logger name="org.springframework.security" level="WARN" />
+	<logger name="org.springframework.web" level="WARN" />
+	<logger name="com.zaxxer.hikari" level="WARN" />
+	<logger name="org.apache.catalina" level="WARN" />
+	<logger name="org.apache.tomcat" level="WARN" />
 
-    <!-- ── Application code — INFO and above ────────────────────────── -->
-    <logger name="com.ollanest" level="INFO"/>
+	<!-- ── Application code — INFO and above ────────────────────────── -->
+	<logger name="com.ollanest" level="INFO" />
 
-    <!-- ── Root: dev / default — CONSOLE only, Loki never starts ──────
+	<!-- ── Root: dev / default — CONSOLE only, Loki never starts ──────
          Active when neither the "prod" nor the "loki" profile is set, so a plain
          local run produces zero Loki connection noise. -->
-    <springProfile name="!prod &amp; !loki">
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-        </root>
-    </springProfile>
+	<springProfile name="!prod &amp; !loki">
+		<root level="INFO">
+			<appender-ref ref="CONSOLE" />
+		</root>
+	</springProfile>
 
-    <!-- ── Root: prod OR loki — CONSOLE + Loki (Loki must be reachable) ──
+	<!-- ── Root: prod OR loki — CONSOLE + Loki (Loki must be reachable) ──
          Enable log shipping to the standalone Loki/Grafana stack by running the
          app with SPRING_PROFILES_ACTIVE=loki (or prod). Point it at a custom
          Loki via the LOKI_URL env var (maps to the loki.url property). -->
-    <springProfile name="prod | loki">
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="LOKI_ASYNC"/>
-        </root>
-    </springProfile>
+	<springProfile name="prod | loki">
+		<root level="INFO">
+			<appender-ref ref="CONSOLE" />
+			<appender-ref ref="LOKI_ASYNC" />
+		</root>
+	</springProfile>
 
 </configuration>

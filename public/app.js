@@ -46,9 +46,9 @@ const $all = (sel) => Array.from(document.querySelectorAll(sel));
  * @returns {string} Safe HTML string.
  */
 function esc(v) {
-  return String(v ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    return String(v ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
 /**
@@ -63,17 +63,17 @@ function esc(v) {
  * @throws {Error} On non-2xx responses (message from data.error).
  */
 async function api(path, opts = {}) {
-  const headers = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...(opts.headers || {}) };
-  const res = await fetch(path, { ...opts, headers });
-  if (res.status === 401) { window.location.href = "/login"; return null; }
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.includes("application/json")) {
-    if (!res.ok) throw new Error(`Server error ${res.status}`);
-    return null;
-  }
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
+    const headers = { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...(opts.headers || {}) };
+    const res = await fetch(path, { ...opts, headers });
+    if (res.status === 401) { window.location.href = "/login"; return null; }
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        return null;
+    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data;
 }
 
 /**
@@ -84,7 +84,7 @@ async function api(path, opts = {}) {
  * @returns {string} 1–2 character initials string.
  */
 function initials(name) {
-  return (name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+    return (name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
 /**
@@ -96,12 +96,12 @@ function initials(name) {
  * @returns {object[]} Array of usable model objects from state.
  */
 function allowedModels() {
-  if (!state) return [];
-  return state.models.filter(m =>
-    state.allowedModelIds.includes(m.id) &&
-    m.status === "available" &&
-    !(m.provider === "api" && !state.settings.allowApiModels)
-  );
+    if (!state) return [];
+    return state.models.filter(m =>
+        state.allowedModelIds.includes(m.id) &&
+        m.status === "available" &&
+        !(m.provider === "api" && !state.settings.allowApiModels)
+    );
 }
 
 /**
@@ -112,12 +112,12 @@ function allowedModels() {
  * @returns {object[]} Array of configured model objects (may include missing).
  */
 function configuredModels() {
-  if (!state) return [];
-  return state.models.filter(m =>
-    state.allowedModelIds.includes(m.id) &&
-    m.status !== "disabled" &&
-    !(m.provider === "api" && !state.settings.allowApiModels)
-  );
+    if (!state) return [];
+    return state.models.filter(m =>
+        state.allowedModelIds.includes(m.id) &&
+        m.status !== "disabled" &&
+        !(m.provider === "api" && !state.settings.allowApiModels)
+    );
 }
 
 /**
@@ -128,14 +128,14 @@ function configuredModels() {
  * @returns {string} Relative time label or "" if iso is falsy.
  */
 function timeAgo(iso) {
-  if (!iso) return "";
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+    if (!iso) return "";
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
 }
 
 /**
@@ -144,24 +144,24 @@ function timeAgo(iso) {
  * Data comes from state.stats, populated by GET /api/state.
  */
 function renderTopnavStats() {
-  const s = state?.stats;
-  if (!s) return;
+    const s = state?.stats;
+    if (!s) return;
 
-  const reqEl = document.getElementById("statReqToday");
-  if (reqEl) reqEl.textContent = s.reqToday ?? "—";
+    const reqEl = document.getElementById("statReqToday");
+    if (reqEl) reqEl.textContent = s.reqToday ?? "—";
 
-  const latEl = document.getElementById("statAvgLatency");
-  if (latEl) {
-    latEl.textContent = s.avgLatency != null ? `${s.avgLatency}ms` : "—";
-    latEl.className = "topnav-stat-num" + (s.avgLatency != null && s.avgLatency > 5000 ? " warn" : "");
-  }
+    const latEl = document.getElementById("statAvgLatency");
+    if (latEl) {
+        latEl.textContent = s.avgLatency != null ? `${s.avgLatency}ms` : "—";
+        latEl.className = "topnav-stat-num" + (s.avgLatency != null && s.avgLatency > 5000 ? " warn" : "");
+    }
 
-  const upEl = document.getElementById("statUptime");
-  if (upEl && s.uptimeMs != null) {
-    const h = Math.floor(s.uptimeMs / 3600000);
-    const m = Math.floor((s.uptimeMs % 3600000) / 60000);
-    upEl.textContent = h > 0 ? `${h}h ${m}m` : `${m}m`;
-  }
+    const upEl = document.getElementById("statUptime");
+    if (upEl && s.uptimeMs != null) {
+        const h = Math.floor(s.uptimeMs / 3600000);
+        const m = Math.floor((s.uptimeMs % 3600000) / 60000);
+        upEl.textContent = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
 }
 
 /**
@@ -171,155 +171,155 @@ function renderTopnavStats() {
  * terminal FAB visibility, and the chat history list.
  */
 function renderSidebar() {
-  const u = state.activeUser;
-  $("userAvatar").textContent = initials(u.name);
-  $("userName").textContent = u.name;
-  const dept = state.departments.find(d => d.id === u.departmentId);
-  $("userMeta").textContent = `${u.role} · ${dept?.name || "Workspace"}`;
-  $("adminLink").style.display = u.role === "admin" ? "flex" : "none";
+    const u = state.activeUser;
+    $("userAvatar").textContent = initials(u.name);
+    $("userName").textContent = u.name;
+    const dept = state.departments.find(d => d.id === u.departmentId);
+    $("userMeta").textContent = `${u.role} · ${dept?.name || "Workspace"}`;
+    $("adminLink").style.display = u.role === "admin" ? "flex" : "none";
 
-  // Welcome bar
-  // If name looks like an email (old autofill bug), use the part before @
-  const rawName = u.name || u.email || "";
-  const displayName = rawName.includes("@") ? rawName.split("@")[0] : rawName;
-  const firstName = displayName.split(" ")[0];
+    // Welcome bar
+    // If name looks like an email (old autofill bug), use the part before @
+    const rawName = u.name || u.email || "";
+    const displayName = rawName.includes("@") ? rawName.split("@")[0] : rawName;
+    const firstName = displayName.split(" ")[0];
 
-  // Show user's first name on the topbar Account button
-  const accountBtnName = document.getElementById("accountBtnName");
-  if (accountBtnName) accountBtnName.textContent = firstName || u.name || "Profile";
-  $("topbarTitle").textContent = `Welcome, ${firstName}`;
-  $("topbarSub").textContent = `${dept?.name || "General"} · Auto Router active`;
-  const statWs = document.getElementById("statWorkspace");
-  if (statWs) { const ws2 = state.workspace; statWs.textContent = ws2?.workspaceRoot ? (ws2.workspaceRoot.split("/").pop() || "set") : "not set"; }
-  const infoDept = document.getElementById("infoDept");
-  if (infoDept) infoDept.textContent = dept?.name || "—";
-  const roleMini = document.querySelector(".role-chip");
-  if (roleMini) roleMini.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
+    // Show user's first name on the topbar Account button
+    const accountBtnName = document.getElementById("accountBtnName");
+    if (accountBtnName) accountBtnName.textContent = firstName || u.name || "Profile";
+    $("topbarTitle").textContent = `Welcome, ${firstName}`;
+    $("topbarSub").textContent = `${dept?.name || "General"} · Auto Router active`;
+    const statWs = document.getElementById("statWorkspace");
+    if (statWs) { const ws2 = state.workspace; statWs.textContent = ws2?.workspaceRoot ? (ws2.workspaceRoot.split("/").pop() || "set") : "not set"; }
+    const infoDept = document.getElementById("infoDept");
+    if (infoDept) infoDept.textContent = dept?.name || "—";
+    const roleMini = document.querySelector(".role-chip");
+    if (roleMini) roleMini.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
 
-  // Sidebar model list — only show models that are currently available (reachable).
-  // If Ollama is offline, show a clear "offline" message instead of a ghost list.
-  const availableModels = allowedModels();
-  if (availableModels.length) {
-    $("sidebarModels").innerHTML = availableModels.map(m =>
-      `<div class="model-item">
+    // Sidebar model list — only show models that are currently available (reachable).
+    // If Ollama is offline, show a clear "offline" message instead of a ghost list.
+    const availableModels = allowedModels();
+    if (availableModels.length) {
+        $("sidebarModels").innerHTML = availableModels.map(m =>
+            `<div class="model-item">
         <div class="model-dot" style="flex-shrink:0;"></div>
         <div class="model-name" title="${esc(m.name)}">${esc(m.name)}</div>
       </div>`
-    ).join("");
-  } else {
-    $("sidebarModels").innerHTML = `<div style="font-size:12px;color:var(--mute);padding:4px 0;line-height:1.5;">
+        ).join("");
+    } else {
+        $("sidebarModels").innerHTML = `<div style="font-size:12px;color:var(--mute);padding:4px 0;line-height:1.5;">
       Ollama offline — no models available.<br>
       <span style="font-size:11px;">Start Ollama or add a cloud provider.</span>
     </div>`;
-  }
-
-  // Repopulate the Claude-style picker dropdown — only AVAILABLE models shown
-  populateAppModelPicker(availableModels);
-
-  // Model connected status pill
-  const statModelPill = document.getElementById("statModelPill");
-  const statModelName = document.getElementById("statModelName");
-  if (statModelPill && statModelName) {
-    const activeM = availableModels[0];
-    if (activeM) {
-      statModelName.textContent = activeM.name;
-      statModelPill.style.display = "flex";
-    } else {
-      statModelPill.style.display = "none";
     }
-  }
 
-  // No-model warning banner in composer — shown when Ollama is down and no cloud models available
-  const noModelBanner = document.getElementById("noModelBanner");
-  if (noModelBanner) {
-    noModelBanner.style.display = availableModels.length === 0 ? "flex" : "none";
-  }
-  // Disable send when no models available
-  const sendBtn = document.getElementById("sendBtn");
-  if (sendBtn) sendBtn.disabled = availableModels.length === 0;
+    // Repopulate the Claude-style picker dropdown — only AVAILABLE models shown
+    populateAppModelPicker(availableModels);
 
-  // Token usage pill
-  loadTokenUsage();
-
-  // Effective permissions — must be declared before any use below
-  const effectivePermissions = (state.effectiveAccess?.permissions) || u.rights || [];
-
-  // Terminal FAB — only show for users with workspace:build or admin
-  const termFab = document.getElementById("termToggle");
-  if (termFab) {
-    const canTerminal = u.role === "admin" || effectivePermissions.includes("workspace:build");
-    termFab.style.display = canTerminal ? "flex" : "none";
-  }
-
-  // Update model ring infographic — show available (reachable) count
-  if (typeof updateModelRing === "function") updateModelRing(availableModels.length, 10);
-  const capCard = document.getElementById("capabilityCard");
-  if (capCard) capCard.style.display = availableModels.length > 0 ? "block" : "none";
-
-  // Workspace
-  const ws = state.workspace;
-  if (ws) {
-    const wsFullPath = ws.outputFolder || ws.workspaceRoot || "";
-    const wsEl = $("workspacePath");
-    if (wsFullPath) {
-      // Show friendly label: /host-home/... → ~/...
-      const displayPath = wsFullPath.startsWith("/host-home/")
-        ? "~/" + wsFullPath.slice("/host-home/".length)
-        : wsFullPath;
-      wsEl.textContent = displayPath;
-      wsEl.title = wsFullPath;
-    } else {
-      wsEl.textContent = "Not configured";
+    // Model connected status pill
+    const statModelPill = document.getElementById("statModelPill");
+    const statModelName = document.getElementById("statModelName");
+    if (statModelPill && statModelName) {
+        const activeM = availableModels[0];
+        if (activeM) {
+            statModelName.textContent = activeM.name;
+            statModelPill.style.display = "flex";
+        } else {
+            statModelPill.style.display = "none";
+        }
     }
-    const modeLabels = { default: "Approve writes", review: "Auto-review", full: "Full access" };
-    $("workspaceModeTag").innerHTML = `<span class="ws-mode-tag">${modeLabels[ws.permissionMode] || ws.permissionMode}</span>`;
-    $("workspaceFolderInput").value = ws.workspaceRoot || "";
-    $("permissionModeSelect").value = ws.permissionMode || "default";
-  }
 
-  // accessPolicy element (hidden panel, kept for compatibility)
-  const modelsApproved = availableModels.length;
-  $("accessPolicy").innerHTML = `
+    // No-model warning banner in composer — shown when Ollama is down and no cloud models available
+    const noModelBanner = document.getElementById("noModelBanner");
+    if (noModelBanner) {
+        noModelBanner.style.display = availableModels.length === 0 ? "flex" : "none";
+    }
+    // Disable send when no models available
+    const sendBtn = document.getElementById("sendBtn");
+    if (sendBtn) sendBtn.disabled = availableModels.length === 0;
+
+    // Token usage pill
+    loadTokenUsage();
+
+    // Effective permissions — must be declared before any use below
+    const effectivePermissions = (state.effectiveAccess?.permissions) || u.rights || [];
+
+    // Terminal FAB — only show for users with workspace:build or admin
+    const termFab = document.getElementById("termToggle");
+    if (termFab) {
+        const canTerminal = u.role === "admin" || effectivePermissions.includes("workspace:build");
+        termFab.style.display = canTerminal ? "flex" : "none";
+    }
+
+    // Update model ring infographic — show available (reachable) count
+    if (typeof updateModelRing === "function") updateModelRing(availableModels.length, 10);
+    const capCard = document.getElementById("capabilityCard");
+    if (capCard) capCard.style.display = availableModels.length > 0 ? "block" : "none";
+
+    // Workspace
+    const ws = state.workspace;
+    if (ws) {
+        const wsFullPath = ws.outputFolder || ws.workspaceRoot || "";
+        const wsEl = $("workspacePath");
+        if (wsFullPath) {
+            // Show friendly label: /host-home/... → ~/...
+            const displayPath = wsFullPath.startsWith("/host-home/")
+                ? "~/" + wsFullPath.slice("/host-home/".length)
+                : wsFullPath;
+            wsEl.textContent = displayPath;
+            wsEl.title = wsFullPath;
+        } else {
+            wsEl.textContent = "Not configured";
+        }
+        const modeLabels = { default: "Approve writes", review: "Auto-review", full: "Full access" };
+        $("workspaceModeTag").innerHTML = `<span class="ws-mode-tag">${modeLabels[ws.permissionMode] || ws.permissionMode}</span>`;
+        $("workspaceFolderInput").value = ws.workspaceRoot || "";
+        $("permissionModeSelect").value = ws.permissionMode || "default";
+    }
+
+    // accessPolicy element (hidden panel, kept for compatibility)
+    const modelsApproved = availableModels.length;
+    $("accessPolicy").innerHTML = `
     <strong>${u.email || ""}</strong><br>
     ${dept?.name || "No department"} · ${u.role}<br><br>
     <span style="font-size:11px;">Rights: ${effectivePermissions.map(r => `<span class="badge badge-indigo" style="margin:1px 2px;">${esc(r)}</span>`).join(" ")}</span><br><br>
     <span style="font-size:12px;">${modelsApproved} model${modelsApproved !== 1 ? "s" : ""} approved — access comes from your user, group, and department grants.</span>
   `;
 
-  // Sidebar "My Access" card — show rights as pills
-  const accessRightsEl = document.getElementById("sidebarAccessRights");
-  if (accessRightsEl) {
-    const rightLabels = {
-      "chat:use": "Chat",
-      "models:local:use": "Local Models",
-      "models:coding:use": "Coding Models",
-      "models:reasoning:use": "Reasoning Models",
-      "models:external:use": "External Models",
-      "workspace:build": "Terminal",
-      "files:upload": "File Upload",
-      "tools:call": "Tools",
-      "api:use": "API Access",
-      "admin:manage": "Admin",
-      "users:manage": "User Mgmt",
-      "models:manage": "Model Mgmt",
-      "audit:read": "Audit Logs",
-    };
-    accessRightsEl.innerHTML = effectivePermissions.map(r =>
-      `<span class="right-badge">${esc(rightLabels[r] || r)}</span>`
-    ).join("") || `<span style="font-size:12px;color:var(--mute);">No rights configured</span>`;
-  }
+    // Sidebar "My Access" card — show rights as pills
+    const accessRightsEl = document.getElementById("sidebarAccessRights");
+    if (accessRightsEl) {
+        const rightLabels = {
+            "chat:use": "Chat",
+            "models:local:use": "Local Models",
+            "models:coding:use": "Coding Models",
+            "models:reasoning:use": "Reasoning Models",
+            "models:external:use": "External Models",
+            "workspace:build": "Terminal",
+            "files:upload": "File Upload",
+            "tools:call": "Tools",
+            "api:use": "API Access",
+            "admin:manage": "Admin",
+            "users:manage": "User Mgmt",
+            "models:manage": "Model Mgmt",
+            "audit:read": "Audit Logs",
+        };
+        accessRightsEl.innerHTML = effectivePermissions.map(r =>
+            `<span class="right-badge">${esc(rightLabels[r] || r)}</span>`
+        ).join("") || `<span style="font-size:12px;color:var(--mute);">No rights configured</span>`;
+    }
 
-  // Terminal note in access card
-  const termNote = document.getElementById("sidebarTerminalNote");
-  const canTerminal = u.role === "admin" || effectivePermissions.includes("workspace:build");
-  if (termNote) termNote.style.display = canTerminal ? "block" : "none";
+    // Terminal note in access card
+    const termNote = document.getElementById("sidebarTerminalNote");
+    const canTerminal = u.role === "admin" || effectivePermissions.includes("workspace:build");
+    if (termNote) termNote.style.display = canTerminal ? "block" : "none";
 
-  // Role chip in sidebar profile card
-  const roleChip = document.getElementById("sidebarRoleChip");
-  if (roleChip) roleChip.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
+    // Role chip in sidebar profile card
+    const roleChip = document.getElementById("sidebarRoleChip");
+    if (roleChip) roleChip.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
 
-  // Sidebar chat history
-  renderSidebarChats();
+    // Sidebar chat history
+    renderSidebarChats();
 }
 
 /**
@@ -328,19 +328,19 @@ function renderSidebar() {
  * The first chat (most recent active) is highlighted.
  */
 function renderSidebarChats() {
-  const el = document.getElementById("sidebarChats");
-  if (!el) return;
-  const chats = state.chats || [];
-  if (!chats.length) {
-    el.innerHTML = `<div style="font-size:12px;color:var(--mute);padding:4px 0;">No conversations yet</div>`;
-    return;
-  }
-  el.innerHTML = chats.map(c => {
-    const title = esc(c.title || "New Chat");
-    const ago = timeAgo(c.updatedAt || c.createdAt);
-    const isActive = c.isActive === 1 || c.isActive === true;
-    const pinned = c.pinned ? " pinned" : "";
-    return `<div class="sidebar-chat-item${isActive ? " active" : ""}${pinned}" data-chat-id="${esc(c.id)}" title="${title}">
+    const el = document.getElementById("sidebarChats");
+    if (!el) return;
+    const chats = state.chats || [];
+    if (!chats.length) {
+        el.innerHTML = `<div style="font-size:12px;color:var(--mute);padding:4px 0;">No conversations yet</div>`;
+        return;
+    }
+    el.innerHTML = chats.map(c => {
+        const title = esc(c.title || "New Chat");
+        const ago = timeAgo(c.updatedAt || c.createdAt);
+        const isActive = c.isActive === 1 || c.isActive === true;
+        const pinned = c.pinned ? " pinned" : "";
+        return `<div class="sidebar-chat-item${isActive ? " active" : ""}${pinned}" data-chat-id="${esc(c.id)}" title="${title}">
       <div class="chat-pin-dot"></div>
       <div class="chat-item-body">
         <div class="chat-item-title">${title}</div>
@@ -350,7 +350,7 @@ function renderSidebarChats() {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
       </button>
     </div>`;
-  }).join("");
+    }).join("");
 }
 
 // ─── Confirm dialog ──────────────────────────────────────────────────────────
@@ -361,13 +361,13 @@ function renderSidebarChats() {
  * @param {Function} onConfirm - Async callback executed if user confirms.
  */
 function showConfirm(message, onConfirm) {
-  const existing = document.getElementById("confirmOverlay");
-  if (existing) existing.remove();
+    const existing = document.getElementById("confirmOverlay");
+    if (existing) existing.remove();
 
-  const overlay = document.createElement("div");
-  overlay.id = "confirmOverlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;";
-  overlay.innerHTML = `
+    const overlay = document.createElement("div");
+    overlay.id = "confirmOverlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;";
+    overlay.innerHTML = `
     <div style="background:var(--bubble);border:1px solid var(--border);border-radius:16px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
       <p style="margin:0 0 20px;color:var(--body-text);font-size:14px;font-weight:500;line-height:1.5;">${esc(message)}</p>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
@@ -375,15 +375,15 @@ function showConfirm(message, onConfirm) {
         <button id="confirmOk" style="padding:7px 16px;border-radius:8px;border:none;background:#ef4444;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">Delete</button>
       </div>
     </div>`;
-  document.body.appendChild(overlay);
+    document.body.appendChild(overlay);
 
-  const close = () => overlay.remove();
-  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
-  document.getElementById("confirmCancel").addEventListener("click", close);
-  document.getElementById("confirmOk").addEventListener("click", async () => {
-    close();
-    await onConfirm();
-  });
+    const close = () => overlay.remove();
+    overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+    document.getElementById("confirmCancel").addEventListener("click", close);
+    document.getElementById("confirmOk").addEventListener("click", async () => {
+        close();
+        await onConfirm();
+    });
 }
 
 // ─── Branded alert dialog ─────────────────────────────────────────────────────
@@ -394,13 +394,13 @@ function showConfirm(message, onConfirm) {
  * @param {string} [title] - Optional title shown in bold above the message.
  */
 function showAlert(message, title) {
-  const existing = document.getElementById("alertOverlay");
-  if (existing) existing.remove();
+    const existing = document.getElementById("alertOverlay");
+    if (existing) existing.remove();
 
-  const overlay = document.createElement("div");
-  overlay.id = "alertOverlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;";
-  overlay.innerHTML = `
+    const overlay = document.createElement("div");
+    overlay.id = "alertOverlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;";
+    overlay.innerHTML = `
     <div style="background:var(--bubble);border:1px solid var(--border);border-radius:16px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
       ${title ? `<p style="margin:0 0 8px;color:var(--body-text);font-size:15px;font-weight:700;">${esc(title)}</p>` : ""}
       <p style="margin:0 0 20px;color:var(--body-text);font-size:14px;line-height:1.5;">${esc(message)}</p>
@@ -408,11 +408,11 @@ function showAlert(message, title) {
         <button id="alertOk" style="padding:7px 22px;border-radius:8px;border:none;background:var(--accent,#f59e0b);color:#fff;cursor:pointer;font-size:13px;font-weight:600;">OK</button>
       </div>
     </div>`;
-  document.body.appendChild(overlay);
+    document.body.appendChild(overlay);
 
-  const close = () => overlay.remove();
-  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
-  document.getElementById("alertOk").addEventListener("click", close);
+    const close = () => overlay.remove();
+    overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+    document.getElementById("alertOk").addEventListener("click", close);
 }
 
 // ─── Chat context menu ────────────────────────────────────────────────────────
@@ -421,7 +421,7 @@ let _chatCtxMenu = null;
 
 /** Close and remove the floating context menu if open */
 function closeChatCtxMenu() {
-  if (_chatCtxMenu) { _chatCtxMenu.remove(); _chatCtxMenu = null; }
+    if (_chatCtxMenu) { _chatCtxMenu.remove(); _chatCtxMenu = null; }
 }
 
 /**
@@ -431,14 +431,14 @@ function closeChatCtxMenu() {
  * @param {HTMLElement} trigger - The ⋮ button element
  */
 function openChatCtxMenu(chatId, trigger) {
-  closeChatCtxMenu();
-  const chat = (state.chats || []).find(c => c.id === chatId);
-  if (!chat) return;
-  const isPinned = chat.pinned;
+    closeChatCtxMenu();
+    const chat = (state.chats || []).find(c => c.id === chatId);
+    if (!chat) return;
+    const isPinned = chat.pinned;
 
-  const menu = document.createElement("div");
-  menu.className = "chat-ctx-menu";
-  menu.innerHTML = `
+    const menu = document.createElement("div");
+    menu.className = "chat-ctx-menu";
+    menu.innerHTML = `
     <button class="chat-ctx-item" data-action="rename">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       Rename
@@ -454,67 +454,67 @@ function openChatCtxMenu(chatId, trigger) {
     </button>
   `;
 
-  // Position: below trigger, flip up if too close to bottom
-  document.body.appendChild(menu);
-  _chatCtxMenu = menu;
-  const rect = trigger.getBoundingClientRect();
-  const menuH = 130;
-  const top = (window.innerHeight - rect.bottom < menuH) ? rect.top - menuH : rect.bottom + 4;
-  menu.style.top = top + "px";
-  menu.style.left = Math.max(4, rect.left - 120) + "px";
+    // Position: below trigger, flip up if too close to bottom
+    document.body.appendChild(menu);
+    _chatCtxMenu = menu;
+    const rect = trigger.getBoundingClientRect();
+    const menuH = 130;
+    const top = (window.innerHeight - rect.bottom < menuH) ? rect.top - menuH : rect.bottom + 4;
+    menu.style.top = top + "px";
+    menu.style.left = Math.max(4, rect.left - 120) + "px";
 
-  menu.addEventListener("click", async (e) => {
-    const btn = e.target.closest("[data-action]");
-    if (!btn) return;
-    closeChatCtxMenu();
-    const action = btn.dataset.action;
+    menu.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-action]");
+        if (!btn) return;
+        closeChatCtxMenu();
+        const action = btn.dataset.action;
 
-    if (action === "rename") {
-      // Inline rename: replace the title text with an input field directly in the sidebar
-      const itemEl = document.querySelector(`.sidebar-chat-item[data-chat-id="${chatId}"]`);
-      const titleEl = itemEl?.querySelector(".chat-item-title");
-      if (!titleEl) return;
-      const current = chat.title || "New Chat";
-      const inp = document.createElement("input");
-      inp.value = current;
-      inp.style.cssText = "width:100%;font-size:13px;font-family:inherit;border:1px solid var(--ac);border-radius:6px;padding:2px 6px;outline:none;background:var(--bubble);";
-      titleEl.replaceWith(inp);
-      inp.focus(); inp.select();
-      const commit = async () => {
-        const val = inp.value.trim();
-        const span = document.createElement("div");
-        span.className = "chat-item-title";
-        span.textContent = val || current;
-        inp.replaceWith(span);
-        if (val && val !== current) {
-          await api(`/api/threads/${chatId}`, { method: "PATCH", body: JSON.stringify({ title: val }) });
-          await loadState();
+        if (action === "rename") {
+            // Inline rename: replace the title text with an input field directly in the sidebar
+            const itemEl = document.querySelector(`.sidebar-chat-item[data-chat-id="${chatId}"]`);
+            const titleEl = itemEl?.querySelector(".chat-item-title");
+            if (!titleEl) return;
+            const current = chat.title || "New Chat";
+            const inp = document.createElement("input");
+            inp.value = current;
+            inp.style.cssText = "width:100%;font-size:13px;font-family:inherit;border:1px solid var(--ac);border-radius:6px;padding:2px 6px;outline:none;background:var(--bubble);";
+            titleEl.replaceWith(inp);
+            inp.focus(); inp.select();
+            const commit = async () => {
+                const val = inp.value.trim();
+                const span = document.createElement("div");
+                span.className = "chat-item-title";
+                span.textContent = val || current;
+                inp.replaceWith(span);
+                if (val && val !== current) {
+                    await api(`/api/threads/${chatId}`, { method: "PATCH", body: JSON.stringify({ title: val }) });
+                    await loadState();
+                }
+            };
+            inp.addEventListener("blur", commit);
+            inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape") { inp.value = current; inp.blur(); } });
         }
-      };
-      inp.addEventListener("blur", commit);
-      inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape") { inp.value = current; inp.blur(); } });
-    }
 
-    if (action === "pin") {
-      await api(`/api/threads/${chatId}`, { method: "PATCH", body: JSON.stringify({ pinned: !isPinned }) });
-      await loadState();
-    }
+        if (action === "pin") {
+            await api(`/api/threads/${chatId}`, { method: "PATCH", body: JSON.stringify({ pinned: !isPinned }) });
+            await loadState();
+        }
 
-    if (action === "delete") {
-      showConfirm("Delete this chat? This cannot be undone.", async () => {
-        await api(`/api/threads/${chatId}`, { method: "DELETE" });
-        await loadState();
-      });
-    }
-  });
+        if (action === "delete") {
+            showConfirm("Delete this chat? This cannot be undone.", async () => {
+                await api(`/api/threads/${chatId}`, { method: "DELETE" });
+                await loadState();
+            });
+        }
+    });
 }
 
 // Close menu when clicking outside
 document.addEventListener("click", (e) => {
-  if (_chatCtxMenu && !_chatCtxMenu.contains(e.target)) closeChatCtxMenu();
+    if (_chatCtxMenu && !_chatCtxMenu.contains(e.target)) closeChatCtxMenu();
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeChatCtxMenu();
+    if (e.key === "Escape") closeChatCtxMenu();
 });
 
 /**
@@ -534,30 +534,30 @@ document.addEventListener("keydown", (e) => {
  */
 // Language badge colors — matches common languages visually
 const LANG_COLORS = {
-  js: "#f7df1e", javascript: "#f7df1e",
-  ts: "#3178c6", typescript: "#3178c6",
-  py: "#3572a5", python: "#3572a5",
-  rb: "#cc342d", ruby: "#cc342d",
-  go: "#00add8",
-  rs: "#dea584", rust: "#dea584",
-  java: "#b07219",
-  cs: "#178600", csharp: "#178600",
-  cpp: "#f34b7d", c: "#555555",
-  php: "#4f5d95",
-  swift: "#ffac45",
-  kt: "#a97bff", kotlin: "#a97bff",
-  sql: "#e38c00",
-  html: "#e34c26", css: "#563d7c", scss: "#c6538c",
-  sh: "#89e051", bash: "#89e051", shell: "#89e051", zsh: "#89e051", fish: "#89e051",
-  json: "#cbcb41", yaml: "#cb171e", yml: "#cb171e", toml: "#9c4221",
-  md: "#083fa1", markdown: "#083fa1",
-  dockerfile: "#384d54",
-  xml: "#0060ac",
-  r: "#198ce7",
-  dart: "#00b4ab",
-  lua: "#000080",
-  vim: "#019733",
-  graphql: "#e10098",
+    js: "#f7df1e", javascript: "#f7df1e",
+    ts: "#3178c6", typescript: "#3178c6",
+    py: "#3572a5", python: "#3572a5",
+    rb: "#cc342d", ruby: "#cc342d",
+    go: "#00add8",
+    rs: "#dea584", rust: "#dea584",
+    java: "#b07219",
+    cs: "#178600", csharp: "#178600",
+    cpp: "#f34b7d", c: "#555555",
+    php: "#4f5d95",
+    swift: "#ffac45",
+    kt: "#a97bff", kotlin: "#a97bff",
+    sql: "#e38c00",
+    html: "#e34c26", css: "#563d7c", scss: "#c6538c",
+    sh: "#89e051", bash: "#89e051", shell: "#89e051", zsh: "#89e051", fish: "#89e051",
+    json: "#cbcb41", yaml: "#cb171e", yml: "#cb171e", toml: "#9c4221",
+    md: "#083fa1", markdown: "#083fa1",
+    dockerfile: "#384d54",
+    xml: "#0060ac",
+    r: "#198ce7",
+    dart: "#00b4ab",
+    lua: "#000080",
+    vim: "#019733",
+    graphql: "#e10098",
 };
 
 /**
@@ -565,16 +565,16 @@ const LANG_COLORS = {
  * Lines starting with '+' → green, '-' → red, '@@' → blue hunk header.
  */
 function renderDiffBlock(text, lang) {
-  const lines = text.split("\n");
-  const rows = lines.map((line, i) => {
-    let cls = "";
-    if (/^@@/.test(line)) cls = "diff-hunk";
-    else if (/^\+/.test(line)) cls = "diff-add";
-    else if (/^-/.test(line)) cls = "diff-del";
-    const safe = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return `<div class="code-line ${cls}"><span class="code-ln">${i + 1}</span><span class="code-lc">${safe}</span></div>`;
-  });
-  return `<div class="code-lines">${rows.join("")}</div>`;
+    const lines = text.split("\n");
+    const rows = lines.map((line, i) => {
+        let cls = "";
+        if (/^@@/.test(line)) cls = "diff-hunk";
+        else if (/^\+/.test(line)) cls = "diff-add";
+        else if (/^-/.test(line)) cls = "diff-del";
+        const safe = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        return `<div class="code-line ${cls}"><span class="code-ln">${i + 1}</span><span class="code-lc">${safe}</span></div>`;
+    });
+    return `<div class="code-lines">${rows.join("")}</div>`;
 }
 
 /**
@@ -582,71 +582,71 @@ function renderDiffBlock(text, lang) {
  * language badge, optional filename header, and Copy / Run buttons.
  */
 function renderCodeBlock(text, lang) {
-  const langKey = (lang || "").toLowerCase().replace(/^diff-/, "");
-  const isDiff = lang && (lang.toLowerCase().startsWith("diff") || /^\+\+\+|^---/.test(text.trim()) || /^@@/.test(text.trim()));
+    const langKey = (lang || "").toLowerCase().replace(/^diff-/, "");
+    const isDiff = lang && (lang.toLowerCase().startsWith("diff") || /^\+\+\+|^---/.test(text.trim()) || /^@@/.test(text.trim()));
 
-  // Detect filename from first-line comment patterns: // filename: ..., # filename: ..., <!-- filename: -->
-  let filename = "";
-  const filenameMatch = text.match(/^(?:\/\/|#|<!--)\s*(?:filename|file):\s*([^\s\n>]+)/i);
-  if (filenameMatch) filename = filenameMatch[1];
+    // Detect filename from first-line comment patterns: // filename: ..., # filename: ..., <!-- filename: -->
+    let filename = "";
+    const filenameMatch = text.match(/^(?:\/\/|#|<!--)\s*(?:filename|file):\s*([^\s\n>]+)/i);
+    if (filenameMatch) filename = filenameMatch[1];
 
-  // Badge
-  const color = LANG_COLORS[langKey] || "#888";
-  const badgeText = langKey || "text";
-  const textColor = ["#f7df1e","#f34b7d","#ffac45","#cbcb41"].includes(color) ? "#111" : "#fff";
-  const badge = `<span class="code-lang-badge" style="background:${color};color:${textColor}">${esc(badgeText)}</span>`;
-  const fileEl = filename ? `<span class="code-filename">📄 ${esc(filename)}</span>` : "";
+    // Badge
+    const color = LANG_COLORS[langKey] || "#888";
+    const badgeText = langKey || "text";
+    const textColor = ["#f7df1e", "#f34b7d", "#ffac45", "#cbcb41"].includes(color) ? "#111" : "#fff";
+    const badge = `<span class="code-lang-badge" style="background:${color};color:${textColor}">${esc(badgeText)}</span>`;
+    const fileEl = filename ? `<span class="code-filename">📄 ${esc(filename)}</span>` : "";
 
-  // Runnable?
-  const SHELL_LANGS = ["bash","sh","shell","zsh","fish","console","terminal","cmd","powershell"];
-  const SANDBOX_LANGS = ["python","python3","javascript","js","typescript","ts","ruby","rb","java"];
-  const isShellRunnable = SHELL_LANGS.includes(langKey);
-  const isSandboxRunnable = SANDBOX_LANGS.includes(langKey);
-  const isRunnable = isShellRunnable || isSandboxRunnable;
-  const runBtn = isShellRunnable
-    ? `<button class="run-in-term-btn" data-action="run" title="Run in terminal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
-    : isSandboxRunnable
-      ? `<button class="run-in-term-btn sandbox-run-btn" data-action="sandbox" title="Run in sandbox"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
-      : "";
-  const viewBtn = `<button class="md-copy-btn" data-action="view" title="Full screen view">⛶ View</button>`;
+    // Runnable?
+    const SHELL_LANGS = ["bash", "sh", "shell", "zsh", "fish", "console", "terminal", "cmd", "powershell"];
+    const SANDBOX_LANGS = ["python", "python3", "javascript", "js", "typescript", "ts", "ruby", "rb", "java"];
+    const isShellRunnable = SHELL_LANGS.includes(langKey);
+    const isSandboxRunnable = SANDBOX_LANGS.includes(langKey);
+    const isRunnable = isShellRunnable || isSandboxRunnable;
+    const runBtn = isShellRunnable
+        ? `<button class="run-in-term-btn" data-action="run" title="Run in terminal"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
+        : isSandboxRunnable
+            ? `<button class="run-in-term-btn sandbox-run-btn" data-action="sandbox" title="Run in sandbox"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run</button>`
+            : "";
+    const viewBtn = `<button class="md-copy-btn" data-action="view" title="Full screen view">⛶ View</button>`;
 
-  // Diff rendering
-  if (isDiff) {
-    const codeEl = renderDiffBlock(text, langKey);
-    return `<div class="md-code-block" data-lang="${esc(langKey)}" data-filename="${esc(filename)}" data-raw="${encodeURIComponent(text)}">
+    // Diff rendering
+    if (isDiff) {
+        const codeEl = renderDiffBlock(text, langKey);
+        return `<div class="md-code-block" data-lang="${esc(langKey)}" data-filename="${esc(filename)}" data-raw="${encodeURIComponent(text)}">
       <div class="code-header">${badge}${fileEl}<div class="code-header-actions">${viewBtn}<button class="md-copy-btn" data-action="copy">Copy</button>${runBtn}</div></div>
       <pre><code>${codeEl}</code></pre>
     </div>`;
-  }
-
-  // Syntax highlighted with line numbers
-  let highlighted;
-  if (typeof hljs !== "undefined" && langKey) {
-    try {
-      const validLang = hljs.getLanguage(langKey) ? langKey : null;
-      highlighted = validLang
-        ? hljs.highlight(text, { language: validLang }).value
-        : hljs.highlightAuto(text).value;
-    } catch (e) {
-      highlighted = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
-  } else {
-    highlighted = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
 
-  // Build line-numbered table from highlighted HTML
-  // Split on newlines preserving hljs spans across lines isn't trivial, so we highlight then split plain + overlay
-  const plainLines = text.split("\n");
-  // Re-highlight line by line would lose multi-line context; instead use full block highlight and split on \n
-  const hlLines = highlighted.split("\n");
-  // If trailing empty line, remove it
-  if (hlLines[hlLines.length - 1] === "") hlLines.pop();
+    // Syntax highlighted with line numbers
+    let highlighted;
+    if (typeof hljs !== "undefined" && langKey) {
+        try {
+            const validLang = hljs.getLanguage(langKey) ? langKey : null;
+            highlighted = validLang
+                ? hljs.highlight(text, { language: validLang }).value
+                : hljs.highlightAuto(text).value;
+        } catch (e) {
+            highlighted = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    } else {
+        highlighted = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
 
-  const rows = hlLines.map((hlLine, i) => {
-    return `<div class="code-line"><span class="code-ln">${i + 1}</span><span class="code-lc">${hlLine}</span></div>`;
-  });
+    // Build line-numbered table from highlighted HTML
+    // Split on newlines preserving hljs spans across lines isn't trivial, so we highlight then split plain + overlay
+    const plainLines = text.split("\n");
+    // Re-highlight line by line would lose multi-line context; instead use full block highlight and split on \n
+    const hlLines = highlighted.split("\n");
+    // If trailing empty line, remove it
+    if (hlLines[hlLines.length - 1] === "") hlLines.pop();
 
-  return `<div class="md-code-block" data-lang="${esc(langKey)}" data-filename="${esc(filename)}" data-raw="${encodeURIComponent(text)}">
+    const rows = hlLines.map((hlLine, i) => {
+        return `<div class="code-line"><span class="code-ln">${i + 1}</span><span class="code-lc">${hlLine}</span></div>`;
+    });
+
+    return `<div class="md-code-block" data-lang="${esc(langKey)}" data-filename="${esc(filename)}" data-raw="${encodeURIComponent(text)}">
     <div class="code-header">${badge}${fileEl}<div class="code-header-actions">${viewBtn}<button class="md-copy-btn" data-action="copy">Copy</button>${runBtn}</div></div>
     <pre><code class="hljs"><div class="code-lines">${rows.join("")}</div></code></pre>
   </div>`;
@@ -658,13 +658,13 @@ function renderCodeBlock(text, lang) {
  * text (for display in a collapsible) and reply is the cleaned response to render.
  */
 function splitThinkingContent(raw) {
-  const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/i);
-  const thinking = thinkMatch ? thinkMatch[1].trim() : null;
-  const reply = raw
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/^\s*<\/think>\s*/i, "")
-    .trim();
-  return { thinking, reply };
+    const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/i);
+    const thinking = thinkMatch ? thinkMatch[1].trim() : null;
+    const reply = raw
+        .replace(/<think>[\s\S]*?<\/think>/gi, "")
+        .replace(/^\s*<\/think>\s*/i, "")
+        .trim();
+    return { thinking, reply };
 }
 
 /**
@@ -672,39 +672,39 @@ function splitThinkingContent(raw) {
  * Cards are upserted (keyed by step name) so status updates in place.
  */
 function renderResearchStep(event, bubbleId) {
-  const cardId = `rs-${bubbleId}-${event.step}`;
-  let card = document.getElementById(cardId);
-  const bubble = document.getElementById(`${bubbleId}-content`);
-  if (!card) {
-    card = document.createElement("div");
-    card.id = cardId;
-    card.className = "research-step-card";
-    if (bubble) bubble.parentNode.insertBefore(card, bubble);
-  }
-  const icons = { plan: "📋", search: "🔍", synthesize: "✍️" };
-  const icon = icons[event.step] || "⟳";
-  const statusIcon = event.status === "done" ? "✓" : event.status === "running" ? "⟳" : "•";
-  let detail = "";
-  if (event.step === "plan" && event.subQuestions) {
-    detail = `<ul style="margin:4px 0 0 16px;padding:0;list-style:disc;">${event.subQuestions.map(q => `<li style="font-size:11px;color:var(--muted1);">${esc(q)}</li>`).join("")}</ul>`;
-  } else if (event.step === "search" && event.query) {
-    detail = `<span style="font-size:11px;color:var(--muted2);">${esc(event.query)}</span>`;
-  } else if (event.msg) {
-    detail = `<span style="font-size:11px;color:var(--muted2);">${esc(event.msg)}</span>`;
-  }
-  card.innerHTML = `<div style="display:flex;align-items:flex-start;gap:8px;"><span style="font-size:14px;">${icon}</span><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;color:var(--body-text);">${statusIcon} ${event.step.charAt(0).toUpperCase() + event.step.slice(1)}</div>${detail}</div></div>`;
-  card.style.opacity = event.status === "done" ? "0.6" : "1";
+    const cardId = `rs-${bubbleId}-${event.step}`;
+    let card = document.getElementById(cardId);
+    const bubble = document.getElementById(`${bubbleId}-content`);
+    if (!card) {
+        card = document.createElement("div");
+        card.id = cardId;
+        card.className = "research-step-card";
+        if (bubble) bubble.parentNode.insertBefore(card, bubble);
+    }
+    const icons = { plan: "📋", search: "🔍", synthesize: "✍️" };
+    const icon = icons[event.step] || "⟳";
+    const statusIcon = event.status === "done" ? "✓" : event.status === "running" ? "⟳" : "•";
+    let detail = "";
+    if (event.step === "plan" && event.subQuestions) {
+        detail = `<ul style="margin:4px 0 0 16px;padding:0;list-style:disc;">${event.subQuestions.map(q => `<li style="font-size:11px;color:var(--muted1);">${esc(q)}</li>`).join("")}</ul>`;
+    } else if (event.step === "search" && event.query) {
+        detail = `<span style="font-size:11px;color:var(--muted2);">${esc(event.query)}</span>`;
+    } else if (event.msg) {
+        detail = `<span style="font-size:11px;color:var(--muted2);">${esc(event.msg)}</span>`;
+    }
+    card.innerHTML = `<div style="display:flex;align-items:flex-start;gap:8px;"><span style="font-size:14px;">${icon}</span><div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;color:var(--body-text);">${statusIcon} ${event.step.charAt(0).toUpperCase() + event.step.slice(1)}</div>${detail}</div></div>`;
+    card.style.opacity = event.status === "done" ? "0.6" : "1";
 }
 
 function renderMarkdown(content) {
-  if (typeof marked === "undefined") return `<pre style="white-space:pre-wrap;">${esc(content)}</pre>`;
-  const renderer = new marked.Renderer();
-  renderer.code = ({ text, lang }) => renderCodeBlock(text, lang);
-  // Pass options directly to marked.parse (setOptions is deprecated in marked v16+)
-  const raw = marked.parse(content, { renderer, breaks: true, gfm: true });
-  return typeof DOMPurify !== "undefined"
-    ? DOMPurify.sanitize(raw, { ADD_ATTR: ["data-action", "data-lang", "data-filename", "data-raw", "data-msg-id", "data-session-id", "data-rating"], FORCE_BODY: false })
-    : raw;
+    if (typeof marked === "undefined") return `<pre style="white-space:pre-wrap;">${esc(content)}</pre>`;
+    const renderer = new marked.Renderer();
+    renderer.code = ({ text, lang }) => renderCodeBlock(text, lang);
+    // Pass options directly to marked.parse (setOptions is deprecated in marked v16+)
+    const raw = marked.parse(content, { renderer, breaks: true, gfm: true });
+    return typeof DOMPurify !== "undefined"
+        ? DOMPurify.sanitize(raw, { ADD_ATTR: ["data-action", "data-lang", "data-filename", "data-raw", "data-msg-id", "data-session-id", "data-rating"], FORCE_BODY: false })
+        : raw;
 }
 
 /**
@@ -714,19 +714,19 @@ function renderMarkdown(content) {
  * @param {HTMLButtonElement} btn - The "Copy" button element inside the code block.
  */
 function copyCode(btn) {
-  const block = btn.closest(".md-code-block");
-  // Gather plain text from line cells (ignoring line number cells) or fall back to full code innerText
-  const lineCells = block.querySelectorAll(".code-lc");
-  let text;
-  if (lineCells.length) {
-    text = Array.from(lineCells).map(el => el.innerText).join("\n");
-  } else {
-    text = block.querySelector("code")?.innerText || "";
-  }
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = "Copied!";
-    setTimeout(() => { btn.textContent = "Copy"; }, 2000);
-  });
+    const block = btn.closest(".md-code-block");
+    // Gather plain text from line cells (ignoring line number cells) or fall back to full code innerText
+    const lineCells = block.querySelectorAll(".code-lc");
+    let text;
+    if (lineCells.length) {
+        text = Array.from(lineCells).map(el => el.innerText).join("\n");
+    } else {
+        text = block.querySelector("code")?.innerText || "";
+    }
+    navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = "Copied!";
+        setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+    });
 }
 
 /**
@@ -737,25 +737,25 @@ function copyCode(btn) {
  * @param {HTMLButtonElement} btn - The "Run" button inside the code block.
  */
 function runInTerminal(btn) {
-  const block = btn.closest(".md-code-block");
-  const lineCells = block.querySelectorAll(".code-lc");
-  const code = (lineCells.length
-    ? Array.from(lineCells).map(el => el.innerText).join("\n")
-    : block.querySelector("code")?.innerText || "").trim();
-  if (!code) return;
-  if (typeof window.termSendCommand === "function") {
-    btn.textContent = "▶ Sent!";
-    btn.style.background = "rgba(34,197,94,.15)";
-    btn.style.borderColor = "rgba(34,197,94,.35)";
-    btn.style.color = "#4ade80";
-    setTimeout(() => {
-      btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run`;
-      btn.style.cssText = "";
-    }, 2000);
-    window.termSendCommand(code);
-  } else {
-    showAlert("Terminal not available. Make sure you have workspace:build permission.", "Terminal");
-  }
+    const block = btn.closest(".md-code-block");
+    const lineCells = block.querySelectorAll(".code-lc");
+    const code = (lineCells.length
+        ? Array.from(lineCells).map(el => el.innerText).join("\n")
+        : block.querySelector("code")?.innerText || "").trim();
+    if (!code) return;
+    if (typeof window.termSendCommand === "function") {
+        btn.textContent = "▶ Sent!";
+        btn.style.background = "rgba(34,197,94,.15)";
+        btn.style.borderColor = "rgba(34,197,94,.35)";
+        btn.style.color = "#4ade80";
+        setTimeout(() => {
+            btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run`;
+            btn.style.cssText = "";
+        }, 2000);
+        window.termSendCommand(code);
+    } else {
+        showAlert("Terminal not available. Make sure you have workspace:build permission.", "Terminal");
+    }
 }
 
 // ── Code Sandbox (inline execution for Python, JS, Ruby, Java, etc.) ─────────
@@ -764,127 +764,127 @@ function runInTerminal(btn) {
  * output inline immediately below the code block, replacing any previous run.
  */
 async function runInSandbox(btn) {
-  const block = btn.closest(".md-code-block");
-  if (!block) return;
+    const block = btn.closest(".md-code-block");
+    if (!block) return;
 
-  const lang = block.dataset.lang || "";
-  // Extract plain text: prefer line-cell spans (numbered blocks), fall back to <code>
-  const lineCells = block.querySelectorAll(".code-lc");
-  const code = (lineCells.length
-    ? Array.from(lineCells).map(el => el.innerText).join("\n")
-    : block.querySelector("code")?.innerText || "").trim();
-  if (!code) return;
+    const lang = block.dataset.lang || "";
+    // Extract plain text: prefer line-cell spans (numbered blocks), fall back to <code>
+    const lineCells = block.querySelectorAll(".code-lc");
+    const code = (lineCells.length
+        ? Array.from(lineCells).map(el => el.innerText).join("\n")
+        : block.querySelector("code")?.innerText || "").trim();
+    if (!code) return;
 
-  // Ensure a sandbox output panel exists immediately after the block
-  let panel = block.nextElementSibling;
-  if (!panel || !panel.classList.contains("sandbox-output")) {
-    panel = document.createElement("div");
-    panel.className = "sandbox-output";
-    block.insertAdjacentElement("afterend", panel);
-  }
-
-  // Running state
-  btn.disabled = true;
-  btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Running…`;
-  panel.className = "sandbox-output running";
-  panel.innerHTML = `<span class="sandbox-status-label">Running…</span>`;
-
-  try {
-    const res = await fetch("/api/sandbox/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-      body: JSON.stringify({ language: lang, code })
-    });
-    const data = await res.json();
-
-    const exitBadge = data.exitCode === 0
-      ? `<span class="sandbox-badge ok">exit 0</span>`
-      : `<span class="sandbox-badge err">exit ${data.exitCode ?? "?"}</span>`;
-    const timeBadge = data.elapsedMs != null
-      ? `<span class="sandbox-badge neutral">${data.elapsedMs}ms</span>`
-      : "";
-    const phaseBadge = data.phase && data.phase !== "run"
-      ? `<span class="sandbox-badge warn">${esc(data.phase)}</span>`
-      : "";
-
-    if (data.error) {
-      // Unsupported language, timeout, or spawn failure
-      panel.className = "sandbox-output error";
-      panel.innerHTML =
-        `<div class="sandbox-header"><span class="sandbox-status-label">Error</span>${phaseBadge}${timeBadge}</div>` +
-        `<pre class="sandbox-pre error">${esc(data.error)}</pre>`;
-    } else {
-      const hasOutput = data.output && data.output.trim().length > 0;
-      panel.className = `sandbox-output ${data.ok ? "ok" : "error"}`;
-      panel.innerHTML =
-        `<div class="sandbox-header"><span class="sandbox-status-label">Output</span>${exitBadge}${phaseBadge}${timeBadge}</div>` +
-        `<pre class="sandbox-pre">${hasOutput ? esc(data.output) : '<span style="opacity:.45;">(no output)</span>'}</pre>`;
+    // Ensure a sandbox output panel exists immediately after the block
+    let panel = block.nextElementSibling;
+    if (!panel || !panel.classList.contains("sandbox-output")) {
+        panel = document.createElement("div");
+        panel.className = "sandbox-output";
+        block.insertAdjacentElement("afterend", panel);
     }
-  } catch (err) {
-    panel.className = "sandbox-output error";
-    panel.innerHTML =
-      `<div class="sandbox-header"><span class="sandbox-status-label">Error</span></div>` +
-      `<pre class="sandbox-pre error">${esc(err.message)}</pre>`;
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run`;
-  }
+
+    // Running state
+    btn.disabled = true;
+    btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Running…`;
+    panel.className = "sandbox-output running";
+    panel.innerHTML = `<span class="sandbox-status-label">Running…</span>`;
+
+    try {
+        const res = await fetch("/api/sandbox/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+            body: JSON.stringify({ language: lang, code })
+        });
+        const data = await res.json();
+
+        const exitBadge = data.exitCode === 0
+            ? `<span class="sandbox-badge ok">exit 0</span>`
+            : `<span class="sandbox-badge err">exit ${data.exitCode ?? "?"}</span>`;
+        const timeBadge = data.elapsedMs != null
+            ? `<span class="sandbox-badge neutral">${data.elapsedMs}ms</span>`
+            : "";
+        const phaseBadge = data.phase && data.phase !== "run"
+            ? `<span class="sandbox-badge warn">${esc(data.phase)}</span>`
+            : "";
+
+        if (data.error) {
+            // Unsupported language, timeout, or spawn failure
+            panel.className = "sandbox-output error";
+            panel.innerHTML =
+                `<div class="sandbox-header"><span class="sandbox-status-label">Error</span>${phaseBadge}${timeBadge}</div>` +
+                `<pre class="sandbox-pre error">${esc(data.error)}</pre>`;
+        } else {
+            const hasOutput = data.output && data.output.trim().length > 0;
+            panel.className = `sandbox-output ${data.ok ? "ok" : "error"}`;
+            panel.innerHTML =
+                `<div class="sandbox-header"><span class="sandbox-status-label">Output</span>${exitBadge}${phaseBadge}${timeBadge}</div>` +
+                `<pre class="sandbox-pre">${hasOutput ? esc(data.output) : '<span style="opacity:.45;">(no output)</span>'}</pre>`;
+        }
+    } catch (err) {
+        panel.className = "sandbox-output error";
+        panel.innerHTML =
+            `<div class="sandbox-header"><span class="sandbox-status-label">Error</span></div>` +
+            `<pre class="sandbox-pre error">${esc(err.message)}</pre>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run`;
+    }
 }
 
 // ── Code Review Modal ──────────────────────────────────────────────────────────
 let _reviewRawText = "";
 
 function openCodeReview(btn) {
-  const block = btn.closest(".md-code-block");
-  const lang = block.dataset.lang || "text";
-  const filename = block.dataset.filename || "";
-  const raw = decodeURIComponent(block.dataset.raw || "");
-  _reviewRawText = raw;
+    const block = btn.closest(".md-code-block");
+    const lang = block.dataset.lang || "text";
+    const filename = block.dataset.filename || "";
+    const raw = decodeURIComponent(block.dataset.raw || "");
+    _reviewRawText = raw;
 
-  const modal = document.getElementById("codeReviewModal");
-  const langEl = document.getElementById("codeReviewLang");
-  const fileEl = document.getElementById("codeReviewFilename");
-  const codeEl = document.getElementById("codeReviewContent");
-  const linesEl = document.getElementById("codeReviewLines");
+    const modal = document.getElementById("codeReviewModal");
+    const langEl = document.getElementById("codeReviewLang");
+    const fileEl = document.getElementById("codeReviewFilename");
+    const codeEl = document.getElementById("codeReviewContent");
+    const linesEl = document.getElementById("codeReviewLines");
 
-  // Badge color
-  const color = LANG_COLORS[lang] || "#888";
-  const textColor = ["#f7df1e","#f34b7d","#ffac45","#cbcb41"].includes(color) ? "#111" : "#fff";
-  langEl.textContent = lang;
-  langEl.style.background = color;
-  langEl.style.color = textColor;
-  fileEl.textContent = filename || "";
+    // Badge color
+    const color = LANG_COLORS[lang] || "#888";
+    const textColor = ["#f7df1e", "#f34b7d", "#ffac45", "#cbcb41"].includes(color) ? "#111" : "#fff";
+    langEl.textContent = lang;
+    langEl.style.background = color;
+    langEl.style.color = textColor;
+    fileEl.textContent = filename || "";
 
-  // Highlight
-  let highlighted = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  if (typeof hljs !== "undefined" && lang) {
-    try {
-      const validLang = hljs.getLanguage(lang) ? lang : null;
-      if (validLang) highlighted = hljs.highlight(raw, { language: validLang }).value;
-    } catch (_) {}
-  }
-  codeEl.innerHTML = highlighted;
-  linesEl.textContent = raw.split("\n").length + " lines";
-  modal.style.display = "flex";
-  document.body.style.overflow = "hidden";
+    // Highlight
+    let highlighted = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    if (typeof hljs !== "undefined" && lang) {
+        try {
+            const validLang = hljs.getLanguage(lang) ? lang : null;
+            if (validLang) highlighted = hljs.highlight(raw, { language: validLang }).value;
+        } catch (_) {}
+    }
+    codeEl.innerHTML = highlighted;
+    linesEl.textContent = raw.split("\n").length + " lines";
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
 }
 
 function closeCodeReview() {
-  document.getElementById("codeReviewModal").style.display = "none";
-  document.body.style.overflow = "";
+    document.getElementById("codeReviewModal").style.display = "none";
+    document.body.style.overflow = "";
 }
 
 function copyReviewCode() {
-  navigator.clipboard.writeText(_reviewRawText).then(() => {
-    const btn = document.getElementById("codeReviewCopyBtn");
-    btn.textContent = "Copied!";
-    setTimeout(() => { btn.textContent = "Copy"; }, 2000);
-  });
+    navigator.clipboard.writeText(_reviewRawText).then(() => {
+        const btn = document.getElementById("codeReviewCopyBtn");
+        btn.textContent = "Copied!";
+        setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+    });
 }
 
 // Close modal on backdrop click
 document.getElementById("codeReviewModal")?.addEventListener("click", (e) => {
-  if (e.target === document.getElementById("codeReviewModal")) closeCodeReview();
+    if (e.target === document.getElementById("codeReviewModal")) closeCodeReview();
 });
 
 /**
@@ -894,44 +894,44 @@ document.getElementById("codeReviewModal")?.addEventListener("click", (e) => {
  * Auto-scrolls to the bottom after rendering.
  */
 function renderMessages() {
-  const chat = state.chats?.find(c => c.userId === state.activeUser.id) || state.chats?.[0];
-  const msgs = chat?.messages || [];
-  if (!msgs.length) {
-    $("messages").innerHTML = `<div style="text-align:center; padding:60px 20px; color:var(--muted1); display:flex; flex-direction:column; align-items:center;">
+    const chat = state.chats?.find(c => c.userId === state.activeUser.id) || state.chats?.[0];
+    const msgs = chat?.messages || [];
+    if (!msgs.length) {
+        $("messages").innerHTML = `<div style="text-align:center; padding:60px 20px; color:var(--muted1); display:flex; flex-direction:column; align-items:center;">
       <div style="width:56px;height:56px;border-radius:50%;background:var(--ac);color:var(--ac-text);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:20px;box-shadow:0 4px 24px var(--ac-mid),0 0 0 6px var(--ac-pale);">✦</div>
       <div style="font-size:18px; font-weight:700; color:var(--body-text); margin-bottom:8px; letter-spacing:-0.02em;">Ready when you are</div>
       <div style="font-size:13px; line-height:1.7; max-width:280px;">Ask anything · Build · Review · Fix · Learn</div>
     </div>`;
-    return;
-  }
+        return;
+    }
 
-  $("messages").innerHTML = msgs.map(msg => {
-    const isUser = msg.role === "user";
-    const meta = isUser
-      ? `${esc(state.activeUser.name)}${msg.mode ? ` · <span class="badge badge-default" style="font-size:10px;">${esc(msg.mode)}</span>` : ""}`
-      : `${esc(msg.modelName || "Olla Nest")}${msg.live === false ? ` · <span class="badge badge-amber" style="font-size:10px;">setup needed</span>` : ""}`;
+    $("messages").innerHTML = msgs.map(msg => {
+        const isUser = msg.role === "user";
+        const meta = isUser
+            ? `${esc(state.activeUser.name)}${msg.mode ? ` · <span class="badge badge-default" style="font-size:10px;">${esc(msg.mode)}</span>` : ""}`
+            : `${esc(msg.modelName || "Olla Nest")}${msg.live === false ? ` · <span class="badge badge-amber" style="font-size:10px;">setup needed</span>` : ""}`;
 
-    const artifactChips = (msg.artifacts || []).map(a =>
-      `<span class="artifact-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>${esc(a.relativePath || a.name)}</span>`
-    ).join("");
-    const footer = !isUser ? `
+        const artifactChips = (msg.artifacts || []).map(a =>
+            `<span class="artifact-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>${esc(a.relativePath || a.name)}</span>`
+        ).join("");
+        const footer = !isUser ? `
       <div class="message-footer">
         ${msg.modelName ? `<span class="message-model-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>${esc(msg.modelName)}</span>` : ""}
       </div>
       ${artifactChips ? `<div class="artifact-row"><span class="artifact-row-label">Saved to workspace</span>${artifactChips}</div>` : ""}` : "";
 
-    const bubbleContent = isUser
-      ? `<div class="message-bubble user-bubble">${esc(msg.content)}</div>`
-      : `<div class="message-bubble assistant-bubble md-body">${renderMarkdown(msg.content)}</div>`;
+        const bubbleContent = isUser
+            ? `<div class="message-bubble user-bubble">${esc(msg.content)}</div>`
+            : `<div class="message-bubble assistant-bubble md-body">${renderMarkdown(msg.content)}</div>`;
 
-    return `<div class="message-wrap ${msg.role}">
+        return `<div class="message-wrap ${msg.role}">
       <div class="message-meta">${meta}</div>
       ${bubbleContent}
       ${footer}
     </div>`;
-  }).join("");
+    }).join("");
 
-  $("messages").scrollTop = $("messages").scrollHeight;
+    $("messages").scrollTop = $("messages").scrollHeight;
 }
 
 /**
@@ -942,12 +942,12 @@ function renderMessages() {
  * @param {{ selected: object, reason: string, tags: string[], candidates: object[] }|null} route
  */
 function renderRouter(route) {
-  if (!route || !route.selected) {
-    $("routerContent").innerHTML = `<div style="font-size:12px;color:var(--mute);line-height:1.6;">Send a message to see which model handled your request.</div>`;
-    return;
-  }
-  const top3 = (route.candidates || []).slice(0, 5);
-  $("routerContent").innerHTML = `
+    if (!route || !route.selected) {
+        $("routerContent").innerHTML = `<div style="font-size:12px;color:var(--mute);line-height:1.6;">Send a message to see which model handled your request.</div>`;
+        return;
+    }
+    const top3 = (route.candidates || []).slice(0, 5);
+    $("routerContent").innerHTML = `
     <div class="router-body">
       <div class="router-model">${esc(route.selected.name)}</div>
       <div class="router-reason">${esc(route.reason)}</div>
@@ -970,38 +970,38 @@ function renderRouter(route) {
  * any listeners that need to react (e.g. terminal workspace path sync).
  */
 async function loadState(retries = 3) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const data = await api("/api/state");
-      if (data) {
-        state = data;
-        window.state = state;
-        // Apply per-user theme as soon as we know the user ID
-        if (state.activeUser && state.activeUser.id && window.initUserTheme) {
-          window.initUserTheme(state.activeUser.id);
+    for (let attempt = 1;attempt <= retries;attempt++) {
+        try {
+            const data = await api("/api/state");
+            if (data) {
+                state = data;
+                window.state = state;
+                // Apply per-user theme as soon as we know the user ID
+                if (state.activeUser && state.activeUser.id && window.initUserTheme) {
+                    window.initUserTheme(state.activeUser.id);
+                }
+                renderSidebar();
+                renderMessages();
+                renderTopnavStats();
+                break;
+            }
+        } catch (err) {
+            console.warn(`[loadState] attempt ${attempt}/${retries} failed:`, err.message);
+            if (attempt === retries) {
+                // Show error state in user card so it never stays "Loading..."
+                const nameEl = document.getElementById("userName");
+                if (nameEl && nameEl.textContent === "Loading…") {
+                    nameEl.textContent = "Could not load";
+                    const metaEl = document.getElementById("userMeta");
+                    if (metaEl) metaEl.textContent = "Refresh to retry";
+                }
+            } else {
+                await new Promise(r => setTimeout(r, 1500 * attempt));
+            }
         }
-        renderSidebar();
-        renderMessages();
-        renderTopnavStats();
-        break;
-      }
-    } catch (err) {
-      console.warn(`[loadState] attempt ${attempt}/${retries} failed:`, err.message);
-      if (attempt === retries) {
-        // Show error state in user card so it never stays "Loading..."
-        const nameEl = document.getElementById("userName");
-        if (nameEl && nameEl.textContent === "Loading…") {
-          nameEl.textContent = "Could not load";
-          const metaEl = document.getElementById("userMeta");
-          if (metaEl) metaEl.textContent = "Refresh to retry";
-        }
-      } else {
-        await new Promise(r => setTimeout(r, 1500 * attempt));
-      }
     }
-  }
-  // Notify terminal panel about workspace path
-  window.dispatchEvent(new CustomEvent("olla-state-updated", { detail: state }));
+    // Notify terminal panel about workspace path
+    window.dispatchEvent(new CustomEvent("olla-state-updated", { detail: state }));
 }
 
 /**
@@ -1010,20 +1010,20 @@ async function loadState(retries = 3) {
  * The bar turns orange at 70% and red at 90% of the daily limit.
  */
 async function loadTokenUsage() {
-  const pill = document.getElementById("statTokenPill");
-  const used = document.getElementById("statTokenUsed");
-  const limit = document.getElementById("statTokenLimit");
-  const bar = document.getElementById("statTokenBar");
-  if (!pill || !used || !limit || !bar) return;
-  try {
-    const data = await api("/api/account/usage");
-    if (!data) return;
-    const pct = data.dailyTokenLimit > 0 ? Math.min(100, Math.round((data.tokensUsedToday / data.dailyTokenLimit) * 100)) : 0;
-    used.textContent = data.tokensUsedToday.toLocaleString();
-    limit.textContent = data.dailyTokenLimit > 0 ? data.dailyTokenLimit.toLocaleString() : "∞";
-    bar.style.width = pct + "%";
-    bar.className = "token-bar-fill" + (pct >= 90 ? " over" : pct >= 70 ? " warn" : "");
-  } catch {}
+    const pill = document.getElementById("statTokenPill");
+    const used = document.getElementById("statTokenUsed");
+    const limit = document.getElementById("statTokenLimit");
+    const bar = document.getElementById("statTokenBar");
+    if (!pill || !used || !limit || !bar) return;
+    try {
+        const data = await api("/api/account/usage");
+        if (!data) return;
+        const pct = data.dailyTokenLimit > 0 ? Math.min(100, Math.round((data.tokensUsedToday / data.dailyTokenLimit) * 100)) : 0;
+        used.textContent = data.tokensUsedToday.toLocaleString();
+        limit.textContent = data.dailyTokenLimit > 0 ? data.dailyTokenLimit.toLocaleString() : "∞";
+        bar.style.width = pct + "%";
+        bar.className = "token-bar-fill" + (pct >= 90 ? " over" : pct >= 70 ? " warn" : "");
+    } catch {}
 }
 
 /**
@@ -1033,26 +1033,26 @@ async function loadTokenUsage() {
  */
 let _ollamaWasOnline = null; // tracks previous state to detect transitions
 async function checkOllama() {
-  const label = $("ollamaStatus");
-  const dot = $("ollamaStatusDot");
-  try {
-    const data = await api("/api/ollama/ping");
-    if (data?.ok) {
-      if (label) label.textContent = "Ollama connected";
-      if (dot) dot.className = "status-dot ok";
-      // Only reload state when Ollama transitions from offline → online
-      if (_ollamaWasOnline === false) loadState();
-      _ollamaWasOnline = true;
-    } else {
-      if (label) label.textContent = "Ollama offline";
-      if (dot) dot.className = "status-dot off";
-      _ollamaWasOnline = false;
+    const label = $("ollamaStatus");
+    const dot = $("ollamaStatusDot");
+    try {
+        const data = await api("/api/ollama/ping");
+        if (data?.ok) {
+            if (label) label.textContent = "Ollama connected";
+            if (dot) dot.className = "status-dot ok";
+            // Only reload state when Ollama transitions from offline → online
+            if (_ollamaWasOnline === false) loadState();
+            _ollamaWasOnline = true;
+        } else {
+            if (label) label.textContent = "Ollama offline";
+            if (dot) dot.className = "status-dot off";
+            _ollamaWasOnline = false;
+        }
+    } catch {
+        if (label) label.textContent = "Ollama offline";
+        if (dot) dot.className = "status-dot off";
+        _ollamaWasOnline = false;
     }
-  } catch {
-    if (label) label.textContent = "Ollama offline";
-    if (dot) dot.className = "status-dot off";
-    _ollamaWasOnline = false;
-  }
 }
 
 /**
@@ -1061,25 +1061,25 @@ async function checkOllama() {
  * (meaning writes are always approved without the user toggling each time).
  */
 function updateWriteToggle() {
-  const label = $("writeToggleLabel");
-  const ws = state?.workspace;
-  const hasWorkspace = ws?.workspaceRoot;
-  label.style.display = hasWorkspace ? "flex" : "none";
-  if (ws?.permissionMode === "full") {
-    $("writeToWorkspace").checked = true;
-    label.classList.add("enabled");
-  }
-  const folderName = hasWorkspace ? ws.workspaceRoot.split("/").filter(Boolean).pop() : null;
-  const labelText = label.querySelector("span.write-label") || label;
-  if (folderName && label.querySelector("span.write-label")) {
-    label.querySelector("span.write-label").textContent = `Save to ${folderName}`;
-  }
+    const label = $("writeToggleLabel");
+    const ws = state?.workspace;
+    const hasWorkspace = ws?.workspaceRoot;
+    label.style.display = hasWorkspace ? "flex" : "none";
+    if (ws?.permissionMode === "full") {
+        $("writeToWorkspace").checked = true;
+        label.classList.add("enabled");
+    }
+    const folderName = hasWorkspace ? ws.workspaceRoot.split("/").filter(Boolean).pop() : null;
+    const labelText = label.querySelector("span.write-label") || label;
+    if (folderName && label.querySelector("span.write-label")) {
+        label.querySelector("span.write-label").textContent = `Save to ${folderName}`;
+    }
 }
 
 // Events
 
 $("writeToWorkspace").addEventListener("change", (e) => {
-  $("writeToggleLabel").classList.toggle("enabled", e.target.checked);
+    $("writeToggleLabel").classList.toggle("enabled", e.target.checked);
 });
 
 /**
@@ -1088,9 +1088,9 @@ $("writeToWorkspace").addEventListener("change", (e) => {
  * panel both reflect the new empty session.
  */
 async function startNewChat() {
-  await api("/api/chat/clear", { method: "POST", body: "{}" });
-  renderRouter(null);
-  await loadState();
+    await api("/api/chat/clear", { method: "POST", body: "{}" });
+    renderRouter(null);
+    await loadState();
 }
 $("newChatBtn").addEventListener("click", startNewChat);
 
@@ -1100,23 +1100,23 @@ if (sideNewChatBtn) sideNewChatBtn.addEventListener("click", startNewChat);
 
 // Sidebar chat item click — delegate (handles both ⋮ menu button and chat item switch)
 document.getElementById("sidebarChats")?.addEventListener("click", async (e) => {
-  // Three-dot menu button
-  const menuBtn = e.target.closest(".chat-item-menu-btn");
-  if (menuBtn) {
-    e.stopPropagation();
-    openChatCtxMenu(menuBtn.dataset.chatId, menuBtn);
-    return;
-  }
-  // Chat item row — switch to that session
-  const item = e.target.closest(".sidebar-chat-item");
-  if (!item) return;
-  const chatId = item.dataset.chatId;
-  if (!chatId) return;
-  closeChatCtxMenu();
-  // Switch active session on server then reload state
-  await api(`/api/threads/${chatId}/activate`, { method: "POST" }).catch(() => {});
-  await loadState();
-  document.getElementById("messages")?.scrollTo({ top: 0, behavior: "smooth" });
+    // Three-dot menu button
+    const menuBtn = e.target.closest(".chat-item-menu-btn");
+    if (menuBtn) {
+        e.stopPropagation();
+        openChatCtxMenu(menuBtn.dataset.chatId, menuBtn);
+        return;
+    }
+    // Chat item row — switch to that session
+    const item = e.target.closest(".sidebar-chat-item");
+    if (!item) return;
+    const chatId = item.dataset.chatId;
+    if (!chatId) return;
+    closeChatCtxMenu();
+    // Switch active session on server then reload state
+    await api(`/api/threads/${chatId}/activate`, { method: "POST" }).catch(() => {});
+    await loadState();
+    document.getElementById("messages")?.scrollTo({ top: 0, behavior: "smooth" });
 });
 
 let activeStreamReader = null;
@@ -1134,15 +1134,15 @@ let streamingMessageId = null;
  * @param {1|-1} rating - Thumbs up (1) or thumbs down (-1).
  */
 function submitFeedback(btn, messageId, sessionId, rating) {
-  if (!messageId) return; // no persisted message (e.g. DB was closed during stream)
-  fetch("/api/feedback", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-    body: JSON.stringify({ messageId, sessionId, rating, comment: "" }),
-  }).then(r => r.json()).then(() => {
-    btn.closest(".feedback-row").querySelectorAll(".thumb-btn").forEach(b => b.classList.remove("voted"));
-    btn.classList.add("voted");
-  }).catch(() => {});
+    if (!messageId) return; // no persisted message (e.g. DB was closed during stream)
+    fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ messageId, sessionId, rating, comment: "" }),
+    }).then(r => r.json()).then(() => {
+        btn.closest(".feedback-row").querySelectorAll(".thumb-btn").forEach(b => b.classList.remove("voted"));
+        btn.classList.add("voted");
+    }).catch(() => {});
 }
 
 /**
@@ -1161,39 +1161,39 @@ function submitFeedback(btn, messageId, sessionId, rating) {
  *  6. Re-enable send button in finally block.
  */
 $("chatForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const input = $("messageInput");
-  const message = input.value.trim();
-  if (!message) return;
+    e.preventDefault();
+    const input = $("messageInput");
+    const message = input.value.trim();
+    if (!message) return;
 
-  const sendBtn = $("sendBtn");
-  const stopBtn = $("stopBtn");
-  sendBtn.disabled = true;
-  sendBtn.style.display = "none";
-  stopBtn.style.display = "inline-flex";
-  // Save to input history (deduplicate consecutive identical messages)
-  if (inputHistory[inputHistory.length - 1] !== message) inputHistory.push(message);
-  historyIdx = -1;
-  historyDraft = "";
-  input.value = "";
+    const sendBtn = $("sendBtn");
+    const stopBtn = $("stopBtn");
+    sendBtn.disabled = true;
+    sendBtn.style.display = "none";
+    stopBtn.style.display = "inline-flex";
+    // Save to input history (deduplicate consecutive identical messages)
+    if (inputHistory[inputHistory.length - 1] !== message) inputHistory.push(message);
+    historyIdx = -1;
+    historyDraft = "";
+    input.value = "";
 
-  $("routerContent").innerHTML = `<div class="router-body" style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;">
+    $("routerContent").innerHTML = `<div class="router-body" style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;">
     <div style="width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;"></div>
     Routing…
   </div>
   <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
 
-  // Optimistically append user message to chat
-  const msgs = $("messages");
-  const userBubbleId = "streaming-user-" + Date.now();
-  const asstBubbleId = "streaming-asst-" + Date.now();
-  // Show image thumbnails in user bubble (before files are cleared)
-  const imgPreviews = uploadedFiles.filter(f => f.type.startsWith("image/"))
-    .map(f => `<img src="data:${f.type};base64,${f.data}" style="max-height:80px;max-width:120px;border-radius:8px;margin-top:6px;display:block;">`).join("");
-  const textPreviews = uploadedFiles.filter(f => !f.type.startsWith("image/"))
-    .map(f => `<div style="font-size:11px;color:var(--mute);margin-top:4px;">📎 ${esc(f.name)}</div>`).join("");
+    // Optimistically append user message to chat
+    const msgs = $("messages");
+    const userBubbleId = "streaming-user-" + Date.now();
+    const asstBubbleId = "streaming-asst-" + Date.now();
+    // Show image thumbnails in user bubble (before files are cleared)
+    const imgPreviews = uploadedFiles.filter(f => f.type.startsWith("image/"))
+        .map(f => `<img src="data:${f.type};base64,${f.data}" style="max-height:80px;max-width:120px;border-radius:8px;margin-top:6px;display:block;">`).join("");
+    const textPreviews = uploadedFiles.filter(f => !f.type.startsWith("image/"))
+        .map(f => `<div style="font-size:11px;color:var(--mute);margin-top:4px;">📎 ${esc(f.name)}</div>`).join("");
 
-  msgs.insertAdjacentHTML("beforeend", `
+    msgs.insertAdjacentHTML("beforeend", `
     <div class="message-wrap user" id="${userBubbleId}">
       <div class="message-meta">${esc(state?.activeUser?.name || "You")}</div>
       <div class="message-bubble user-bubble">${esc(message)}${imgPreviews}${textPreviews}</div>
@@ -1203,197 +1203,197 @@ $("chatForm").addEventListener("submit", async (e) => {
       <div class="message-bubble thinking-bubble" id="${asstBubbleId}-content"><div class="thinking-indicator"><span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-dot"></span><span class="thinking-phase" id="${asstBubbleId}-phase">Routing…</span></div></div>
     </div>
   `);
-  msgs.scrollTop = msgs.scrollHeight;
+    msgs.scrollTop = msgs.scrollHeight;
 
-  let fullContent = "";
-  let currentRoute = null;
-  let firstToken = true;
+    let fullContent = "";
+    let currentRoute = null;
+    let firstToken = true;
 
-  try {
-    // Collect images (base64) from uploaded files
-    const imageFiles = uploadedFiles.filter(f => f.type.startsWith("image/")).map(f => f.data);
-    const textFiles = uploadedFiles.filter(f => !f.type.startsWith("image/"));
-    // Append text file contents to message
-    let fullMessage = message;
-    if (textFiles.length) {
-      fullMessage += "\n\n" + textFiles.map(f => `\`\`\`${f.name}\n${f.data}\n\`\`\``).join("\n\n");
-    }
+    try {
+        // Collect images (base64) from uploaded files
+        const imageFiles = uploadedFiles.filter(f => f.type.startsWith("image/")).map(f => f.data);
+        const textFiles = uploadedFiles.filter(f => !f.type.startsWith("image/"));
+        // Append text file contents to message
+        let fullMessage = message;
+        if (textFiles.length) {
+            fullMessage += "\n\n" + textFiles.map(f => `\`\`\`${f.name}\n${f.data}\n\`\`\``).join("\n\n");
+        }
 
-    // Clear uploaded files after sending
-    uploadedFiles.length = 0;
-    renderFilePreviews();
+        // Clear uploaded files after sending
+        uploadedFiles.length = 0;
+        renderFilePreviews();
 
-    const response = await fetch("/api/chat/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-      body: JSON.stringify({
-        message: fullMessage,
-        mode: activeMode,
-        manualModelId: selectedModelId || null,
-        writeToWorkspace: $("writeToWorkspace")?.checked || false,
-        images: imageFiles.length ? imageFiles : undefined,
-        enableWebSearch: enableWebSearch || false,
-        deepResearch: enableDeepResearch || false,
-      }),
-    });
+        const response = await fetch("/api/chat/stream", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+            body: JSON.stringify({
+                message: fullMessage,
+                mode: activeMode,
+                manualModelId: selectedModelId || null,
+                writeToWorkspace: $("writeToWorkspace")?.checked || false,
+                images: imageFiles.length ? imageFiles : undefined,
+                enableWebSearch: enableWebSearch || false,
+                deepResearch: enableDeepResearch || false,
+            }),
+        });
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({ error: "Stream failed" }));
-      throw new Error(errData.error || "Stream failed");
-    }
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({ error: "Stream failed" }));
+            throw new Error(errData.error || "Stream failed");
+        }
 
-    const reader = response.body.getReader();
-    activeStreamReader = reader;
-    const decoder = new TextDecoder();
-    let buf = "";
+        const reader = response.body.getReader();
+        activeStreamReader = reader;
+        const decoder = new TextDecoder();
+        let buf = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const parts = buf.split("\n\n");
-      buf = parts.pop();
-      for (const part of parts) {
-        if (!part.startsWith("data: ")) continue;
-        try {
-          const event = JSON.parse(part.slice(6));
-          if (event.type === "search_status") {
-            const bubble = $(`${asstBubbleId}-content`);
-            if (bubble && firstToken) {
-              bubble.insertAdjacentHTML("beforebegin", `<div class="research-step-card" id="search-status-card">🔍 Web search: ${esc(event.query)} — ${event.resultsCount} results found</div>`);
-            }
-          } else if (event.type === "research_step") {
-            renderResearchStep(event, asstBubbleId);
-          } else if (event.type === "routing") {
-            $("routerContent").innerHTML = `<div class="router-body">
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const parts = buf.split("\n\n");
+            buf = parts.pop();
+            for (const part of parts) {
+                if (!part.startsWith("data: ")) continue;
+                try {
+                    const event = JSON.parse(part.slice(6));
+                    if (event.type === "search_status") {
+                        const bubble = $(`${asstBubbleId}-content`);
+                        if (bubble && firstToken) {
+                            bubble.insertAdjacentHTML("beforebegin", `<div class="research-step-card" id="search-status-card">🔍 Web search: ${esc(event.query)} — ${event.resultsCount} results found</div>`);
+                        }
+                    } else if (event.type === "research_step") {
+                        renderResearchStep(event, asstBubbleId);
+                    } else if (event.type === "routing") {
+                        $("routerContent").innerHTML = `<div class="router-body">
               <div class="router-model">${esc(event.model)}</div>
               <div class="router-reason">${esc(event.reason)}</div>
             </div>`;
-            const meta = $(`${asstBubbleId}`);
-            if (meta) meta.querySelector(".message-meta").textContent = esc(event.model);
-            // Update thinking phase label
-            const phase = $(`${asstBubbleId}-phase`);
-            if (phase) phase.textContent = "Thinking…";
-          } else if (event.type === "token") {
-            fullContent += event.content;
-            const bubble = $(`${asstBubbleId}-content`);
-            if (bubble) {
-              const { thinking, reply } = splitThinkingContent(fullContent);
-              // Only show the bubble once we have visible reply content or thinking is complete
-              const hasReply = reply.length > 0;
-              const thinkingComplete = !fullContent.includes("<think>") || fullContent.includes("</think>");
-              if (hasReply || thinkingComplete) {
-                if (firstToken) {
-                  firstToken = false;
-                  bubble.className = "message-bubble assistant-bubble md-body";
-                }
-                const thinkHtml = thinking
-                  ? `<details class="think-block"><summary>Thinking…</summary><div class="think-body">${esc(thinking)}</div></details>`
-                  : "";
-                bubble.innerHTML = thinkHtml + (hasReply ? renderMarkdown(reply) : "") + '<span class="streaming-cursor"></span>';
-              }
-            }
-            msgs.scrollTop = msgs.scrollHeight;
-          } else if (event.type === "done") {
-            const bubble = $(`${asstBubbleId}-content`);
-            if (bubble) {
-              const { thinking, reply } = splitThinkingContent(fullContent);
-              if (firstToken) { firstToken = false; bubble.className = "message-bubble assistant-bubble md-body"; }
-              const thinkHtml = thinking
-                ? `<details class="think-block"><summary>Thought process</summary><div class="think-body">${esc(thinking)}</div></details>`
-                : "";
-              bubble.innerHTML = thinkHtml + renderMarkdown(reply || "(No response)");
-            }
-            // Add feedback buttons
-            streamingMessageId = event.messageId || null;
-            streamingSessionId = state?.chats?.[0]?.id || null;
-            const asstWrap = $(`${asstBubbleId}`);
-            if (asstWrap) {
-              const feedbackBtns = event.messageId
-                ? `<button class="thumb-btn fb-btn" data-msg-id="${esc(event.messageId || '')}" data-session-id="${esc(streamingSessionId || '')}" data-rating="1">👍</button>
+                        const meta = $(`${asstBubbleId}`);
+                        if (meta) meta.querySelector(".message-meta").textContent = esc(event.model);
+                        // Update thinking phase label
+                        const phase = $(`${asstBubbleId}-phase`);
+                        if (phase) phase.textContent = "Thinking…";
+                    } else if (event.type === "token") {
+                        fullContent += event.content;
+                        const bubble = $(`${asstBubbleId}-content`);
+                        if (bubble) {
+                            const { thinking, reply } = splitThinkingContent(fullContent);
+                            // Only show the bubble once we have visible reply content or thinking is complete
+                            const hasReply = reply.length > 0;
+                            const thinkingComplete = !fullContent.includes("<think>") || fullContent.includes("</think>");
+                            if (hasReply || thinkingComplete) {
+                                if (firstToken) {
+                                    firstToken = false;
+                                    bubble.className = "message-bubble assistant-bubble md-body";
+                                }
+                                const thinkHtml = thinking
+                                    ? `<details class="think-block"><summary>Thinking…</summary><div class="think-body">${esc(thinking)}</div></details>`
+                                    : "";
+                                bubble.innerHTML = thinkHtml + (hasReply ? renderMarkdown(reply) : "") + '<span class="streaming-cursor"></span>';
+                            }
+                        }
+                        msgs.scrollTop = msgs.scrollHeight;
+                    } else if (event.type === "done") {
+                        const bubble = $(`${asstBubbleId}-content`);
+                        if (bubble) {
+                            const { thinking, reply } = splitThinkingContent(fullContent);
+                            if (firstToken) { firstToken = false; bubble.className = "message-bubble assistant-bubble md-body"; }
+                            const thinkHtml = thinking
+                                ? `<details class="think-block"><summary>Thought process</summary><div class="think-body">${esc(thinking)}</div></details>`
+                                : "";
+                            bubble.innerHTML = thinkHtml + renderMarkdown(reply || "(No response)");
+                        }
+                        // Add feedback buttons
+                        streamingMessageId = event.messageId || null;
+                        streamingSessionId = state?.chats?.[0]?.id || null;
+                        const asstWrap = $(`${asstBubbleId}`);
+                        if (asstWrap) {
+                            const feedbackBtns = event.messageId
+                                ? `<button class="thumb-btn fb-btn" data-msg-id="${esc(event.messageId || '')}" data-session-id="${esc(streamingSessionId || '')}" data-rating="1">👍</button>
                    <button class="thumb-btn fb-btn" data-msg-id="${esc(event.messageId || '')}" data-session-id="${esc(streamingSessionId || '')}" data-rating="-1">👎</button>`
-                : "";
-              asstWrap.insertAdjacentHTML("beforeend", `
+                                : "";
+                            asstWrap.insertAdjacentHTML("beforeend", `
                 <div class="feedback-row">
                   ${feedbackBtns}
                   <span style="font-size:11px;color:var(--muted);margin-left:4px;">${event.tokensUsed ? event.tokensUsed + ' tokens' : ''}</span>
                 </div>`);
+                        }
+                        await loadState();
+                    } else if (event.type === "error") {
+                        const bubble = $(`${asstBubbleId}-content`);
+                        if (bubble) bubble.innerHTML = `<span style="color:var(--danger);">${esc(event.message)}</span>`;
+                    }
+                } catch {}
             }
-            await loadState();
-          } else if (event.type === "error") {
+        }
+    } catch (err) {
+        if (err.name !== "AbortError") {
             const bubble = $(`${asstBubbleId}-content`);
-            if (bubble) bubble.innerHTML = `<span style="color:var(--danger);">${esc(event.message)}</span>`;
-          }
-        } catch {}
-      }
+            if (bubble) bubble.innerHTML = `<span style="color:var(--danger);">${esc(err.message)}</span>`;
+            $("routerContent").innerHTML = `<div class="router-body"><div style="font-size:13px;color:var(--danger);">${esc(err.message)}</div></div>`;
+        }
+    } finally {
+        activeStreamReader = null;
+        sendBtn.disabled = false;
+        sendBtn.style.display = "inline-flex";
+        stopBtn.style.display = "none";
     }
-  } catch (err) {
-    if (err.name !== "AbortError") {
-      const bubble = $(`${asstBubbleId}-content`);
-      if (bubble) bubble.innerHTML = `<span style="color:var(--danger);">${esc(err.message)}</span>`;
-      $("routerContent").innerHTML = `<div class="router-body"><div style="font-size:13px;color:var(--danger);">${esc(err.message)}</div></div>`;
-    }
-  } finally {
-    activeStreamReader = null;
-    sendBtn.disabled = false;
-    sendBtn.style.display = "inline-flex";
-    stopBtn.style.display = "none";
-  }
 });
 
 $("stopBtn").addEventListener("click", () => {
-  if (activeStreamReader) { activeStreamReader.cancel(); }
+    if (activeStreamReader) { activeStreamReader.cancel(); }
 });
 
 // Account button — opens the profile drawer (same as clicking the sidebar user card)
 $("accountBtn").addEventListener("click", () => {
-  const trigger = document.getElementById("appProfileBtn");
-  if (trigger) trigger.click();
+    const trigger = document.getElementById("appProfileBtn");
+    if (trigger) trigger.click();
 });
 
 
 // Workspace config
 const ICON_PENCIL = `<svg id="configWorkspaceIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
-const ICON_CLOSE  = `<svg id="configWorkspaceIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const ICON_CLOSE = `<svg id="configWorkspaceIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
 function setWorkspacePanel(open) {
-  workspaceConfigOpen = open;
-  $("workspaceConfigPanel").style.display = open ? "block" : "none";
-  $("configWorkspaceBtn").innerHTML = open ? ICON_CLOSE : ICON_PENCIL;
+    workspaceConfigOpen = open;
+    $("workspaceConfigPanel").style.display = open ? "block" : "none";
+    $("configWorkspaceBtn").innerHTML = open ? ICON_CLOSE : ICON_PENCIL;
 }
 
 $("configWorkspaceBtn").addEventListener("click", () => {
-  const opening = !workspaceConfigOpen;
-  setWorkspacePanel(opening);
-  if (opening) {
-    // OS detection — always runs when panel opens
-    const ua = navigator.userAgent || "";
-    const isWin = ua.includes("Windows");
-    const isLinux = ua.includes("Linux") && !ua.includes("Android");
-    const defaultSuggest = isWin
-      ? "/host-home/Documents/my-project"
-      : isLinux
-        ? "/host-home/projects/my-project"
-        : "/host-home/Documents/my-project";
+    const opening = !workspaceConfigOpen;
+    setWorkspacePanel(opening);
+    if (opening) {
+        // OS detection — always runs when panel opens
+        const ua = navigator.userAgent || "";
+        const isWin = ua.includes("Windows");
+        const isLinux = ua.includes("Linux") && !ua.includes("Android");
+        const defaultSuggest = isWin
+            ? "/host-home/Documents/my-project"
+            : isLinux
+                ? "/host-home/projects/my-project"
+                : "/host-home/Documents/my-project";
 
-    // OS hint — always update
-    const hint = $("wsOsHint");
-    if (hint) {
-      if (isWin) {
-        hint.innerHTML = `Windows: <code style="font-size:11px;">C:\\Users\\you\\Documents\\project</code> → <code style="font-size:11px;">/host-home/Documents/project</code>`;
-      } else if (isLinux) {
-        hint.innerHTML = `Linux: <code style="font-size:11px;">~/projects/myapp</code> → <code style="font-size:11px;">/host-home/projects/myapp</code>`;
-      } else {
-        hint.innerHTML = `macOS: <code style="font-size:11px;">~/Documents/myproject</code> → <code style="font-size:11px;">/host-home/Documents/myproject</code>`;
-      }
+        // OS hint — always update
+        const hint = $("wsOsHint");
+        if (hint) {
+            if (isWin) {
+                hint.innerHTML = `Windows: <code style="font-size:11px;">C:\\Users\\you\\Documents\\project</code> → <code style="font-size:11px;">/host-home/Documents/project</code>`;
+            } else if (isLinux) {
+                hint.innerHTML = `Linux: <code style="font-size:11px;">~/projects/myapp</code> → <code style="font-size:11px;">/host-home/projects/myapp</code>`;
+            } else {
+                hint.innerHTML = `macOS: <code style="font-size:11px;">~/Documents/myproject</code> → <code style="font-size:11px;">/host-home/Documents/myproject</code>`;
+            }
+        }
+
+        // Pre-fill input: use saved path only if it's a valid container path.
+        // If the saved path is an old host path (e.g. /Users/...), discard it and use the OS default.
+        const saved = state?.workspace?.workspaceRoot || "";
+        const isValidContainerPath = saved.startsWith("/host-home") || saved.startsWith("/app/data");
+        $("workspaceFolderInput").value = isValidContainerPath ? saved : defaultSuggest;
     }
-
-    // Pre-fill input: use saved path only if it's a valid container path.
-    // If the saved path is an old host path (e.g. /Users/...), discard it and use the OS default.
-    const saved = state?.workspace?.workspaceRoot || "";
-    const isValidContainerPath = saved.startsWith("/host-home") || saved.startsWith("/app/data");
-    $("workspaceFolderInput").value = isValidContainerPath ? saved : defaultSuggest;
-  }
 });
 
 $("cancelWorkspaceBtn").addEventListener("click", () => { setWorkspacePanel(false); });
@@ -1402,81 +1402,81 @@ $("cancelWorkspaceBtn").addEventListener("click", () => { setWorkspacePanel(fals
 let wsBrowserOpen = false;
 
 async function wsBrowseTo(browsePath) {
-  try {
-    const url = "/api/workspace/browse" + (browsePath ? "?path=" + encodeURIComponent(browsePath) : "");
-    const data = await api(url);
-    const list = $("wsBrowserList");
-    const pathEl = $("wsBrowserPath");
-    // Show friendly path
-    pathEl.textContent = data.current.startsWith("/host-home")
-      ? "~" + data.current.slice("/host-home".length)
-      : data.current;
+    try {
+        const url = "/api/workspace/browse" + (browsePath ? "?path=" + encodeURIComponent(browsePath) : "");
+        const data = await api(url);
+        const list = $("wsBrowserList");
+        const pathEl = $("wsBrowserPath");
+        // Show friendly path
+        pathEl.textContent = data.current.startsWith("/host-home")
+            ? "~" + data.current.slice("/host-home".length)
+            : data.current;
 
-    let html = "";
-    if (data.parent) {
-      html += `<div class="ws-browser-item" onclick="wsBrowseTo(${JSON.stringify(data.parent)})" style="color:var(--mute);">⬆ ..</div>`;
+        let html = "";
+        if (data.parent) {
+            html += `<div class="ws-browser-item" onclick="wsBrowseTo(${JSON.stringify(data.parent)})" style="color:var(--mute);">⬆ ..</div>`;
+        }
+        // Show "Select this folder" option
+        html += `<div class="ws-browser-item ws-browser-select" onclick="wsSelectFolder(${JSON.stringify(data.current)})">✅ Select <em>${data.current.split("/").pop() || "/"}</em></div>`;
+        data.dirs.forEach(d => {
+            html += `<div class="ws-browser-item" onclick="wsBrowseTo(${JSON.stringify(d.path)})">📁 ${esc(d.name)}</div>`;
+        });
+        if (!data.dirs.length && !data.parent) html += `<div style="padding:8px 12px;font-size:12px;color:var(--mute);">No sub-folders found.</div>`;
+        list.innerHTML = html;
+    } catch (e) {
+        $("wsBrowserList").innerHTML = `<div style="padding:8px 12px;font-size:12px;color:red;">${esc(e.message)}</div>`;
     }
-    // Show "Select this folder" option
-    html += `<div class="ws-browser-item ws-browser-select" onclick="wsSelectFolder(${JSON.stringify(data.current)})">✅ Select <em>${data.current.split("/").pop() || "/"}</em></div>`;
-    data.dirs.forEach(d => {
-      html += `<div class="ws-browser-item" onclick="wsBrowseTo(${JSON.stringify(d.path)})">📁 ${esc(d.name)}</div>`;
-    });
-    if (!data.dirs.length && !data.parent) html += `<div style="padding:8px 12px;font-size:12px;color:var(--mute);">No sub-folders found.</div>`;
-    list.innerHTML = html;
-  } catch (e) {
-    $("wsBrowserList").innerHTML = `<div style="padding:8px 12px;font-size:12px;color:red;">${esc(e.message)}</div>`;
-  }
 }
 
 function wsSelectFolder(folderPath) {
-  $("workspaceFolderInput").value = folderPath;
-  // Close browser
-  $("wsFolderBrowser").style.display = "none";
-  $("wsBrowseBtn").textContent = "📂 Browse folders";
-  wsBrowserOpen = false;
+    $("workspaceFolderInput").value = folderPath;
+    // Close browser
+    $("wsFolderBrowser").style.display = "none";
+    $("wsBrowseBtn").textContent = "📂 Browse folders";
+    wsBrowserOpen = false;
 }
 
 $("wsBrowseBtn").addEventListener("click", async () => {
-  wsBrowserOpen = !wsBrowserOpen;
-  const browser = $("wsFolderBrowser");
-  browser.style.display = wsBrowserOpen ? "block" : "none";
-  $("wsBrowseBtn").textContent = wsBrowserOpen ? "✕ Close browser" : "📂 Browse folders";
-  if (wsBrowserOpen) {
-    // Start at current value or host-home root
-    const current = $("workspaceFolderInput").value.trim() || "/host-home";
-    const startPath = current.startsWith("/host-home") || current.startsWith("/app/data") ? current : "/host-home";
-    await wsBrowseTo(startPath);
-  }
+    wsBrowserOpen = !wsBrowserOpen;
+    const browser = $("wsFolderBrowser");
+    browser.style.display = wsBrowserOpen ? "block" : "none";
+    $("wsBrowseBtn").textContent = wsBrowserOpen ? "✕ Close browser" : "📂 Browse folders";
+    if (wsBrowserOpen) {
+        // Start at current value or host-home root
+        const current = $("workspaceFolderInput").value.trim() || "/host-home";
+        const startPath = current.startsWith("/host-home") || current.startsWith("/app/data") ? current : "/host-home";
+        await wsBrowseTo(startPath);
+    }
 });
 
 $("saveWorkspaceBtn").addEventListener("click", async () => {
-  const msg = $("workspaceSaveMsg");
-  msg.textContent = "";
-  const path = $("workspaceFolderInput").value.trim();
-  if (!path) { msg.textContent = "Folder path required."; return; }
-  try {
-    await api("/api/workspace/local-settings", {
-      method: "POST",
-      body: JSON.stringify({
-        workspaceRoot: path,
-        permissionMode: $("permissionModeSelect").value,
-      }),
-    });
-    msg.textContent = "Saved!";
-    await loadState();
-    setTimeout(() => {
-      setWorkspacePanel(false);
-      msg.textContent = "";
-    }, 1200);
-  } catch (err) {
-    msg.textContent = err.message;
-    msg.style.color = "#EF4444";
-  }
+    const msg = $("workspaceSaveMsg");
+    msg.textContent = "";
+    const path = $("workspaceFolderInput").value.trim();
+    if (!path) { msg.textContent = "Folder path required."; return; }
+    try {
+        await api("/api/workspace/local-settings", {
+            method: "POST",
+            body: JSON.stringify({
+                workspaceRoot: path,
+                permissionMode: $("permissionModeSelect").value,
+            }),
+        });
+        msg.textContent = "Saved!";
+        await loadState();
+        setTimeout(() => {
+            setWorkspacePanel(false);
+            msg.textContent = "";
+        }, 1200);
+    } catch (err) {
+        msg.textContent = err.message;
+        msg.style.color = "#EF4444";
+    }
 });
 
 $("logoutBtn").addEventListener("click", async () => {
-  await api("/api/auth/logout", { method: "POST", body: "{}" });
-  window.location.href = "/login";
+    await api("/api/auth/logout", { method: "POST", body: "{}" });
+    window.location.href = "/login";
 });
 
 // Input history — ↑/↓ to navigate sent messages (like a terminal)
@@ -1486,36 +1486,36 @@ let historyDraft = ""; // saves current draft when navigating up
 
 // Textarea auto-resize + Enter to send + ↑↓ history
 $("messageInput").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    $("chatForm").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    return;
-  }
-  const inp = $("messageInput");
-  // ArrowUp: navigate to older history (only when cursor is on first line or field is empty)
-  if (e.key === "ArrowUp") {
-    const atTop = inp.selectionStart === 0 || !inp.value.includes("\n");
-    if (!atTop) return;
-    if (inputHistory.length === 0) return;
-    e.preventDefault();
-    if (historyIdx === -1) historyDraft = inp.value; // save current draft
-    historyIdx = Math.min(historyIdx + 1, inputHistory.length - 1);
-    inp.value = inputHistory[inputHistory.length - 1 - historyIdx];
-    inp.selectionStart = inp.selectionEnd = inp.value.length;
-    return;
-  }
-  // ArrowDown: navigate to newer history
-  if (e.key === "ArrowDown") {
-    if (historyIdx === -1) return;
-    e.preventDefault();
-    historyIdx--;
-    if (historyIdx === -1) {
-      inp.value = historyDraft; // restore draft
-    } else {
-      inp.value = inputHistory[inputHistory.length - 1 - historyIdx];
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        $("chatForm").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        return;
     }
-    inp.selectionStart = inp.selectionEnd = inp.value.length;
-  }
+    const inp = $("messageInput");
+    // ArrowUp: navigate to older history (only when cursor is on first line or field is empty)
+    if (e.key === "ArrowUp") {
+        const atTop = inp.selectionStart === 0 || !inp.value.includes("\n");
+        if (!atTop) return;
+        if (inputHistory.length === 0) return;
+        e.preventDefault();
+        if (historyIdx === -1) historyDraft = inp.value; // save current draft
+        historyIdx = Math.min(historyIdx + 1, inputHistory.length - 1);
+        inp.value = inputHistory[inputHistory.length - 1 - historyIdx];
+        inp.selectionStart = inp.selectionEnd = inp.value.length;
+        return;
+    }
+    // ArrowDown: navigate to newer history
+    if (e.key === "ArrowDown") {
+        if (historyIdx === -1) return;
+        e.preventDefault();
+        historyIdx--;
+        if (historyIdx === -1) {
+            inp.value = historyDraft; // restore draft
+        } else {
+            inp.value = inputHistory[inputHistory.length - 1 - historyIdx];
+        }
+        inp.selectionStart = inp.selectionEnd = inp.value.length;
+    }
 });
 
 // ── Claude-style app model picker ───────────────────────────────────────────
@@ -1529,9 +1529,9 @@ $("messageInput").addEventListener("keydown", (e) => {
  * @returns {number} Context window size in tokens.
  */
 function estimateCtxApp(name) {
-  // Use the real context_size stored from Ollama /api/show — no hardcoded guessing
-  const m = (state?.models || []).find(m => m.name === name || m.model === name);
-  return m?.contextSize || 8192;
+    // Use the real context_size stored from Ollama /api/show — no hardcoded guessing
+    const m = (state?.models || []).find(m => m.name === name || m.model === name);
+    return m?.contextSize || 8192;
 }
 function fmtCtx(n) { return n >= 1000 ? (n / 1000).toFixed(0) + "k" : String(n); }
 
@@ -1545,32 +1545,32 @@ let selectedModelId = "";
  * @param {object[]} models - Array of allowed model objects from state.
  */
 function populateAppModelPicker(models) {
-  const list = document.getElementById("appModelList");
-  if (!list) return;
-  const isAuto = !selectedModelId;
-  let html = `<div class="app-auto-item${isAuto ? " active" : ""}" data-id="" data-name="Auto Router">
+    const list = document.getElementById("appModelList");
+    if (!list) return;
+    const isAuto = !selectedModelId;
+    let html = `<div class="app-auto-item${isAuto ? " active" : ""}" data-id="" data-name="Auto Router">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
     <span>Auto Router</span>${isAuto ? `<span class="app-model-check">✓</span>` : ""}
   </div>`;
-  (models || []).forEach(m => {
-    const ctx = estimateCtxApp(m.name);
-    const active = m.id === selectedModelId;
-    html += `<div class="app-model-item${active ? " active" : ""}" data-id="${esc(m.id)}" data-name="${esc(m.name)}">
+    (models || []).forEach(m => {
+        const ctx = estimateCtxApp(m.name);
+        const active = m.id === selectedModelId;
+        html += `<div class="app-model-item${active ? " active" : ""}" data-id="${esc(m.id)}" data-name="${esc(m.name)}">
       <div class="app-model-dot${m.status !== "available" ? " off" : ""}"></div>
       <span>${esc(m.name)}</span>
       <span class="app-model-ctx">${fmtCtx(ctx)}</span>
       ${active ? `<span class="app-model-check">✓</span>` : ""}
     </div>`;
-  });
-  list.innerHTML = html;
-  list.querySelectorAll("[data-id]").forEach(el => {
-    el.addEventListener("click", () => {
-      selectedModelId = el.dataset.id;
-      const nameEl = document.getElementById("appModelName");
-      if (nameEl) nameEl.textContent = el.dataset.name || "Auto Router";
-      closeAppModelDropdown();
     });
-  });
+    list.innerHTML = html;
+    list.querySelectorAll("[data-id]").forEach(el => {
+        el.addEventListener("click", () => {
+            selectedModelId = el.dataset.id;
+            const nameEl = document.getElementById("appModelName");
+            if (nameEl) nameEl.textContent = el.dataset.name || "Auto Router";
+            closeAppModelDropdown();
+        });
+    });
 }
 
 const appPicker = document.getElementById("appModelPicker");
@@ -1581,27 +1581,27 @@ const appDropdown = document.getElementById("appModelDropdown");
  * button depending on available screen space (prevents clipping at viewport edges).
  */
 function openAppModelDropdown() {
-  if (!appDropdown) return;
-  const models = allowedModels();
-  populateAppModelPicker(models);
-  appPicker?.classList.add("open");
-  appDropdown.classList.add("open");
+    if (!appDropdown) return;
+    const models = allowedModels();
+    populateAppModelPicker(models);
+    appPicker?.classList.add("open");
+    appDropdown.classList.add("open");
 }
 function closeAppModelDropdown() {
-  appPicker?.classList.remove("open");
-  appDropdown?.classList.remove("open");
+    appPicker?.classList.remove("open");
+    appDropdown?.classList.remove("open");
 }
 
 if (appPicker) {
-  appPicker.addEventListener("click", (e) => {
-    e.stopPropagation();
-    appDropdown?.classList.contains("open") ? closeAppModelDropdown() : openAppModelDropdown();
-  });
+    appPicker.addEventListener("click", (e) => {
+        e.stopPropagation();
+        appDropdown?.classList.contains("open") ? closeAppModelDropdown() : openAppModelDropdown();
+    });
 }
 document.addEventListener("click", (e) => {
-  if (appDropdown && !appDropdown.contains(e.target) && e.target !== appPicker) {
-    closeAppModelDropdown();
-  }
+    if (appDropdown && !appDropdown.contains(e.target) && e.target !== appPicker) {
+        closeAppModelDropdown();
+    }
 });
 
 // ─── File upload ──────────────────────────────────────────────────────────────
@@ -1623,100 +1623,100 @@ if (uploadFileBtn) uploadFileBtn.addEventListener("click", () => fileInput?.clic
  * Hides the bar entirely when uploadedFiles is empty.
  */
 function renderFilePreviews() {
-  if (!filePreviewBar) return;
-  if (!uploadedFiles.length) { filePreviewBar.style.display = "none"; filePreviewBar.innerHTML = ""; return; }
-  filePreviewBar.style.display = "flex";
-  filePreviewBar.innerHTML = uploadedFiles.map((f, i) => {
-    const isImg = f.type.startsWith("image/");
-    const thumb = isImg ? `<img src="data:${f.type};base64,${f.data}" alt="">` : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-    return `<div class="file-chip">${thumb}<span class="file-chip-name" title="${esc(f.name)}">${esc(f.name)}</span><span class="file-chip-rm" data-idx="${i}">×</span></div>`;
-  }).join("");
-  filePreviewBar.querySelectorAll(".file-chip-rm").forEach(btn => {
-    btn.addEventListener("click", () => {
-      uploadedFiles.splice(Number(btn.dataset.idx), 1);
-      renderFilePreviews();
+    if (!filePreviewBar) return;
+    if (!uploadedFiles.length) { filePreviewBar.style.display = "none"; filePreviewBar.innerHTML = ""; return; }
+    filePreviewBar.style.display = "flex";
+    filePreviewBar.innerHTML = uploadedFiles.map((f, i) => {
+        const isImg = f.type.startsWith("image/");
+        const thumb = isImg ? `<img src="data:${f.type};base64,${f.data}" alt="">` : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+        return `<div class="file-chip">${thumb}<span class="file-chip-name" title="${esc(f.name)}">${esc(f.name)}</span><span class="file-chip-rm" data-idx="${i}">×</span></div>`;
+    }).join("");
+    filePreviewBar.querySelectorAll(".file-chip-rm").forEach(btn => {
+        btn.addEventListener("click", () => {
+            uploadedFiles.splice(Number(btn.dataset.idx), 1);
+            renderFilePreviews();
+        });
     });
-  });
 }
 
 if (fileInput) {
-  fileInput.addEventListener("change", async () => {
-    const files = Array.from(fileInput.files || []);
-    for (const file of files) {
-      if (uploadedFiles.length >= 5) break; // cap at 5 attachments
-      const isImg = file.type.startsWith("image/");
-      const data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          if (isImg) {
-            // strip "data:image/xxx;base64," prefix
-            resolve(e.target.result.split(",")[1]);
-          } else {
-            resolve(e.target.result);
-          }
-        };
-        reader.onerror = reject;
-        if (isImg) reader.readAsDataURL(file);
-        else reader.readAsText(file);
-      });
-      uploadedFiles.push({ name: file.name, type: file.type, data });
-    }
-    fileInput.value = "";
-    renderFilePreviews();
-  });
+    fileInput.addEventListener("change", async () => {
+        const files = Array.from(fileInput.files || []);
+        for (const file of files) {
+            if (uploadedFiles.length >= 5) break; // cap at 5 attachments
+            const isImg = file.type.startsWith("image/");
+            const data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    if (isImg) {
+                        // strip "data:image/xxx;base64," prefix
+                        resolve(e.target.result.split(",")[1]);
+                    } else {
+                        resolve(e.target.result);
+                    }
+                };
+                reader.onerror = reject;
+                if (isImg) reader.readAsDataURL(file);
+                else reader.readAsText(file);
+            });
+            uploadedFiles.push({ name: file.name, type: file.type, data });
+        }
+        fileInput.value = "";
+        renderFilePreviews();
+    });
 }
 
 // ─── Delegated event handlers for code block and feedback buttons ─────────────
 // Replaces inline onclick attributes to prevent XSS via AI-generated content.
 document.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-action]");
-  if (btn) {
-    const action = btn.dataset.action;
-    if (action === "copy") { copyCode(btn); return; }
-    if (action === "run")     { runInTerminal(btn); return; }
-    if (action === "sandbox") { runInSandbox(btn);  return; }
-    if (action === "view") { openCodeReview(btn); return; }
-  }
-  // Feedback buttons
-  const fbBtn = e.target.closest(".fb-btn");
-  if (fbBtn) {
-    submitFeedback(fbBtn, fbBtn.dataset.msgId, fbBtn.dataset.sessionId, parseInt(fbBtn.dataset.rating, 10));
-  }
+    const btn = e.target.closest("button[data-action]");
+    if (btn) {
+        const action = btn.dataset.action;
+        if (action === "copy") { copyCode(btn); return; }
+        if (action === "run") { runInTerminal(btn); return; }
+        if (action === "sandbox") { runInSandbox(btn); return; }
+        if (action === "view") { openCodeReview(btn); return; }
+    }
+    // Feedback buttons
+    const fbBtn = e.target.closest(".fb-btn");
+    if (fbBtn) {
+        submitFeedback(fbBtn, fbBtn.dataset.msgId, fbBtn.dataset.sessionId, parseInt(fbBtn.dataset.rating, 10));
+    }
 });
 
 // ─── Web search toggle ───────────────────────────────────────────────────────
 let enableWebSearch = false;
 const webSearchBtn = document.getElementById("webSearchBtn");
 if (webSearchBtn) {
-  webSearchBtn.addEventListener("click", () => {
-    enableWebSearch = !enableWebSearch;
-    webSearchBtn.classList.toggle("active", enableWebSearch);
-    webSearchBtn.title = enableWebSearch ? "Web search ON — click to disable" : "Search the web for up-to-date information";
-  });
+    webSearchBtn.addEventListener("click", () => {
+        enableWebSearch = !enableWebSearch;
+        webSearchBtn.classList.toggle("active", enableWebSearch);
+        webSearchBtn.title = enableWebSearch ? "Web search ON — click to disable" : "Search the web for up-to-date information";
+    });
 }
 
 // ─── Deep research toggle ────────────────────────────────────────────────────
 let enableDeepResearch = false;
 const deepResearchBtn = document.getElementById("deepResearchBtn");
 if (deepResearchBtn) {
-  deepResearchBtn.addEventListener("click", () => {
-    enableDeepResearch = !enableDeepResearch;
-    deepResearchBtn.classList.toggle("active", enableDeepResearch);
-    deepResearchBtn.title = enableDeepResearch ? "Deep research ON — click to disable" : "Multi-step research with planning, search, and synthesis";
-    if (enableDeepResearch) {
-      const input = document.getElementById("messageInput");
-      if (input && !input.placeholder.includes("research query")) {
-        input.setAttribute("data-default-placeholder", input.placeholder);
-        input.placeholder = "Enter your research query — I'll plan, search, and synthesise a full report…";
-      }
-    } else {
-      const input = document.getElementById("messageInput");
-      if (input) {
-        const def = input.getAttribute("data-default-placeholder");
-        if (def) input.placeholder = def;
-      }
-    }
-  });
+    deepResearchBtn.addEventListener("click", () => {
+        enableDeepResearch = !enableDeepResearch;
+        deepResearchBtn.classList.toggle("active", enableDeepResearch);
+        deepResearchBtn.title = enableDeepResearch ? "Deep research ON — click to disable" : "Multi-step research with planning, search, and synthesis";
+        if (enableDeepResearch) {
+            const input = document.getElementById("messageInput");
+            if (input && !input.placeholder.includes("research query")) {
+                input.setAttribute("data-default-placeholder", input.placeholder);
+                input.placeholder = "Enter your research query — I'll plan, search, and synthesise a full report…";
+            }
+        } else {
+            const input = document.getElementById("messageInput");
+            if (input) {
+                const def = input.getAttribute("data-default-placeholder");
+                if (def) input.placeholder = def;
+            }
+        }
+    });
 }
 
 // ─── Voice input ─────────────────────────────────────────────────────────────
@@ -1725,161 +1725,161 @@ let mediaRecorder = null;
 let audioChunks = [];
 
 if (voiceBtn) {
-  // Click-to-toggle recording: click once to start, click again to stop & transcribe.
-  // Works on Firefox, Safari, Chrome, Edge — both http://localhost and https://.
+    // Click-to-toggle recording: click once to start, click again to stop & transcribe.
+    // Works on Firefox, Safari, Chrome, Edge — both http://localhost and https://.
 
-  let voiceStream = null;
+    let voiceStream = null;
 
-  function setVoiceRecordingUI(on) {
-    voiceBtn.classList.toggle("recording", on);
-    voiceBtn.setAttribute("aria-pressed", on ? "true" : "false");
-    voiceBtn.title = on ? "Click to stop & transcribe" : "Click to record voice";
-  }
-
-  function setVoiceTranscribingUI(on) {
-    voiceBtn.disabled = on;
-    voiceBtn.title = on ? "Transcribing…" : "Click to record voice";
-  }
-
-  voiceBtn.title = "Click to record voice";
-
-  // Inline recording status shown below the mic button
-  let _voiceStatusEl = null;
-  function _setVoiceStatus(text, color) {
-    if (!_voiceStatusEl) {
-      _voiceStatusEl = document.createElement("div");
-      _voiceStatusEl.style.cssText = "font-size:11px;text-align:center;margin-top:4px;transition:opacity .3s;";
-      voiceBtn.parentNode.insertBefore(_voiceStatusEl, voiceBtn.nextSibling);
+    function setVoiceRecordingUI(on) {
+        voiceBtn.classList.toggle("recording", on);
+        voiceBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        voiceBtn.title = on ? "Click to stop & transcribe" : "Click to record voice";
     }
-    _voiceStatusEl.textContent = text;
-    _voiceStatusEl.style.color = color || "var(--muted1)";
-    _voiceStatusEl.style.opacity = text ? "1" : "0";
-    if (text) { clearTimeout(_voiceStatusEl._t); _voiceStatusEl._t = setTimeout(() => _setVoiceStatus(""), 3500); }
-  }
 
-  let _recordingStartMs = 0;
-
-  async function startRecording() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showAlert("Your browser does not support microphone access on this page.\n\nTry opening the app over HTTPS, or use Chrome/Edge.", "Voice Not Available");
-      return;
+    function setVoiceTranscribingUI(on) {
+        voiceBtn.disabled = on;
+        voiceBtn.title = on ? "Transcribing…" : "Click to record voice";
     }
-    try {
-      voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunks = [];
-      _recordingStartMs = Date.now();
 
-      const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/ogg", ""]
-        .find(t => t === "" || MediaRecorder.isTypeSupported(t));
-      mediaRecorder = mimeType ? new MediaRecorder(voiceStream, { mimeType }) : new MediaRecorder(voiceStream);
+    voiceBtn.title = "Click to record voice";
 
-      mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
-
-      mediaRecorder.onstop = async () => {
-        if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
-        setVoiceRecordingUI(false);
-
-        const durationMs = Date.now() - _recordingStartMs;
-        if (!audioChunks.length || durationMs < 600) {
-          _setVoiceStatus("Too short — hold longer", "#f59e0b");
-          setVoiceTranscribingUI(false);
-          return;
+    // Inline recording status shown below the mic button
+    let _voiceStatusEl = null;
+    function _setVoiceStatus(text, color) {
+        if (!_voiceStatusEl) {
+            _voiceStatusEl = document.createElement("div");
+            _voiceStatusEl.style.cssText = "font-size:11px;text-align:center;margin-top:4px;transition:opacity .3s;";
+            voiceBtn.parentNode.insertBefore(_voiceStatusEl, voiceBtn.nextSibling);
         }
+        _voiceStatusEl.textContent = text;
+        _voiceStatusEl.style.color = color || "var(--muted1)";
+        _voiceStatusEl.style.opacity = text ? "1" : "0";
+        if (text) { clearTimeout(_voiceStatusEl._t); _voiceStatusEl._t = setTimeout(() => _setVoiceStatus(""), 3500); }
+    }
 
-        setVoiceTranscribingUI(true);
-        _setVoiceStatus("Transcribing…", "var(--muted1)");
-        const usedMime = mediaRecorder.mimeType || "audio/webm";
-        const ext  = usedMime.includes("ogg") ? "voice.ogg" : "voice.webm";
-        const blob = new Blob(audioChunks, { type: usedMime });
-        const formData = new FormData();
-        formData.append("audio", blob, ext);
+    let _recordingStartMs = 0;
+
+    async function startRecording() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showAlert("Your browser does not support microphone access on this page.\n\nTry opening the app over HTTPS, or use Chrome/Edge.", "Voice Not Available");
+            return;
+        }
         try {
-          const res  = await fetch("/api/voice/transcribe", {
-            method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" }, body: formData
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            _setVoiceStatus("Transcription failed", "#ef4444");
-            showAlert(data.error || "Voice transcription failed. Check Admin → Settings → STT Provider.", "Voice");
-          } else if (data.text && data.text.trim()) {
-            const inp = document.getElementById("messageInput");
-            if (inp) { inp.value = (inp.value ? inp.value + " " : "") + data.text.trim(); inp.focus(); }
-            _setVoiceStatus("✓ Transcribed", "#10b981");
-          } else {
-            _setVoiceStatus("No speech detected — try speaking louder", "#f59e0b");
-          }
+            voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioChunks = [];
+            _recordingStartMs = Date.now();
+
+            const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/ogg", ""]
+                .find(t => t === "" || MediaRecorder.isTypeSupported(t));
+            mediaRecorder = mimeType ? new MediaRecorder(voiceStream, { mimeType }) : new MediaRecorder(voiceStream);
+
+            mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
+
+            mediaRecorder.onstop = async () => {
+                if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
+                setVoiceRecordingUI(false);
+
+                const durationMs = Date.now() - _recordingStartMs;
+                if (!audioChunks.length || durationMs < 600) {
+                    _setVoiceStatus("Too short — hold longer", "#f59e0b");
+                    setVoiceTranscribingUI(false);
+                    return;
+                }
+
+                setVoiceTranscribingUI(true);
+                _setVoiceStatus("Transcribing…", "var(--muted1)");
+                const usedMime = mediaRecorder.mimeType || "audio/webm";
+                const ext = usedMime.includes("ogg") ? "voice.ogg" : "voice.webm";
+                const blob = new Blob(audioChunks, { type: usedMime });
+                const formData = new FormData();
+                formData.append("audio", blob, ext);
+                try {
+                    const res = await fetch("/api/voice/transcribe", {
+                        method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" }, body: formData
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        _setVoiceStatus("Transcription failed", "#ef4444");
+                        showAlert(data.error || "Voice transcription failed. Check Admin → Settings → STT Provider.", "Voice");
+                    } else if (data.text && data.text.trim()) {
+                        const inp = document.getElementById("messageInput");
+                        if (inp) { inp.value = (inp.value ? inp.value + " " : "") + data.text.trim(); inp.focus(); }
+                        _setVoiceStatus("✓ Transcribed", "#10b981");
+                    } else {
+                        _setVoiceStatus("No speech detected — try speaking louder", "#f59e0b");
+                    }
+                } catch (err) {
+                    _setVoiceStatus("Server unreachable", "#ef4444");
+                    showAlert("Could not reach the transcription server. Is the Whisper server running on port 8765?", "Voice");
+                } finally {
+                    setVoiceTranscribingUI(false);
+                }
+            };
+
+            mediaRecorder.start(250); // collect chunks every 250ms
+            setVoiceRecordingUI(true);
+            _setVoiceStatus("🔴 Recording… click to stop", "#ef4444");
         } catch (err) {
-          _setVoiceStatus("Server unreachable", "#ef4444");
-          showAlert("Could not reach the transcription server. Is the Whisper server running on port 8765?", "Voice");
-        } finally {
-          setVoiceTranscribingUI(false);
+            if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
+            setVoiceRecordingUI(false);
+            const msg = err.name === "NotAllowedError"
+                ? "Microphone permission denied.\n\nClick the 🔒 icon in the address bar and allow microphone access, then try again."
+                : "Could not access microphone: " + err.message;
+            _setVoiceStatus("Mic access denied", "#ef4444");
+            showAlert(msg, "Voice");
         }
-      };
-
-      mediaRecorder.start(250); // collect chunks every 250ms
-      setVoiceRecordingUI(true);
-      _setVoiceStatus("🔴 Recording… click to stop", "#ef4444");
-    } catch (err) {
-      if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
-      setVoiceRecordingUI(false);
-      const msg = err.name === "NotAllowedError"
-        ? "Microphone permission denied.\n\nClick the 🔒 icon in the address bar and allow microphone access, then try again."
-        : "Could not access microphone: " + err.message;
-      _setVoiceStatus("Mic access denied", "#ef4444");
-      showAlert(msg, "Voice");
     }
-  }
 
-  function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+        }
     }
-  }
 
-  voiceBtn.addEventListener("click", () => {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  });
+    voiceBtn.addEventListener("click", () => {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    });
 }
 
 // ─── Image generation ─────────────────────────────────────────────────────────
 const imageGenBtn = document.getElementById("imageGenBtn");
 if (imageGenBtn) {
-  imageGenBtn.addEventListener("click", async () => {
-    const input = document.getElementById("messageInput");
-    const prompt = input?.value?.trim();
-    if (!prompt) { showAlert("Enter an image prompt first.", "Image Generation"); return; }
-    imageGenBtn.disabled = true;
-    const msgs = document.getElementById("messages");
-    const pendingId = "img-" + Date.now();
-    if (msgs) msgs.insertAdjacentHTML("beforeend", `<div id="${pendingId}" style="display:flex;gap:12px;padding:12px 0;"><div style="font-size:13px;color:var(--muted1);">🖼 Generating image…</div></div>`);
-    try {
-      const res = await fetch("/api/images/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ prompt })
-      });
-      const data = await res.json();
-      const pending = document.getElementById(pendingId);
-      if (pending) {
-        if (data.imageUrl) {
-          pending.innerHTML = `<div style="max-width:600px;"><img src="${data.imageUrl}" alt="Generated image" style="max-width:100%;border-radius:12px;border:1px solid var(--border);" /><div style="font-size:11px;color:var(--muted2);margin-top:6px;font-family:var(--font-mono);">Provider: ${data.provider || "unknown"}</div></div>`;
-        } else if (data.base64) {
-          pending.innerHTML = `<div style="max-width:600px;"><img src="data:image/png;base64,${data.base64}" alt="Generated image" style="max-width:100%;border-radius:12px;border:1px solid var(--border);" /><div style="font-size:11px;color:var(--muted2);margin-top:6px;font-family:var(--font-mono);">Provider: ${data.provider || "unknown"}</div></div>`;
-        } else {
-          pending.innerHTML = `<div style="color:var(--danger);font-size:13px;">Image generation failed: ${esc(data.error || "Unknown error")}</div>`;
+    imageGenBtn.addEventListener("click", async () => {
+        const input = document.getElementById("messageInput");
+        const prompt = input?.value?.trim();
+        if (!prompt) { showAlert("Enter an image prompt first.", "Image Generation"); return; }
+        imageGenBtn.disabled = true;
+        const msgs = document.getElementById("messages");
+        const pendingId = "img-" + Date.now();
+        if (msgs) msgs.insertAdjacentHTML("beforeend", `<div id="${pendingId}" style="display:flex;gap:12px;padding:12px 0;"><div style="font-size:13px;color:var(--muted1);">🖼 Generating image…</div></div>`);
+        try {
+            const res = await fetch("/api/images/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                body: JSON.stringify({ prompt })
+            });
+            const data = await res.json();
+            const pending = document.getElementById(pendingId);
+            if (pending) {
+                if (data.imageUrl) {
+                    pending.innerHTML = `<div style="max-width:600px;"><img src="${data.imageUrl}" alt="Generated image" style="max-width:100%;border-radius:12px;border:1px solid var(--border);" /><div style="font-size:11px;color:var(--muted2);margin-top:6px;font-family:var(--font-mono);">Provider: ${data.provider || "unknown"}</div></div>`;
+                } else if (data.base64) {
+                    pending.innerHTML = `<div style="max-width:600px;"><img src="data:image/png;base64,${data.base64}" alt="Generated image" style="max-width:100%;border-radius:12px;border:1px solid var(--border);" /><div style="font-size:11px;color:var(--muted2);margin-top:6px;font-family:var(--font-mono);">Provider: ${data.provider || "unknown"}</div></div>`;
+                } else {
+                    pending.innerHTML = `<div style="color:var(--danger);font-size:13px;">Image generation failed: ${esc(data.error || "Unknown error")}</div>`;
+                }
+            }
+        } catch (err) {
+            const pending = document.getElementById(pendingId);
+            if (pending) pending.innerHTML = `<div style="color:var(--danger);font-size:13px;">Image generation failed: ${esc(err.message)}</div>`;
+        } finally {
+            imageGenBtn.disabled = false;
         }
-      }
-    } catch (err) {
-      const pending = document.getElementById(pendingId);
-      if (pending) pending.innerHTML = `<div style="color:var(--danger);font-size:13px;">Image generation failed: ${esc(err.message)}</div>`;
-    } finally {
-      imageGenBtn.disabled = false;
-    }
-  });
+    });
 }
 
 // Fire Ollama status check immediately — don't wait for loadState() so
@@ -1888,5 +1888,5 @@ checkOllama();
 setInterval(checkOllama, 30000);
 
 loadState().then(() => {
-  updateWriteToggle();
+    updateWriteToggle();
 });

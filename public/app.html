@@ -1,1307 +1,1932 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8" />
-<meta name="generator" content="Olla Nest v2026.1.0 — Spring Boot 3.5.3 / Java 26" />
-<title>Olla Nest</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="manifest" href="/manifest.json" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<meta name="apple-mobile-web-app-title" content="Olla Nest" />
-<meta name="theme-color" content="#F5C800" />
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}</script>
-<script src="/theme.js"></script>
-<link rel="stylesheet" href="/styles.css" />
-<link rel="stylesheet" href="/vendor/highlight-github.min.css" />
-<script src="/vendor/marked.min.js"></script>
-<script src="/vendor/purify.min.js"></script>
-<script src="/vendor/highlight.min.js"></script>
-<style>
-/* app-page overrides */
-#workspaceConfigPanel [style*="display:flex;gap:8px"]{align-items:center}
-#workspaceConfigPanel .ap-btn{flex:1;justify-content:center;text-align:center}
-.ap-btn[type="submit"]{display:inline-flex;width:auto}
-#passwordForm .ap-btn{width:100%;justify-content:center}
-</style>
+	<meta charset="utf-8" />
+	<meta name="generator" content="Olla Nest v2026.1.0 — Spring Boot 3.5.3 / Java 26" />
+	<title>Olla Nest</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<link rel="manifest" href="/manifest.json" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+	<meta name="apple-mobile-web-app-title" content="Olla Nest" />
+	<meta name="theme-color" content="#F5C800" />
+	<script>if ('serviceWorker' in navigator) {navigator.serviceWorker.register('/sw.js').catch(() => { })}</script>
+	<script src="/theme.js"></script>
+	<link rel="stylesheet" href="/styles.css" />
+	<link rel="stylesheet" href="/vendor/highlight-github.min.css" />
+	<script src="/vendor/marked.min.js"></script>
+	<script src="/vendor/purify.min.js"></script>
+	<script src="/vendor/highlight.min.js"></script>
+	<style>
+		/* app-page overrides */
+		#workspaceConfigPanel [style*="display:flex;gap:8px"] {
+			align-items: center
+		}
+
+		#workspaceConfigPanel .ap-btn {
+			flex: 1;
+			justify-content: center;
+			text-align: center
+		}
+
+		.ap-btn[type="submit"] {
+			display: inline-flex;
+			width: auto
+		}
+
+		#passwordForm .ap-btn {
+			width: 100%;
+			justify-content: center
+		}
+	</style>
 </head>
+
 <body class="app-body">
 
-<!-- ═══════════════════════════════════════════════════════════
+	<!-- ═══════════════════════════════════════════════════════════
      APP LAYOUT — 3-column: sidebar | chat | context panel
      ═══════════════════════════════════════════════════════════ -->
-<div class="app-layout">
+	<div class="app-layout">
 
-  <!-- ── LEFT SIDEBAR ─────────────────────────────────────── -->
-  <aside class="app-sidebar">
+		<!-- ── LEFT SIDEBAR ─────────────────────────────────────── -->
+		<aside class="app-sidebar">
 
-    <!-- Scrollable nav area -->
-    <div class="app-sidebar-nav">
+			<!-- Scrollable nav area -->
+			<div class="app-sidebar-nav">
 
-      <!-- Brand -->
-      <div class="app-sidebar-brand">
-        <svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="40" height="40" rx="11" fill="var(--ac)"/>
-          <path d="M20 8 A12 12 0 1 1 8 20" stroke="var(--ac-text)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-          <path d="M20 13 A7 7 0 1 1 13 20" stroke="var(--ac-text)" stroke-width="2" stroke-linecap="round" fill="none"/>
-          <circle cx="20" cy="20" r="2.2" fill="var(--ac-text)"/>
-        </svg>
-        <div class="logo-text">
-          <span class="logo-name">OLLA·NEST</span>
-          <span class="logo-sub">// AI Workspace</span>
-        </div>
-      </div>
+				<!-- Brand -->
+				<div class="app-sidebar-brand">
+					<svg class="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<rect width="40" height="40" rx="11" fill="var(--ac)" />
+						<path d="M20 8 A12 12 0 1 1 8 20" stroke="var(--ac-text)" stroke-width="2.5"
+							stroke-linecap="round" fill="none" />
+						<path d="M20 13 A7 7 0 1 1 13 20" stroke="var(--ac-text)" stroke-width="2"
+							stroke-linecap="round" fill="none" />
+						<circle cx="20" cy="20" r="2.2" fill="var(--ac-text)" />
+					</svg>
+					<div class="logo-text">
+						<span class="logo-name">OLLA·NEST</span>
+						<span class="logo-sub">// AI Workspace</span>
+					</div>
+				</div>
 
-      <!-- New Chat button -->
-      <button class="app-new-chat-btn" id="newChatSideBtn" aria-label="New chat">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        New Chat
-      </button>
+				<!-- New Chat button -->
+				<button class="app-new-chat-btn" id="newChatSideBtn" aria-label="New chat">
+					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+						stroke-width="2.5">
+						<line x1="12" y1="5" x2="12" y2="19" />
+						<line x1="5" y1="12" x2="19" y2="12" />
+					</svg>
+					New Chat
+				</button>
 
-      <!-- RECENTS -->
-      <div class="app-sidebar-section-label">Recents</div>
-      <div id="sidebarChats" style="display:flex;flex-direction:column;gap:2px;">
-        <div style="font-size:12px;color:var(--muted1);padding:4px 6px;">No conversations yet</div>
-      </div>
+				<!-- RECENTS -->
+				<div class="app-sidebar-section-label">Recents</div>
+				<div id="sidebarChats" style="display:flex;flex-direction:column;gap:2px;">
+					<div style="font-size:12px;color:var(--muted1);padding:4px 6px;">No conversations yet</div>
+				</div>
 
-      <!-- sidebarModels kept hidden for JS compatibility — models shown in composer dropdown -->
-      <div id="sidebarModels" style="display:none;"></div>
+				<!-- sidebarModels kept hidden for JS compatibility — models shown in composer dropdown -->
+				<div id="sidebarModels" style="display:none;"></div>
 
-      <!-- ── FEATURES NAV ──────────────────────────────────── -->
-      <div class="app-sidebar-section-label" style="margin-top:12px;">Features</div>
-      <nav class="app-feature-nav" id="appFeatureNav">
-        <a class="feature-nav-item" data-panel="memory" href="#" onclick="openFeaturePanel('memory');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
-          Memory
-        </a>
-        <a class="feature-nav-item" data-panel="skills" href="#" onclick="openFeaturePanel('skills');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-          Skills
-        </a>
-        <a class="feature-nav-item" data-panel="notes" href="#" onclick="openFeaturePanel('notes');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          Notes
-        </a>
-        <a class="feature-nav-item" data-panel="tasks" href="#" onclick="openFeaturePanel('tasks');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          Tasks
-        </a>
-        <a class="feature-nav-item" data-panel="email" href="#" onclick="openFeaturePanel('email');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          Email
-        </a>
-        <a class="feature-nav-item" data-panel="calendar" href="#" onclick="openFeaturePanel('calendar');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Calendar
-        </a>
-        <a class="feature-nav-item" data-panel="compare" href="#" onclick="openFeaturePanel('compare');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-          Compare
-        </a>
-        <a class="feature-nav-item" data-panel="cookbook" href="#" onclick="openFeaturePanel('cookbook');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4"/><path d="M12 20V10"/><path d="M17 20V4"/><path d="M22 20h.01"/></svg>
-          Cookbook
-        </a>
-        <a class="feature-nav-item" data-panel="assistant" href="#" onclick="openFeaturePanel('assistant');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Assistant
-        </a>
-        <a class="feature-nav-item" data-panel="research" href="#" onclick="openFeaturePanel('research');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-          Research
-        </a>
-        <a class="feature-nav-item" data-panel="contacts" href="#" onclick="openFeaturePanel('contacts');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Contacts
-        </a>
-        <a class="feature-nav-item" data-panel="gallery" href="#" onclick="openFeaturePanel('gallery');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Gallery
-        </a>
-        <a class="feature-nav-item" data-panel="presets" href="#" onclick="openFeaturePanel('presets');return false;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-          Presets
-        </a>
-      </nav>
+				<!-- ── FEATURES NAV ──────────────────────────────────── -->
+				<div class="app-sidebar-section-label" style="margin-top:12px;">Features</div>
+				<nav class="app-feature-nav" id="appFeatureNav">
+					<a class="feature-nav-item" data-panel="memory" href="#"
+						onclick="openFeaturePanel('memory');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<circle cx="12" cy="12" r="3" />
+							<path
+								d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" />
+						</svg>
+						Memory
+					</a>
+					<a class="feature-nav-item" data-panel="skills" href="#"
+						onclick="openFeaturePanel('skills');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M12 2L2 7l10 5 10-5-10-5z" />
+							<path d="M2 17l10 5 10-5" />
+							<path d="M2 12l10 5 10-5" />
+						</svg>
+						Skills
+					</a>
+					<a class="feature-nav-item" data-panel="notes" href="#"
+						onclick="openFeaturePanel('notes');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+							<polyline points="14 2 14 8 20 8" />
+							<line x1="16" y1="13" x2="8" y2="13" />
+							<line x1="16" y1="17" x2="8" y2="17" />
+							<polyline points="10 9 9 9 8 9" />
+						</svg>
+						Notes
+					</a>
+					<a class="feature-nav-item" data-panel="tasks" href="#"
+						onclick="openFeaturePanel('tasks');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<polyline points="9 11 12 14 22 4" />
+							<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+						</svg>
+						Tasks
+					</a>
+					<a class="feature-nav-item" data-panel="email" href="#"
+						onclick="openFeaturePanel('email');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+							<polyline points="22,6 12,13 2,6" />
+						</svg>
+						Email
+					</a>
+					<a class="feature-nav-item" data-panel="calendar" href="#"
+						onclick="openFeaturePanel('calendar');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+							<line x1="16" y1="2" x2="16" y2="6" />
+							<line x1="8" y1="2" x2="8" y2="6" />
+							<line x1="3" y1="10" x2="21" y2="10" />
+						</svg>
+						Calendar
+					</a>
+					<a class="feature-nav-item" data-panel="compare" href="#"
+						onclick="openFeaturePanel('compare');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M18 20V10" />
+							<path d="M12 20V4" />
+							<path d="M6 20v-6" />
+						</svg>
+						Compare
+					</a>
+					<a class="feature-nav-item" data-panel="cookbook" href="#"
+						onclick="openFeaturePanel('cookbook');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M2 20h.01M7 20v-4" />
+							<path d="M12 20V10" />
+							<path d="M17 20V4" />
+							<path d="M22 20h.01" />
+						</svg>
+						Cookbook
+					</a>
+					<a class="feature-nav-item" data-panel="assistant" href="#"
+						onclick="openFeaturePanel('assistant');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+							<circle cx="12" cy="7" r="4" />
+						</svg>
+						Assistant
+					</a>
+					<a class="feature-nav-item" data-panel="research" href="#"
+						onclick="openFeaturePanel('research');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<circle cx="11" cy="11" r="8" />
+							<line x1="21" y1="21" x2="16.65" y2="16.65" />
+							<line x1="11" y1="8" x2="11" y2="14" />
+							<line x1="8" y1="11" x2="14" y2="11" />
+						</svg>
+						Research
+					</a>
+					<a class="feature-nav-item" data-panel="contacts" href="#"
+						onclick="openFeaturePanel('contacts');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+							<circle cx="9" cy="7" r="4" />
+							<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+							<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+						</svg>
+						Contacts
+					</a>
+					<a class="feature-nav-item" data-panel="gallery" href="#"
+						onclick="openFeaturePanel('gallery');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<rect x="3" y="3" width="18" height="18" rx="2" />
+							<circle cx="8.5" cy="8.5" r="1.5" />
+							<polyline points="21 15 16 10 5 21" />
+						</svg>
+						Gallery
+					</a>
+					<a class="feature-nav-item" data-panel="presets" href="#"
+						onclick="openFeaturePanel('presets');return false;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M12 20h9" />
+							<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+						</svg>
+						Presets
+					</a>
+				</nav>
 
-      <!-- Access level — hidden card kept for JS; badges shown as small chips -->
-      <div id="accessLevelCard" style="display:none;">
-        <div id="sidebarAccessRights" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
-        <div id="sidebarTerminalNote" style="display:none;font-size:11px;color:var(--muted1);border-top:1px solid #00000010;padding-top:8px;margin-top:4px;">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-          Terminal access enabled — press <kbd style="background:#00000012;border-radius:3px;padding:1px 4px;font-size:10px;">` </kbd> or click the <strong>&gt;_</strong> button.
-        </div>
-      </div>
+				<!-- Access level — hidden card kept for JS; badges shown as small chips -->
+				<div id="accessLevelCard" style="display:none;">
+					<div id="sidebarAccessRights" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+					<div id="sidebarTerminalNote"
+						style="display:none;font-size:11px;color:var(--muted1);border-top:1px solid #00000010;padding-top:8px;margin-top:4px;">
+						<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2" style="vertical-align:middle;margin-right:4px;">
+							<polyline points="4 17 10 11 4 5" />
+							<line x1="12" y1="19" x2="20" y2="19" />
+						</svg>
+						Terminal access enabled — press <kbd
+							style="background:#00000012;border-radius:3px;padding:1px 4px;font-size:10px;">` </kbd> or
+						click the <strong>&gt;_</strong> button.
+					</div>
+				</div>
 
-    </div><!-- end app-sidebar-nav -->
+			</div><!-- end app-sidebar-nav -->
 
-    <!-- Sidebar footer: user + logout -->
-    <div class="app-sidebar-footer">
+			<!-- Sidebar footer: user + logout -->
+			<div class="app-sidebar-footer">
 
-      <!-- Ollama status (compact) -->
-      <div class="app-sidebar-ollama">
-        <span class="status-dot off" id="ollamaStatusDot"></span>
-        <span id="ollamaStatus" style="font-size:11px;color:var(--muted2);font-family:var(--font-mono);">Checking…</span>
-      </div>
+				<!-- Ollama status (compact) -->
+				<div class="app-sidebar-ollama">
+					<span class="status-dot off" id="ollamaStatusDot"></span>
+					<span id="ollamaStatus"
+						style="font-size:11px;color:var(--muted2);font-family:var(--font-mono);">Checking…</span>
+				</div>
 
-      <!-- User profile trigger -->
-      <div class="app-sidebar-user">
-        <!-- Profile trigger is its own button so it does not nest the logout
+				<!-- User profile trigger -->
+				<div class="app-sidebar-user">
+					<!-- Profile trigger is its own button so it does not nest the logout
              button inside another interactive element (a11y: nested-interactive). -->
-        <button class="app-sidebar-user-trigger" id="appProfileBtn" aria-label="View your profile" title="View your profile">
-          <div class="user-av" id="userAvatar" style="width:34px;height:34px;font-size:12px;flex-shrink:0;">?</div>
-          <div class="app-sidebar-user-info">
-            <div class="app-sidebar-user-name" id="userName">Loading…</div>
-            <div class="app-sidebar-user-meta" id="userMeta"></div>
-          </div>
-        </button>
-        <!-- Logout icon — sibling of the profile trigger, not nested inside it -->
-        <button class="app-sidebar-logout" id="logoutBtn" aria-label="Sign out" title="Sign out">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        </button>
-      </div>
-
-      <!-- Role chip + admin link -->
-      <div style="display:flex;align-items:center;gap:8px;padding:0 2px;">
-        <div class="role-chip" id="sidebarRoleChip" style="font-size:10px;padding:3px 10px;margin-top:0;">Member</div>
-        <nav><a id="adminLink" href="/admin" style="display:none;font-size:10px;color:var(--ac-dark);font-family:var(--font-mono);letter-spacing:.04em;">Admin ↗</a></nav>
-      </div>
-
-    </div><!-- end app-sidebar-footer -->
-
-  </aside><!-- end app-sidebar -->
-
-  <!-- ── MAIN CHAT AREA ─────────────────────────────────── -->
-  <main class="app-main">
-
-    <!-- Chat header bar -->
-    <div class="app-chat-header">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--muted2);flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
-      <div class="app-chat-title" id="topbarTitle">AI Workspace</div>
-      <div class="app-chat-header-right">
-        <!-- Model pill (shown by JS when model is selected) -->
-        <div id="statModelPill" class="app-header-model-pill" style="display:none;">
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-          <span id="statModelName">—</span>
-        </div>
-        <!-- Live indicator -->
-        <span class="header-pill-live" style="font-size:9px;padding:3px 8px;letter-spacing:.08em;">● LIVE</span>
-      </div>
-    </div>
-
-    <!-- Hidden compatibility stubs (required by app.js) -->
-    <div style="display:none;" aria-hidden="true">
-      <button id="newChatBtn"></button>
-      <div id="accountPanel"><div id="accessPolicy"></div></div>
-      <span id="topbarSub"></span>
-      <span id="statWorkspace">not set</span>
-      <span id="modelRingNum">0</span>
-      <!-- Topnav stat elements (kept for renderTopnavStats() in app.js) -->
-      <span class="topnav-stat-num neutral" id="statReqToday">—</span>
-      <span class="topnav-stat-num" id="statAvgLatency">—</span>
-      <span class="topnav-stat-num neutral" id="statUptime">—</span>
-      <!-- Account button (kept for JS listener) -->
-      <button id="accountBtn"><span id="accountBtnName">Profile</span></button>
-    </div>
-
-    <!-- Chat content wrap -->
-    <div class="chat-wrap">
-
-      <!-- No model warning -->
-      <div id="noModelBanner" style="display:none;align-items:center;gap:8px;padding:10px 18px;font-size:12px;color:var(--ac-dark);background:var(--ac-pale);border-bottom:1px solid var(--ac-mid);">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        No models available — Ollama is unreachable. Start Ollama or configure a cloud provider in Admin.
-      </div>
-
-      <!-- Messages -->
-      <div class="messages-area" id="messages"></div>
-
-      <!-- Composer -->
-      <div class="composer">
-        <form id="chatForm">
-          <div class="composer-inner">
-            <!-- Model picker bar -->
-            <div class="app-model-bar">
-              <div class="app-cmp-trigger" id="appModelPicker">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-                <span id="appModelName">Auto Router</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
-              </div>
-              <div class="app-cmp-dropdown" id="appModelDropdown">
-                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted1);padding:10px 14px 6px;">Select model</div>
-                <div id="appModelList"></div>
-              </div>
-            </div>
-            <!-- File preview -->
-            <div id="filePreviewBar" class="file-preview-bar" style="display:none;"></div>
-            <!-- Textarea -->
-            <textarea class="composer-textarea" id="messageInput" placeholder="Ask anything — Auto Router picks the best model for your task…" rows="3"></textarea>
-            <!-- Footer -->
-            <div class="composer-footer">
-              <button class="upload-btn" type="button" id="uploadFileBtn" aria-label="Attach file" title="Attach image or text file">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              </button>
-              <input type="file" id="fileInput" accept="image/*,.txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.xml,.yaml,.yml" multiple style="display:none;">
-              <!-- Voice input button -->
-              <button class="composer-icon-btn" type="button" id="voiceBtn" aria-label="Voice input" title="Voice input (hold to record)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>
-              </button>
-              <!-- Image generation button -->
-              <button class="composer-icon-btn" type="button" id="imageGenBtn" aria-label="Generate image" title="Generate image from prompt">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              </button>
-              <!-- Web search toggle -->
-              <button class="composer-toggle" type="button" id="webSearchBtn" aria-label="Toggle web search" title="Search the web for up-to-date information">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                Web
-              </button>
-              <!-- Deep research mode toggle -->
-              <button class="composer-toggle" type="button" id="deepResearchBtn" aria-label="Toggle deep research" title="Multi-step research with planning, search, and synthesis">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                Research
-              </button>
-              <label class="write-toggle" id="writeToggleLabel" title="Save AI response to workspace folder">
-                <input type="checkbox" id="writeToWorkspace" style="margin:0" />
-                <span class="write-label">Save to workspace</span>
-              </label>
-              <button class="send-btn" type="submit" id="sendBtn" title="Send (Enter)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-              </button>
-              <button class="stop-btn" id="stopBtn" style="display:none;" type="button" title="Stop generation">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-
-    </div><!-- end chat-wrap -->
-
-  </main><!-- end app-main -->
-
-  <!-- ── RIGHT CONTEXT PANEL ───────────────────────────── -->
-  <aside class="app-right-panel">
-
-    <!-- Panel header -->
-    <div class="app-right-header">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted2);"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      <span>Context</span>
-      <!-- Token usage pill (shown by JS) -->
-      <div id="statTokenPill" style="display:none;margin-left:auto;">
-        <span id="statTokenPillInner" class="app-token-pill">
-          <span id="statTokenUsed">—</span>/<span id="statTokenLimit">—</span>
-          <span class="token-bar-wrap"><span class="token-bar-fill" id="statTokenBar"></span></span>
-        </span>
-      </div>
-    </div>
-
-    <!-- Scrollable content -->
-    <div class="app-right-content">
-
-      <!-- Last model used (routing decision) -->
-      <div class="card" id="routerCard">
-        <div class="card-head">
-          <div class="card-title">Last Model Used</div>
-        </div>
-        <div id="routerContent">
-          <div class="router-empty">Send a message to see which model handled your request.</div>
-        </div>
-      </div>
-
-      <!-- Session info row — hidden, infoDept kept for JS compatibility -->
-      <span id="infoDept" style="display:none;"></span>
-
-      <!-- Workspace -->
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title">Workspace</div>
-          <button class="card-action" id="configWorkspaceBtn" aria-label="Configure workspace folder" title="Configure workspace folder">
-            <svg id="configWorkspaceIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          </button>
-        </div>
-        <div class="ws-path" id="workspacePath">Not configured</div>
-        <div id="workspaceModeTag"></div>
-
-        <div id="workspaceConfigPanel" style="display:none;" class="ws-config-panel">
-          <div style="font-size:12px;color:var(--muted1);margin-bottom:4px;">Folder path</div>
-
-          <div style="font-size:11px;color:var(--ac-dark);background:var(--ac-pale);border:1px solid var(--ac-mid);border-radius:8px;padding:7px 10px;margin-bottom:6px;line-height:1.7;">
-            <strong>Your machine's home folder is mounted at <code style="font-size:11px;">/host-home/</code></strong><br>
-            <span id="wsOsHint" style="color:var(--muted1);">Loading…</span>
-          </div>
-
-          <div id="wsFolderBrowser" style="display:none;background:var(--track);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;max-height:180px;overflow-y:auto;">
-            <div id="wsBrowserPath" style="font-size:11px;font-family:'Fira Code',monospace;color:var(--muted1);padding:6px 10px;border-bottom:1px solid var(--border);background:var(--bubble);"></div>
-            <div id="wsBrowserList" style="padding:4px 0;"></div>
-          </div>
-          <button id="wsBrowseBtn" style="width:100%;padding:7px;background:var(--bubble);border:1px solid var(--border);border-radius:10px;font-size:12px;cursor:pointer;margin-bottom:6px;font-family:inherit;color:var(--body-text);">📂 Browse folders</button>
-
-          <input class="ap-input" id="workspaceFolderInput" placeholder="/host-home/Documents/my-project" />
-          <div style="font-size:12px;color:var(--muted1);">Permission mode</div>
-          <select class="ap-input" id="permissionModeSelect">
-            <option value="default">Approve writes</option>
-            <option value="review">Auto-review</option>
-            <option value="full">Full access</option>
-          </select>
-          <button class="ap-btn dark" id="saveWorkspaceBtn" style="width:100%;padding:9px;">Save</button>
-          <div id="workspaceSaveMsg" style="font-size:12px;color:var(--log-ok);margin-top:8px;min-height:14px;"></div>
-        </div>
-      </div>
-
-      <!-- Hidden stub: cancelWorkspaceBtn -->
-      <button id="cancelWorkspaceBtn" style="display:none;"></button>
-
-    </div><!-- end app-right-content -->
-
-  </aside><!-- end app-right-panel -->
-
-</div><!-- end app-layout -->
-
-<script>
-function updateModelRing(count, max) {
-  const num = document.getElementById('modelRingNum');
-  if (num) num.textContent = count;
-}
-</script>
-<script src="/dropdown.js"></script>
-<script src="/app.js?v=2026.1.8"></script>
-<script src="/features.js?v=2026.2.0"></script>
-
-<!-- ════ Profile Drawer (unchanged) ════ -->
-<style>
-#profileDrawer{position:fixed;inset:0;z-index:900;display:none;}
-#profileDrawer.open{display:flex;}
-.profile-backdrop{position:absolute;inset:0;background:#00000050;backdrop-filter:blur(2px);}
-.profile-panel{position:absolute;right:0;top:0;bottom:0;width:420px;max-width:96vw;background:var(--bubble);display:flex;flex-direction:column;box-shadow:-12px 0 40px rgba(0,0,0,0.16);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);}
-#profileDrawer.open .profile-panel{transform:translateX(0);}
-.profile-header{display:flex;align-items:center;gap:12px;padding:22px 24px 18px;border-bottom:1px solid var(--border);}
-.profile-avatar-lg{width:52px;height:52px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--ac-text);flex-shrink:0;}
-.profile-header-text{flex:1;min-width:0;}
-.profile-name{font-size:17px;font-weight:600;color:var(--body-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.profile-meta{font-size:12px;color:var(--muted2);margin-top:2px;}
-.profile-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.03em;}
-.profile-badge.local{background:var(--success-light);color:#2e7d32;}
-.profile-badge.enterprise{background:rgba(59,130,246,0.10);color:#1565c0;}
-.profile-badge.role{background:var(--ac-pale);color:var(--ac-dark);}
-.profile-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--track);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:auto;flex-shrink:0;color:var(--muted1);}
-.profile-close:hover{background:var(--div);}
-.profile-body{flex:1;overflow-y:auto;padding:20px 24px;}
-.profile-section-title{font-family:var(--font-mono);font-size:9px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:var(--muted2);margin:0 0 10px;padding-top:4px;}
-.profile-section-title:not(:first-child){margin-top:22px;}
-.profile-field{margin-bottom:12px;}
-.profile-field label{display:block;font-size:12px;font-weight:500;color:var(--muted1);margin-bottom:4px;}
-.profile-field input{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bubble);font-size:14px;color:var(--body-text);outline:none;transition:border-color .15s;}
-.profile-field input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-pale);}
-.profile-field input[readonly]{background:var(--track);color:var(--muted2);cursor:not-allowed;}
-.lock-note{display:flex;align-items:center;gap:5px;margin-top:4px;font-size:11px;color:var(--ac-dark);}
-.profile-divider{height:1px;background:var(--border);margin:18px 0;}
-.profile-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
-.profile-save-btn{width:100%;padding:11px;border-radius:12px;border:none;background:var(--body-text);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;font-family:var(--font-body);}
-.profile-save-btn:hover{opacity:.82;}
-.profile-save-btn:disabled{opacity:.4;cursor:not-allowed;}
-.profile-msg{font-size:12px;text-align:center;min-height:16px;}
-.profile-msg.ok{color:var(--log-ok);}
-.profile-msg.error{color:var(--danger);}
-.profile-pw-toggle{width:100%;padding:9px;border-radius:12px;border:1px solid var(--border);background:transparent;font-size:13px;color:var(--body-text);cursor:pointer;text-align:center;font-family:var(--font-body);}
-.profile-pw-toggle:hover{border-color:var(--ac);background:var(--ac-pale);}
-.profile-pw-section{display:none;}
-.profile-pw-section.open{display:block;}
-.enterprise-notice{display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);margin-bottom:16px;}
-.enterprise-notice p{margin:0;font-size:12px;color:#1565c0;line-height:1.5;}
-</style>
-<div id="profileDrawer" role="dialog" aria-modal="true" aria-label="My Profile">
-  <div class="profile-backdrop" id="profileBackdrop"></div>
-  <div class="profile-panel">
-    <div class="profile-header">
-      <div class="profile-avatar-lg" id="profAvLg">?</div>
-      <div class="profile-header-text">
-        <div class="profile-name" id="profName">—</div>
-        <div class="profile-meta"><span id="profEmail"></span></div>
-        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-          <span class="profile-badge role" id="profRoleBadge">user</span>
-          <span class="profile-badge local" id="profProviderBadge">🔑 Local account</span>
-        </div>
-      </div>
-      <button class="profile-close" id="profileClose">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="profile-body">
-      <div class="enterprise-notice" id="enterpriseNotice" style="display:none;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;color:var(--ac-dark);"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <p>Your account is managed by your organization. Some fields are locked and can only be changed by your IT administrator.</p>
-      </div>
-      <div class="profile-section-title">Identity</div>
-      <div class="profile-field"><label>Display name</label><input type="text" id="profInputName" placeholder="Your full name"></div>
-      <div class="profile-field"><label>Phone</label><input type="tel" id="profInputPhone" placeholder="+1 555 000 0000"></div>
-      <div class="profile-field"><label>Email <span style="font-size:10px;color:var(--muted1);">(managed)</span></label><input type="email" id="profInputEmail" readonly></div>
-      <div class="profile-section-title">Work Details</div>
-      <div class="profile-field">
-        <label>Designation / Job title</label><input type="text" id="profInputDesignation" placeholder="e.g. Senior Engineer">
-        <div class="lock-note" id="profDesigLock" style="display:none;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Managed by your organization</div>
-      </div>
-      <div class="profile-field">
-        <label>Team</label><input type="text" id="profInputTeam" placeholder="e.g. Platform Engineering">
-        <div class="lock-note" id="profTeamLock" style="display:none;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Managed by your organization</div>
-      </div>
-      <div class="profile-field">
-        <label>Branch / Location</label><input type="text" id="profInputBranch" placeholder="e.g. New York HQ">
-        <div class="lock-note" id="profBranchLock" style="display:none;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Managed by your organization</div>
-      </div>
-      <div class="profile-section-title">Organization</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-        <div class="profile-field" style="margin:0;"><label>Employee ID</label><input type="text" id="profInputEmpId" readonly></div>
-        <div class="profile-field" style="margin:0;"><label>Organization</label><input type="text" id="profInputOrg" readonly></div>
-      </div>
-      <div class="profile-field"><label>Manager</label><input type="text" id="profInputManager" readonly></div>
-      <div class="profile-field"><label>Department</label><input type="text" id="profInputDept" readonly></div>
-      <div class="profile-section-title">Appearance</div>
-      <div style="margin-bottom:20px;">
-        <div style="font-size:12px;color:var(--muted1);margin-bottom:10px;">Accent colour</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-          <button class="appr-swatch" style="background:#ff6b00" data-hex="#ff6b00" title="Orange"></button>
-          <button class="appr-swatch" style="background:#2563eb" data-hex="#2563eb" title="Blue"></button>
-          <button class="appr-swatch" style="background:#7c3aed" data-hex="#7c3aed" title="Violet"></button>
-          <button class="appr-swatch" style="background:#059669" data-hex="#059669" title="Emerald"></button>
-          <button class="appr-swatch" style="background:#dc2626" data-hex="#dc2626" title="Red"></button>
-          <button class="appr-swatch" style="background:#db2777" data-hex="#db2777" title="Pink"></button>
-          <button class="appr-swatch" style="background:#0891b2" data-hex="#0891b2" title="Cyan"></button>
-          <button class="appr-swatch" style="background:#ca8a04" data-hex="#ca8a04" title="Amber"></button>
-          <button class="appr-swatch" style="background:#16a34a" data-hex="#16a34a" title="Green"></button>
-          <button class="appr-swatch" style="background:#F5C800" data-hex="#F5C800" title="Yellow"></button>
-          <div class="appr-color-wrap" title="Custom colour">
-            <input type="color" id="apprColorPicker" value="#F5C800" style="opacity:0;position:absolute;width:26px;height:26px;cursor:pointer;border:none;padding:0;" />
-            <span id="apprColorPreview" style="display:block;width:26px;height:26px;border-radius:6px;border:2px solid var(--border);background:#F5C800;pointer-events:none;"></span>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <input type="text" id="apprHexInput" value="#F5C800" maxlength="7" spellcheck="false"
-            style="width:90px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--body-text);font-family:var(--font-mono);font-size:12px;outline:none;" />
-        </div>
-        <div style="font-size:12px;color:var(--muted1);margin-top:14px;margin-bottom:8px;">Theme mode</div>
-        <div style="display:flex;gap:8px;">
-          <button class="appr-mode-btn" data-mode="day"    id="apprDayBtn">☀️ Day</button>
-          <button class="appr-mode-btn" data-mode="night"  id="apprNightBtn">🌙 Night</button>
-          <button class="appr-mode-btn" data-mode="system" id="apprSystemBtn">🖥️ System</button>
-        </div>
-        <button id="apprSaveBtn" style="margin-top:14px;width:100%;padding:9px;background:var(--ac);color:var(--ac-text);border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Save Appearance</button>
-        <div id="apprMsg" style="font-size:12px;color:var(--log-ok);text-align:center;margin-top:6px;min-height:16px;"></div>
-      </div>
-      <div class="profile-section-title">AI Access</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-        <div class="profile-field" style="margin:0;"><label>Access tier</label><input type="text" id="profInputTier" readonly></div>
-        <div class="profile-field" style="margin:0;"><label>Daily token limit</label><input type="text" id="profInputDailyTok" readonly></div>
-      </div>
-      <div class="profile-divider"></div>
-      <button class="profile-pw-toggle" id="profPwToggle" type="button">🔑 Change password</button>
-      <div class="profile-pw-section" id="profPwSection">
-        <div style="height:12px;"></div>
-        <div class="profile-field"><label>Current password</label><div style="position:relative;"><input type="password" id="profPwCurrent" autocomplete="current-password" style="width:100%;"><button type="button" onclick="(function(b){var i=document.getElementById('profPwCurrent');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted1);background:none;border:none;cursor:pointer;">Show</button></div></div>
-        <div class="profile-field"><label>New password <span style="font-size:10px;color:var(--muted2);">(min 12 chars)</span></label><div style="position:relative;"><input type="password" id="profPwNew" autocomplete="new-password" style="width:100%;"><button type="button" onclick="(function(b){var i=document.getElementById('profPwNew');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted1);background:none;border:none;cursor:pointer;">Show</button></div></div>
-        <div class="profile-field"><label>Confirm new password</label><div style="position:relative;"><input type="password" id="profPwConfirm" autocomplete="new-password" style="width:100%;"><button type="button" onclick="(function(b){var i=document.getElementById('profPwConfirm');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted1);background:none;border:none;cursor:pointer;">Show</button></div></div>
-        <button class="profile-save-btn" id="profPwSaveBtn" type="button">Update password</button>
-        <div class="profile-msg" id="profPwMsg"></div>
-        <div style="height:8px;"></div>
-      </div>
-    </div>
-    <div class="profile-footer">
-      <div class="profile-msg" id="profSaveMsg"></div>
-      <button class="profile-save-btn" id="profSaveBtn" type="button">Save changes</button>
-    </div>
-  </div>
-</div>
-
-<!-- ════ FEATURE PANELS ════ -->
-<!-- Shared backdrop for all feature panels -->
-<div id="featurePanelBackdrop" class="fp-backdrop" onclick="closeFeaturePanel()"></div>
-
-<!-- ── MEMORY PANEL ── -->
-<div id="fp-memory" class="feature-panel">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
-      Memory
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn" onclick="memorySearch()">Search</button>
-      <button class="fp-btn primary" onclick="showAddMemory()">+ Add</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-search-bar">
-    <input class="fp-search-input" id="memorySearchInput" placeholder="Search memories semantically…" oninput="debounce(memorySearch, 400)()">
-  </div>
-  <div class="fp-body" id="memoryList">
-    <div class="fp-empty">Loading memories…</div>
-  </div>
-  <div class="fp-add-form" id="memoryAddForm" style="display:none;">
-    <textarea class="fp-textarea" id="memoryAddText" placeholder="What should I remember?"></textarea>
-    <div style="display:flex;gap:8px;margin-top:8px;">
-      <button class="fp-btn primary" onclick="addMemory()">Save memory</button>
-      <button class="fp-btn" onclick="hideAddMemory()">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── SKILLS PANEL ── -->
-<div id="fp-skills" class="feature-panel">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      Skills
-    </div>
-    <div class="fp-header-actions">
-      <select class="fp-select" id="skillsCategoryFilter" onchange="loadSkills()">
-        <option value="">All categories</option>
-        <option value="general">General</option>
-        <option value="coding">Coding</option>
-        <option value="writing">Writing</option>
-        <option value="research">Research</option>
-        <option value="analysis">Analysis</option>
-      </select>
-      <button class="fp-btn primary" onclick="showAddSkill()">+ Add</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-search-bar">
-    <input class="fp-search-input" id="skillsSearchInput" placeholder="Search skills…" oninput="debounce(searchSkills, 400)()">
-  </div>
-  <div class="fp-body" id="skillsList">
-    <div class="fp-empty">Loading skills…</div>
-  </div>
-</div>
-
-<!-- ── NOTES PANEL ── -->
-<div id="fp-notes" class="feature-panel fp-wide">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      Notes
-    </div>
-    <div class="fp-header-actions">
-      <select class="fp-select" id="notesLabelFilter" onchange="loadNotes()">
-        <option value="">All labels</option>
-        <option value="work">Work</option>
-        <option value="personal">Personal</option>
-        <option value="idea">Idea</option>
-      </select>
-      <button class="fp-btn primary" onclick="createNote()">+ Note</button>
-      <button class="fp-btn" onclick="createChecklist()">☑ Checklist</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-body notes-grid" id="notesList">
-    <div class="fp-empty">Loading notes…</div>
-  </div>
-</div>
-
-<!-- ── TASKS PANEL ── -->
-<div id="fp-tasks" class="feature-panel">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      Scheduled Tasks
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn primary" onclick="showCreateTask()">+ Task</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-body" id="tasksList">
-    <div class="fp-empty">Loading tasks…</div>
-  </div>
-</div>
-
-<!-- ── EMAIL PANEL ── -->
-<div id="fp-email" class="feature-panel fp-wide">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-      Email
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn primary" onclick="showCompose()">✉ Compose</button>
-      <button class="fp-btn" onclick="showEmailAccounts()">⚙ Accounts</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-email-layout">
-    <div class="fp-email-sidebar">
-      <div id="emailAccountsList"></div>
-    </div>
-    <div class="fp-email-main">
-      <div id="emailMessagesList" class="fp-body">
-        <div class="fp-empty">Select an account to view emails</div>
-      </div>
-    </div>
-    <div class="fp-email-preview" id="emailPreview" style="display:none;"></div>
-  </div>
-</div>
-
-<!-- ── CALENDAR PANEL ── -->
-<div id="fp-calendar" class="feature-panel fp-wide">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Calendar
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn" id="calPrevBtn" onclick="calNav(-1)">‹</button>
-      <span class="fp-month-label" id="calMonthLabel"></span>
-      <button class="fp-btn" id="calNextBtn" onclick="calNav(1)">›</button>
-      <button class="fp-btn primary" onclick="showCreateEvent()">+ Event</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-body">
-    <div class="cal-grid" id="calGrid"></div>
-  </div>
-</div>
-
-<!-- ── COMPARE PANEL ── -->
-<div id="fp-compare" class="feature-panel fp-wide">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-      Blind Model Compare
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn primary" onclick="showNewCompare()">+ Compare</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-body" id="compareMain">
-    <div class="compare-setup" id="compareSetup">
-      <div class="compare-setup-title">Set up a blind comparison</div>
-      <textarea class="fp-textarea" id="comparePrompt" placeholder="Enter the same prompt for both models…"></textarea>
-      <div class="compare-model-row">
-        <div class="compare-model-col">
-          <label class="compare-label">Model A</label>
-          <select class="fp-select" id="compareModelA" style="width:100%;"></select>
-        </div>
-        <div class="compare-vs">vs</div>
-        <div class="compare-model-col">
-          <label class="compare-label">Model B</label>
-          <select class="fp-select" id="compareModelB" style="width:100%;"></select>
-        </div>
-      </div>
-      <button class="fp-btn primary" style="width:100%;margin-top:12px;" onclick="startCompare()">Start comparison</button>
-    </div>
-    <div class="compare-arena" id="compareArena" style="display:none;">
-      <div class="compare-col" id="compareColA">
-        <div class="compare-col-label">Model A</div>
-        <div class="compare-col-content" id="compareContentA"></div>
-      </div>
-      <div class="compare-col" id="compareColB">
-        <div class="compare-col-label">Model B</div>
-        <div class="compare-col-content" id="compareContentB"></div>
-      </div>
-      <div class="compare-vote" id="compareVoteRow" style="display:none;">
-        <div class="compare-vote-label">Which response was better?</div>
-        <div class="compare-vote-btns">
-          <button class="compare-vote-btn" onclick="castVote('a')">Model A was better</button>
-          <button class="compare-vote-btn tie" onclick="castVote('tie')">It's a tie</button>
-          <button class="compare-vote-btn" onclick="castVote('b')">Model B was better</button>
-        </div>
-      </div>
-    </div>
-    <div class="compare-history" id="compareHistory">
-      <div class="compare-history-title">Recent comparisons</div>
-      <div id="compareHistoryList"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ── COOKBOOK PANEL ── -->
-<div id="fp-cookbook" class="feature-panel fp-wide">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      Model Cookbook
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn" onclick="detectHardware()">🔍 Scan hardware</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-body">
-    <div class="cookbook-hw" id="cookbookHw">
-      <div class="fp-empty">Click "Scan hardware" to detect your GPU and RAM</div>
-    </div>
-    <div class="cookbook-catalog" id="cookbookCatalog">
-      <div class="cookbook-section-title">Recommended Models</div>
-      <div id="cookbookModelGrid"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ── ASSISTANT PANEL ── -->
-<div id="fp-assistant" class="feature-panel">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Personal Assistant
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn primary" id="assistantSaveBtn" onclick="saveAssistant()">Save</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-body" id="assistantBody">
-    <div class="fp-empty">Loading assistant…</div>
-  </div>
-</div>
-
-<!-- ── CONTACTS PANEL ── -->
-<div id="fp-contacts" class="feature-panel">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Contacts
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn primary" onclick="showAddContact()">+ Contact</button>
-      <a class="fp-btn" href="/api/contacts/export.vcf" download="contacts.vcf">⬇ Export vCard</a>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-search-bar">
-    <input class="fp-search-input" id="contactsSearchInput" placeholder="Search contacts…" oninput="debounce(searchContacts, 400)()">
-  </div>
-  <div class="fp-body" id="contactsList"><div class="fp-empty">Loading contacts…</div></div>
-</div>
-
-<!-- ── GALLERY PANEL ── -->
-<div id="fp-gallery" class="feature-panel fp-wide">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-      Gallery
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn primary" onclick="triggerGalleryUpload()">⬆ Upload</button>
-      <button class="fp-btn" onclick="showCreateAlbum()">+ Album</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-body">
-    <input type="file" id="galleryFileInput" accept="image/*" multiple style="display:none" onchange="handleGalleryUpload(this)">
-    <div id="galleryAlbumBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"></div>
-    <div id="galleryImageGrid" class="notes-grid"></div>
-  </div>
-</div>
-
-<!-- ── PRESETS PANEL ── -->
-<div id="fp-presets" class="feature-panel">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-      Presets &amp; Templates
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-btn primary" onclick="showCreatePreset()">+ Template</button>
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-body" id="presetsList"><div class="fp-empty">Loading presets…</div></div>
-</div>
-
-<!-- ── RESEARCH PANEL ── -->
-<div id="fp-research" class="feature-panel">
-  <div class="fp-header">
-    <div class="fp-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      Research Tasks
-    </div>
-    <div class="fp-header-actions">
-      <button class="fp-close" onclick="closeFeaturePanel()">✕</button>
-    </div>
-  </div>
-  <div class="fp-body" id="researchTasksList">
-    <div class="fp-empty">No research tasks yet. Use the Research button in chat.</div>
-  </div>
-</div>
-  </div>
-</div>
-<script>
-(function() {
-  var drawer = document.getElementById("profileDrawer");
-  var _profile = null;
-  function initials(name) {
-    if (!name) return "?";
-    var parts = name.trim().split(/\s+/);
-    return parts.length >= 2 ? (parts[0][0]+parts[parts.length-1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
-  }
-  function openDrawer() { drawer.classList.add("open"); document.body.style.overflow="hidden"; loadProfile(); }
-  function closeDrawer() {
-    drawer.classList.remove("open"); document.body.style.overflow="";
-    ["profPwCurrent","profPwNew","profPwConfirm"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});
-    document.getElementById("profPwSection").classList.remove("open");
-    document.getElementById("profSaveMsg").textContent="";
-    document.getElementById("profPwMsg").textContent="";
-  }
-  function loadProfile() {
-    fetch("/api/account/profile",{credentials:"include"}).then(function(r){return r.json();}).then(function(d){
-      _profile=d.user; populateDrawer(d.user, d.departmentName);
-    }).catch(function(){setMsg("profSaveMsg","Could not load profile","error");});
-  }
-  function populateDrawer(u, deptName) {
-    var av = initials(u.avatarInitials || u.name);
-    document.getElementById("profAvLg").textContent = av;
-    var uav = document.getElementById("userAvatar"); if(uav) uav.textContent = av;
-    document.getElementById("profName").textContent = u.name;
-    document.getElementById("profEmail").textContent = u.email;
-    var rb = document.getElementById("profRoleBadge"); rb.textContent = u.role.charAt(0).toUpperCase()+u.role.slice(1);
-    var pb = document.getElementById("profProviderBadge"); var isEnt = u.isEnterprise;
-    pb.textContent = isEnt ? ("🏢 "+(u.authProvider||"enterprise")) : "🔑 Local account";
-    pb.className = "profile-badge "+(isEnt?"enterprise":"local");
-    document.getElementById("enterpriseNotice").style.display = isEnt ? "" : "none";
-    document.getElementById("profInputName").value = u.name||"";
-    document.getElementById("profInputPhone").value = u.phone||"";
-    document.getElementById("profInputEmail").value = u.email||"";
-    document.getElementById("profInputDesignation").value = u.designation||"";
-    document.getElementById("profInputTeam").value = u.team||"";
-    document.getElementById("profInputBranch").value = u.branch||"";
-    document.getElementById("profInputEmpId").value = u.employeeId||"—";
-    document.getElementById("profInputOrg").value = u.organization||"—";
-    document.getElementById("profInputManager").value = u.manager||"—";
-    document.getElementById("profInputDept").value = deptName||"—";
-    document.getElementById("profInputTier").value = u.aiAccessTier||"standard";
-    document.getElementById("profInputDailyTok").value = u.dailyTokenLimit ? u.dailyTokenLimit.toLocaleString()+" tokens" : "Unlimited";
-    ["Desig","Team","Branch"].forEach(function(k){
-      var inp=document.getElementById("profInput"+k); var lock=document.getElementById("prof"+k+"Lock");
-      if(inp) inp.readOnly=isEnt; if(lock) lock.style.display=isEnt?"flex":"none";
-    });
-    document.getElementById("profPwToggle").style.display = isEnt ? "none" : "";
-  }
-  function setMsg(id,text,type){
-    var el=document.getElementById(id); el.textContent=text; el.className="profile-msg "+(type||"");
-    if(text) setTimeout(function(){if(el.textContent===text)el.textContent="";},4000);
-  }
-  document.getElementById("profSaveBtn").addEventListener("click",function(){
-    var btn=this; btn.disabled=true; btn.textContent="Saving…";
-    var u=_profile||{}; var body={name:document.getElementById("profInputName").value.trim(),phone:document.getElementById("profInputPhone").value.trim()};
-    if(!u.isEnterprise){body.designation=document.getElementById("profInputDesignation").value.trim();body.team=document.getElementById("profInputTeam").value.trim();body.branch=document.getElementById("profInputBranch").value.trim();}
-    if(!body.name){setMsg("profSaveMsg","Name cannot be empty","error");btn.disabled=false;btn.textContent="Save changes";return;}
-    fetch("/api/account/profile",{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},body:JSON.stringify(body)})
-    .then(function(r){return r.json();}).then(function(d){
-      if(d.ok){_profile=d.user;populateDrawer(d.user,document.getElementById("profInputDept").value);setMsg("profSaveMsg","Profile saved ✓","ok");}
-      else setMsg("profSaveMsg",d.error||"Save failed","error");
-    }).catch(function(){setMsg("profSaveMsg","Network error","error");}).finally(function(){btn.disabled=false;btn.textContent="Save changes";});
-  });
-  document.getElementById("profPwToggle").addEventListener("click",function(){
-    var sec=document.getElementById("profPwSection"); sec.classList.toggle("open");
-    this.textContent=sec.classList.contains("open")?"✕ Cancel password change":"🔑 Change password";
-  });
-  document.getElementById("profPwSaveBtn").addEventListener("click",function(){
-    var btn=this; var cur=document.getElementById("profPwCurrent").value;
-    var nw=document.getElementById("profPwNew").value; var conf=document.getElementById("profPwConfirm").value;
-    if(!cur){setMsg("profPwMsg","Enter your current password","error");return;}
-    if(nw.length<12){setMsg("profPwMsg","New password must be at least 12 characters","error");return;}
-    if(nw!==conf){setMsg("profPwMsg","Passwords do not match","error");return;}
-    btn.disabled=true; btn.textContent="Updating…";
-    fetch("/api/account/password",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},body:JSON.stringify({currentPassword:cur,newPassword:nw})})
-    .then(function(r){return r.json();}).then(function(d){
-      if(d.ok){setMsg("profPwMsg","Password updated ✓","ok");["profPwCurrent","profPwNew","profPwConfirm"].forEach(function(id){document.getElementById(id).value="";});document.getElementById("profPwSection").classList.remove("open");document.getElementById("profPwToggle").textContent="🔑 Change password";}
-      else setMsg("profPwMsg",d.error||"Update failed","error");
-    }).catch(function(){setMsg("profPwMsg","Network error","error");}).finally(function(){btn.disabled=false;btn.textContent="Update password";});
-  });
-  var trigger = document.getElementById("appProfileBtn");
-  if (trigger) trigger.addEventListener("click", openDrawer);
-  document.getElementById("profileClose").addEventListener("click", closeDrawer);
-  document.getElementById("profileBackdrop").addEventListener("click", closeDrawer);
-  document.addEventListener("keydown",function(e){if(e.key==="Escape")closeDrawer();});
-})();
-</script>
-
-<!-- ════ Integrated Terminal (unchanged) ════ -->
-<link rel="stylesheet" href="/vendor/xterm.css" />
-<script src="/vendor/xterm.js"></script>
-<script src="/vendor/addon-fit.js"></script>
-<script src="/vendor/addon-web-links.js"></script>
-
-<style>
-#terminalPanel {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 340px;
-  background: #0e0e10;
-  border-top: 2px solid var(--ac);
-  z-index: 800;
-  display: flex;
-  flex-direction: column;
-  transform: translateY(100%);
-  transition: transform .25s cubic-bezier(.4,0,.2,1);
-  box-shadow: 0 -12px 40px #00000060;
-}
-#terminalPanel.open { transform: translateY(0); }
-#terminalBar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  height: 36px;
-  background: #1a1a1e;
-  border-bottom: 1px solid #2a2a2e;
-  flex-shrink: 0;
-  user-select: none;
-}
-#terminalBar .term-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ac);
-  letter-spacing: .04em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-}
-#terminalBar .term-cwd {
-  font-size: 11px;
-  color: #888;
-  font-family: var(--font-mono);
-  max-width: 340px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.term-btn {
-  background: none;
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: #aaa;
-  font-size: 11px;
-  padding: 3px 10px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background .1s, color .1s;
-}
-.term-btn:hover { background: #2a2a2e; color: #fff; }
-.term-btn.danger:hover { background: #3a1a1a; color: #f87171; border-color: #f87171; }
-#terminalBody {
-  flex: 1;
-  padding: 6px 8px 4px;
-  overflow: hidden;
-}
-#terminalBody .xterm { height: 100%; }
-#termToggle {
-  position: fixed;
-  bottom: 20px;
-  right: 24px;
-  z-index: 810;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: #111113;
-  border: 2px solid var(--ac);
-  color: var(--ac);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 20px #00000060;
-  transition: transform .15s, background .15s;
-  font-size: 18px;
-}
-#termToggle:hover { transform: scale(1.08); background: #1e1e20; }
-#termToggle.active { background: var(--ac); color: var(--ac-text); }
-.run-in-term-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--ac);
-  background: #111113;
-  color: var(--ac);
-  font-size: 11px;
-  font-family: 'Fira Code', monospace;
-  cursor: pointer;
-  margin-top: 6px;
-  transition: background .12s;
-}
-.run-in-term-btn:hover { background: #1e1e20; }
-.run-in-term-btn svg { flex-shrink: 0; }
-</style>
-
-<div id="terminalPanel">
-  <div id="terminalBar">
-    <div class="term-title">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-      Terminal
-      <span class="term-cwd" id="termCwd"></span>
-    </div>
-    <button class="term-btn" id="termClearBtn">Clear</button>
-    <button class="term-btn" id="termReconnectBtn">↺ Reconnect</button>
-    <button class="term-btn danger" id="termCloseBtn">✕</button>
-  </div>
-  <div id="terminalBody"></div>
-</div>
-
-<button id="termToggle" title="Toggle terminal (` key)" style="display:none;">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-</button>
-
-<script>
-(function () {
-  var termWs = null;
-  var xterm = null;
-  var fitAddon = null;
-  var termOpen = false;
-  var termReady = false;
-
-  var panel   = document.getElementById("terminalPanel");
-  var toggle  = document.getElementById("termToggle");
-  var termBody = document.getElementById("terminalBody");
-  var termCwd  = document.getElementById("termCwd");
-
-  function initTerm() {
-    if (xterm) return;
-    xterm = new Terminal({
-      theme: {
-        background: "#0e0e10",
-        foreground: "#d4d4d4",
-        cursor:     getComputedStyle(document.documentElement).getPropertyValue("--ac").trim() || "#f5c800",
-        cursorAccent: "#0e0e10",
-        selectionBackground: (getComputedStyle(document.documentElement).getPropertyValue("--ac").trim() || "#f5c800") + "44",
-        black:   "#1a1a1e", red:     "#f87171", green:  "#86efac", yellow: "#fde68a",
-        blue:    "#93c5fd", magenta: "#c4b5fd", cyan:   "#67e8f9", white:  "#d4d4d4",
-        brightBlack: "#374151", brightRed: "#f87171", brightGreen: "#86efac",
-        brightYellow: "#fde68a", brightBlue: "#93c5fd", brightMagenta: "#c4b5fd",
-        brightCyan: "#67e8f9", brightWhite: "#ffffff",
-      },
-      fontFamily: "'Fira Code', 'Cascadia Code', 'Menlo', monospace",
-      fontSize: 13,
-      lineHeight: 1.4,
-      cursorBlink: true,
-      cursorStyle: "block",
-      scrollback: 3000,
-      allowProposedApi: true,
-    });
-    fitAddon = new FitAddon.FitAddon();
-    xterm.loadAddon(fitAddon);
-    try { xterm.loadAddon(new WebLinksAddon.WebLinksAddon()); } catch {}
-    xterm.open(termBody);
-    fitAddon.fit();
-
-    xterm.onData(function (data) {
-      if (termWs && termWs.readyState === WebSocket.OPEN) {
-        termWs.send(JSON.stringify({ type: "input", data: data }));
-      }
-    });
-
-    window.addEventListener("resize", function () {
-      if (termOpen) { fitAddon.fit(); sendResize(); }
-    });
-  }
-
-  function connectWs() {
-    if (termWs && termWs.readyState < 2) return;
-    var proto = location.protocol === "https:" ? "wss:" : "ws:";
-    var url   = proto + "//" + location.host + "/ws/terminal";
-    termWs = new WebSocket(url);
-
-    termWs.onopen = function () {
-      termReady = true;
-      xterm.writeln("\x1b[32m✓ Terminal connected\x1b[0m");
-      sendResize();
-    };
-
-    termWs.onmessage = function (ev) {
-      try {
-        var msg = JSON.parse(ev.data);
-        if (msg.type === "output") { xterm.write(msg.data); }
-        else if (msg.type === "exit") {
-          xterm.writeln("\x1b[33m\n[Process exited with code " + msg.code + "]\x1b[0m");
-          termReady = false;
-        } else if (msg.type === "error") {
-          xterm.writeln("\x1b[31m✗ " + msg.message + "\x1b[0m");
-        }
-      } catch {}
-    };
-
-    termWs.onclose = function () {
-      termReady = false;
-      if (xterm) xterm.writeln("\x1b[33m\n[Disconnected — click ↺ Reconnect to start a new session]\x1b[0m");
-    };
-
-    termWs.onerror = function () {
-      if (xterm) xterm.writeln("\x1b[31m✗ Connection error\x1b[0m");
-    };
-  }
-
-  function sendResize() {
-    if (termWs && termWs.readyState === WebSocket.OPEN && xterm) {
-      termWs.send(JSON.stringify({ type: "resize", cols: xterm.cols, rows: xterm.rows }));
-    }
-  }
-
-  function openTerminal() {
-    if (termOpen) return;
-    termOpen = true;
-    panel.classList.add("open");
-    toggle.classList.add("active");
-    initTerm();
-    setTimeout(function () { fitAddon.fit(); sendResize(); }, 60);
-    connectWs();
-    if (window.state && window.state.workspace && window.state.workspace.workspaceRoot) {
-      termCwd.textContent = window.state.workspace.workspaceRoot;
-    }
-  }
-
-  function closeTerminal() {
-    if (!termOpen) return;
-    termOpen = false;
-    panel.classList.remove("open");
-    toggle.classList.remove("active");
-  }
-
-  function toggleTerminal() {
-    termOpen ? closeTerminal() : openTerminal();
-  }
-
-  toggle.addEventListener("click", toggleTerminal);
-  document.getElementById("termCloseBtn").addEventListener("click", closeTerminal);
-  document.getElementById("termClearBtn").addEventListener("click", function () {
-    if (xterm) xterm.clear();
-  });
-  document.getElementById("termReconnectBtn").addEventListener("click", function () {
-    if (termWs) { try { termWs.close(); } catch {} }
-    termReady = false;
-    if (xterm) xterm.writeln("\x1b[33m[Reconnecting…]\x1b[0m");
-    setTimeout(connectWs, 200);
-  });
-
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "`" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      var tag = (document.activeElement || {}).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      e.preventDefault();
-      toggleTerminal();
-    }
-  });
-
-  window.termSendCommand = function (cmd) {
-    openTerminal();
-    setTimeout(function () {
-      if (termWs && termWs.readyState === WebSocket.OPEN) {
-        termWs.send(JSON.stringify({ type: "input", data: cmd + "\r" }));
-      } else {
-        var tries = 0;
-        var wait = setInterval(function () {
-          tries++;
-          if (termWs && termWs.readyState === WebSocket.OPEN) {
-            termWs.send(JSON.stringify({ type: "input", data: cmd + "\r" }));
-            clearInterval(wait);
-          } else if (tries > 20) clearInterval(wait);
-        }, 150);
-      }
-    }, termReady ? 0 : 600);
-  };
-
-  window.addEventListener("olla-state-updated", function (e) {
-    if (e.detail && e.detail.workspace && e.detail.workspace.workspaceRoot) {
-      termCwd.textContent = e.detail.workspace.workspaceRoot;
-    }
-  });
-})();
-</script>
-
-<!-- Appearance Settings JS (unchanged) -->
-<script>
-(function() {
-  var hex  = window._themeHex  || "#F5C800";
-  var mode = window._themeMode || "day";
-
-  function syncApprUI(h, m) {
-    document.querySelectorAll(".appr-swatch").forEach(function(s) {
-      var active = s.dataset.hex && s.dataset.hex.toLowerCase() === h.toLowerCase();
-      s.style.outline = active ? "2px solid var(--body-text)" : "none";
-      s.style.outlineOffset = "2px";
-    });
-    var picker = document.getElementById("apprColorPicker");
-    var preview = document.getElementById("apprColorPreview");
-    var hexInput = document.getElementById("apprHexInput");
-    if (picker)   picker.value   = h;
-    if (preview)  preview.style.background = h;
-    if (hexInput) hexInput.value = h;
-    ["day","night","system"].forEach(function(m2) {
-      var btn = document.getElementById("appr" + m2.charAt(0).toUpperCase() + m2.slice(1) + "Btn");
-      if (btn) {
-        btn.style.background   = (m === m2) ? "var(--ac)" : "var(--bubble)";
-        btn.style.color        = (m === m2) ? "var(--ac-text)" : "var(--body-text)";
-        btn.style.borderColor  = (m === m2) ? "var(--ac)" : "var(--border)";
-        btn.style.fontWeight   = (m === m2) ? "700" : "500";
-      }
-    });
-  }
-
-  syncApprUI(hex, mode);
-
-  document.querySelectorAll(".appr-swatch").forEach(function(s) {
-    s.addEventListener("click", function() {
-      hex = this.dataset.hex;
-      applyTheme(hex, mode);
-      syncApprUI(hex, mode);
-    });
-  });
-
-  document.getElementById("apprColorPicker").addEventListener("input", function() {
-    hex = this.value;
-    document.getElementById("apprHexInput").value = hex;
-    document.getElementById("apprColorPreview").style.background = hex;
-    applyTheme(hex, mode);
-    syncApprUI(hex, mode);
-  });
-
-  document.getElementById("apprHexInput").addEventListener("change", function() {
-    var v = this.value.trim();
-    if (!/^#[0-9a-fA-F]{6}$/.test(v)) return;
-    hex = v; applyTheme(hex, mode); syncApprUI(hex, mode);
-  });
-  document.getElementById("apprHexInput").addEventListener("keydown", function(e) {
-    if (e.key !== "Enter") return;
-    var v = this.value.trim();
-    if (/^#[0-9a-fA-F]{6}$/.test(v)) { hex = v; applyTheme(hex, mode); syncApprUI(hex, mode); }
-  });
-
-  ["day","night","system"].forEach(function(m2) {
-    var btn = document.getElementById("appr" + m2.charAt(0).toUpperCase() + m2.slice(1) + "Btn");
-    if (btn) btn.addEventListener("click", function() {
-      mode = m2; applyTheme(hex, mode); syncApprUI(hex, mode);
-    });
-  });
-
-  document.getElementById("apprSaveBtn").addEventListener("click", function() {
-    applyTheme(hex, mode);
-    var msg = document.getElementById("apprMsg");
-    msg.textContent = "✓ Saved";
-    setTimeout(function() { msg.textContent = ""; }, 2000);
-  });
-
-  window.addEventListener("themechange", function(e) {
-    hex = e.detail.hex; mode = e.detail.mode; syncApprUI(hex, mode);
-  });
-})();
-</script>
-
-<!-- Code Review Modal (unchanged) -->
-<div id="codeReviewModal" style="display:none;position:fixed;inset:0;z-index:9000;background:#000000bb;backdrop-filter:blur(4px);align-items:center;justify-content:center;">
-  <div style="background:var(--nav-bg);border:1px solid var(--border);border-radius:16px;width:90vw;max-width:900px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px #000000aa;">
-    <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--hdr-bg,var(--nav-bg));">
-      <span id="codeReviewLang" style="font-size:12px;font-family:'Fira Code',monospace;font-weight:600;padding:2px 10px;border-radius:999px;background:#3178c6;color:#fff;">code</span>
-      <span id="codeReviewFilename" style="font-size:13px;font-family:'Fira Code',monospace;color:var(--muted2);flex:1;"></span>
-      <button onclick="closeCodeReview()" style="background:var(--track);border:none;color:var(--body-text);border-radius:8px;padding:5px 14px;cursor:pointer;font-size:13px;font-family:inherit;">✕ Close</button>
-    </div>
-    <div style="overflow:auto;flex:1;">
-      <pre style="margin:0;"><code id="codeReviewContent" class="hljs" style="padding:20px;font-size:13px;font-family:'Fira Code',monospace;line-height:1.7;display:block;background:var(--nav-bg);"></code></pre>
-    </div>
-    <div style="padding:12px 20px;border-top:1px solid var(--border);background:var(--hdr-bg,var(--nav-bg));display:flex;align-items:center;gap:10px;justify-content:flex-end;">
-      <span id="codeReviewLines" style="font-size:12px;color:var(--muted2);flex:1;"></span>
-      <button onclick="copyReviewCode()" id="codeReviewCopyBtn" style="background:var(--track);border:1px solid var(--border);color:var(--body-text);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:13px;font-family:inherit;">Copy</button>
-    </div>
-  </div>
-</div>
+					<button class="app-sidebar-user-trigger" id="appProfileBtn" aria-label="View your profile"
+						title="View your profile">
+						<div class="user-av" id="userAvatar"
+							style="width:34px;height:34px;font-size:12px;flex-shrink:0;">?</div>
+						<div class="app-sidebar-user-info">
+							<div class="app-sidebar-user-name" id="userName">Loading…</div>
+							<div class="app-sidebar-user-meta" id="userMeta"></div>
+						</div>
+					</button>
+					<!-- Logout icon — sibling of the profile trigger, not nested inside it -->
+					<button class="app-sidebar-logout" id="logoutBtn" aria-label="Sign out" title="Sign out">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+							<polyline points="16 17 21 12 16 7" />
+							<line x1="21" y1="12" x2="9" y2="12" />
+						</svg>
+					</button>
+				</div>
+
+				<!-- Role chip + admin link -->
+				<div style="display:flex;align-items:center;gap:8px;padding:0 2px;">
+					<div class="role-chip" id="sidebarRoleChip" style="font-size:10px;padding:3px 10px;margin-top:0;">
+						Member</div>
+					<nav><a id="adminLink" href="/admin"
+							style="display:none;font-size:10px;color:var(--ac-dark);font-family:var(--font-mono);letter-spacing:.04em;">Admin
+							↗</a></nav>
+				</div>
+
+			</div><!-- end app-sidebar-footer -->
+
+		</aside><!-- end app-sidebar -->
+
+		<!-- ── MAIN CHAT AREA ─────────────────────────────────── -->
+		<main class="app-main">
+
+			<!-- Chat header bar -->
+			<div class="app-chat-header">
+				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+					style="color:var(--muted2);flex-shrink:0;">
+					<polyline points="9 18 15 12 9 6" />
+				</svg>
+				<div class="app-chat-title" id="topbarTitle">AI Workspace</div>
+				<div class="app-chat-header-right">
+					<!-- Model pill (shown by JS when model is selected) -->
+					<div id="statModelPill" class="app-header-model-pill" style="display:none;">
+						<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2">
+							<circle cx="12" cy="12" r="3" />
+							<path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+						</svg>
+						<span id="statModelName">—</span>
+					</div>
+					<!-- Live indicator -->
+					<span class="header-pill-live" style="font-size:9px;padding:3px 8px;letter-spacing:.08em;">●
+						LIVE</span>
+				</div>
+			</div>
+
+			<!-- Hidden compatibility stubs (required by app.js) -->
+			<div style="display:none;" aria-hidden="true">
+				<button id="newChatBtn"></button>
+				<div id="accountPanel">
+					<div id="accessPolicy"></div>
+				</div>
+				<span id="topbarSub"></span>
+				<span id="statWorkspace">not set</span>
+				<span id="modelRingNum">0</span>
+				<!-- Topnav stat elements (kept for renderTopnavStats() in app.js) -->
+				<span class="topnav-stat-num neutral" id="statReqToday">—</span>
+				<span class="topnav-stat-num" id="statAvgLatency">—</span>
+				<span class="topnav-stat-num neutral" id="statUptime">—</span>
+				<!-- Account button (kept for JS listener) -->
+				<button id="accountBtn"><span id="accountBtnName">Profile</span></button>
+			</div>
+
+			<!-- Chat content wrap -->
+			<div class="chat-wrap">
+
+				<!-- No model warning -->
+				<div id="noModelBanner"
+					style="display:none;align-items:center;gap:8px;padding:10px 18px;font-size:12px;color:var(--ac-dark);background:var(--ac-pale);border-bottom:1px solid var(--ac-mid);">
+					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+						stroke-linecap="round">
+						<circle cx="12" cy="12" r="10" />
+						<line x1="12" y1="8" x2="12" y2="12" />
+						<line x1="12" y1="16" x2="12.01" y2="16" />
+					</svg>
+					No models available — Ollama is unreachable. Start Ollama or configure a cloud provider in Admin.
+				</div>
+
+				<!-- Messages -->
+				<div class="messages-area" id="messages"></div>
+
+				<!-- Composer -->
+				<div class="composer">
+					<form id="chatForm">
+						<div class="composer-inner">
+							<!-- Model picker bar -->
+							<div class="app-model-bar">
+								<div class="app-cmp-trigger" id="appModelPicker">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+										width="13" height="13">
+										<circle cx="12" cy="12" r="3" />
+										<path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+									</svg>
+									<span id="appModelName">Auto Router</span>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+										stroke-linecap="round" width="11" height="11">
+										<polyline points="6 9 12 15 18 9" />
+									</svg>
+								</div>
+								<div class="app-cmp-dropdown" id="appModelDropdown">
+									<div
+										style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted1);padding:10px 14px 6px;">
+										Select model</div>
+									<div id="appModelList"></div>
+								</div>
+							</div>
+							<!-- File preview -->
+							<div id="filePreviewBar" class="file-preview-bar" style="display:none;"></div>
+							<!-- Textarea -->
+							<textarea class="composer-textarea" id="messageInput"
+								placeholder="Ask anything — Auto Router picks the best model for your task…"
+								rows="3"></textarea>
+							<!-- Footer -->
+							<div class="composer-footer">
+								<button class="upload-btn" type="button" id="uploadFileBtn" aria-label="Attach file"
+									title="Attach image or text file">
+									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+										stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path
+											d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+									</svg>
+								</button>
+								<input type="file" id="fileInput"
+									accept="image/*,.txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.xml,.yaml,.yml" multiple
+									style="display:none;">
+								<!-- Voice input button -->
+								<button class="composer-icon-btn" type="button" id="voiceBtn" aria-label="Voice input"
+									title="Voice input (hold to record)">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+										stroke-width="2" stroke-linecap="round">
+										<rect x="9" y="2" width="6" height="12" rx="3" />
+										<path d="M5 10a7 7 0 0 0 14 0" />
+										<line x1="12" y1="19" x2="12" y2="22" />
+										<line x1="9" y1="22" x2="15" y2="22" />
+									</svg>
+								</button>
+								<!-- Image generation button -->
+								<button class="composer-icon-btn" type="button" id="imageGenBtn"
+									aria-label="Generate image" title="Generate image from prompt">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+										stroke-width="2" stroke-linecap="round">
+										<rect x="3" y="3" width="18" height="18" rx="2" />
+										<circle cx="8.5" cy="8.5" r="1.5" />
+										<polyline points="21 15 16 10 5 21" />
+									</svg>
+								</button>
+								<!-- Web search toggle -->
+								<button class="composer-toggle" type="button" id="webSearchBtn"
+									aria-label="Toggle web search" title="Search the web for up-to-date information">
+									<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+										stroke-width="2" stroke-linecap="round">
+										<circle cx="11" cy="11" r="8" />
+										<line x1="21" y1="21" x2="16.65" y2="16.65" />
+									</svg>
+									Web
+								</button>
+								<!-- Deep research mode toggle -->
+								<button class="composer-toggle" type="button" id="deepResearchBtn"
+									aria-label="Toggle deep research"
+									title="Multi-step research with planning, search, and synthesis">
+									<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+										stroke-width="2" stroke-linecap="round">
+										<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+										<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+									</svg>
+									Research
+								</button>
+								<label class="write-toggle" id="writeToggleLabel"
+									title="Save AI response to workspace folder">
+									<input type="checkbox" id="writeToWorkspace" style="margin:0" />
+									<span class="write-label">Save to workspace</span>
+								</label>
+								<button class="send-btn" type="submit" id="sendBtn" title="Send (Enter)">
+									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+										stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+										<line x1="12" y1="19" x2="12" y2="5" />
+										<polyline points="5 12 12 5 19 12" />
+									</svg>
+								</button>
+								<button class="stop-btn" id="stopBtn" style="display:none;" type="button"
+									title="Stop generation">
+									<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+										<rect x="6" y="6" width="12" height="12" rx="2" />
+									</svg>
+								</button>
+							</div>
+						</div>
+					</form>
+				</div>
+
+			</div><!-- end chat-wrap -->
+
+		</main><!-- end app-main -->
+
+		<!-- ── RIGHT CONTEXT PANEL ───────────────────────────── -->
+		<aside class="app-right-panel">
+
+			<!-- Panel header -->
+			<div class="app-right-header">
+				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+					style="color:var(--muted2);">
+					<circle cx="12" cy="12" r="3" />
+					<path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+				</svg>
+				<span>Context</span>
+				<!-- Token usage pill (shown by JS) -->
+				<div id="statTokenPill" style="display:none;margin-left:auto;">
+					<span id="statTokenPillInner" class="app-token-pill">
+						<span id="statTokenUsed">—</span>/<span id="statTokenLimit">—</span>
+						<span class="token-bar-wrap"><span class="token-bar-fill" id="statTokenBar"></span></span>
+					</span>
+				</div>
+			</div>
+
+			<!-- Scrollable content -->
+			<div class="app-right-content">
+
+				<!-- Last model used (routing decision) -->
+				<div class="card" id="routerCard">
+					<div class="card-head">
+						<div class="card-title">Last Model Used</div>
+					</div>
+					<div id="routerContent">
+						<div class="router-empty">Send a message to see which model handled your request.</div>
+					</div>
+				</div>
+
+				<!-- Session info row — hidden, infoDept kept for JS compatibility -->
+				<span id="infoDept" style="display:none;"></span>
+
+				<!-- Workspace -->
+				<div class="card">
+					<div class="card-head">
+						<div class="card-title">Workspace</div>
+						<button class="card-action" id="configWorkspaceBtn" aria-label="Configure workspace folder"
+							title="Configure workspace folder">
+							<svg id="configWorkspaceIcon" width="13" height="13" viewBox="0 0 24 24" fill="none"
+								stroke="currentColor" stroke-width="2.5">
+								<path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+							</svg>
+						</button>
+					</div>
+					<div class="ws-path" id="workspacePath">Not configured</div>
+					<div id="workspaceModeTag"></div>
+
+					<div id="workspaceConfigPanel" style="display:none;" class="ws-config-panel">
+						<div style="font-size:12px;color:var(--muted1);margin-bottom:4px;">Folder path</div>
+
+						<div
+							style="font-size:11px;color:var(--ac-dark);background:var(--ac-pale);border:1px solid var(--ac-mid);border-radius:8px;padding:7px 10px;margin-bottom:6px;line-height:1.7;">
+							<strong>Your machine's home folder is mounted at <code
+									style="font-size:11px;">/host-home/</code></strong><br>
+							<span id="wsOsHint" style="color:var(--muted1);">Loading…</span>
+						</div>
+
+						<div id="wsFolderBrowser"
+							style="display:none;background:var(--track);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;max-height:180px;overflow-y:auto;">
+							<div id="wsBrowserPath"
+								style="font-size:11px;font-family:'Fira Code',monospace;color:var(--muted1);padding:6px 10px;border-bottom:1px solid var(--border);background:var(--bubble);">
+							</div>
+							<div id="wsBrowserList" style="padding:4px 0;"></div>
+						</div>
+						<button id="wsBrowseBtn"
+							style="width:100%;padding:7px;background:var(--bubble);border:1px solid var(--border);border-radius:10px;font-size:12px;cursor:pointer;margin-bottom:6px;font-family:inherit;color:var(--body-text);">📂
+							Browse folders</button>
+
+						<input class="ap-input" id="workspaceFolderInput"
+							placeholder="/host-home/Documents/my-project" />
+						<div style="font-size:12px;color:var(--muted1);">Permission mode</div>
+						<select class="ap-input" id="permissionModeSelect">
+							<option value="default">Approve writes</option>
+							<option value="review">Auto-review</option>
+							<option value="full">Full access</option>
+						</select>
+						<button class="ap-btn dark" id="saveWorkspaceBtn" style="width:100%;padding:9px;">Save</button>
+						<div id="workspaceSaveMsg"
+							style="font-size:12px;color:var(--log-ok);margin-top:8px;min-height:14px;"></div>
+					</div>
+				</div>
+
+				<!-- Hidden stub: cancelWorkspaceBtn -->
+				<button id="cancelWorkspaceBtn" style="display:none;"></button>
+
+			</div><!-- end app-right-content -->
+
+		</aside><!-- end app-right-panel -->
+
+	</div><!-- end app-layout -->
+
+	<script>
+		function updateModelRing(count, max) {
+			const num = document.getElementById('modelRingNum');
+			if (num) num.textContent = count;
+		}
+	</script>
+	<script src="/dropdown.js"></script>
+	<script src="/app.js?v=2026.1.8"></script>
+	<script src="/features.js?v=2026.2.0"></script>
+
+	<!-- ════ Profile Drawer (unchanged) ════ -->
+	<style>
+		#profileDrawer {
+			position: fixed;
+			inset: 0;
+			z-index: 900;
+			display: none;
+		}
+
+		#profileDrawer.open {
+			display: flex;
+		}
+
+		.profile-backdrop {
+			position: absolute;
+			inset: 0;
+			background: #00000050;
+			backdrop-filter: blur(2px);
+		}
+
+		.profile-panel {
+			position: absolute;
+			right: 0;
+			top: 0;
+			bottom: 0;
+			width: 420px;
+			max-width: 96vw;
+			background: var(--bubble);
+			display: flex;
+			flex-direction: column;
+			box-shadow: -12px 0 40px rgba(0, 0, 0, 0.16);
+			transform: translateX(100%);
+			transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+		}
+
+		#profileDrawer.open .profile-panel {
+			transform: translateX(0);
+		}
+
+		.profile-header {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 22px 24px 18px;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.profile-avatar-lg {
+			width: 52px;
+			height: 52px;
+			border-radius: 50%;
+			background: var(--ac);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 20px;
+			font-weight: 700;
+			color: var(--ac-text);
+			flex-shrink: 0;
+		}
+
+		.profile-header-text {
+			flex: 1;
+			min-width: 0;
+		}
+
+		.profile-name {
+			font-size: 17px;
+			font-weight: 600;
+			color: var(--body-text);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.profile-meta {
+			font-size: 12px;
+			color: var(--muted2);
+			margin-top: 2px;
+		}
+
+		.profile-badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			padding: 2px 8px;
+			border-radius: 999px;
+			font-size: 11px;
+			font-weight: 600;
+			letter-spacing: .03em;
+		}
+
+		.profile-badge.local {
+			background: var(--success-light);
+			color: #2e7d32;
+		}
+
+		.profile-badge.enterprise {
+			background: rgba(59, 130, 246, 0.10);
+			color: #1565c0;
+		}
+
+		.profile-badge.role {
+			background: var(--ac-pale);
+			color: var(--ac-dark);
+		}
+
+		.profile-close {
+			width: 32px;
+			height: 32px;
+			border-radius: 50%;
+			border: none;
+			background: var(--track);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			margin-left: auto;
+			flex-shrink: 0;
+			color: var(--muted1);
+		}
+
+		.profile-close:hover {
+			background: var(--div);
+		}
+
+		.profile-body {
+			flex: 1;
+			overflow-y: auto;
+			padding: 20px 24px;
+		}
+
+		.profile-section-title {
+			font-family: var(--font-mono);
+			font-size: 9px;
+			font-weight: 600;
+			letter-spacing: .10em;
+			text-transform: uppercase;
+			color: var(--muted2);
+			margin: 0 0 10px;
+			padding-top: 4px;
+		}
+
+		.profile-section-title:not(:first-child) {
+			margin-top: 22px;
+		}
+
+		.profile-field {
+			margin-bottom: 12px;
+		}
+
+		.profile-field label {
+			display: block;
+			font-size: 12px;
+			font-weight: 500;
+			color: var(--muted1);
+			margin-bottom: 4px;
+		}
+
+		.profile-field input {
+			width: 100%;
+			box-sizing: border-box;
+			padding: 9px 12px;
+			border-radius: 10px;
+			border: 1px solid var(--border);
+			background: var(--bubble);
+			font-size: 14px;
+			color: var(--body-text);
+			outline: none;
+			transition: border-color .15s;
+		}
+
+		.profile-field input:focus {
+			border-color: var(--ac);
+			box-shadow: 0 0 0 3px var(--ac-pale);
+		}
+
+		.profile-field input[readonly] {
+			background: var(--track);
+			color: var(--muted2);
+			cursor: not-allowed;
+		}
+
+		.lock-note {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			margin-top: 4px;
+			font-size: 11px;
+			color: var(--ac-dark);
+		}
+
+		.profile-divider {
+			height: 1px;
+			background: var(--border);
+			margin: 18px 0;
+		}
+
+		.profile-footer {
+			padding: 16px 24px;
+			border-top: 1px solid var(--border);
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+		}
+
+		.profile-save-btn {
+			width: 100%;
+			padding: 11px;
+			border-radius: 12px;
+			border: none;
+			background: var(--body-text);
+			color: #fff;
+			font-size: 14px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: opacity .15s;
+			font-family: var(--font-body);
+		}
+
+		.profile-save-btn:hover {
+			opacity: .82;
+		}
+
+		.profile-save-btn:disabled {
+			opacity: .4;
+			cursor: not-allowed;
+		}
+
+		.profile-msg {
+			font-size: 12px;
+			text-align: center;
+			min-height: 16px;
+		}
+
+		.profile-msg.ok {
+			color: var(--log-ok);
+		}
+
+		.profile-msg.error {
+			color: var(--danger);
+		}
+
+		.profile-pw-toggle {
+			width: 100%;
+			padding: 9px;
+			border-radius: 12px;
+			border: 1px solid var(--border);
+			background: transparent;
+			font-size: 13px;
+			color: var(--body-text);
+			cursor: pointer;
+			text-align: center;
+			font-family: var(--font-body);
+		}
+
+		.profile-pw-toggle:hover {
+			border-color: var(--ac);
+			background: var(--ac-pale);
+		}
+
+		.profile-pw-section {
+			display: none;
+		}
+
+		.profile-pw-section.open {
+			display: block;
+		}
+
+		.enterprise-notice {
+			display: flex;
+			gap: 10px;
+			padding: 12px 14px;
+			border-radius: 12px;
+			background: rgba(59, 130, 246, 0.08);
+			border: 1px solid rgba(59, 130, 246, 0.25);
+			margin-bottom: 16px;
+		}
+
+		.enterprise-notice p {
+			margin: 0;
+			font-size: 12px;
+			color: #1565c0;
+			line-height: 1.5;
+		}
+	</style>
+	<div id="profileDrawer" role="dialog" aria-modal="true" aria-label="My Profile">
+		<div class="profile-backdrop" id="profileBackdrop"></div>
+		<div class="profile-panel">
+			<div class="profile-header">
+				<div class="profile-avatar-lg" id="profAvLg">?</div>
+				<div class="profile-header-text">
+					<div class="profile-name" id="profName">—</div>
+					<div class="profile-meta"><span id="profEmail"></span></div>
+					<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+						<span class="profile-badge role" id="profRoleBadge">user</span>
+						<span class="profile-badge local" id="profProviderBadge">🔑 Local account</span>
+					</div>
+				</div>
+				<button class="profile-close" id="profileClose">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<line x1="18" y1="6" x2="6" y2="18" />
+						<line x1="6" y1="6" x2="18" y2="18" />
+					</svg>
+				</button>
+			</div>
+			<div class="profile-body">
+				<div class="enterprise-notice" id="enterpriseNotice" style="display:none;">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+						style="flex-shrink:0;margin-top:1px;color:var(--ac-dark);">
+						<circle cx="12" cy="12" r="10" />
+						<line x1="12" y1="8" x2="12" y2="12" />
+						<line x1="12" y1="16" x2="12.01" y2="16" />
+					</svg>
+					<p>Your account is managed by your organization. Some fields are locked and can only be changed by
+						your IT administrator.</p>
+				</div>
+				<div class="profile-section-title">Identity</div>
+				<div class="profile-field"><label>Display name</label><input type="text" id="profInputName"
+						placeholder="Your full name"></div>
+				<div class="profile-field"><label>Phone</label><input type="tel" id="profInputPhone"
+						placeholder="+1 555 000 0000"></div>
+				<div class="profile-field"><label>Email <span
+							style="font-size:10px;color:var(--muted1);">(managed)</span></label><input type="email"
+						id="profInputEmail" readonly></div>
+				<div class="profile-section-title">Work Details</div>
+				<div class="profile-field">
+					<label>Designation / Job title</label><input type="text" id="profInputDesignation"
+						placeholder="e.g. Senior Engineer">
+					<div class="lock-note" id="profDesigLock" style="display:none;"><svg width="11" height="11"
+							viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+							<rect x="3" y="11" width="18" height="11" rx="2" />
+							<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+						</svg> Managed by your organization</div>
+				</div>
+				<div class="profile-field">
+					<label>Team</label><input type="text" id="profInputTeam" placeholder="e.g. Platform Engineering">
+					<div class="lock-note" id="profTeamLock" style="display:none;"><svg width="11" height="11"
+							viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+							<rect x="3" y="11" width="18" height="11" rx="2" />
+							<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+						</svg> Managed by your organization</div>
+				</div>
+				<div class="profile-field">
+					<label>Branch / Location</label><input type="text" id="profInputBranch"
+						placeholder="e.g. New York HQ">
+					<div class="lock-note" id="profBranchLock" style="display:none;"><svg width="11" height="11"
+							viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+							<rect x="3" y="11" width="18" height="11" rx="2" />
+							<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+						</svg> Managed by your organization</div>
+				</div>
+				<div class="profile-section-title">Organization</div>
+				<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+					<div class="profile-field" style="margin:0;"><label>Employee ID</label><input type="text"
+							id="profInputEmpId" readonly></div>
+					<div class="profile-field" style="margin:0;"><label>Organization</label><input type="text"
+							id="profInputOrg" readonly></div>
+				</div>
+				<div class="profile-field"><label>Manager</label><input type="text" id="profInputManager" readonly>
+				</div>
+				<div class="profile-field"><label>Department</label><input type="text" id="profInputDept" readonly>
+				</div>
+				<div class="profile-section-title">Appearance</div>
+				<div style="margin-bottom:20px;">
+					<div style="font-size:12px;color:var(--muted1);margin-bottom:10px;">Accent colour</div>
+					<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+						<button class="appr-swatch" style="background:#ff6b00" data-hex="#ff6b00"
+							title="Orange"></button>
+						<button class="appr-swatch" style="background:#2563eb" data-hex="#2563eb" title="Blue"></button>
+						<button class="appr-swatch" style="background:#7c3aed" data-hex="#7c3aed"
+							title="Violet"></button>
+						<button class="appr-swatch" style="background:#059669" data-hex="#059669"
+							title="Emerald"></button>
+						<button class="appr-swatch" style="background:#dc2626" data-hex="#dc2626" title="Red"></button>
+						<button class="appr-swatch" style="background:#db2777" data-hex="#db2777" title="Pink"></button>
+						<button class="appr-swatch" style="background:#0891b2" data-hex="#0891b2" title="Cyan"></button>
+						<button class="appr-swatch" style="background:#ca8a04" data-hex="#ca8a04"
+							title="Amber"></button>
+						<button class="appr-swatch" style="background:#16a34a" data-hex="#16a34a"
+							title="Green"></button>
+						<button class="appr-swatch" style="background:#F5C800" data-hex="#F5C800"
+							title="Yellow"></button>
+						<div class="appr-color-wrap" title="Custom colour">
+							<input type="color" id="apprColorPicker" value="#F5C800"
+								style="opacity:0;position:absolute;width:26px;height:26px;cursor:pointer;border:none;padding:0;" />
+							<span id="apprColorPreview"
+								style="display:block;width:26px;height:26px;border-radius:6px;border:2px solid var(--border);background:#F5C800;pointer-events:none;"></span>
+						</div>
+					</div>
+					<div style="display:flex;align-items:center;gap:8px;">
+						<input type="text" id="apprHexInput" value="#F5C800" maxlength="7" spellcheck="false"
+							style="width:90px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--body-text);font-family:var(--font-mono);font-size:12px;outline:none;" />
+					</div>
+					<div style="font-size:12px;color:var(--muted1);margin-top:14px;margin-bottom:8px;">Theme mode</div>
+					<div style="display:flex;gap:8px;">
+						<button class="appr-mode-btn" data-mode="day" id="apprDayBtn">☀️ Day</button>
+						<button class="appr-mode-btn" data-mode="night" id="apprNightBtn">🌙 Night</button>
+						<button class="appr-mode-btn" data-mode="system" id="apprSystemBtn">🖥️ System</button>
+					</div>
+					<button id="apprSaveBtn"
+						style="margin-top:14px;width:100%;padding:9px;background:var(--ac);color:var(--ac-text);border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Save
+						Appearance</button>
+					<div id="apprMsg"
+						style="font-size:12px;color:var(--log-ok);text-align:center;margin-top:6px;min-height:16px;">
+					</div>
+				</div>
+				<div class="profile-section-title">AI Access</div>
+				<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+					<div class="profile-field" style="margin:0;"><label>Access tier</label><input type="text"
+							id="profInputTier" readonly></div>
+					<div class="profile-field" style="margin:0;"><label>Daily token limit</label><input type="text"
+							id="profInputDailyTok" readonly></div>
+				</div>
+				<div class="profile-divider"></div>
+				<button class="profile-pw-toggle" id="profPwToggle" type="button">🔑 Change password</button>
+				<div class="profile-pw-section" id="profPwSection">
+					<div style="height:12px;"></div>
+					<div class="profile-field"><label>Current password</label>
+						<div style="position:relative;"><input type="password" id="profPwCurrent"
+								autocomplete="current-password" style="width:100%;"><button type="button"
+								onclick="(function(b){var i=document.getElementById('profPwCurrent');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)"
+								style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted1);background:none;border:none;cursor:pointer;">Show</button>
+						</div>
+					</div>
+					<div class="profile-field"><label>New password <span
+								style="font-size:10px;color:var(--muted2);">(min 12 chars)</span></label>
+						<div style="position:relative;"><input type="password" id="profPwNew"
+								autocomplete="new-password" style="width:100%;"><button type="button"
+								onclick="(function(b){var i=document.getElementById('profPwNew');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)"
+								style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted1);background:none;border:none;cursor:pointer;">Show</button>
+						</div>
+					</div>
+					<div class="profile-field"><label>Confirm new password</label>
+						<div style="position:relative;"><input type="password" id="profPwConfirm"
+								autocomplete="new-password" style="width:100%;"><button type="button"
+								onclick="(function(b){var i=document.getElementById('profPwConfirm');var h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Hide':'Show';})(this)"
+								style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted1);background:none;border:none;cursor:pointer;">Show</button>
+						</div>
+					</div>
+					<button class="profile-save-btn" id="profPwSaveBtn" type="button">Update password</button>
+					<div class="profile-msg" id="profPwMsg"></div>
+					<div style="height:8px;"></div>
+				</div>
+			</div>
+			<div class="profile-footer">
+				<div class="profile-msg" id="profSaveMsg"></div>
+				<button class="profile-save-btn" id="profSaveBtn" type="button">Save changes</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- ════ FEATURE PANELS ════ -->
+	<!-- Shared backdrop for all feature panels -->
+	<div id="featurePanelBackdrop" class="fp-backdrop" onclick="closeFeaturePanel()"></div>
+
+	<!-- ── MEMORY PANEL ── -->
+	<div id="fp-memory" class="feature-panel">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="12" cy="12" r="3" />
+					<path
+						d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" />
+				</svg>
+				Memory
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn" onclick="memorySearch()">Search</button>
+				<button class="fp-btn primary" onclick="showAddMemory()">+ Add</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-search-bar">
+			<input class="fp-search-input" id="memorySearchInput" placeholder="Search memories semantically…"
+				oninput="debounce(memorySearch, 400)()">
+		</div>
+		<div class="fp-body" id="memoryList">
+			<div class="fp-empty">Loading memories…</div>
+		</div>
+		<div class="fp-add-form" id="memoryAddForm" style="display:none;">
+			<textarea class="fp-textarea" id="memoryAddText" placeholder="What should I remember?"></textarea>
+			<div style="display:flex;gap:8px;margin-top:8px;">
+				<button class="fp-btn primary" onclick="addMemory()">Save memory</button>
+				<button class="fp-btn" onclick="hideAddMemory()">Cancel</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- ── SKILLS PANEL ── -->
+	<div id="fp-skills" class="feature-panel">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M12 2L2 7l10 5 10-5-10-5z" />
+					<path d="M2 17l10 5 10-5" />
+					<path d="M2 12l10 5 10-5" />
+				</svg>
+				Skills
+			</div>
+			<div class="fp-header-actions">
+				<select class="fp-select" id="skillsCategoryFilter" onchange="loadSkills()">
+					<option value="">All categories</option>
+					<option value="general">General</option>
+					<option value="coding">Coding</option>
+					<option value="writing">Writing</option>
+					<option value="research">Research</option>
+					<option value="analysis">Analysis</option>
+				</select>
+				<button class="fp-btn primary" onclick="showAddSkill()">+ Add</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-search-bar">
+			<input class="fp-search-input" id="skillsSearchInput" placeholder="Search skills…"
+				oninput="debounce(searchSkills, 400)()">
+		</div>
+		<div class="fp-body" id="skillsList">
+			<div class="fp-empty">Loading skills…</div>
+		</div>
+	</div>
+
+	<!-- ── NOTES PANEL ── -->
+	<div id="fp-notes" class="feature-panel fp-wide">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+					<polyline points="14 2 14 8 20 8" />
+				</svg>
+				Notes
+			</div>
+			<div class="fp-header-actions">
+				<select class="fp-select" id="notesLabelFilter" onchange="loadNotes()">
+					<option value="">All labels</option>
+					<option value="work">Work</option>
+					<option value="personal">Personal</option>
+					<option value="idea">Idea</option>
+				</select>
+				<button class="fp-btn primary" onclick="createNote()">+ Note</button>
+				<button class="fp-btn" onclick="createChecklist()">☑ Checklist</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-body notes-grid" id="notesList">
+			<div class="fp-empty">Loading notes…</div>
+		</div>
+	</div>
+
+	<!-- ── TASKS PANEL ── -->
+	<div id="fp-tasks" class="feature-panel">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<polyline points="9 11 12 14 22 4" />
+					<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+				</svg>
+				Scheduled Tasks
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn primary" onclick="showCreateTask()">+ Task</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-body" id="tasksList">
+			<div class="fp-empty">Loading tasks…</div>
+		</div>
+	</div>
+
+	<!-- ── EMAIL PANEL ── -->
+	<div id="fp-email" class="feature-panel fp-wide">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+					<polyline points="22,6 12,13 2,6" />
+				</svg>
+				Email
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn primary" onclick="showCompose()">✉ Compose</button>
+				<button class="fp-btn" onclick="showEmailAccounts()">⚙ Accounts</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-email-layout">
+			<div class="fp-email-sidebar">
+				<div id="emailAccountsList"></div>
+			</div>
+			<div class="fp-email-main">
+				<div id="emailMessagesList" class="fp-body">
+					<div class="fp-empty">Select an account to view emails</div>
+				</div>
+			</div>
+			<div class="fp-email-preview" id="emailPreview" style="display:none;"></div>
+		</div>
+	</div>
+
+	<!-- ── CALENDAR PANEL ── -->
+	<div id="fp-calendar" class="feature-panel fp-wide">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+					<line x1="16" y1="2" x2="16" y2="6" />
+					<line x1="8" y1="2" x2="8" y2="6" />
+					<line x1="3" y1="10" x2="21" y2="10" />
+				</svg>
+				Calendar
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn" id="calPrevBtn" onclick="calNav(-1)">‹</button>
+				<span class="fp-month-label" id="calMonthLabel"></span>
+				<button class="fp-btn" id="calNextBtn" onclick="calNav(1)">›</button>
+				<button class="fp-btn primary" onclick="showCreateEvent()">+ Event</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-body">
+			<div class="cal-grid" id="calGrid"></div>
+		</div>
+	</div>
+
+	<!-- ── COMPARE PANEL ── -->
+	<div id="fp-compare" class="feature-panel fp-wide">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M18 20V10" />
+					<path d="M12 20V4" />
+					<path d="M6 20v-6" />
+				</svg>
+				Blind Model Compare
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn primary" onclick="showNewCompare()">+ Compare</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-body" id="compareMain">
+			<div class="compare-setup" id="compareSetup">
+				<div class="compare-setup-title">Set up a blind comparison</div>
+				<textarea class="fp-textarea" id="comparePrompt"
+					placeholder="Enter the same prompt for both models…"></textarea>
+				<div class="compare-model-row">
+					<div class="compare-model-col">
+						<label class="compare-label">Model A</label>
+						<select class="fp-select" id="compareModelA" style="width:100%;"></select>
+					</div>
+					<div class="compare-vs">vs</div>
+					<div class="compare-model-col">
+						<label class="compare-label">Model B</label>
+						<select class="fp-select" id="compareModelB" style="width:100%;"></select>
+					</div>
+				</div>
+				<button class="fp-btn primary" style="width:100%;margin-top:12px;" onclick="startCompare()">Start
+					comparison</button>
+			</div>
+			<div class="compare-arena" id="compareArena" style="display:none;">
+				<div class="compare-col" id="compareColA">
+					<div class="compare-col-label">Model A</div>
+					<div class="compare-col-content" id="compareContentA"></div>
+				</div>
+				<div class="compare-col" id="compareColB">
+					<div class="compare-col-label">Model B</div>
+					<div class="compare-col-content" id="compareContentB"></div>
+				</div>
+				<div class="compare-vote" id="compareVoteRow" style="display:none;">
+					<div class="compare-vote-label">Which response was better?</div>
+					<div class="compare-vote-btns">
+						<button class="compare-vote-btn" onclick="castVote('a')">Model A was better</button>
+						<button class="compare-vote-btn tie" onclick="castVote('tie')">It's a tie</button>
+						<button class="compare-vote-btn" onclick="castVote('b')">Model B was better</button>
+					</div>
+				</div>
+			</div>
+			<div class="compare-history" id="compareHistory">
+				<div class="compare-history-title">Recent comparisons</div>
+				<div id="compareHistoryList"></div>
+			</div>
+		</div>
+	</div>
+
+	<!-- ── COOKBOOK PANEL ── -->
+	<div id="fp-cookbook" class="feature-panel fp-wide">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="2" y="3" width="20" height="14" rx="2" />
+					<line x1="8" y1="21" x2="16" y2="21" />
+					<line x1="12" y1="17" x2="12" y2="21" />
+				</svg>
+				Model Cookbook
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn" onclick="detectHardware()">🔍 Scan hardware</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-body">
+			<div class="cookbook-hw" id="cookbookHw">
+				<div class="fp-empty">Click "Scan hardware" to detect your GPU and RAM</div>
+			</div>
+			<div class="cookbook-catalog" id="cookbookCatalog">
+				<div class="cookbook-section-title">Recommended Models</div>
+				<div id="cookbookModelGrid"></div>
+			</div>
+		</div>
+	</div>
+
+	<!-- ── ASSISTANT PANEL ── -->
+	<div id="fp-assistant" class="feature-panel">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+					<circle cx="12" cy="7" r="4" />
+				</svg>
+				Personal Assistant
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn primary" id="assistantSaveBtn" onclick="saveAssistant()">Save</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-body" id="assistantBody">
+			<div class="fp-empty">Loading assistant…</div>
+		</div>
+	</div>
+
+	<!-- ── CONTACTS PANEL ── -->
+	<div id="fp-contacts" class="feature-panel">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+					<circle cx="9" cy="7" r="4" />
+					<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+					<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+				</svg>
+				Contacts
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn primary" onclick="showAddContact()">+ Contact</button>
+				<a class="fp-btn" href="/api/contacts/export.vcf" download="contacts.vcf">⬇ Export vCard</a>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-search-bar">
+			<input class="fp-search-input" id="contactsSearchInput" placeholder="Search contacts…"
+				oninput="debounce(searchContacts, 400)()">
+		</div>
+		<div class="fp-body" id="contactsList">
+			<div class="fp-empty">Loading contacts…</div>
+		</div>
+	</div>
+
+	<!-- ── GALLERY PANEL ── -->
+	<div id="fp-gallery" class="feature-panel fp-wide">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="3" y="3" width="18" height="18" rx="2" />
+					<circle cx="8.5" cy="8.5" r="1.5" />
+					<polyline points="21 15 16 10 5 21" />
+				</svg>
+				Gallery
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn primary" onclick="triggerGalleryUpload()">⬆ Upload</button>
+				<button class="fp-btn" onclick="showCreateAlbum()">+ Album</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-body">
+			<input type="file" id="galleryFileInput" accept="image/*" multiple style="display:none"
+				onchange="handleGalleryUpload(this)">
+			<div id="galleryAlbumBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"></div>
+			<div id="galleryImageGrid" class="notes-grid"></div>
+		</div>
+	</div>
+
+	<!-- ── PRESETS PANEL ── -->
+	<div id="fp-presets" class="feature-panel">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M12 20h9" />
+					<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+				</svg>
+				Presets &amp; Templates
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-btn primary" onclick="showCreatePreset()">+ Template</button>
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-body" id="presetsList">
+			<div class="fp-empty">Loading presets…</div>
+		</div>
+	</div>
+
+	<!-- ── RESEARCH PANEL ── -->
+	<div id="fp-research" class="feature-panel">
+		<div class="fp-header">
+			<div class="fp-title">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="11" cy="11" r="8" />
+					<line x1="21" y1="21" x2="16.65" y2="16.65" />
+				</svg>
+				Research Tasks
+			</div>
+			<div class="fp-header-actions">
+				<button class="fp-close" onclick="closeFeaturePanel()">✕</button>
+			</div>
+		</div>
+		<div class="fp-body" id="researchTasksList">
+			<div class="fp-empty">No research tasks yet. Use the Research button in chat.</div>
+		</div>
+	</div>
+	</div>
+	</div>
+	<script>
+		(function () {
+			var drawer = document.getElementById("profileDrawer");
+			var _profile = null;
+			function initials(name) {
+				if (!name) return "?";
+				var parts = name.trim().split(/\s+/);
+				return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
+			}
+			function openDrawer() {drawer.classList.add("open"); document.body.style.overflow = "hidden"; loadProfile();}
+			function closeDrawer() {
+				drawer.classList.remove("open"); document.body.style.overflow = "";
+				["profPwCurrent", "profPwNew", "profPwConfirm"].forEach(function (id) {var el = document.getElementById(id); if (el) el.value = "";});
+				document.getElementById("profPwSection").classList.remove("open");
+				document.getElementById("profSaveMsg").textContent = "";
+				document.getElementById("profPwMsg").textContent = "";
+			}
+			function loadProfile() {
+				fetch("/api/account/profile", {credentials: "include"}).then(function (r) {return r.json();}).then(function (d) {
+					_profile = d.user; populateDrawer(d.user, d.departmentName);
+				}).catch(function () {setMsg("profSaveMsg", "Could not load profile", "error");});
+			}
+			function populateDrawer(u, deptName) {
+				var av = initials(u.avatarInitials || u.name);
+				document.getElementById("profAvLg").textContent = av;
+				var uav = document.getElementById("userAvatar"); if (uav) uav.textContent = av;
+				document.getElementById("profName").textContent = u.name;
+				document.getElementById("profEmail").textContent = u.email;
+				var rb = document.getElementById("profRoleBadge"); rb.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
+				var pb = document.getElementById("profProviderBadge"); var isEnt = u.isEnterprise;
+				pb.textContent = isEnt ? ("🏢 " + (u.authProvider || "enterprise")) : "🔑 Local account";
+				pb.className = "profile-badge " + (isEnt ? "enterprise" : "local");
+				document.getElementById("enterpriseNotice").style.display = isEnt ? "" : "none";
+				document.getElementById("profInputName").value = u.name || "";
+				document.getElementById("profInputPhone").value = u.phone || "";
+				document.getElementById("profInputEmail").value = u.email || "";
+				document.getElementById("profInputDesignation").value = u.designation || "";
+				document.getElementById("profInputTeam").value = u.team || "";
+				document.getElementById("profInputBranch").value = u.branch || "";
+				document.getElementById("profInputEmpId").value = u.employeeId || "—";
+				document.getElementById("profInputOrg").value = u.organization || "—";
+				document.getElementById("profInputManager").value = u.manager || "—";
+				document.getElementById("profInputDept").value = deptName || "—";
+				document.getElementById("profInputTier").value = u.aiAccessTier || "standard";
+				document.getElementById("profInputDailyTok").value = u.dailyTokenLimit ? u.dailyTokenLimit.toLocaleString() + " tokens" : "Unlimited";
+				["Desig", "Team", "Branch"].forEach(function (k) {
+					var inp = document.getElementById("profInput" + k); var lock = document.getElementById("prof" + k + "Lock");
+					if (inp) inp.readOnly = isEnt; if (lock) lock.style.display = isEnt ? "flex" : "none";
+				});
+				document.getElementById("profPwToggle").style.display = isEnt ? "none" : "";
+			}
+			function setMsg(id, text, type) {
+				var el = document.getElementById(id); el.textContent = text; el.className = "profile-msg " + (type || "");
+				if (text) setTimeout(function () {if (el.textContent === text) el.textContent = "";}, 4000);
+			}
+			document.getElementById("profSaveBtn").addEventListener("click", function () {
+				var btn = this; btn.disabled = true; btn.textContent = "Saving…";
+				var u = _profile || {}; var body = {name: document.getElementById("profInputName").value.trim(), phone: document.getElementById("profInputPhone").value.trim()};
+				if (!u.isEnterprise) {body.designation = document.getElementById("profInputDesignation").value.trim(); body.team = document.getElementById("profInputTeam").value.trim(); body.branch = document.getElementById("profInputBranch").value.trim();}
+				if (!body.name) {setMsg("profSaveMsg", "Name cannot be empty", "error"); btn.disabled = false; btn.textContent = "Save changes"; return;}
+				fetch("/api/account/profile", {method: "PATCH", credentials: "include", headers: {"Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest"}, body: JSON.stringify(body)})
+					.then(function (r) {return r.json();}).then(function (d) {
+						if (d.ok) {_profile = d.user; populateDrawer(d.user, document.getElementById("profInputDept").value); setMsg("profSaveMsg", "Profile saved ✓", "ok");}
+						else setMsg("profSaveMsg", d.error || "Save failed", "error");
+					}).catch(function () {setMsg("profSaveMsg", "Network error", "error");}).finally(function () {btn.disabled = false; btn.textContent = "Save changes";});
+			});
+			document.getElementById("profPwToggle").addEventListener("click", function () {
+				var sec = document.getElementById("profPwSection"); sec.classList.toggle("open");
+				this.textContent = sec.classList.contains("open") ? "✕ Cancel password change" : "🔑 Change password";
+			});
+			document.getElementById("profPwSaveBtn").addEventListener("click", function () {
+				var btn = this; var cur = document.getElementById("profPwCurrent").value;
+				var nw = document.getElementById("profPwNew").value; var conf = document.getElementById("profPwConfirm").value;
+				if (!cur) {setMsg("profPwMsg", "Enter your current password", "error"); return;}
+				if (nw.length < 12) {setMsg("profPwMsg", "New password must be at least 12 characters", "error"); return;}
+				if (nw !== conf) {setMsg("profPwMsg", "Passwords do not match", "error"); return;}
+				btn.disabled = true; btn.textContent = "Updating…";
+				fetch("/api/account/password", {method: "POST", credentials: "include", headers: {"Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest"}, body: JSON.stringify({currentPassword: cur, newPassword: nw})})
+					.then(function (r) {return r.json();}).then(function (d) {
+						if (d.ok) {setMsg("profPwMsg", "Password updated ✓", "ok");["profPwCurrent", "profPwNew", "profPwConfirm"].forEach(function (id) {document.getElementById(id).value = "";}); document.getElementById("profPwSection").classList.remove("open"); document.getElementById("profPwToggle").textContent = "🔑 Change password";}
+						else setMsg("profPwMsg", d.error || "Update failed", "error");
+					}).catch(function () {setMsg("profPwMsg", "Network error", "error");}).finally(function () {btn.disabled = false; btn.textContent = "Update password";});
+			});
+			var trigger = document.getElementById("appProfileBtn");
+			if (trigger) trigger.addEventListener("click", openDrawer);
+			document.getElementById("profileClose").addEventListener("click", closeDrawer);
+			document.getElementById("profileBackdrop").addEventListener("click", closeDrawer);
+			document.addEventListener("keydown", function (e) {if (e.key === "Escape") closeDrawer();});
+		})();
+	</script>
+
+	<!-- ════ Integrated Terminal (unchanged) ════ -->
+	<link rel="stylesheet" href="/vendor/xterm.css" />
+	<script src="/vendor/xterm.js"></script>
+	<script src="/vendor/addon-fit.js"></script>
+	<script src="/vendor/addon-web-links.js"></script>
+
+	<style>
+		#terminalPanel {
+			position: fixed;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			height: 340px;
+			background: #0e0e10;
+			border-top: 2px solid var(--ac);
+			z-index: 800;
+			display: flex;
+			flex-direction: column;
+			transform: translateY(100%);
+			transition: transform .25s cubic-bezier(.4, 0, .2, 1);
+			box-shadow: 0 -12px 40px #00000060;
+		}
+
+		#terminalPanel.open {
+			transform: translateY(0);
+		}
+
+		#terminalBar {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 0 14px;
+			height: 36px;
+			background: #1a1a1e;
+			border-bottom: 1px solid #2a2a2e;
+			flex-shrink: 0;
+			user-select: none;
+		}
+
+		#terminalBar .term-title {
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--ac);
+			letter-spacing: .04em;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			flex: 1;
+		}
+
+		#terminalBar .term-cwd {
+			font-size: 11px;
+			color: #888;
+			font-family: var(--font-mono);
+			max-width: 340px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.term-btn {
+			background: none;
+			border: 1px solid #333;
+			border-radius: 6px;
+			color: #aaa;
+			font-size: 11px;
+			padding: 3px 10px;
+			cursor: pointer;
+			font-family: inherit;
+			transition: background .1s, color .1s;
+		}
+
+		.term-btn:hover {
+			background: #2a2a2e;
+			color: #fff;
+		}
+
+		.term-btn.danger:hover {
+			background: #3a1a1a;
+			color: #f87171;
+			border-color: #f87171;
+		}
+
+		#terminalBody {
+			flex: 1;
+			padding: 6px 8px 4px;
+			overflow: hidden;
+		}
+
+		#terminalBody .xterm {
+			height: 100%;
+		}
+
+		#termToggle {
+			position: fixed;
+			bottom: 20px;
+			right: 24px;
+			z-index: 810;
+			width: 46px;
+			height: 46px;
+			border-radius: 50%;
+			background: #111113;
+			border: 2px solid var(--ac);
+			color: var(--ac);
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			box-shadow: 0 4px 20px #00000060;
+			transition: transform .15s, background .15s;
+			font-size: 18px;
+		}
+
+		#termToggle:hover {
+			transform: scale(1.08);
+			background: #1e1e20;
+		}
+
+		#termToggle.active {
+			background: var(--ac);
+			color: var(--ac-text);
+		}
+
+		.run-in-term-btn {
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			padding: 3px 10px;
+			border-radius: 999px;
+			border: 1px solid var(--ac);
+			background: #111113;
+			color: var(--ac);
+			font-size: 11px;
+			font-family: 'Fira Code', monospace;
+			cursor: pointer;
+			margin-top: 6px;
+			transition: background .12s;
+		}
+
+		.run-in-term-btn:hover {
+			background: #1e1e20;
+		}
+
+		.run-in-term-btn svg {
+			flex-shrink: 0;
+		}
+	</style>
+
+	<div id="terminalPanel">
+		<div id="terminalBar">
+			<div class="term-title">
+				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<polyline points="4 17 10 11 4 5" />
+					<line x1="12" y1="19" x2="20" y2="19" />
+				</svg>
+				Terminal
+				<span class="term-cwd" id="termCwd"></span>
+			</div>
+			<button class="term-btn" id="termClearBtn">Clear</button>
+			<button class="term-btn" id="termReconnectBtn">↺ Reconnect</button>
+			<button class="term-btn danger" id="termCloseBtn">✕</button>
+		</div>
+		<div id="terminalBody"></div>
+	</div>
+
+	<button id="termToggle" title="Toggle terminal (` key)" style="display:none;">
+		<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+			<polyline points="4 17 10 11 4 5" />
+			<line x1="12" y1="19" x2="20" y2="19" />
+		</svg>
+	</button>
+
+	<script>
+		(function () {
+			var termWs = null;
+			var xterm = null;
+			var fitAddon = null;
+			var termOpen = false;
+			var termReady = false;
+
+			var panel = document.getElementById("terminalPanel");
+			var toggle = document.getElementById("termToggle");
+			var termBody = document.getElementById("terminalBody");
+			var termCwd = document.getElementById("termCwd");
+
+			function initTerm() {
+				if (xterm) return;
+				xterm = new Terminal({
+					theme: {
+						background: "#0e0e10",
+						foreground: "#d4d4d4",
+						cursor: getComputedStyle(document.documentElement).getPropertyValue("--ac").trim() || "#f5c800",
+						cursorAccent: "#0e0e10",
+						selectionBackground: (getComputedStyle(document.documentElement).getPropertyValue("--ac").trim() || "#f5c800") + "44",
+						black: "#1a1a1e", red: "#f87171", green: "#86efac", yellow: "#fde68a",
+						blue: "#93c5fd", magenta: "#c4b5fd", cyan: "#67e8f9", white: "#d4d4d4",
+						brightBlack: "#374151", brightRed: "#f87171", brightGreen: "#86efac",
+						brightYellow: "#fde68a", brightBlue: "#93c5fd", brightMagenta: "#c4b5fd",
+						brightCyan: "#67e8f9", brightWhite: "#ffffff",
+					},
+					fontFamily: "'Fira Code', 'Cascadia Code', 'Menlo', monospace",
+					fontSize: 13,
+					lineHeight: 1.4,
+					cursorBlink: true,
+					cursorStyle: "block",
+					scrollback: 3000,
+					allowProposedApi: true,
+				});
+				fitAddon = new FitAddon.FitAddon();
+				xterm.loadAddon(fitAddon);
+				try {xterm.loadAddon(new WebLinksAddon.WebLinksAddon());} catch { }
+				xterm.open(termBody);
+				fitAddon.fit();
+
+				xterm.onData(function (data) {
+					if (termWs && termWs.readyState === WebSocket.OPEN) {
+						termWs.send(JSON.stringify({type: "input", data: data}));
+					}
+				});
+
+				window.addEventListener("resize", function () {
+					if (termOpen) {fitAddon.fit(); sendResize();}
+				});
+			}
+
+			function connectWs() {
+				if (termWs && termWs.readyState < 2) return;
+				var proto = location.protocol === "https:" ? "wss:" : "ws:";
+				var url = proto + "//" + location.host + "/ws/terminal";
+				termWs = new WebSocket(url);
+
+				termWs.onopen = function () {
+					termReady = true;
+					xterm.writeln("\x1b[32m✓ Terminal connected\x1b[0m");
+					sendResize();
+				};
+
+				termWs.onmessage = function (ev) {
+					try {
+						var msg = JSON.parse(ev.data);
+						if (msg.type === "output") {xterm.write(msg.data);}
+						else if (msg.type === "exit") {
+							xterm.writeln("\x1b[33m\n[Process exited with code " + msg.code + "]\x1b[0m");
+							termReady = false;
+						} else if (msg.type === "error") {
+							xterm.writeln("\x1b[31m✗ " + msg.message + "\x1b[0m");
+						}
+					} catch { }
+				};
+
+				termWs.onclose = function () {
+					termReady = false;
+					if (xterm) xterm.writeln("\x1b[33m\n[Disconnected — click ↺ Reconnect to start a new session]\x1b[0m");
+				};
+
+				termWs.onerror = function () {
+					if (xterm) xterm.writeln("\x1b[31m✗ Connection error\x1b[0m");
+				};
+			}
+
+			function sendResize() {
+				if (termWs && termWs.readyState === WebSocket.OPEN && xterm) {
+					termWs.send(JSON.stringify({type: "resize", cols: xterm.cols, rows: xterm.rows}));
+				}
+			}
+
+			function openTerminal() {
+				if (termOpen) return;
+				termOpen = true;
+				panel.classList.add("open");
+				toggle.classList.add("active");
+				initTerm();
+				setTimeout(function () {fitAddon.fit(); sendResize();}, 60);
+				connectWs();
+				if (window.state && window.state.workspace && window.state.workspace.workspaceRoot) {
+					termCwd.textContent = window.state.workspace.workspaceRoot;
+				}
+			}
+
+			function closeTerminal() {
+				if (!termOpen) return;
+				termOpen = false;
+				panel.classList.remove("open");
+				toggle.classList.remove("active");
+			}
+
+			function toggleTerminal() {
+				termOpen ? closeTerminal() : openTerminal();
+			}
+
+			toggle.addEventListener("click", toggleTerminal);
+			document.getElementById("termCloseBtn").addEventListener("click", closeTerminal);
+			document.getElementById("termClearBtn").addEventListener("click", function () {
+				if (xterm) xterm.clear();
+			});
+			document.getElementById("termReconnectBtn").addEventListener("click", function () {
+				if (termWs) {try {termWs.close();} catch { } }
+				termReady = false;
+				if (xterm) xterm.writeln("\x1b[33m[Reconnecting…]\x1b[0m");
+				setTimeout(connectWs, 200);
+			});
+
+			document.addEventListener("keydown", function (e) {
+				if (e.key === "`" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+					var tag = (document.activeElement || {}).tagName;
+					if (tag === "INPUT" || tag === "TEXTAREA") return;
+					e.preventDefault();
+					toggleTerminal();
+				}
+			});
+
+			window.termSendCommand = function (cmd) {
+				openTerminal();
+				setTimeout(function () {
+					if (termWs && termWs.readyState === WebSocket.OPEN) {
+						termWs.send(JSON.stringify({type: "input", data: cmd + "\r"}));
+					} else {
+						var tries = 0;
+						var wait = setInterval(function () {
+							tries++;
+							if (termWs && termWs.readyState === WebSocket.OPEN) {
+								termWs.send(JSON.stringify({type: "input", data: cmd + "\r"}));
+								clearInterval(wait);
+							} else if (tries > 20) clearInterval(wait);
+						}, 150);
+					}
+				}, termReady ? 0 : 600);
+			};
+
+			window.addEventListener("olla-state-updated", function (e) {
+				if (e.detail && e.detail.workspace && e.detail.workspace.workspaceRoot) {
+					termCwd.textContent = e.detail.workspace.workspaceRoot;
+				}
+			});
+		})();
+	</script>
+
+	<!-- Appearance Settings JS (unchanged) -->
+	<script>
+		(function () {
+			var hex = window._themeHex || "#F5C800";
+			var mode = window._themeMode || "day";
+
+			function syncApprUI(h, m) {
+				document.querySelectorAll(".appr-swatch").forEach(function (s) {
+					var active = s.dataset.hex && s.dataset.hex.toLowerCase() === h.toLowerCase();
+					s.style.outline = active ? "2px solid var(--body-text)" : "none";
+					s.style.outlineOffset = "2px";
+				});
+				var picker = document.getElementById("apprColorPicker");
+				var preview = document.getElementById("apprColorPreview");
+				var hexInput = document.getElementById("apprHexInput");
+				if (picker) picker.value = h;
+				if (preview) preview.style.background = h;
+				if (hexInput) hexInput.value = h;
+				["day", "night", "system"].forEach(function (m2) {
+					var btn = document.getElementById("appr" + m2.charAt(0).toUpperCase() + m2.slice(1) + "Btn");
+					if (btn) {
+						btn.style.background = (m === m2) ? "var(--ac)" : "var(--bubble)";
+						btn.style.color = (m === m2) ? "var(--ac-text)" : "var(--body-text)";
+						btn.style.borderColor = (m === m2) ? "var(--ac)" : "var(--border)";
+						btn.style.fontWeight = (m === m2) ? "700" : "500";
+					}
+				});
+			}
+
+			syncApprUI(hex, mode);
+
+			document.querySelectorAll(".appr-swatch").forEach(function (s) {
+				s.addEventListener("click", function () {
+					hex = this.dataset.hex;
+					applyTheme(hex, mode);
+					syncApprUI(hex, mode);
+				});
+			});
+
+			document.getElementById("apprColorPicker").addEventListener("input", function () {
+				hex = this.value;
+				document.getElementById("apprHexInput").value = hex;
+				document.getElementById("apprColorPreview").style.background = hex;
+				applyTheme(hex, mode);
+				syncApprUI(hex, mode);
+			});
+
+			document.getElementById("apprHexInput").addEventListener("change", function () {
+				var v = this.value.trim();
+				if (!/^#[0-9a-fA-F]{6}$/.test(v)) return;
+				hex = v; applyTheme(hex, mode); syncApprUI(hex, mode);
+			});
+			document.getElementById("apprHexInput").addEventListener("keydown", function (e) {
+				if (e.key !== "Enter") return;
+				var v = this.value.trim();
+				if (/^#[0-9a-fA-F]{6}$/.test(v)) {hex = v; applyTheme(hex, mode); syncApprUI(hex, mode);}
+			});
+
+			["day", "night", "system"].forEach(function (m2) {
+				var btn = document.getElementById("appr" + m2.charAt(0).toUpperCase() + m2.slice(1) + "Btn");
+				if (btn) btn.addEventListener("click", function () {
+					mode = m2; applyTheme(hex, mode); syncApprUI(hex, mode);
+				});
+			});
+
+			document.getElementById("apprSaveBtn").addEventListener("click", function () {
+				applyTheme(hex, mode);
+				var msg = document.getElementById("apprMsg");
+				msg.textContent = "✓ Saved";
+				setTimeout(function () {msg.textContent = "";}, 2000);
+			});
+
+			window.addEventListener("themechange", function (e) {
+				hex = e.detail.hex; mode = e.detail.mode; syncApprUI(hex, mode);
+			});
+		})();
+	</script>
+
+	<!-- Code Review Modal (unchanged) -->
+	<div id="codeReviewModal"
+		style="display:none;position:fixed;inset:0;z-index:9000;background:#000000bb;backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+		<div
+			style="background:var(--nav-bg);border:1px solid var(--border);border-radius:16px;width:90vw;max-width:900px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px #000000aa;">
+			<div
+				style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--hdr-bg,var(--nav-bg));">
+				<span id="codeReviewLang"
+					style="font-size:12px;font-family:'Fira Code',monospace;font-weight:600;padding:2px 10px;border-radius:999px;background:#3178c6;color:#fff;">code</span>
+				<span id="codeReviewFilename"
+					style="font-size:13px;font-family:'Fira Code',monospace;color:var(--muted2);flex:1;"></span>
+				<button onclick="closeCodeReview()"
+					style="background:var(--track);border:none;color:var(--body-text);border-radius:8px;padding:5px 14px;cursor:pointer;font-size:13px;font-family:inherit;">✕
+					Close</button>
+			</div>
+			<div style="overflow:auto;flex:1;">
+				<pre
+					style="margin:0;"><code id="codeReviewContent" class="hljs" style="padding:20px;font-size:13px;font-family:'Fira Code',monospace;line-height:1.7;display:block;background:var(--nav-bg);"></code></pre>
+			</div>
+			<div
+				style="padding:12px 20px;border-top:1px solid var(--border);background:var(--hdr-bg,var(--nav-bg));display:flex;align-items:center;gap:10px;justify-content:flex-end;">
+				<span id="codeReviewLines" style="font-size:12px;color:var(--muted2);flex:1;"></span>
+				<button onclick="copyReviewCode()" id="codeReviewCopyBtn"
+					style="background:var(--track);border:1px solid var(--border);color:var(--body-text);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:13px;font-family:inherit;">Copy</button>
+			</div>
+		</div>
+	</div>
 </body>
+
 </html>

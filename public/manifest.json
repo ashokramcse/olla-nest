@@ -1,22 +1,25 @@
 {
-  "name": "Olla Nest",
-  "short_name": "Olla Nest",
-  "description": "Your private AI workspace — runs entirely on your infrastructure",
-  "start_url": "/app",
-  "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#f7f6f1",
-  "theme_color": "#F5C800",
-  "icons": [
-    {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ],
-  "categories": ["productivity", "utilities"],
-  "screenshots": [],
-  "related_applications": [],
-  "prefer_related_applications": false
+	"name": "Olla Nest",
+	"short_name": "Olla Nest",
+	"description": "Your private AI workspace — runs entirely on your infrastructure",
+	"start_url": "/app",
+	"display": "standalone",
+	"orientation": "portrait-primary",
+	"background_color": "#f7f6f1",
+	"theme_color": "#F5C800",
+	"icons": [
+		{
+			"src": "/favicon.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any maskable"
+		}
+	],
+	"categories": [
+		"productivity",
+		"utilities"
+	],
+	"screenshots": [],
+	"related_applications": [],
+	"prefer_related_applications": false
 }
