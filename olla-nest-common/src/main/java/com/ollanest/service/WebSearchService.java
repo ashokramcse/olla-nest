@@ -98,18 +98,25 @@ public class WebSearchService {
 
 	private final SearchCacheService cacheService;
 
+	/** Prompt-injection hardening for untrusted web-search content. */
+	private final PromptSecurityService promptSecurityService;
+
 	/**
 	 * Constructs a {@code WebSearchService} with the required infrastructure dependencies.
 	 *
-	 * @param dbService    application settings service for reading search provider configuration
-	 * @param mapper       shared Jackson mapper for API response parsing
-	 * @param cacheService cache service for deduplicating repeat search queries
+	 * @param dbService             application settings service for reading search provider configuration
+	 * @param mapper                shared Jackson mapper for API response parsing
+	 * @param cacheService          cache service for deduplicating repeat search queries
+	 * @param promptSecurityService prompt-injection hardening / audit for web content
 	 * @since v2026.2.1
+	 * @version v2026.2.2 — wired prompt-injection hardening into result formatting
 	 */
-	public WebSearchService(DatabaseService dbService, ObjectMapper mapper, SearchCacheService cacheService) {
+	public WebSearchService(DatabaseService dbService, ObjectMapper mapper, SearchCacheService cacheService,
+			PromptSecurityService promptSecurityService) {
 		this.dbService = dbService;
 		this.mapper = mapper;
 		this.cacheService = cacheService;
+		this.promptSecurityService = promptSecurityService;
 	}
 
 	// ── Query classification ──────────────────────────────────────────────────
@@ -360,7 +367,11 @@ public class WebSearchService {
 			sb.append("URL: ").append(r.url()).append("\n");
 			sb.append(r.snippet()).append("\n\n");
 		}
-		return sb.toString();
+		// Web results are UNTRUSTED external content (indirect prompt-injection
+		// vector) — wrap with the safety preamble and audit suspicious payloads.
+		boolean flagged = promptSecurityService.isSuspicious(sb.toString());
+		promptSecurityService.logSecurityEvent(null, null, "web", flagged);
+		return String.valueOf(promptSecurityService.wrapUntrusted("web search", sb.toString()).get("content"));
 	}
 
 	// -------------------------------------------------------------------------

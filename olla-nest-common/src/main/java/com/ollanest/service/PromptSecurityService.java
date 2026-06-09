@@ -64,10 +64,15 @@ public class PromptSecurityService {
 
     /** Regex patterns that strongly suggest prompt-injection attempts in external content. */
     private static final List<Pattern> INJECTION_PATTERNS = List.of(
-            Pattern.compile("(?i)ignore (previous|all|above|prior) instructions?"),
+            // Allow one OR MORE stacked qualifiers: "ignore all previous instructions"
+            // is the most common injection phrasing and must not slip through (BUG-017).
+            Pattern.compile("(?i)ignore\\s+(?:(?:all|previous|above|prior|the|any|your)\\s+)+(?:instructions?|prompts?|rules?|guidelines?)"),
             Pattern.compile("(?i)you are now"),
-            Pattern.compile("(?i)new system prompt"),
-            Pattern.compile("(?i)disregard (your|all|the) (rules?|instructions?|guidelines?)"),
+            Pattern.compile("(?i)(new|updated|revised)\\s+system\\s+prompt"),
+            // Cover "disregard your system prompt" + stacked qualifiers.
+            Pattern.compile("(?i)disregard\\s+(?:(?:your|all|the|any|previous)\\s+)+(?:rules?|instructions?|guidelines?|system\\s+prompt)"),
+            // Direct attempts to exfiltrate the system prompt or secrets.
+            Pattern.compile("(?i)(reveal|show|print|repeat|expose)\\s+(?:your\\s+|the\\s+|any\\s+)?(system\\s+prompt|api\\s+keys?|secrets?|credentials?)"),
             Pattern.compile("(?i)\\[INST\\]"),
             Pattern.compile("(?i)<\\|im_start\\|>"),
             Pattern.compile("(?i)###\\s*(system|instruction)")

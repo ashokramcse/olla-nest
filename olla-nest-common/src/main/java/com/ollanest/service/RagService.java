@@ -88,16 +88,28 @@ public class RagService {
 	private final EmbeddingService embeddingService;
 
 	/**
+	 * Prompt-injection hardening for untrusted RAG content. Retrieved document
+	 * chunks are external/untrusted data: they may contain embedded instructions
+	 * (indirect prompt injection). Every assembled context is wrapped with a
+	 * safety preamble and audited to {@code prompt_security_log}.
+	 */
+	private final PromptSecurityService promptSecurityService;
+
+	/**
 	 * Constructs the service with its required collaborators.
 	 *
-	 * @param db               Spring JDBC template bound to the application's data
-	 *                         source
-	 * @param embeddingService embedding computation and similarity service
+	 * @param db                    Spring JDBC template bound to the application's
+	 *                              data source
+	 * @param embeddingService      embedding computation and similarity service
+	 * @param promptSecurityService prompt-injection hardening / audit for RAG content
 	 * @since v2026.1.0
+	 * @version v2026.2.2 — wired prompt-injection hardening into RAG retrieval
 	 */
-	public RagService(JdbcTemplate db, EmbeddingService embeddingService) {
+	public RagService(JdbcTemplate db, EmbeddingService embeddingService,
+			PromptSecurityService promptSecurityService) {
 		this.db = db;
 		this.embeddingService = embeddingService;
+		this.promptSecurityService = promptSecurityService;
 	}
 
 	/**
@@ -247,15 +259,23 @@ public class RagService {
 		List<Map<String, Object>> chunks = retrieve(query, userId, TOP_K);
 		if (chunks.isEmpty())
 			return null;
-		StringBuilder sb = new StringBuilder();
-		sb.append("---\nKnowledge Base Context (use this to answer if relevant):\n\n");
+		StringBuilder body = new StringBuilder();
+		boolean flagged = false;
 		for (int i = 0; i < chunks.size(); i++) {
 			Map<String, Object> c = chunks.get(i);
-			sb.append("[Source ").append(i + 1).append(": ").append(c.get("docName")).append("]\n");
-			sb.append(c.get("content")).append("\n\n");
+			String content = String.valueOf(c.get("content"));
+			// Retrieved chunks are UNTRUSTED external content — they may carry
+			// embedded instructions (indirect prompt injection). Flag suspicious
+			// chunks so the event is audited for review.
+			flagged = flagged || promptSecurityService.isSuspicious(content);
+			body.append("[Source ").append(i + 1).append(": ").append(c.get("docName")).append("]\n");
+			body.append(content).append("\n\n");
 		}
-		sb.append("---");
-		return sb.toString();
+		// Wrap the assembled context with the safety preamble so the model treats
+		// it as data, not instructions; audit every retrieval to prompt_security_log.
+		Map<String, Object> wrapped = promptSecurityService.wrapUntrusted("RAG knowledge base", body.toString());
+		promptSecurityService.logSecurityEvent(userId, null, "rag", flagged);
+		return String.valueOf(wrapped.get("content"));
 	}
 
 	/**
