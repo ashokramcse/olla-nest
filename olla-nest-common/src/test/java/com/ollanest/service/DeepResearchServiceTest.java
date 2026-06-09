@@ -18,6 +18,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import java.util.HashMap;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -143,7 +144,7 @@ class DeepResearchServiceTest {
         @DisplayName("returns null when report_html is null in row")
         void returnsNullWhenReportHtmlNull() {
             // Stub: task exists but report_html not yet generated (task still running)
-            Map<String, Object> row = new java.util.HashMap<>();
+            Map<String, Object> row = new HashMap<>();
             row.put("report_html", null);
             when(db.queryForList(anyString(), eq("res-null"), eq("user-test-001")))
                     .thenReturn(List.of(row));

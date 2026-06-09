@@ -4,6 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ollanest.connector.BaseConnector;
 import org.springframework.stereotype.Component;
 import java.util.Map;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.Set;
 
 /**
  * Spring {@code @Component} that pulls plain-text files from Dropbox into the
@@ -112,16 +117,16 @@ public class DropboxConnector extends BaseConnector {
 				String path = entry.path("path_lower").asText();
 				String name = entry.path("name").asText();
 				String ext = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1).toLowerCase() : "";
-				if (!java.util.Set.of("txt", "md", "csv", "json").contains(ext))
+				if (!Set.of("txt", "md", "csv", "json").contains(ext))
 					continue;
 				try {
-					java.net.URI uri = java.net.URI.create("https://content.dropboxapi.com/2/files/download");
-					java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder().uri(uri)
+					URI uri = URI.create("https://content.dropboxapi.com/2/files/download");
+					HttpRequest req = HttpRequest.newBuilder().uri(uri)
 							.header("Authorization", auth).header("Dropbox-API-Arg", "{\"path\":\"" + path + "\"}")
-							.timeout(java.time.Duration.ofSeconds(30))
-							.POST(java.net.http.HttpRequest.BodyPublishers.noBody()).build();
-					java.net.http.HttpResponse<String> resp = http.send(req,
-							java.net.http.HttpResponse.BodyHandlers.ofString());
+							.timeout(Duration.ofSeconds(30))
+							.POST(HttpRequest.BodyPublishers.noBody()).build();
+					HttpResponse<String> resp = http.send(req,
+							HttpResponse.BodyHandlers.ofString());
 					if (ingestDocument(connId, path, name, "https://www.dropbox.com/home" + path, resp.body()))
 						synced++;
 					else

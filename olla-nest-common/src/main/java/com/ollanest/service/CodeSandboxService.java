@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -267,7 +269,7 @@ public class CodeSandboxService {
 	private RunResult runJava(String code, Path tempDir) throws Exception {
 		// Extract public class name (fall back to "Main")
 		String className = "Main";
-		java.util.regex.Matcher m = java.util.regex.Pattern.compile("public\\s+class\\s+(\\w+)").matcher(code);
+		Matcher m = Pattern.compile("public\\s+class\\s+(\\w+)").matcher(code);
 		if (m.find())
 			className = m.group(1);
 

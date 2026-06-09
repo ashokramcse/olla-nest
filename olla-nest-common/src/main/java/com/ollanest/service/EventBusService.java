@@ -14,6 +14,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
+import java.util.UUID;
 
 /**
  * Lightweight in-process event bus that dispatches named events to registered handlers
@@ -140,7 +141,7 @@ public class EventBusService {
 
     private void persistEvent(String eventName, String owner, Map<String, Object> payload) {
         try {
-            String id = "ev-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+            String id = "ev-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
             String payloadJson = mapper.writeValueAsString(payload);
             db.update("INSERT INTO event_log (id, event_name, owner, payload_json, created_at) VALUES (?,?,?,?,?)",
                     id, eventName, owner, payloadJson, Instant.now().toString());

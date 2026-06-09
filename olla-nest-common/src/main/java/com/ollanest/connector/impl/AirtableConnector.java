@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ollanest.connector.BaseConnector;
 import org.springframework.stereotype.Component;
 import java.util.Map;
+import java.net.URLEncoder;
 
 /**
  * Spring {@code @Component} that pulls Airtable base data into the Olla-Nest
@@ -108,7 +109,7 @@ public class AirtableConnector extends BaseConnector {
 				String tableId = table.path("id").asText();
 				String tableName = table.path("name").asText();
 				JsonNode records = httpGet(
-						BASE + "/" + baseId + "/" + java.net.URLEncoder.encode(tableName, "UTF-8") + "?maxRecords=100",
+						BASE + "/" + baseId + "/" + URLEncoder.encode(tableName, "UTF-8") + "?maxRecords=100",
 						auth);
 				StringBuilder sb = new StringBuilder("# Table: " + tableName + "\n\n");
 				for (JsonNode r : records.path("records")) {

@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URLDecoder;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Web search abstraction supporting three interchangeable provider backends.
@@ -94,7 +97,7 @@ public class WebSearchService {
 	 * following. Reused across all search calls for connection pooling efficiency.
 	 */
 	private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10))
-			.followRedirects(java.net.http.HttpClient.Redirect.NORMAL).build();
+			.followRedirects(HttpClient.Redirect.NORMAL).build();
 
 	private final SearchCacheService cacheService;
 
@@ -269,10 +272,10 @@ public class WebSearchService {
 		String html = http.send(req, HttpResponse.BodyHandlers.ofString()).body();
 		List<SearchResult> results = new ArrayList<>();
 		// Parse result links from HTML using simple regex patterns
-		java.util.regex.Pattern titlePat = java.util.regex.Pattern.compile("<a class=\"result__a\" href=\"([^\"]+)\"[^>]*>([^<]+)</a>");
-		java.util.regex.Pattern snippetPat = java.util.regex.Pattern.compile("<a class=\"result__snippet\"[^>]*>([^<]+)</a>");
-		java.util.regex.Matcher titleMatcher = titlePat.matcher(html);
-		java.util.regex.Matcher snippetMatcher = snippetPat.matcher(html);
+		Pattern titlePat = Pattern.compile("<a class=\"result__a\" href=\"([^\"]+)\"[^>]*>([^<]+)</a>");
+		Pattern snippetPat = Pattern.compile("<a class=\"result__snippet\"[^>]*>([^<]+)</a>");
+		Matcher titleMatcher = titlePat.matcher(html);
+		Matcher snippetMatcher = snippetPat.matcher(html);
 		List<String> snippets = new ArrayList<>();
 		while (snippetMatcher.find()) snippets.add(snippetMatcher.group(1));
 		int i = 0;
@@ -283,7 +286,7 @@ public class WebSearchService {
 			// Resolve DuckDuckGo redirect URLs
 			if (href.contains("uddg=")) {
 				try {
-					href = java.net.URLDecoder.decode(
+					href = URLDecoder.decode(
 							href.substring(href.indexOf("uddg=") + 5), StandardCharsets.UTF_8);
 				} catch (Exception ignore) {}
 			}

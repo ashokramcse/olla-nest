@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Handles user self-service account operations for the authenticated user.
@@ -152,7 +153,7 @@ public class AccountController extends BaseController {
 
 		// Per-field maximum lengths — prevents unbounded string storage and protects
 		// downstream systems that may truncate or choke on excessively long values.
-		Map<String, Integer> maxLengths = new java.util.HashMap<>();
+		Map<String, Integer> maxLengths = new HashMap<>();
 		maxLengths.put("name",            150);
 		maxLengths.put("phone",            30);
 		maxLengths.put("avatar_initials",   4);

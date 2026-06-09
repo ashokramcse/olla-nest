@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -73,7 +74,7 @@ class DatabaseServiceTest {
 		@DisplayName("returns fallback when stored value is null")
 		void returnsFallbackWhenValueNull() {
 			// Stub DB to return a row with null value — treat same as absent
-			Map<String, Object> row = new java.util.HashMap<>();
+			Map<String, Object> row = new HashMap<>();
 			row.put("value", null);
 			when(db.queryForList("SELECT value FROM settings WHERE key = ?", "k"))
 					.thenReturn(List.of(row));

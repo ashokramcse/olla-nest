@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import java.util.Map;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -352,8 +353,8 @@ class RouterServiceTest {
 			assertThat(r.candidates).hasSize(1);
 			// Breakdown map must have all scoring dimensions so the admin can see why a model was chosen
 			@SuppressWarnings("unchecked")
-			java.util.Map<String, Object> breakdown =
-					(java.util.Map<String, Object>) r.candidates.get(0).get("breakdown");
+			Map<String, Object> breakdown =
+					(Map<String, Object>) r.candidates.get(0).get("breakdown");
 			assertThat(breakdown).containsKey("capabilityMatch");
 			assertThat(breakdown).containsKey("speedScore");
 			assertThat(breakdown).containsKey("qualityScore");

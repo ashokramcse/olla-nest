@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.UUID;
 
 /**
  * REST API for AI image generation.
@@ -114,7 +116,7 @@ public class ImageController extends BaseController {
 		if (prompt.isBlank())
 			return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "prompt is required"));
 
-		String logId = "ig-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+		String logId = "ig-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
 		try {
 			ImageGenerationService.ImageResult result = imageService.generate(prompt, provider);
 
@@ -123,7 +125,7 @@ public class ImageController extends BaseController {
 					"INSERT INTO image_generation_log (id, user_id, prompt, provider, model, status, created_at) VALUES (?,?,?,?,?,?,?)",
 					logId, user.id, prompt, result.provider(), result.model(), "ok", Instant.now().toString());
 
-			var response = new java.util.LinkedHashMap<String, Object>();
+			var response = new LinkedHashMap<String, Object>();
 			response.put("ok", true);
 			response.put("provider", result.provider());
 			if (result.url() != null)

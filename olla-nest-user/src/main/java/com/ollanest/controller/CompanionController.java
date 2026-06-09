@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
 import java.net.NetworkInterface;
+import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.util.*;
 
 /**
@@ -150,8 +153,8 @@ public class CompanionController extends BaseController {
     private String getLanIp() {
         try {
             // UDP connect trick — reveals egress interface IP
-            java.net.DatagramSocket s = new java.net.DatagramSocket();
-            s.connect(java.net.InetAddress.getByName("8.8.8.8"), 80);
+            DatagramSocket s = new DatagramSocket();
+            s.connect(InetAddress.getByName("8.8.8.8"), 80);
             String ip = s.getLocalAddress().getHostAddress();
             s.close();
             if (ip != null && !ip.startsWith("127.")) return ip;
@@ -161,10 +164,10 @@ public class CompanionController extends BaseController {
             while (interfaces.hasMoreElements()) {
                 NetworkInterface ni = interfaces.nextElement();
                 if (ni.isLoopback() || !ni.isUp()) continue;
-                Enumeration<java.net.InetAddress> addrs = ni.getInetAddresses();
+                Enumeration<InetAddress> addrs = ni.getInetAddresses();
                 while (addrs.hasMoreElements()) {
-                    java.net.InetAddress addr = addrs.nextElement();
-                    if (addr instanceof java.net.Inet4Address && !addr.isLoopbackAddress()) {
+                    InetAddress addr = addrs.nextElement();
+                    if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
                         return addr.getHostAddress();
                     }
                 }

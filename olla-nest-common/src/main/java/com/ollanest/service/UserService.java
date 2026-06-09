@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.model.User;
+import java.time.Instant;
+import java.util.stream.Collectors;
 
 /**
  * User model hydration, permission resolution, and access-control helpers.
@@ -70,8 +72,8 @@ public class UserService {
 	 * them would grant silent privilege escalation (internal-tool is treated as admin
 	 * by require_admin, api is the bearer-token owner sentinel, etc.).
 	 */
-	public static final java.util.Set<String> RESERVED_USERNAMES =
-			java.util.Set.of("internal-tool", "api", "demo", "system", "admin");
+	public static final Set<String> RESERVED_USERNAMES =
+			Set.of("internal-tool", "api", "demo", "system", "admin");
 
 	/** JDBC template for all database queries in this service. */
 	private final JdbcTemplate db;
@@ -302,7 +304,7 @@ public class UserService {
 
 		// Explicit access_grants: by group membership — single IN query, not N+1
 		if (!groupIds.isEmpty()) {
-			String placeholders = groupIds.stream().map(g -> "?").collect(java.util.stream.Collectors.joining(","));
+			String placeholders = groupIds.stream().map(g -> "?").collect(Collectors.joining(","));
 			Object[] params = groupIds.toArray();
 			ids.addAll(db.queryForList(
 					"SELECT model_id FROM access_grants WHERE subject_type = 'group' "
@@ -336,7 +338,7 @@ public class UserService {
 			String expiresAt = (String) ov.get("expires_at");
 			if (expiresAt != null && !expiresAt.isBlank()) {
 				try {
-					if (System.currentTimeMillis() > java.time.Instant.parse(expiresAt).toEpochMilli())
+					if (System.currentTimeMillis() > Instant.parse(expiresAt).toEpochMilli())
 						continue;
 				} catch (Exception ignored) {
 				}
@@ -421,7 +423,7 @@ public class UserService {
 			String expiresAt = (String) ov.get("expires_at");
 			if (expiresAt != null && !expiresAt.isBlank()) {
 				try {
-					if (System.currentTimeMillis() > java.time.Instant.parse(expiresAt).toEpochMilli())
+					if (System.currentTimeMillis() > Instant.parse(expiresAt).toEpochMilli())
 						continue;
 				} catch (Exception ignored) {
 				}

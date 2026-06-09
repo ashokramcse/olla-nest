@@ -223,7 +223,7 @@ class SkillsServiceTest {
             // Stub: DB returns empty list — no skills exist yet for this owner
             when(db.queryForList(contains("SELECT"), eq(OWNER), eq(null), eq("active"), eq(1000)))
                     .thenReturn(List.of());
-            when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(List.of());
+            when(mapper.readValue(anyString(), eq(List.class))).thenReturn(List.of());
 
             // Empty skill store must return an empty list, not throw
             assertThat(skillsService.search(OWNER, "docker deploy", 5)).isEmpty();
@@ -236,7 +236,7 @@ class SkillsServiceTest {
             var row = buildSkillRow("skill-1", "Deploy Docker container", "active");
             when(db.queryForList(contains("SELECT"), any(Object[].class)))
                     .thenReturn(List.of(row));
-            when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(List.of());
+            when(mapper.readValue(anyString(), eq(List.class))).thenReturn(List.of());
 
             var results = skillsService.search(OWNER, "docker", 10);
             // The matching skill must be returned — keyword search on name must work

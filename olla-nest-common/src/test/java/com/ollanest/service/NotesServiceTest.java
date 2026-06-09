@@ -21,6 +21,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.HashMap;
+import java.util.HashSet;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -97,7 +99,7 @@ class NotesServiceTest {
                     .thenReturn(List.of(noteRow("note-x", "", "note", 0)));
             // A client sending {"title":null,"note_type":null,...} must not hit a
             // NOT NULL constraint (500). HashMap because Map.of forbids null values.
-            java.util.Map<String, Object> req = new java.util.HashMap<>();
+            Map<String, Object> req = new HashMap<>();
             req.put("title", null);
             req.put("content", null);
             req.put("note_type", null);
@@ -141,7 +143,7 @@ class NotesServiceTest {
             ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
             for (int i = 0; i < 50; i++) notesService.create(OWNER, Map.of("title", "N" + i));
             verify(db, times(50)).update(contains("INSERT INTO notes"), cap.capture());
-            var ids = new java.util.HashSet<String>();
+            var ids = new HashSet<String>();
             for (Object[] a : cap.getAllValues()) ids.add(a[0].toString());
             assertThat(ids).hasSize(50);
         }
@@ -273,7 +275,7 @@ class NotesServiceTest {
             // Stub: DB returns one matching row
             when(db.queryForList(anyString(), anyString(), anyString()))
                     .thenReturn(List.of(noteRow("note-1", "My Note", "note", 0)));
-            when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(null);
+            when(mapper.readValue(anyString(), eq(List.class))).thenReturn(null);
 
             var note = notesService.getById("note-1", OWNER);
             // Non-null result means the row was found and mapped successfully
@@ -292,7 +294,7 @@ class NotesServiceTest {
         void nonArchivedQueryFiltersArchived() throws Exception {
             // Stub: query with archived=0 filter returns empty list
             when(db.queryForList(contains("archived=0"), eq(OWNER))).thenReturn(List.of());
-            when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(null);
+            when(mapper.readValue(anyString(), eq(List.class))).thenReturn(null);
             notesService.list(OWNER, false, null);
             // Verify the SQL includes the archived=0 guard — default view must exclude archived notes
             verify(db).queryForList(contains("archived=0"), eq(OWNER));
@@ -303,7 +305,7 @@ class NotesServiceTest {
         void archivedTrueNoFilter() throws Exception {
             // Stub: archived list query includes all notes regardless of archived flag
             when(db.queryForList(contains("WHERE owner=?"), eq(OWNER))).thenReturn(List.of());
-            when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(null);
+            when(mapper.readValue(anyString(), eq(List.class))).thenReturn(null);
             notesService.list(OWNER, true, null);
             // When requesting archived notes, the "archived=0" clause must NOT appear
             verify(db, never()).queryForList(contains("archived=0"), any(Object[].class));
@@ -314,7 +316,7 @@ class NotesServiceTest {
         void labelFilterAddsClause() throws Exception {
             // Stub: query with label filter returns empty list
             when(db.queryForList(contains("label=?"), eq(OWNER), eq("work"))).thenReturn(List.of());
-            when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(null);
+            when(mapper.readValue(anyString(), eq(List.class))).thenReturn(null);
             notesService.list(OWNER, false, "work");
             // Label filter must be appended as a bound parameter — not string-concatenated
             verify(db).queryForList(contains("label=?"), eq(OWNER), eq("work"));

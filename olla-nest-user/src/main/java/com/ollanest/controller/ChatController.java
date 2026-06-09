@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 
 /**
  * Primary chat API for Olla Nest.
@@ -348,7 +349,7 @@ public class ChatController extends BaseController {
 				db.queryForList("SELECT * FROM chat_sessions WHERE id = ?", chatId);
 		if (sessionRows.isEmpty()) {
 			log.warn("[chat] Session {} vanished after update — returning partial result", chatId);
-			sessionRows = java.util.Collections.singletonList(java.util.Map.of("id", chatId));
+			sessionRows = Collections.singletonList(Map.of("id", chatId));
 		}
 		Map<String, Object> updatedSession = sessionRows.get(0);
 		Map<String, Object> updatedChat = chatService.buildChatObject(updatedSession);

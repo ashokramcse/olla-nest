@@ -5,6 +5,14 @@ import com.ollanest.connector.BaseConnector;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 
 /**
  * Connector implementation that synchronises content from Google Drive into the
@@ -92,7 +100,7 @@ public class GoogleDriveConnector extends BaseConnector {
 			// List recent files — Docs, PDFs, plain text
 			String query = "mimeType='application/vnd.google-apps.document' or mimeType='application/pdf' or mimeType='text/plain'";
 			JsonNode files = httpGet(
-					DRIVE_BASE + "/files?q=" + java.net.URLEncoder.encode(query, "UTF-8")
+					DRIVE_BASE + "/files?q=" + URLEncoder.encode(query, "UTF-8")
 							+ "&fields=files(id,name,webViewLink,mimeType)&pageSize=50&orderBy=modifiedTime+desc",
 					auth);
 
@@ -106,20 +114,20 @@ public class GoogleDriveConnector extends BaseConnector {
 				try {
 					if ("application/vnd.google-apps.document".equals(mime)) {
 						// Export Google Doc as plain text
-						java.net.URI uri = java.net.URI
+						URI uri = URI
 								.create(EXPORT_BASE + "/" + fileId + "/export?mimeType=text/plain");
-						java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder().uri(uri)
-								.header("Authorization", auth).timeout(java.time.Duration.ofSeconds(30)).GET().build();
-						java.net.http.HttpResponse<String> resp = http.send(req,
-								java.net.http.HttpResponse.BodyHandlers.ofString());
+						HttpRequest req = HttpRequest.newBuilder().uri(uri)
+								.header("Authorization", auth).timeout(Duration.ofSeconds(30)).GET().build();
+						HttpResponse<String> resp = http.send(req,
+								HttpResponse.BodyHandlers.ofString());
 						content = resp.body();
 					} else {
 						// Download as-is (PDF/TXT)
-						java.net.URI uri = java.net.URI.create(EXPORT_BASE + "/" + fileId + "?alt=media");
-						java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder().uri(uri)
-								.header("Authorization", auth).timeout(java.time.Duration.ofSeconds(30)).GET().build();
-						java.net.http.HttpResponse<byte[]> resp = http.send(req,
-								java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+						URI uri = URI.create(EXPORT_BASE + "/" + fileId + "?alt=media");
+						HttpRequest req = HttpRequest.newBuilder().uri(uri)
+								.header("Authorization", auth).timeout(Duration.ofSeconds(30)).GET().build();
+						HttpResponse<byte[]> resp = http.send(req,
+								HttpResponse.BodyHandlers.ofByteArray());
 						content = "application/pdf".equals(mime) ? extractPdf(resp.body()) : new String(resp.body());
 					}
 					if (ingestDocument(connId, fileId, name, fileUrl, content))
@@ -176,8 +184,8 @@ public class GoogleDriveConnector extends BaseConnector {
 	 * @since v2026.1.4
 	 */
 	private String extractPdf(byte[] bytes) {
-		try (org.apache.pdfbox.pdmodel.PDDocument doc = org.apache.pdfbox.Loader.loadPDF(bytes)) {
-			return new org.apache.pdfbox.text.PDFTextStripper().getText(doc);
+		try (PDDocument doc = Loader.loadPDF(bytes)) {
+			return new PDFTextStripper().getText(doc);
 		} catch (Exception e) {
 			return "";
 		}

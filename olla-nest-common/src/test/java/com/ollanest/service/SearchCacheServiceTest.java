@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.nio.file.Files;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -121,7 +122,7 @@ class SearchCacheServiceTest {
             // Write cache file but stub DB to return empty — both must be present for a hit
             var file = tempDir.resolve("search_cache").resolve(key + ".cache");
             file.getParent().toFile().mkdirs();
-            java.nio.file.Files.writeString(file, "[]");
+            Files.writeString(file, "[]");
             when(db.queryForList(anyString(), eq(key))).thenReturn(List.of());
             // DB record missing even though file exists — must return null
             assertThat(svc.get(key)).isNull();
@@ -133,7 +134,7 @@ class SearchCacheServiceTest {
             String key = svc.cacheKey("expired query", "prov");
             var file = tempDir.resolve("search_cache").resolve(key + ".cache");
             file.getParent().toFile().mkdirs();
-            java.nio.file.Files.writeString(file, "[]");
+            Files.writeString(file, "[]");
             // Stub DB with past expires_at — 1 hour ago
             String pastExpiry = Instant.now().minus(1, ChronoUnit.HOURS).toString();
             when(db.queryForList(anyString(), eq(key)))
@@ -158,7 +159,7 @@ class SearchCacheServiceTest {
             svc.put(key, "put test", "duckduckgo", "general", List.of());
             // Cache file must exist on disk after put() — missing file = broken cache
             var cacheFile = tempDir.resolve("search_cache").resolve(key + ".cache");
-            assertThat(java.nio.file.Files.exists(cacheFile)).isTrue();
+            assertThat(Files.exists(cacheFile)).isTrue();
         }
 
         @Test

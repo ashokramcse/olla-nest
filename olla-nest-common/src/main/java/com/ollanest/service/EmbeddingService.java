@@ -13,6 +13,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.stream.Collectors;
 import java.util.*;
 
 /**
@@ -306,7 +307,7 @@ public class EmbeddingService {
 			if (json == null || json.isBlank() || "[]".equals(json.trim()))
 				return List.of();
 			return (List<Double>) mapper.readValue(json, List.class).stream().map(v -> ((Number) v).doubleValue())
-					.collect(java.util.stream.Collectors.toList());
+					.collect(Collectors.toList());
 		} catch (Exception e) {
 			return List.of();
 		}

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import static com.ollanest.util.MapDefaults.orDefault;
 
 import java.time.Instant;
+import java.util.UUID;
 import java.util.*;
 
 /**
@@ -83,7 +84,7 @@ public class NotesService {
      * @since v2026.2.1
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
-        String id = "note-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+        String id = "note-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
 
         db.update("""

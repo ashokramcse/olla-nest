@@ -144,7 +144,7 @@ class EmailServiceTest {
         @Test
         @DisplayName("password_enc is stripped from returned account")
         void stripsPassword() {
-            Map<String, Object> row = new java.util.LinkedHashMap<>(acctRow("email-1"));
+            Map<String, Object> row = new LinkedHashMap<>(acctRow("email-1"));
             row.put("password_enc", "secret-enc");
             // Stub: account found with encrypted password in DB row
             when(db.queryForList(anyString(), anyString(), anyString())).thenReturn(List.of(row));

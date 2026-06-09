@@ -13,6 +13,11 @@ import static com.ollanest.util.MapDefaults.orDefault;
 import java.net.URI;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.DayOfWeek;
+import java.time.Duration;
 import java.util.*;
 
 /**
@@ -318,15 +323,15 @@ public class TaskSchedulerService {
                 "stream", false
         );
 
-        var http = java.net.http.HttpClient.newHttpClient();
-        var req = java.net.http.HttpRequest.newBuilder()
+        var http = HttpClient.newHttpClient();
+        var req = HttpRequest.newBuilder()
                 .uri(URI.create(ollamaUrl.replaceAll("/+$", "") + "/api/chat"))
                 .header("Content-Type", "application/json")
-                .timeout(java.time.Duration.ofSeconds(120))
-                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(request)))
+                .timeout(Duration.ofSeconds(120))
+                .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(request)))
                 .build();
 
-        var resp = http.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
+        var resp = http.send(req, HttpResponse.BodyHandlers.ofString());
         return mapper.readTree(resp.body()).path("message").path("content").asText("(no response)");
     }
 
@@ -370,7 +375,7 @@ public class TaskSchedulerService {
             case "weekly" -> {
                 int day = req.get("scheduled_day") != null ? ((Number) req.get("scheduled_day")).intValue() : 1;
                 ZonedDateTime candidate = ZonedDateTime.of(today, time, ZoneOffset.UTC)
-                        .with(java.time.DayOfWeek.of(day));
+                        .with(DayOfWeek.of(day));
                 yield candidate.isBefore(ZonedDateTime.now()) ? candidate.plusWeeks(1) : candidate;
             }
             case "monthly" -> {

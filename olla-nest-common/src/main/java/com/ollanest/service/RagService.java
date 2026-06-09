@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 
 /**
  * Retrieval-Augmented Generation (RAG) pipeline for document ingestion and
@@ -327,14 +329,14 @@ public class RagService {
 	 * @since v2026.1.0
 	 */
 	/** SecureRandom for document ID generation — used to prevent ID collision and guessing. */
-	private static final java.security.SecureRandom INGEST_RNG = new java.security.SecureRandom();
+	private static final SecureRandom INGEST_RNG = new SecureRandom();
 
 	public String ingestText(String content, String name, String scope) {
 		// MED-5 / LOW-7 FIX: Use SecureRandom instead of Math.random() for document ID.
 		String docId = "doc-" + Long.toString(System.currentTimeMillis(), 36) + "-"
 				+ Long.toString(INGEST_RNG.nextLong() & Long.MAX_VALUE, 36);
 		List<String> chunks = chunkText(content);
-		String now = java.time.Instant.now().toString();
+		String now = Instant.now().toString();
 		db.update(
 				"INSERT INTO rag_documents (id, name, type, size, chunk_count, uploaded_by, scope, created_at) "
 						+ "VALUES (?,?,?,?,?,?,?,?)",
@@ -391,7 +393,7 @@ public class RagService {
 			}
 		}
 		// TXT, MD, JSON, code files — read as UTF-8
-		return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+		return new String(is.readAllBytes(), StandardCharsets.UTF_8);
 	}
 
 	/**

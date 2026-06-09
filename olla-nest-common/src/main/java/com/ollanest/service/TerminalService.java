@@ -11,6 +11,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
+import java.security.SecureRandom;
 
 /**
  * WebSocket handler that bridges each connected client to a dedicated shell
@@ -263,7 +264,7 @@ public class TerminalService extends AbstractWebSocketHandler {
 	private void auditTerminalEvent(String userId, String action, String detail) {
 		try {
 			String id = "audit-" + Long.toString(System.currentTimeMillis(), 36) + "-"
-				+ Long.toHexString(new java.security.SecureRandom().nextLong() & Long.MAX_VALUE);
+				+ Long.toHexString(new SecureRandom().nextLong() & Long.MAX_VALUE);
 			db.update(
 				"INSERT INTO audit_events (id, actor, action, detail, extra_json, created_at) VALUES (?,?,?,?,?,?)",
 				id, userId, action, detail, "{}", Instant.now().toString());

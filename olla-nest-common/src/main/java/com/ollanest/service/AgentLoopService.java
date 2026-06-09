@@ -17,6 +17,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Multi-round agentic loop that drives an LLM through iterative tool execution
@@ -254,7 +255,7 @@ public class AgentLoopService {
             ProcessBuilder pb = new ProcessBuilder("/bin/sh", "-c", cmd);
             pb.redirectErrorStream(true);
             Process proc = pb.start();
-            boolean finished = proc.waitFor(SHELL_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS);
+            boolean finished = proc.waitFor(SHELL_TIMEOUT_S, TimeUnit.SECONDS);
             if (!finished) {
                 proc.destroyForcibly();
                 return "Error: Command timed out after " + SHELL_TIMEOUT_S + "s";

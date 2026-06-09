@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.UUID;
 import java.util.*;
 
 /**
@@ -100,7 +101,7 @@ public class ApiTokenService {
         String hash = ENCODER.encode(rawToken);
         String prefix = rawToken.substring(0, Math.min(12, rawToken.length()));
 
-        String id = "tok-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+        String id = "tok-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
         List<String> effectiveScopes = (scopes != null && !scopes.isEmpty()) ? scopes : List.of("chat");
 

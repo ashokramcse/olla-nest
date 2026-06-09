@@ -5,6 +5,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.security.SecureRandom;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Pattern;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -132,7 +140,7 @@ class SecurityHardeningTest {
         @DisplayName("AuthService token format: exactly 64 lowercase hex characters")
         void tokenFormatIsValid() {
             // Verify the token generation algorithm produces the expected 64-char hex format
-            java.security.SecureRandom rng = new java.security.SecureRandom();
+            SecureRandom rng = new SecureRandom();
             byte[] bytes = new byte[32];
             rng.nextBytes(bytes);
             StringBuilder sb = new StringBuilder(64);
@@ -146,8 +154,8 @@ class SecurityHardeningTest {
         @DisplayName("1000 tokens are all unique (256-bit entropy)")
         void tokensAreUnique() {
             // 256-bit entropy makes collision probability astronomically low — all 1000 must be unique
-            java.security.SecureRandom rng = new java.security.SecureRandom();
-            java.util.Set<String> tokens = new java.util.HashSet<>();
+            SecureRandom rng = new SecureRandom();
+            Set<String> tokens = new HashSet<>();
             for (int i = 0; i < 1000; i++) {
                 byte[] bytes = new byte[32];
                 rng.nextBytes(bytes);
@@ -166,8 +174,8 @@ class SecurityHardeningTest {
     @DisplayName("Token format guard — injection payload catalogue")
     class TokenInjectionCatalogue {
 
-        private static final java.util.regex.Pattern VALID =
-                java.util.regex.Pattern.compile("^[0-9a-f]{64}$");
+        private static final Pattern VALID =
+                Pattern.compile("^[0-9a-f]{64}$");
 
         private void assertRejected(String payload) {
             // SECURITY: any payload that does not match the exact 64-hex-char format must be rejected
@@ -201,12 +209,12 @@ class SecurityHardeningTest {
         @Test
         @DisplayName("cleanStaleRateLimitEntries method exists and is @Scheduled")
         void cleanupMethodIsScheduled() throws Exception {
-            java.lang.reflect.Method m =
+            Method m =
                     ChatService.class.getMethod("cleanStaleRateLimitEntries");
             assertThat(m).isNotNull();
             // @Scheduled annotation must be present — missing it would cause a memory leak
             assertThat(m.isAnnotationPresent(
-                    org.springframework.scheduling.annotation.Scheduled.class))
+                    Scheduled.class))
                     .as("cleanStaleRateLimitEntries must be @Scheduled")
                     .isTrue();
         }
@@ -214,10 +222,10 @@ class SecurityHardeningTest {
         @Test
         @DisplayName("rateLimitMap field is private (encapsulated)")
         void rateLimitMapIsPrivate() throws Exception {
-            java.lang.reflect.Field f =
+            Field f =
                     ChatService.class.getDeclaredField("rateLimitMap");
             // SECURITY: rateLimitMap must be private — no external mutation of rate limit state
-            assertThat(java.lang.reflect.Modifier.isPrivate(f.getModifiers()))
+            assertThat(Modifier.isPrivate(f.getModifiers()))
                     .as("rateLimitMap must be private")
                     .isTrue();
         }
@@ -284,9 +292,9 @@ class SecurityHardeningTest {
         @Test
         @DisplayName("AuthService.SECURE_RANDOM is static")
         void authServiceSecureRandomIsStatic() throws Exception {
-            java.lang.reflect.Field f = AuthService.class.getDeclaredField("SECURE_RANDOM");
+            Field f = AuthService.class.getDeclaredField("SECURE_RANDOM");
             // Static field = single shared instance; per-call instantiation wastes entropy pool seeding
-            assertThat(java.lang.reflect.Modifier.isStatic(f.getModifiers()))
+            assertThat(Modifier.isStatic(f.getModifiers()))
                     .as("AuthService.SECURE_RANDOM must be static")
                     .isTrue();
         }
@@ -294,8 +302,8 @@ class SecurityHardeningTest {
         @Test
         @DisplayName("CryptoService.SECURE_RANDOM is static")
         void cryptoServiceSecureRandomIsStatic() throws Exception {
-            java.lang.reflect.Field f = CryptoService.class.getDeclaredField("SECURE_RANDOM");
-            assertThat(java.lang.reflect.Modifier.isStatic(f.getModifiers()))
+            Field f = CryptoService.class.getDeclaredField("SECURE_RANDOM");
+            assertThat(Modifier.isStatic(f.getModifiers()))
                     .as("CryptoService.SECURE_RANDOM must be static")
                     .isTrue();
         }
@@ -303,8 +311,8 @@ class SecurityHardeningTest {
         @Test
         @DisplayName("ChatService.UID_RNG is static")
         void chatServiceUidRngIsStatic() throws Exception {
-            java.lang.reflect.Field f = ChatService.class.getDeclaredField("UID_RNG");
-            assertThat(java.lang.reflect.Modifier.isStatic(f.getModifiers()))
+            Field f = ChatService.class.getDeclaredField("UID_RNG");
+            assertThat(Modifier.isStatic(f.getModifiers()))
                     .as("ChatService.UID_RNG must be static")
                     .isTrue();
         }

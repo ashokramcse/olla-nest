@@ -18,6 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.HashSet;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -125,7 +126,7 @@ class TaskSchedulerServiceTest {
                 svc.create(OWNER, Map.of("name", "Check-in " + i, "schedule", "daily", "scheduled_time", "09:00"));
             }
             verify(db, times(50)).update(contains("INSERT INTO scheduled_tasks"), cap.capture());
-            var ids = new java.util.HashSet<String>();
+            var ids = new HashSet<String>();
             for (Object[] args : cap.getAllValues()) ids.add(args[0].toString());
             // All 50 generated ids must be distinct — no PRIMARY KEY collision possible.
             assertThat(ids).hasSize(50);

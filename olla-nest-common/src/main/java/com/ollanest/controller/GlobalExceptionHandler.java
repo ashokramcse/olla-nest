@@ -13,6 +13,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 /**
  * Global exception handler that converts unhandled exceptions into a consistent
@@ -88,8 +89,8 @@ public class GlobalExceptionHandler {
 	 * @return 404 with {@code {ok: false, error: "message"}}
 	 * @since v2026.1.9
 	 */
-	@ExceptionHandler(java.util.NoSuchElementException.class)
-	public ResponseEntity<Map<String, Object>> handleNotFound(java.util.NoSuchElementException ex) {
+	@ExceptionHandler(NoSuchElementException.class)
+	public ResponseEntity<Map<String, Object>> handleNotFound(NoSuchElementException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(Map.of("ok", false, "error", ex.getMessage()));
 	}

@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -272,7 +273,7 @@ class MemoryServiceTest {
             var row = memRow("mem-1", "User prefers dark mode", "2026-01-01T00:00:00Z");
             when(db.queryForList(contains("SELECT"), eq(OWNER))).thenReturn(List.of(row));
             // Stub: mapper deserializes empty tags array
-            when(mapper.readValue(eq("[]"), eq(java.util.List.class))).thenReturn(List.of());
+            when(mapper.readValue(eq("[]"), eq(List.class))).thenReturn(List.of());
 
             var results = memoryService.recall(OWNER, "dark mode", 5);
             // "dark mode" matches the memory text — result must be non-empty
@@ -286,7 +287,7 @@ class MemoryServiceTest {
             // Stub: memory is about Java development — unrelated to the query
             var row = memRow("mem-1", "User is a Java developer", "2026-01-01T00:00:00Z");
             when(db.queryForList(contains("SELECT"), eq(OWNER))).thenReturn(List.of(row));
-            when(mapper.readValue(eq("[]"), eq(java.util.List.class))).thenReturn(List.of());
+            when(mapper.readValue(eq("[]"), eq(List.class))).thenReturn(List.of());
 
             // "quantum physics research" has no overlap with the Java developer text
             var results = memoryService.recall(OWNER, "quantum physics research", 5);
@@ -297,12 +298,12 @@ class MemoryServiceTest {
         @DisplayName("results are limited by topK parameter")
         void topKLimitsResults() throws Exception {
             // Stub: 10 memories all matching "coding" keyword
-            var rows = java.util.stream.IntStream.rangeClosed(1, 10)
+            var rows = IntStream.rangeClosed(1, 10)
                     .mapToObj(i -> memRow("mem-" + i, "coding fact " + i,
                             "2026-01-0" + Math.min(i, 9) + "T00:00:00Z"))
                     .toList();
             when(db.queryForList(contains("SELECT"), eq(OWNER))).thenReturn(rows);
-            when(mapper.readValue(eq("[]"), eq(java.util.List.class))).thenReturn(List.of());
+            when(mapper.readValue(eq("[]"), eq(List.class))).thenReturn(List.of());
 
             // topK=3 must limit the returned results to at most 3 even though 10 match
             var results = memoryService.recall(OWNER, "coding", 3);

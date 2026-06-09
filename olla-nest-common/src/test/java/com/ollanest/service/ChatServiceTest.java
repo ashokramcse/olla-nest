@@ -24,6 +24,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.LinkedHashMap;
+import org.springframework.dao.DataAccessException;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -247,7 +249,7 @@ class ChatServiceTest {
 		@DisplayName("maps all core fields correctly")
 		void mapsAllFields() {
 			// Construct a full DB row with all columns populated
-			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("id", "msg-001");
 			row.put("role", "user");
 			row.put("content", "Hello world");
@@ -278,7 +280,7 @@ class ChatServiceTest {
 		@DisplayName("live=0 maps to false")
 		void liveZeroIsFalse() {
 			// live=0 (historical / non-streaming message) must map to boolean false
-			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("role", "assistant");
 			row.put("content", "Response");
 			row.put("live", 0);
@@ -290,7 +292,7 @@ class ChatServiceTest {
 		@DisplayName("null live defaults to true")
 		void nullLiveIsTrue() {
 			// Null live (column absent in older rows) defaults to true (message is considered live)
-			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("role", "assistant");
 			row.put("content", "x");
 			row.put("live", null);
@@ -302,7 +304,7 @@ class ChatServiceTest {
 		@DisplayName("artifacts_json null → empty list")
 		void nullArtifactsIsEmptyList() {
 			// Null artifacts_json: message has no generated artifacts — UI receives []
-			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("role", "user");
 			row.put("content", "x");
 			row.put("live", 1);
@@ -317,7 +319,7 @@ class ChatServiceTest {
 		@DisplayName("valid artifacts_json is deserialised to a list")
 		void validArtifactsJsonDeserialised() {
 			// Artifacts stored as JSON array in DB — must be deserialised for the API
-			Map<String, Object> row = new java.util.LinkedHashMap<>();
+			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("role", "assistant");
 			row.put("content", "x");
 			row.put("live", 1);
@@ -365,7 +367,7 @@ class ChatServiceTest {
 		@DisplayName("DB exception during audit is silently swallowed (fire-and-forget)")
 		void dbExceptionSwallowed() {
 			// Stub: DB throws during audit INSERT (e.g. disk full)
-			doThrow(new org.springframework.dao.DataAccessException("DB down") {})
+			doThrow(new DataAccessException("DB down") {})
 					.when(db).update(contains("INSERT INTO audit_events"),
 							any(), any(), any(), any(), any(), any());
 			// Audit is fire-and-forget — a DB failure must NEVER crash the chat flow

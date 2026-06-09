@@ -21,6 +21,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+import jakarta.mail.Message;
+import java.util.UUID;
 
 /**
  * Full-featured email service providing IMAP inbox management, SMTP sending, and
@@ -137,7 +139,7 @@ public class EmailService {
 
         // Random-suffixed id so rapid creates in the same millisecond cannot collide.
         String id = "email-" + Long.toString(System.currentTimeMillis(), 36)
-                + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+                + "-" + UUID.randomUUID().toString().substring(0, 6);
         String password = (String) req.get("password");
         String encPassword = cryptoService.encryptKey(password != null ? password : "");
         String now = Instant.now().toString();
@@ -536,10 +538,10 @@ public class EmailService {
 
             int total = inbox.getMessageCount();
             int start = Math.max(1, total - FETCH_BATCH + 1);
-            jakarta.mail.Message[] messages = inbox.getMessages(start, total);
+            Message[] messages = inbox.getMessages(start, total);
 
             int newCount = 0;
-            for (jakarta.mail.Message msg : messages) {
+            for (Message msg : messages) {
                 try {
                     newCount += importMessage(accountId, msg);
                 } catch (Exception e) {
@@ -557,7 +559,7 @@ public class EmailService {
         }
     }
 
-    private int importMessage(String accountId, jakarta.mail.Message msg) throws Exception {
+    private int importMessage(String accountId, Message msg) throws Exception {
         String messageId = getHeader(msg, "Message-ID");
         if (messageId == null) messageId = UUID.randomUUID().toString();
 
@@ -669,7 +671,7 @@ public class EmailService {
         return null;
     }
 
-    private String getHeader(jakarta.mail.Message msg, String name) {
+    private String getHeader(Message msg, String name) {
         try {
             String[] values = msg.getHeader(name);
             return values != null && values.length > 0 ? values[0] : null;

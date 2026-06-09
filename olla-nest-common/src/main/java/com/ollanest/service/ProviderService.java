@@ -15,6 +15,9 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.*;
 import java.util.function.Consumer;
+import java.io.InputStream;
+import java.time.Instant;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Provider call layer — resolves the active provider and executes both blocking
@@ -103,7 +106,7 @@ public class ProviderService {
 	 * @param functionCallService the function-call parsing service
 	 * @since v2026.1.0
 	 */
-	@org.springframework.beans.factory.annotation.Autowired
+	@Autowired
 	public void setFunctionCallService(FunctionCallService functionCallService) {
 		this.functionCallService = functionCallService;
 	}
@@ -396,7 +399,7 @@ public class ProviderService {
 			HttpRequest req = HttpRequest.newBuilder().uri(URI.create(base + "/api/chat"))
 					.timeout(Duration.ofMinutes(5)).header("Content-Type", "application/json")
 					.POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))).build();
-			HttpResponse<java.io.InputStream> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofInputStream());
+			HttpResponse<InputStream> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofInputStream());
 			if (resp.statusCode() != 200)
 				throw new RuntimeException("Ollama " + resp.statusCode());
 
@@ -441,7 +444,7 @@ public class ProviderService {
 					.timeout(Duration.ofMinutes(5)).header("Content-Type", "application/json")
 					.header("anthropic-version", "2023-06-01").header("x-api-key", apiKey)
 					.POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))).build();
-			HttpResponse<java.io.InputStream> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofInputStream());
+			HttpResponse<InputStream> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofInputStream());
 			if (resp.statusCode() != 200)
 				throw new RuntimeException("Anthropic " + resp.statusCode());
 
@@ -476,7 +479,7 @@ public class ProviderService {
 			HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url)).timeout(Duration.ofMinutes(5))
 					.header("Content-Type", "application/json").header("Authorization", "Bearer " + apiKey)
 					.POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))).build();
-			HttpResponse<java.io.InputStream> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofInputStream());
+			HttpResponse<InputStream> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofInputStream());
 			if (resp.statusCode() != 200)
 				throw new RuntimeException("Provider " + resp.statusCode());
 
@@ -558,7 +561,7 @@ public class ProviderService {
 							+ "ON CONFLICT(id) DO UPDATE SET name=excluded.name, status='available', "
 							+ "context_size=COALESCE(excluded.context_size, context_size), last_seen_at=excluded.last_seen_at",
 					modelId, name, provider.get("id"), apiModel.get("model_id"),
-					ctxWin != null ? ((Number) ctxWin).intValue() : null, java.time.Instant.now().toString());
+					ctxWin != null ? ((Number) ctxWin).intValue() : null, Instant.now().toString());
 		} else {
 			db.update("DELETE FROM models WHERE id = ?", modelId);
 		}

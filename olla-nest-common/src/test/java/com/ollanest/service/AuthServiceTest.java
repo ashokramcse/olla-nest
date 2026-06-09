@@ -20,6 +20,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.HashSet;
+import java.util.Set;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -352,7 +358,7 @@ class AuthServiceTest {
 	// ─────────────────────────────────────────────────────────────────────────
 
 	@Nested
-	@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+	@MockitoSettings(strictness = Strictness.LENIENT)
 	@DisplayName("getSessionUser() — token format guard")
 	class TokenFormatGuard {
 
@@ -412,7 +418,7 @@ class AuthServiceTest {
 		@DisplayName("exactly 64 lowercase hex chars passes format check and hits DB")
 		void validTokenHitsDb() {
 			stubCookie(TOKEN); // TOKEN = "a".repeat(64)
-			when(db.queryForList(anyString(), eq(TOKEN))).thenReturn(java.util.Collections.emptyList());
+			when(db.queryForList(anyString(), eq(TOKEN))).thenReturn(Collections.emptyList());
 			authService.getSessionUser(req);
 			// DB was queried (token passed format guard)
 			verify(db).queryForList(anyString(), eq(TOKEN));
@@ -430,8 +436,8 @@ class AuthServiceTest {
 		@Test
 		@DisplayName("user field is final — prevents external mutation of cached session")
 		void userFieldIsFinal() throws Exception {
-			java.lang.reflect.Field f = AuthService.CachedSession.class.getField("user");
-			assertThat(java.lang.reflect.Modifier.isFinal(f.getModifiers()))
+			Field f = AuthService.CachedSession.class.getField("user");
+			assertThat(Modifier.isFinal(f.getModifiers()))
 					.as("CachedSession.user must be final to prevent external mutation")
 					.isTrue();
 		}
@@ -439,8 +445,8 @@ class AuthServiceTest {
 		@Test
 		@DisplayName("expiresAtMs field is final")
 		void expiresAtMsFieldIsFinal() throws Exception {
-			java.lang.reflect.Field f = AuthService.CachedSession.class.getField("expiresAtMs");
-			assertThat(java.lang.reflect.Modifier.isFinal(f.getModifiers()))
+			Field f = AuthService.CachedSession.class.getField("expiresAtMs");
+			assertThat(Modifier.isFinal(f.getModifiers()))
 					.as("CachedSession.expiresAtMs must be final")
 					.isTrue();
 		}
@@ -451,15 +457,15 @@ class AuthServiceTest {
 	// ─────────────────────────────────────────────────────────────────────────
 
 	@Nested
-	@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+	@MockitoSettings(strictness = Strictness.LENIENT)
 	@DisplayName("setSession() — SecureRandom reuse")
 	class SecureRandomReuse {
 
 		@Test
 		@DisplayName("SECURE_RANDOM static field exists — no per-call SecureRandom instantiation")
 		void staticSecureRandomFieldExists() throws Exception {
-			java.lang.reflect.Field f = AuthService.class.getDeclaredField("SECURE_RANDOM");
-			assertThat(java.lang.reflect.Modifier.isStatic(f.getModifiers()))
+			Field f = AuthService.class.getDeclaredField("SECURE_RANDOM");
+			assertThat(Modifier.isStatic(f.getModifiers()))
 					.as("SECURE_RANDOM must be a static field")
 					.isTrue();
 		}
@@ -470,13 +476,13 @@ class AuthServiceTest {
 			User admin = UserFactory.admin();
 			when(req.getCookies()).thenReturn(null);
 
-			java.util.Set<String> tokens = new java.util.HashSet<>();
+			Set<String> tokens = new HashSet<>();
 			for (int i = 0; i < 100; i++) {
 				authService.setSession(res, req, admin);
 			}
 
 			// Capture all tokens written to INSERT INTO sessions
-			org.mockito.ArgumentCaptor<Object[]> cap = org.mockito.ArgumentCaptor.forClass(Object[].class);
+			ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
 			verify(db, times(100)).update(contains("INSERT INTO sessions"), cap.capture());
 			cap.getAllValues().forEach(args -> tokens.add(args[0].toString()));
 			assertThat(tokens).hasSize(100);

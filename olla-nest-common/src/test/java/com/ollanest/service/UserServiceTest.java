@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -328,7 +329,7 @@ class UserServiceTest {
 		@DisplayName("non-JSON input causes mapper to throw — returns empty list")
 		void returnsEmptyListForInvalidJson() throws Exception {
 			// Stub: mapper throws on non-JSON input — must be caught and return []
-			when(mapper.readValue(eq("not-json"), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+			when(mapper.readValue(eq("not-json"), any(TypeReference.class)))
 					.thenThrow(new RuntimeException("bad json"));
 			// JSON parse failure returns empty list — never propagates the exception
 			assertThat(userService.safeJsonList("not-json")).isNotNull().isEmpty();
@@ -339,7 +340,7 @@ class UserServiceTest {
 		void parsesValidJsonArray() throws Exception {
 			// Stub: mapper returns the deserialized rights list
 			List<String> expected = List.of("chat:use", "models:local:use");
-			when(mapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+			when(mapper.readValue(anyString(), any(TypeReference.class)))
 					.thenReturn(expected);
 			List<String> result = userService.safeJsonList("[\"chat:use\",\"models:local:use\"]");
 			assertThat(result).isEqualTo(expected);

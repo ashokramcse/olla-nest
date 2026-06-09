@@ -5,6 +5,10 @@ import com.ollanest.connector.BaseConnector;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 
 /**
  * Connector implementation that synchronises text files from Microsoft OneDrive
@@ -90,11 +94,11 @@ public class OneDriveConnector extends BaseConnector {
 				if (!mime.contains("text") && !mime.contains("word") && !mime.contains("plain"))
 					continue;
 				try {
-					java.net.URI uri = java.net.URI.create(BASE + "/me/drive/items/" + id + "/content");
-					java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder().uri(uri)
-							.header("Authorization", auth).timeout(java.time.Duration.ofSeconds(30)).GET().build();
-					java.net.http.HttpResponse<String> resp = http.send(req,
-							java.net.http.HttpResponse.BodyHandlers.ofString());
+					URI uri = URI.create(BASE + "/me/drive/items/" + id + "/content");
+					HttpRequest req = HttpRequest.newBuilder().uri(uri)
+							.header("Authorization", auth).timeout(Duration.ofSeconds(30)).GET().build();
+					HttpResponse<String> resp = http.send(req,
+							HttpResponse.BodyHandlers.ofString());
 					if (ingestDocument(connId, id, name, url, resp.body()))
 						synced++;
 					else

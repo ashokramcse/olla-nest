@@ -21,6 +21,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -132,7 +133,7 @@ class ApiTokenServiceTest {
         @DisplayName("100 minted tokens are all unique (SecureRandom entropy)")
         void hundredTokensAreUnique() {
             // Mint 100 tokens and collect them — all must be unique
-            var tokens = new java.util.HashSet<String>();
+            var tokens = new HashSet<String>();
             for (int i = 0; i < 100; i++) {
                 var r = tokenService.mint(OWNER, "Token " + i, List.of("chat"));
                 tokens.add((String) r.get("token"));
@@ -188,7 +189,7 @@ class ApiTokenServiceTest {
                     "scopes_json", "[\"chat\"]",
                     "is_active", 1
             )));
-            when(mapper.readValue(eq("[\"chat\"]"), eq(java.util.List.class)))
+            when(mapper.readValue(eq("[\"chat\"]"), eq(List.class)))
                     .thenReturn(List.of("chat"));
 
             var result = tokenService.validate(rawToken);
@@ -209,7 +210,7 @@ class ApiTokenServiceTest {
         @Test
         @DisplayName("queries DB with owner filter")
         void queriesWithOwner() throws Exception {
-            when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(List.of("chat"));
+            when(mapper.readValue(anyString(), eq(List.class))).thenReturn(List.of("chat"));
             // Stub: one token row for this owner
             when(db.queryForList(contains("FROM api_tokens"), eq(OWNER))).thenReturn(List.of(
                     Map.of("id", "tok-1", "owner", OWNER, "name", "Device", "token_prefix", "oly_abc123",
@@ -222,7 +223,7 @@ class ApiTokenServiceTest {
         @Test
         @DisplayName("token_hash is stripped from list response")
         void hashStrippedFromList() throws Exception {
-            when(mapper.readValue(anyString(), eq(java.util.List.class))).thenReturn(List.of("chat"));
+            when(mapper.readValue(anyString(), eq(List.class))).thenReturn(List.of("chat"));
             when(db.queryForList(anyString(), eq(OWNER))).thenReturn(List.of(
                     Map.of("id", "tok-1", "owner", OWNER, "name", "Device",
                             "token_prefix", "oly_abc123def",

@@ -15,6 +15,7 @@ import org.mockito.quality.Strictness;
 
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -43,7 +44,7 @@ class FunctionCallServiceTest {
     // Use real mapper for FunctionCallService since it needs JSON parsing
     private FunctionCallService functionCallService;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void setUp() {
         functionCallService = new FunctionCallService(ragService, realMapper);
     }

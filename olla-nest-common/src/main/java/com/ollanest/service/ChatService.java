@@ -10,6 +10,11 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.scheduling.annotation.Scheduled;
+import java.security.SecureRandom;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Core chat service: session lifecycle management, context-window budgeting,
@@ -490,8 +495,8 @@ public class ChatService {
 	// Each entry is a 2-element AtomicLong[]: [count, windowStartMs].
 	// Using AtomicLong prevents the race condition where two concurrent threads
 	// could both read count < limit and both increment past the ceiling.
-	private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong[]>
-			rateLimitMap = new java.util.concurrent.ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, AtomicLong[]>
+			rateLimitMap = new ConcurrentHashMap<>();
 
 	/**
 	 * Checks and updates the in-memory rate limit for a user within a 60-second
@@ -520,9 +525,9 @@ public class ChatService {
 		long[] result = new long[1];
 		rateLimitMap.compute(userId, (k, entry) -> {
 			if (entry == null) {
-				entry = new java.util.concurrent.atomic.AtomicLong[] {
-					new java.util.concurrent.atomic.AtomicLong(0),
-					new java.util.concurrent.atomic.AtomicLong(now)
+				entry = new AtomicLong[] {
+					new AtomicLong(0),
+					new AtomicLong(now)
 				};
 			}
 			// Reset window if more than 60 s have elapsed
@@ -557,10 +562,10 @@ public class ChatService {
 	public void cleanStaleRateLimitEntries() {
 		long staleThreshold = System.currentTimeMillis() - 5 * 60_000L; // 5 min after window expiry
 		int removed = 0;
-		for (java.util.Iterator<java.util.Map.Entry<String,
-				java.util.concurrent.atomic.AtomicLong[]>> it =
+		for (Iterator<Map.Entry<String,
+				AtomicLong[]>> it =
 				rateLimitMap.entrySet().iterator(); it.hasNext();) {
-			java.util.Map.Entry<String, java.util.concurrent.atomic.AtomicLong[]> e = it.next();
+			Map.Entry<String, AtomicLong[]> e = it.next();
 			// entry[1] = windowStartMs; if it expired more than 5 min ago, evict
 			if (e.getValue()[1].get() < staleThreshold) {
 				it.remove();
@@ -586,7 +591,7 @@ public class ChatService {
 	 * @since v2026.1.0
 	 */
 	/** Cryptographically secure RNG used by {@link #uid(String)} for the random suffix. */
-	private static final java.security.SecureRandom UID_RNG = new java.security.SecureRandom();
+	private static final SecureRandom UID_RNG = new SecureRandom();
 
 	/**
 	 * @since v2026.1.9 — replaced {@code Math.random()} with {@link java.security.SecureRandom}

@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Manages Ollama model discovery, capability inference, and health checks.
@@ -327,7 +329,7 @@ public class OllamaService {
 			// Fallback: parameters string
 			JsonNode params = data.get("parameters");
 			if (params != null) {
-				java.util.regex.Matcher m = java.util.regex.Pattern.compile("num_ctx\\s+(\\d+)")
+				Matcher m = Pattern.compile("num_ctx\\s+(\\d+)")
 						.matcher(params.asText(""));
 				if (m.find())
 					return Long.parseLong(m.group(1));

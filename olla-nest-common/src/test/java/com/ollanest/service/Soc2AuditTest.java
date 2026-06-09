@@ -22,6 +22,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.lang.reflect.Field;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.SecureRandom;
+import java.util.LinkedHashMap;
+import org.springframework.scheduling.annotation.Scheduled;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
@@ -598,7 +606,7 @@ class Soc2AuditTest {
             when(db.queryForObject(anyString(), eq(Integer.class))).thenReturn(0);
             BackupService svc = new BackupService(db);
             // Create a temp dir for backup output
-            java.nio.file.Path tmp = java.nio.file.Files.createTempDirectory("soc2-backup-test");
+            Path tmp = Files.createTempDirectory("soc2-backup-test");
             setField(svc, "dataDir", tmp.toString());
 
             // Stub to avoid actual VACUUM
@@ -614,7 +622,7 @@ class Soc2AuditTest {
         @DisplayName("backup flag is reset to false even after exception")
         void backupFlag_resetAfterException() throws Exception {
             BackupService svc = new BackupService(db);
-            java.nio.file.Path tmp = java.nio.file.Files.createTempDirectory("soc2-backup-except");
+            Path tmp = Files.createTempDirectory("soc2-backup-except");
             setField(svc, "dataDir", tmp.toString());
 
             doThrow(new RuntimeException("VACUUM failed")).when(db).execute(anyString());
@@ -630,7 +638,7 @@ class Soc2AuditTest {
         @DisplayName("concurrent requests: only one backup succeeds, others get 409-equivalent")
         void concurrentRequests_onlyOneSucceeds() throws Exception {
             BackupService svc = new BackupService(db);
-            java.nio.file.Path tmp = java.nio.file.Files.createTempDirectory("soc2-concurrent");
+            Path tmp = Files.createTempDirectory("soc2-concurrent");
             setField(svc, "dataDir", tmp.toString());
 
             // Make VACUUM slow enough to allow concurrent attempt
@@ -666,10 +674,10 @@ class Soc2AuditTest {
         @Test
         @DisplayName("cleanStaleRateLimitEntries() has @Scheduled annotation")
         void staleEntryCleaner_hasScheduledAnnotation() throws Exception {
-            java.lang.reflect.Method method =
+            Method method =
                     ChatService.class.getDeclaredMethod("cleanStaleRateLimitEntries");
-            org.springframework.scheduling.annotation.Scheduled scheduled =
-                    method.getAnnotation(org.springframework.scheduling.annotation.Scheduled.class);
+            Scheduled scheduled =
+                    method.getAnnotation(Scheduled.class);
             assertThat(scheduled)
                     .as("ChatService.cleanStaleRateLimitEntries must have @Scheduled to prevent memory leak")
                     .isNotNull();
@@ -680,10 +688,10 @@ class Soc2AuditTest {
         @Test
         @DisplayName("session cleanup has @Scheduled annotation")
         void sessionCleanup_hasScheduledAnnotation() throws Exception {
-            java.lang.reflect.Method method =
+            Method method =
                     AuthService.class.getDeclaredMethod("cleanExpiredSessions");
-            org.springframework.scheduling.annotation.Scheduled scheduled =
-                    method.getAnnotation(org.springframework.scheduling.annotation.Scheduled.class);
+            Scheduled scheduled =
+                    method.getAnnotation(Scheduled.class);
             assertThat(scheduled)
                     .as("AuthService.cleanExpiredSessions must have @Scheduled to prevent session table bloat")
                     .isNotNull();
@@ -733,7 +741,7 @@ class Soc2AuditTest {
             user.role = "user";
 
             when(db.queryForList(contains("login_attempts"), anyString())).thenReturn(List.of());
-            Map<String, Object> userRow = new java.util.LinkedHashMap<>();
+            Map<String, Object> userRow = new LinkedHashMap<>();
             userRow.put("password_hash", hash);
             userRow.put("id", "u1");
             userRow.put("name", "Alice");
@@ -896,9 +904,9 @@ class Soc2AuditTest {
         @Test
         @DisplayName("CachedSession.user is final — prevents ref-swap attack")
         void cachedSession_userIsFinal() throws Exception {
-            java.lang.reflect.Field userField =
+            Field userField =
                     AuthService.CachedSession.class.getDeclaredField("user");
-            assertThat(java.lang.reflect.Modifier.isFinal(userField.getModifiers()))
+            assertThat(Modifier.isFinal(userField.getModifiers()))
                     .as("CachedSession.user must be final to prevent in-flight user replacement")
                     .isTrue();
         }
@@ -906,9 +914,9 @@ class Soc2AuditTest {
         @Test
         @DisplayName("CachedSession.expiresAtMs is final — immutable after creation")
         void cachedSession_expiresAtMsIsFinal() throws Exception {
-            java.lang.reflect.Field expiresField =
+            Field expiresField =
                     AuthService.CachedSession.class.getDeclaredField("expiresAtMs");
-            assertThat(java.lang.reflect.Modifier.isFinal(expiresField.getModifiers()))
+            assertThat(Modifier.isFinal(expiresField.getModifiers()))
                     .as("CachedSession.expiresAtMs must be final")
                     .isTrue();
         }
@@ -942,16 +950,16 @@ class Soc2AuditTest {
         @Test
         @DisplayName("AuthService has static SECURE_RANDOM field")
         void authService_hasStaticSecureRandom() throws Exception {
-            java.lang.reflect.Field f = AuthService.class.getDeclaredField("SECURE_RANDOM");
-            assertThat(java.lang.reflect.Modifier.isStatic(f.getModifiers())).isTrue();
-            assertThat(java.security.SecureRandom.class).isAssignableFrom(f.getType());
+            Field f = AuthService.class.getDeclaredField("SECURE_RANDOM");
+            assertThat(Modifier.isStatic(f.getModifiers())).isTrue();
+            assertThat(SecureRandom.class).isAssignableFrom(f.getType());
         }
 
         @Test
         @DisplayName("CryptoService has static SECURE_RANDOM field")
         void cryptoService_hasStaticSecureRandom() throws Exception {
-            java.lang.reflect.Field f = CryptoService.class.getDeclaredField("SECURE_RANDOM");
-            assertThat(java.lang.reflect.Modifier.isStatic(f.getModifiers())).isTrue();
+            Field f = CryptoService.class.getDeclaredField("SECURE_RANDOM");
+            assertThat(Modifier.isStatic(f.getModifiers())).isTrue();
         }
     }
 
@@ -1061,7 +1069,7 @@ class Soc2AuditTest {
         @DisplayName("appendAudit inserts all required fields")
         void appendAudit_insertsAllRequiredFields() {
             ChatService svc = new ChatService(db, mock(WorkspaceService.class),
-                    new com.fasterxml.jackson.databind.ObjectMapper(), mock(PromptTemplateService.class));
+                    new ObjectMapper(), mock(PromptTemplateService.class));
             svc.appendAudit("alice", "auth.login", "Signed in from 1.2.3.4", Map.of("ip", "1.2.3.4"));
 
             ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
@@ -1084,7 +1092,7 @@ class Soc2AuditTest {
         void appendAudit_dbFailure_doesNotThrow() {
             doThrow(new RuntimeException("DB down")).when(db).update(anyString(), any(Object[].class));
             ChatService svc = new ChatService(db, mock(WorkspaceService.class),
-                    new com.fasterxml.jackson.databind.ObjectMapper(), mock(PromptTemplateService.class));
+                    new ObjectMapper(), mock(PromptTemplateService.class));
             // Must not propagate — audit failure must never break the request
             assertThatCode(() -> svc.appendAudit("actor", "action", "detail", null))
                     .doesNotThrowAnyException();
@@ -1183,7 +1191,7 @@ class Soc2AuditTest {
         @DisplayName("100 concurrent uid() calls produce unique IDs")
         void concurrentUidCalls_produceUniqueIds() throws Exception {
             ChatService svc = new ChatService(db, mock(WorkspaceService.class),
-                    new com.fasterxml.jackson.databind.ObjectMapper(), mock(PromptTemplateService.class));
+                    new ObjectMapper(), mock(PromptTemplateService.class));
 
             ExecutorService exec = Executors.newFixedThreadPool(10);
             List<Future<String>> futures = new ArrayList<>();
@@ -1301,7 +1309,7 @@ class Soc2AuditTest {
             Class<?> cls = target.getClass();
             while (cls != null) {
                 try {
-                    java.lang.reflect.Field f = cls.getDeclaredField(fieldName);
+                    Field f = cls.getDeclaredField(fieldName);
                     f.setAccessible(true);
                     f.set(target, value);
                     return;

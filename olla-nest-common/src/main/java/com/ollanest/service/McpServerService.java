@@ -14,6 +14,7 @@ import java.io.PrintWriter;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 
 /**
  * Manages Model Context Protocol (MCP) server configurations, connection state,
@@ -88,7 +89,7 @@ public class McpServerService {
      * @since v2026.2.1
      */
     public Map<String, Object> create(Map<String, Object> req) {
-        String id = "mcp-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+        String id = "mcp-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
 
         db.update("""

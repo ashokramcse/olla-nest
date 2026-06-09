@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import com.ollanest.config.AppConfig;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
 /**
  * Handles schema seeding (default data) after Flyway runs migrations.
@@ -67,8 +69,8 @@ public class DatabaseService {
 	private String encryptionKey;
 
 	/** Active Spring profiles — used to detect dev vs production environment. */
-	@org.springframework.beans.factory.annotation.Autowired
-	private org.springframework.core.env.Environment springEnv;
+	@Autowired
+	private Environment springEnv;
 
 	/**
 	 * Constructs the service with its required collaborators.

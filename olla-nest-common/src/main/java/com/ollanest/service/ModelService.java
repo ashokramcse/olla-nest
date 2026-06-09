@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.model.ModelRecord;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import com.ollanest.model.User;
 
 import java.util.*;
 
@@ -162,7 +163,7 @@ public class ModelService {
 	 *         query
 	 * @since v2026.1.0
 	 */
-	public List<ModelRecord> allowedModels(com.ollanest.model.User user) {
+	public List<ModelRecord> allowedModels(User user) {
 		List<String> ids = new HashSet<>(userService.allowedModelIds(user)).stream().toList();
 		boolean allowApi = databaseService.getSettingBool("allowApiModels", false);
 

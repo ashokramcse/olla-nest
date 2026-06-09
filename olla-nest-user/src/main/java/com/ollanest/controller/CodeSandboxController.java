@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import com.ollanest.model.User;
 
 /**
  * Code execution sandbox REST API.
@@ -64,7 +65,7 @@ public class CodeSandboxController extends BaseController {
 		// CRIT-1 MITIGATION: Gate sandbox execution on an explicit 'sandbox:run' right.
 		// Without Docker/container isolation the sandbox is OS-level RCE for the JVM user.
 		// Admins implicitly have all rights; regular users need 'sandbox:run' granted explicitly.
-		com.ollanest.model.User sandboxUser = getUser(req);
+		User sandboxUser = getUser(req);
 		boolean hasSandboxRight = "admin".equals(sandboxUser.role)
 			|| (sandboxUser.rights != null && sandboxUser.rights.contains("sandbox:run"));
 		if (!hasSandboxRight) {

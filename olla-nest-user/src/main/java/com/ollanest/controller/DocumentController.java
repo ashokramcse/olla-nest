@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.security.SecureRandom;
 
 /**
  * REST API for RAG document management.
@@ -164,7 +165,7 @@ public class DocumentController extends BaseController {
 
 		String name = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
 		// LOW-7 FIX: use SecureRandom for document ID
-		java.security.SecureRandom rng = new java.security.SecureRandom();
+		SecureRandom rng = new SecureRandom();
 		String docId = "doc-" + Long.toString(System.currentTimeMillis(), 36) + "-"
 				+ Long.toString(rng.nextLong() & Long.MAX_VALUE, 36);
 

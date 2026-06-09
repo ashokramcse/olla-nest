@@ -15,6 +15,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.Map;
+import com.ollanest.config.AppConfig;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -92,10 +100,10 @@ class SqlSafetyTest {
     @DisplayName("DatabaseService.setSetting() — NOT NULL constraint guard")
     class SetSettingNullGuard {
 
-        @Mock com.ollanest.config.AppConfig appConfig;
+        @Mock AppConfig appConfig;
         private DatabaseService service;
 
-        @org.junit.jupiter.api.BeforeEach
+        @BeforeEach
         void setUp() { service = new DatabaseService(db, appConfig); }
 
         @Test
@@ -160,8 +168,8 @@ class SqlSafetyTest {
         })
         @DisplayName("invalid status values must be rejected before DB write")
         void invalidStatusesRejected(String badStatus) {
-            java.util.Set<String> allowed =
-                    java.util.Set.of("available", "disabled", "configured", "offline", "missing");
+            Set<String> allowed =
+                    Set.of("available", "disabled", "configured", "offline", "missing");
             assertThat(allowed).doesNotContain(badStatus);
         }
     }
@@ -177,7 +185,7 @@ class SqlSafetyTest {
         @DisplayName("getSetting uses parameterized query (? placeholder)")
         void getSettingIsParameterized() {
             when(db.queryForList(anyString(), anyString())).thenReturn(List.of());
-            com.ollanest.config.AppConfig cfg = mock(com.ollanest.config.AppConfig.class);
+            AppConfig cfg = mock(AppConfig.class);
             DatabaseService svc = new DatabaseService(db, cfg);
             svc.getSetting("myKey", "fallback");
 
@@ -216,12 +224,12 @@ class SqlSafetyTest {
         @Test
         @DisplayName("AuthService.getSessionUser uses parameterized SELECT")
         void getSessionUserIsParameterized() {
-            jakarta.servlet.http.Cookie sessionCookie = new jakarta.servlet.http.Cookie(
+            Cookie sessionCookie = new Cookie(
                     "olla_nest_session", "a".repeat(64));
-            jakarta.servlet.http.HttpServletRequest req =
-                    mock(jakarta.servlet.http.HttpServletRequest.class);
+            HttpServletRequest req =
+                    mock(HttpServletRequest.class);
             when(req.getCookies()).thenReturn(
-                    new jakarta.servlet.http.Cookie[]{sessionCookie});
+                    new Cookie[]{sessionCookie});
             when(db.queryForList(anyString(), eq("a".repeat(64))))
                     .thenReturn(List.of());
 
@@ -293,7 +301,7 @@ class SqlSafetyTest {
         void compoundUpdateSqlIsValid() {
             // Test the pattern used in AdminModelsController.updateGovernance():
             // all changed columns are gathered into a single UPDATE statement.
-            java.util.List<String> setClauses = java.util.List.of(
+            List<String> setClauses = List.of(
                     "status = ?", "governance_tier = ?", "max_context_size = ?");
             String sql = "UPDATE models SET " + String.join(", ", setClauses) + " WHERE id = ?";
 
@@ -312,7 +320,7 @@ class SqlSafetyTest {
         void emptyFieldSetProducesNoUpdate() {
             // If no fields are present in the request body, setClauses is empty
             // and the compound UPDATE must NOT be executed (avoids bare UPDATE WHERE id=?).
-            java.util.List<String> setClauses = java.util.List.of();
+            List<String> setClauses = List.of();
             boolean shouldExecute = !setClauses.isEmpty();
             assertThat(shouldExecute).isFalse();
         }
@@ -400,9 +408,9 @@ class SqlSafetyTest {
         void timestampFilenameHasNoUserInput() {
             // BackupService generates filenames like "olla-nest-2026-05-25T10-30-00.sqlite"
             // from LocalDateTime.now() — the format contains only digits, hyphens, T, and dot.
-            java.time.LocalDateTime ts = java.time.LocalDateTime.of(2026, 5, 25, 10, 30, 0);
+            LocalDateTime ts = LocalDateTime.of(2026, 5, 25, 10, 30, 0);
             String filename = "olla-nest-" +
-                    ts.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss"))
+                    ts.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss"))
                     + ".sqlite";
             assertThat(filename).matches("[a-zA-Z0-9.\\-]+");
         }
@@ -466,8 +474,8 @@ class SqlSafetyTest {
         @Test
         @DisplayName("IN clause with N items generates exactly N ? placeholders")
         void inClausePlaceholders() {
-            java.util.List<String> seenIds = java.util.List.of("ollama:llama3", "ollama:codestral", "ollama:mistral");
-            String placeholders = String.join(",", java.util.Collections.nCopies(seenIds.size(), "?"));
+            List<String> seenIds = List.of("ollama:llama3", "ollama:codestral", "ollama:mistral");
+            String placeholders = String.join(",", Collections.nCopies(seenIds.size(), "?"));
             assertThat(placeholders).isEqualTo("?,?,?");
             assertThat(placeholders.chars().filter(c -> c == '?').count())
                     .isEqualTo(seenIds.size());

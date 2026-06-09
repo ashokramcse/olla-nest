@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Modifier;
 import java.util.HashSet;
 import java.util.Set;
+import java.lang.reflect.Field;
+import java.security.SecureRandom;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -188,7 +190,7 @@ class CryptoServiceTest {
         @Test
         @DisplayName("SECURE_RANDOM is a static field — no per-call instantiation")
         void secureRandomIsStatic() throws Exception {
-            java.lang.reflect.Field f = CryptoService.class.getDeclaredField("SECURE_RANDOM");
+            Field f = CryptoService.class.getDeclaredField("SECURE_RANDOM");
             assertThat(Modifier.isStatic(f.getModifiers()))
                     .as("SECURE_RANDOM must be static to avoid per-call entropy drain")
                     .isTrue();
@@ -197,8 +199,8 @@ class CryptoServiceTest {
         @Test
         @DisplayName("SECURE_RANDOM is of type java.security.SecureRandom")
         void secureRandomType() throws Exception {
-            java.lang.reflect.Field f = CryptoService.class.getDeclaredField("SECURE_RANDOM");
-            assertThat(f.getType()).isEqualTo(java.security.SecureRandom.class);
+            Field f = CryptoService.class.getDeclaredField("SECURE_RANDOM");
+            assertThat(f.getType()).isEqualTo(SecureRandom.class);
         }
     }
 }

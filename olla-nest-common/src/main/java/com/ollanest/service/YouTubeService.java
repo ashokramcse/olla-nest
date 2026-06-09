@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jsoup.parser.Parser;
 
 /**
  * Fetches YouTube video transcripts for use as chat context or RAG ingestion.
@@ -64,7 +65,7 @@ public class YouTubeService {
     /** Shared HTTP client for YouTube page and caption XML fetches. */
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
-            .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
+            .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
     /** JDBC template for reading and writing the {@code youtube_transcripts} cache. */
@@ -140,7 +141,7 @@ public class YouTubeService {
             HttpResponse<String> capResp = HTTP.send(capReq, HttpResponse.BodyHandlers.ofString());
 
             // Parse XML transcript
-            Document doc = Jsoup.parse(capResp.body(), "", org.jsoup.parser.Parser.xmlParser());
+            Document doc = Jsoup.parse(capResp.body(), "", Parser.xmlParser());
             StringBuilder transcript = new StringBuilder();
             for (Element text : doc.select("text")) {
                 String content = text.text().replaceAll("&#39;", "'").replaceAll("&amp;", "&").trim();

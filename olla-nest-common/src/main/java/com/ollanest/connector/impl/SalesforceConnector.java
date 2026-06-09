@@ -5,6 +5,7 @@ import com.ollanest.connector.BaseConnector;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.net.URLEncoder;
 
 /**
  * Connector implementation that synchronises Salesforce CRM records into the
@@ -84,7 +85,7 @@ public class SalesforceConnector extends BaseConnector {
 		try {
 			// Opportunities
 			JsonNode opps = httpGet(base + "/services/data/v58.0/query?q="
-					+ java.net.URLEncoder.encode("SELECT Id,Name,StageName,Amount,CloseDate,Description"
+					+ URLEncoder.encode("SELECT Id,Name,StageName,Amount,CloseDate,Description"
 							+ " FROM Opportunity ORDER BY LastModifiedDate DESC LIMIT 100", "UTF-8"),
 					auth);
 			for (JsonNode r : opps.path("records")) {
@@ -100,7 +101,7 @@ public class SalesforceConnector extends BaseConnector {
 					skipped++;
 			}
 			// Accounts
-			JsonNode accts = httpGet(base + "/services/data/v58.0/query?q=" + java.net.URLEncoder.encode(
+			JsonNode accts = httpGet(base + "/services/data/v58.0/query?q=" + URLEncoder.encode(
 					"SELECT Id,Name,Industry,Description" + " FROM Account ORDER BY LastModifiedDate DESC LIMIT 100",
 					"UTF-8"), auth);
 			for (JsonNode r : accts.path("records")) {

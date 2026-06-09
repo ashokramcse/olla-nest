@@ -13,6 +13,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import org.springframework.http.HttpMethod;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -49,7 +51,7 @@ class GlobalExceptionHandlerTest {
 	void handlesNoResourceFound() throws Exception {
 		// Use reflection to instantiate — constructor is package-private in some versions
 		NoResourceFoundException ex = new NoResourceFoundException(
-				org.springframework.http.HttpMethod.GET, "/static/missing.js");
+				HttpMethod.GET, "/static/missing.js");
 		ResponseEntity<Map<String, Object>> r = handler.handleNotFound(ex);
 		// Static resource 404 must produce the same envelope as route 404
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -83,7 +85,7 @@ class GlobalExceptionHandlerTest {
 	@Test
 	@DisplayName("HttpMediaTypeNotSupportedException → 415 with ok=false")
 	void handlesUnsupportedMediaType() {
-		HttpMediaTypeNotSupportedException ex = new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN, java.util.List.of(MediaType.APPLICATION_JSON));
+		HttpMediaTypeNotSupportedException ex = new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN, List.of(MediaType.APPLICATION_JSON));
 		ResponseEntity<Map<String, Object>> r = handler.handleUnsupportedMediaType(ex);
 		// 415 must identify the unsupported content-type in the error message
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);

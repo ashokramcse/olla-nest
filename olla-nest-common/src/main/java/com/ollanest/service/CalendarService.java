@@ -17,6 +17,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.UUID;
 import java.util.*;
 
 /**
@@ -99,7 +101,7 @@ public class CalendarService {
      * @since v2026.2.1
      */
     public Map<String, Object> createCalendar(String owner, Map<String, Object> req) {
-        String id = "cal-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+        String id = "cal-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
 
         // Ensure only one default calendar per user
@@ -180,7 +182,7 @@ public class CalendarService {
     public Map<String, Object> createEvent(String calendarId, String owner, Map<String, Object> req) {
         verifyCalendarOwner(calendarId, owner);
         validateEventTimes(req.get("start_at"), req.get("end_at"));
-        String id = "evt-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+        String id = "evt-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
         String uid = orDefault(req.get("uid"), UUID.randomUUID().toString()).toString();
         String now = Instant.now().toString();
 
@@ -382,7 +384,7 @@ public class CalendarService {
             if (Instant.parse(end.toString()).isBefore(Instant.parse(start.toString()))) {
                 throw new IllegalArgumentException("Event end time cannot be before its start time");
             }
-        } catch (java.time.format.DateTimeParseException ignore) {
+        } catch (DateTimeParseException ignore) {
             // Non-ISO timestamps are accepted as-is (e.g. all-day date strings).
         }
     }

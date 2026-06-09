@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.UUID;
 import java.util.*;
 
 /**
@@ -77,7 +78,7 @@ public class CompareService {
      * @since v2026.2.1
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
-        String id = "cmp-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+        String id = "cmp-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
         String sessionIdA = "cmp-sess-a-" + UUID.randomUUID().toString().substring(0, 8);
         String sessionIdB = "cmp-sess-b-" + UUID.randomUUID().toString().substring(0, 8);
         boolean isBlind = !Boolean.FALSE.equals(req.get("is_blind"));

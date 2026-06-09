@@ -13,6 +13,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import com.ollanest.service.ApiTokenService;
+import com.ollanest.service.UserService;
+import java.util.List;
+import java.util.Map;
+import org.springframework.context.ApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 
 /**
  * {@link OncePerRequestFilter} that authenticates every HTTP request via the
@@ -60,9 +66,9 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 
 	/** Resolves and validates session cookies against the session store. */
 	private final AuthService authService;
-	private final com.ollanest.service.UserService userService;
+	private final UserService userService;
 
-	public SessionAuthFilter(AuthService authService, com.ollanest.service.UserService userService) {
+	public SessionAuthFilter(AuthService authService, UserService userService) {
 		this.authService = authService;
 		this.userService = userService;
 	}
@@ -100,10 +106,10 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 			String rawToken = authHeader.substring("Bearer ".length()).trim();
 			try {
 				// Lazy-load ApiTokenService to avoid circular dependency
-				com.ollanest.service.ApiTokenService tokenService =
-						getApplicationContext(request).getBean(com.ollanest.service.ApiTokenService.class);
+				ApiTokenService tokenService =
+						getApplicationContext(request).getBean(ApiTokenService.class);
 				if (tokenService != null) {
-					java.util.Map<String, Object> token = tokenService.validate(rawToken);
+					Map<String, Object> token = tokenService.validate(rawToken);
 					if (token != null) {
 						String owner = (String) token.get("owner");
 						User tokenUser = userService != null ? userService.findUserByEmail(owner) : null;
@@ -113,7 +119,7 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 							tokenUser.id = owner;
 							tokenUser.name = owner;
 							tokenUser.role = "user";
-							tokenUser.rights = java.util.List.of("chat:use");
+							tokenUser.rights = List.of("chat:use");
 						}
 						request.setAttribute("authenticatedUser", tokenUser);
 						request.setAttribute("api_token", true);
@@ -128,10 +134,10 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 
-	private org.springframework.context.ApplicationContext getApplicationContext(
-			jakarta.servlet.http.HttpServletRequest request) {
+	private ApplicationContext getApplicationContext(
+			HttpServletRequest request) {
 		try {
-			return org.springframework.web.context.support.WebApplicationContextUtils
+			return WebApplicationContextUtils
 					.getWebApplicationContext(request.getServletContext());
 		} catch (Exception e) {
 			return null;

@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.UUID;
 import java.util.*;
 
 /**
@@ -91,7 +92,7 @@ public class SkillsService {
      * @since v2026.2.1
      */
     public Map<String, Object> createSkill(Map<String, Object> req, String owner) {
-        String id = "skill-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+        String id = "skill-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
         String name = getString(req, "name", "Untitled Skill");
         String description = getString(req, "description", "");
         String category = getString(req, "category", "general");

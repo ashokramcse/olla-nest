@@ -19,6 +19,7 @@ import com.ollanest.model.User;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.regex.Pattern;
 
 /**
  * Session management: in-memory cache backed by DB persistence.
@@ -109,8 +110,8 @@ public class AuthService {
 	private static final int TOKEN_HEX_LENGTH = 64;
 
 	/** Pre-compiled pattern for validating that a token is exactly 64 lowercase hex chars. */
-	private static final java.util.regex.Pattern TOKEN_PATTERN =
-			java.util.regex.Pattern.compile("^[0-9a-f]{64}$");
+	private static final Pattern TOKEN_PATTERN =
+			Pattern.compile("^[0-9a-f]{64}$");
 
 	/** Session lifetime in seconds (12 hours). */
 	private static final long SESSION_DURATION_SECONDS = 43200;

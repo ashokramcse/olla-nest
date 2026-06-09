@@ -16,6 +16,8 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import com.ollanest.util.UrlValidator;
+import java.util.UUID;
 import java.util.*;
 
 /**
@@ -111,7 +113,7 @@ public class WebhookService {
      */
     public Map<String, Object> create(String owner, Map<String, Object> req) {
         validateUrl((String) req.get("url"));
-        String id = "wh-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+        String id = "wh-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
 
         db.update("""
@@ -279,7 +281,7 @@ public class WebhookService {
         // resolved "0:0:0:0:0:0:0:1" matched no IPv4 prefix), allowing SSRF to
         // loopback/internal services. UrlValidator resolves every A/AAAA record and
         // rejects loopback/link-local/site-local via InetAddress (IPv4 + IPv6).
-        if (!com.ollanest.util.UrlValidator.isSafeUrl(url)) {
+        if (!UrlValidator.isSafeUrl(url)) {
             throw new IllegalArgumentException("Webhook URL targets a private, internal, or unresolvable address");
         }
     }

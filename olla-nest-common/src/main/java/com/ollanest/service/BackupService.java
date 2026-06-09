@@ -13,6 +13,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.time.ZoneOffset;
+import java.util.Map;
 
 /**
  * Scheduled SQLite backup service using the {@code VACUUM INTO} statement.
@@ -138,18 +140,18 @@ public class BackupService {
 	 *         </ul>
 	 * @since v2026.1.4
 	 */
-	public java.util.Map<String, Object> runBackup() {
+	public Map<String, Object> runBackup() {
 		// Reject concurrent backup attempts — VACUUM INTO is a heavy full-file copy
 		if (!backupInProgress.compareAndSet(false, true)) {
 			log.warn("[backup] Backup already in progress — rejecting concurrent request");
-			return java.util.Map.of("ok", false, "error", "Backup already in progress");
+			return Map.of("ok", false, "error", "Backup already in progress");
 		}
 
 		File backupDir = new File(dataDir, "backups");
 		if (!backupDir.exists())
 			backupDir.mkdirs();
 
-		String ts = LocalDateTime.now(java.time.ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss'Z'"));
+		String ts = LocalDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss'Z'"));
 		File dest = new File(backupDir, "olla-nest-" + ts + ".sqlite");
 
 		try {
@@ -164,10 +166,10 @@ public class BackupService {
 				}
 			}
 			log.info("[backup] Backup written to {}", dest.getAbsolutePath());
-			return java.util.Map.of("ok", true, "file", dest.getAbsolutePath());
+			return Map.of("ok", true, "file", dest.getAbsolutePath());
 		} catch (Exception e) {
 			log.error("[backup] Backup failed: {}", e.getMessage());
-			return java.util.Map.of("ok", false, "error", e.getMessage());
+			return Map.of("ok", false, "error", e.getMessage());
 		} finally {
 			backupInProgress.set(false);
 		}

@@ -12,6 +12,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manages the lifecycle of the local faster-whisper HTTP server process.
@@ -232,7 +233,7 @@ public class WhisperServerManager {
 			log.info("[whisper] Stopping local Whisper server…");
 			whisperProcess.destroy();
 			try {
-				if (!whisperProcess.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+				if (!whisperProcess.waitFor(5, TimeUnit.SECONDS)) {
 					whisperProcess.destroyForcibly();
 				}
 			} catch (InterruptedException e) {

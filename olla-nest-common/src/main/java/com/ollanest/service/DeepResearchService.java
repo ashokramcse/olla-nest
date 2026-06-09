@@ -10,6 +10,16 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.vladsch.flexmark.html.HtmlRenderer;
+import com.vladsch.flexmark.parser.Parser;
+import com.vladsch.flexmark.util.data.MutableDataSet;
+import java.time.Instant;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Multi-step agentic deep-research pipeline that streams progress via
@@ -74,11 +84,11 @@ public class DeepResearchService {
 	private final ObjectMapper mapper;
 
 	/** Persists research tasks to DB and generates visual HTML reports. */
-	private final org.springframework.jdbc.core.JdbcTemplate db;
+	private final JdbcTemplate db;
 	private final VisualReportService visualReportService;
 
 	/** Active research tasks for cancellation support: taskId -> true. */
-	private final java.util.concurrent.ConcurrentHashMap<String, Boolean> activeTasks = new java.util.concurrent.ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, Boolean> activeTasks = new ConcurrentHashMap<>();
 
 	/**
 	 * Constructs a {@code DeepResearchService} with all required infrastructure dependencies.
@@ -94,7 +104,7 @@ public class DeepResearchService {
 	 */
 	public DeepResearchService(ProviderService providerService, RouterService routerService,
 			WebSearchService webSearchService, RagService ragService, ObjectMapper mapper,
-			org.springframework.jdbc.core.JdbcTemplate db, VisualReportService visualReportService) {
+			JdbcTemplate db, VisualReportService visualReportService) {
 		this.providerService = providerService;
 		this.routerService = routerService;
 		this.webSearchService = webSearchService;
@@ -123,7 +133,7 @@ public class DeepResearchService {
 			// the caller. The ownership check is enforced in the UPDATE's WHERE clause.
 			int updated = db.update(
 					"UPDATE research_tasks SET status='cancelled', finished_at=? WHERE id=? AND owner=?",
-					java.time.Instant.now().toString(), taskId, owner);
+					Instant.now().toString(), taskId, owner);
 			if (updated > 0) activeTasks.remove(taskId);
 		} catch (Exception ignore) {}
 	}
@@ -136,7 +146,7 @@ public class DeepResearchService {
 	 *         never null
 	 * @since v2026.1.4
 	 */
-	public java.util.List<java.util.Map<String, Object>> listTasks(String owner) {
+	public List<Map<String, Object>> listTasks(String owner) {
 		return db.queryForList(
 				"SELECT id, owner, query, status, started_at, finished_at, duration_ms FROM research_tasks WHERE owner=? ORDER BY started_at DESC LIMIT 50",
 				owner);
@@ -152,7 +162,7 @@ public class DeepResearchService {
 	 * @since v2026.1.4
 	 */
 	public String getReport(String taskId, String owner) {
-		java.util.List<java.util.Map<String, Object>> rows = db.queryForList(
+		List<Map<String, Object>> rows = db.queryForList(
 				"SELECT report_html FROM research_tasks WHERE id=? AND owner=?", taskId, owner);
 		if (rows.isEmpty()) return null;
 		return (String) rows.get(0).get("report_html");
@@ -209,10 +219,10 @@ public class DeepResearchService {
 	 */
 	public void executeResearch(String query, User user, SseEmitter emitter, String sessionId) {
 		// Create persistent task record
-		String taskId = "res-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+		String taskId = "res-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
 		try {
 			db.update("INSERT INTO research_tasks (id, owner, session_id, query, status, started_at) VALUES (?,?,?,?,?,?)",
-					taskId, user.id, sessionId, query, "running", java.time.Instant.now().toString());
+					taskId, user.id, sessionId, query, "running", Instant.now().toString());
 		} catch (Exception ignore) {}
 		activeTasks.put(taskId, true);
 
@@ -322,7 +332,7 @@ public class DeepResearchService {
 			try {
 				String reportHtml = renderReportHtml(query, reportMd.toString());
 				db.update("UPDATE research_tasks SET status='completed', finished_at=?, duration_ms=?, report_html=? WHERE id=?",
-						java.time.Instant.now().toString(), durationMs, reportHtml, taskId);
+						Instant.now().toString(), durationMs, reportHtml, taskId);
 			} catch (Exception ignore) {}
 
 			emitter.complete();
@@ -332,7 +342,7 @@ public class DeepResearchService {
 			activeTasks.remove(taskId);
 			try {
 				db.update("UPDATE research_tasks SET status='error', finished_at=? WHERE id=?",
-						java.time.Instant.now().toString(), taskId);
+						Instant.now().toString(), taskId);
 			} catch (Exception ignore) {}
 			try {
 				emit(emitter, Map.of("type", "error", "message", e.getMessage()));
@@ -382,9 +392,9 @@ public class DeepResearchService {
 			int start = content.indexOf('[');
 			int end = content.lastIndexOf(']');
 			if (start >= 0 && end > start) {
-				com.fasterxml.jackson.databind.JsonNode arr = mapper.readTree(content.substring(start, end + 1));
+				JsonNode arr = mapper.readTree(content.substring(start, end + 1));
 				List<String> questions = new ArrayList<>();
-				for (com.fasterxml.jackson.databind.JsonNode n : arr)
+				for (JsonNode n : arr)
 					questions.add(n.asText());
 				if (!questions.isEmpty())
 					return questions;
@@ -438,17 +448,17 @@ public class DeepResearchService {
 	private String renderReportHtml(String query, String markdown) {
 		String bodyHtml;
 		try {
-			com.vladsch.flexmark.util.data.MutableDataSet opts = new com.vladsch.flexmark.util.data.MutableDataSet();
-			com.vladsch.flexmark.parser.Parser parser = com.vladsch.flexmark.parser.Parser.builder(opts).build();
-			com.vladsch.flexmark.html.HtmlRenderer renderer = com.vladsch.flexmark.html.HtmlRenderer.builder(opts).build();
+			MutableDataSet opts = new MutableDataSet();
+			Parser parser = Parser.builder(opts).build();
+			HtmlRenderer renderer = HtmlRenderer.builder(opts).build();
 			String raw = renderer.render(parser.parse(markdown != null ? markdown : ""));
 			// Sanitise: the source text is untrusted (web-derived) — strip scripts/handlers.
-			bodyHtml = org.jsoup.Jsoup.clean(raw, org.jsoup.safety.Safelist.relaxed());
+			bodyHtml = Jsoup.clean(raw, Safelist.relaxed());
 		} catch (Exception e) {
 			// Fallback: escape the raw text so a render failure never yields unsafe HTML.
-			bodyHtml = "<pre>" + org.jsoup.Jsoup.clean(markdown != null ? markdown : "", org.jsoup.safety.Safelist.none()) + "</pre>";
+			bodyHtml = "<pre>" + Jsoup.clean(markdown != null ? markdown : "", Safelist.none()) + "</pre>";
 		}
-		String safeTitle = org.jsoup.Jsoup.clean(query != null ? query : "Research Report", org.jsoup.safety.Safelist.none());
+		String safeTitle = Jsoup.clean(query != null ? query : "Research Report", Safelist.none());
 		return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + safeTitle
 				+ "</title></head><body><h1>" + safeTitle + "</h1>" + bodyHtml + "</body></html>";
 	}

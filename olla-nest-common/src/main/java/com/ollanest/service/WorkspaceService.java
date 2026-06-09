@@ -13,6 +13,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Set;
 
 /**
  * Workspace management service: resolves a user's workspace directory, lists
@@ -488,7 +489,7 @@ public class WorkspaceService {
 	 * Allowed file extensions for AI-generated workspace artifacts.
 	 * Extensions not in this set are rejected before any filesystem write.
 	 */
-	private static final java.util.Set<String> ALLOWED_ARTIFACT_EXTENSIONS = java.util.Set.of(
+	private static final Set<String> ALLOWED_ARTIFACT_EXTENSIONS = Set.of(
 		"html", "htm", "css", "js", "jsx", "ts", "tsx",
 		"json", "md", "txt", "py", "rb", "java", "go",
 		"rs", "c", "cpp", "h", "hpp", "sh", "yaml", "yml",
@@ -501,8 +502,8 @@ public class WorkspaceService {
 	 * Rejects any path component starting with a dot (hidden files/traversal),
 	 * double dots, or absolute paths.
 	 */
-	private static final java.util.regex.Pattern SAFE_FILENAME_PATTERN =
-		java.util.regex.Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._/\\-]*$");
+	private static final Pattern SAFE_FILENAME_PATTERN =
+		Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._/\\-]*$");
 
 	/**
 	 * Sanitizes an AI-provided artifact filename to prevent path traversal and
