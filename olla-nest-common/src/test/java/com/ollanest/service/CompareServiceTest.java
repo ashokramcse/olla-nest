@@ -102,6 +102,23 @@ class CompareServiceTest {
 		}
 
 		@Test
+		@DisplayName("omitting endpoint_a/endpoint_b still succeeds (no 500) — BUG-028")
+		void missingEndpointsDoNotCrash() {
+			// endpoint_a/endpoint_b are NOT-NULL but optional write-only metadata; a
+			// caller that omits them previously triggered a 500 SQLITE_CONSTRAINT_NOTNULL.
+			var req = Map.<String, Object>of("model_a", "a", "model_b", "b", "prompt", "P");
+			var result = svc.create(OWNER, req);
+			assertThat(result.get("id").toString()).startsWith("cmp-");
+		}
+
+		@Test
+		@DisplayName("missing model_a/model_b is rejected as 400 (IllegalArgumentException) — BUG-028")
+		void missingModelsRejected() {
+			assertThatThrownBy(() -> svc.create(OWNER, Map.<String, Object>of("prompt", "only a prompt")))
+					.isInstanceOf(IllegalArgumentException.class);
+		}
+
+		@Test
 		@DisplayName("DB INSERT called with owner and session IDs")
 		void dbInsertCalled() {
 			var req = Map.<String, Object>of("model_a", "a", "model_b", "b", "prompt", "P");

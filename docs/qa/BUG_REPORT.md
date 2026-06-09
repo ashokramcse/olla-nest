@@ -204,17 +204,35 @@
 - **Fix:** `public/app.html` — added `role="log" aria-label="Conversation messages" aria-live="polite" tabindex="0"` to `#messages`.
 - **Verified live:** re-ran the a11y suite (chromium) → **4 passed, 0 violations** (was 1 failed, 1 serious). `aria-live="polite"` additionally improves screen-reader announcement of streamed replies.
 
+## BUG-027 — Calendar event with missing start_at/end_at returns 500 instead of 400 — **MAJOR (product)** — FIXED (2026-06-09)
+- **Found:** live user-feature sweep — `POST /api/calendar/calendars/{id}/events` with a body omitting `start_at`/`end_at` returned **500** (`SQLITE_CONSTRAINT_NOTNULL: calendar_events.start_at`). Valid times → 201; reversed times → 400 (BUG-021 holds).
+- **Root cause:** `CalendarService.validateEventTimes` no-op'd when either time was null, so nulls reached a NOT-NULL INSERT (BUG-019 class).
+- **Fix:** `validateEventTimes` now rejects null/blank `start_at`/`end_at` with `IllegalArgumentException` → **400**. Regression: `CalendarServiceTest.rejectsMissingTimes()` (+ existing `calendarIdStored` given valid times; assertion unchanged).
+- **Verified live:** missing times → **400 "Event start time (start_at) is required"** after redeploy.
+
+## BUG-028 — Compare start returns 500 on omitted endpoint_a/endpoint_b — **MAJOR (product)** — FIXED (2026-06-09)
+- **Found:** live sweep — `POST /api/compare/start` with valid `prompt`/`model_a`/`model_b` (but no `endpoint_a`/`endpoint_b`) returned **500** (`SQLITE_CONSTRAINT_NOTNULL: comparisons.model_a`/`endpoint_a`). The UI sends endpoints, but they are NOT-NULL with no default and `model_a/model_b` were unvalidated.
+- **Root cause:** `CompareService.create` inserted `req.get(...)` directly into NOT-NULL columns (BUG-019 class); `endpoint_a/endpoint_b` are write-only metadata (never read anywhere).
+- **Fix:** validate `prompt`/`model_a`/`model_b` (→ 400 if missing) and default `endpoint_a/endpoint_b` to `""` via a null-safe `str()` helper. Regressions: `CompareServiceTest.missingEndpointsDoNotCrash()` + `missingModelsRejected()`.
+- **Verified live:** valid models (no endpoints) → **201**; missing models → **400 "model_a and model_b are required"** after redeploy.
+
+## OBS-005 — Vault is admin-gated despite being documented as a workspace feature — **INFO**
+- `VaultController` config/unlock/lock/item use `requireAdminUser`; only `status` is `requireAuth`. A non-admin gets **403 "Admin access required"**. This is **intentional** (Javadoc: master password never exposed; admin-only). FEATURES §5.24 lists Vault under the Employee Workspace, which is misleading — recommend a doc note that the vault is admin-managed. Not a bug.
+
+## OBS-006 — Contacts accept unvalidated email/phone — **INFO (by design)**
+- `POST /api/contacts` stores arbitrary `email`/`phone` (e.g. `"definitely-not-email"`, `"abc"`) with no format check. This is **intentional import tolerance** (vCard/Nextcloud sync carries messy data); multi-value fields are stored as JSON. Noted, not a bug.
+
 ---
 
 ## Severity ledger
 | Severity | Count | IDs | Status |
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
-| Major | 15 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt), BUG-025 (missing-param 500→400), BUG-026 (a11y scrollable region) | FIXED |
+| Major | 17 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt), BUG-025 (missing-param 500→400), BUG-026 (a11y scrollable region), BUG-027 (calendar missing-times 500→400), BUG-028 (compare start 500→400/201) | FIXED |
 | Minor | 11 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), BUG-021 (calendar end<start), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**2026-06-09 re-validation session added BUG-025 and BUG-026 (both MAJOR, both FIXED with regression coverage). Cumulative: 26 findings — ALL FIXED. 13 genuine product/security bugs (BUG-001, 006, 009, 012, 013, 016, 017, 018, 019, 020, 022 research-IDOR, 023 research-NPE, 024 research-report) + BUG-021 calendar validation — each with a regression test.**
+**2026-06-09 sessions added BUG-025, BUG-026, BUG-027, BUG-028 (all MAJOR, all FIXED + regression coverage, all verified live) plus OBS-005/OBS-006 (by-design notes). The three 500→400 fixes (025/027/028) are all the BUG-019 "null reaches NOT-NULL column" class in newly-swept endpoints. Cumulative: 30 findings — ALL FIXED. 13 genuine product/security bugs (BUG-001, 006, 009, 012, 013, 016, 017, 018, 019, 020, 022 research-IDOR, 023 research-NPE, 024 research-report) + BUG-021 calendar validation — each with a regression test.**
 UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
 
 **All identified bugs are fixed. Full suite is green: 1981 tests (common module), 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS, verified 2026-06-09 after BUG-015 race fix).**

@@ -60,6 +60,29 @@ multi-hour soak; 500-VU load beyond local capacity; live third-party connector m
 (GitHub/Slack/Salesforce/… real tokens); SMTP/IMAP send/receive; external image/STT
 providers; ZAP dynamic scan.
 
+## User-feature E2E sweep (all Employee Workspace modules, live on :8081)
+
+Authenticated as a non-admin QA user (rights `chat:use`). Read sweep + CRUD lifecycles.
+
+| Module | Result |
+|---|---|
+| Account | profile/usage 200; password change: wrong current → **401**, weak (<12) → **400** |
+| Notes | create/read/update/pin(+body)/archive/delete ✓; read-after-delete **404** |
+| Tasks | create/pause/resume/runs/delete ✓ |
+| Contacts | CRUD ✓ (email/phone import-tolerant — OBS-006) |
+| Calendar | calendar+event CRUD, ICS export ✓; end<start **400** (BUG-021 holds); **missing times → fixed to 400 (BUG-027)** |
+| Presets/templates | create/update/delete ✓ |
+| Memory | create (validates `text` → 400)/search/delete ✓ |
+| Gallery | albums create/delete ✓ |
+| Compare | **fixed (BUG-028)** — valid → 201, missing models → 400 |
+| Webhooks | create/enable/disable/delete ✓; **SSRF to private IP blocked (400)** — BUG-020 holds |
+| Vault | admin-gated by design → 403 for non-admin (OBS-005) |
+| Sandbox | languages 200; run → **403** (lacks `sandbox:run` right) — correct RBAC |
+| Threads | list 200; delete missing → **404** |
+| RBAC sweep | reads 200 except correct **403s** on cookbook/downloads, jobs/active, workspace/browse (rights-gated) |
+
+Three new 500→400 fixes (BUG-025/027/028) are all the same **BUG-019 class** (a null/omitted field reaching a NOT-NULL column) in endpoints not previously swept. All fixed with regression tests and **verified live** after redeploy. Full suite: **2149 testcases, 0 failures, 0 errors**.
+
 ## Verdict
 
 **PASS WITH MINOR ISSUES.**

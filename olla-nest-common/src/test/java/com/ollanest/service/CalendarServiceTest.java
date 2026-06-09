@@ -185,9 +185,21 @@ class CalendarServiceTest {
 			when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), anyString(), anyString())).thenReturn(1);
 			when(db.queryForList(contains("FROM calendar_events WHERE id"), anyString()))
 					.thenReturn(List.of(evtRow("evt-1", "cal-1")));
-			Map<String, Object> result = calendarService.createEvent("cal-1", OWNER, Map.of());
+			Map<String, Object> result = calendarService.createEvent("cal-1", OWNER,
+					Map.of("start_at", "2026-06-01T09:00:00Z", "end_at", "2026-06-01T10:00:00Z"));
 			// calendar_id must be stored so events can be listed by calendar
 			assertThat(result.get("calendar_id")).isEqualTo("cal-1");
+		}
+
+		@Test
+		@DisplayName("rejects an event with missing start_at/end_at (400, not a 500 NOT-NULL crash) — BUG-027")
+		void rejectsMissingTimes() {
+			when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), anyString(), anyString())).thenReturn(1);
+			// start_at / end_at are NOT-NULL columns; omitting them previously let a null
+			// reach the INSERT and surfaced as a misleading 500. Must be a 400 instead.
+			assertThatThrownBy(() -> calendarService.createEvent("cal-1", OWNER, Map.of("title", "NoTimes")))
+					.isInstanceOf(IllegalArgumentException.class);
+			verify(db, never()).update(contains("INSERT INTO calendar_events"), any(Object[].class));
 		}
 
 		@Test

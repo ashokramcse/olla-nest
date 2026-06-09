@@ -79,6 +79,19 @@ public class CompareService {
 	 * @since v2026.2.1
 	 */
 	public Map<String, Object> create(String owner, Map<String, Object> req) {
+		// prompt / model_a / model_b are NOT-NULL; validate up front so an omitted
+		// field is a 400 rather than a 500 SQLITE_CONSTRAINT_NOTNULL (BUG-028 class).
+		String prompt = str(req.get("prompt"));
+		String modelA = str(req.get("model_a"));
+		String modelB = str(req.get("model_b"));
+		if (prompt.isBlank())
+			throw new IllegalArgumentException("prompt is required");
+		if (modelA.isBlank() || modelB.isBlank())
+			throw new IllegalArgumentException("model_a and model_b are required");
+		// endpoint_a / endpoint_b are NOT-NULL but optional write-only metadata;
+		// default to empty string so a caller that omits them does not 500.
+		String endpointA = str(req.get("endpoint_a"));
+		String endpointB = str(req.get("endpoint_b"));
 		String id = "cmp-" + Long.toString(System.currentTimeMillis(), 36) + "-"
 				+ UUID.randomUUID().toString().substring(0, 6);
 		String sessionIdA = "cmp-sess-a-" + UUID.randomUUID().toString().substring(0, 8);
@@ -89,12 +102,17 @@ public class CompareService {
 		db.update("""
 				INSERT INTO comparisons (id, owner, prompt, model_a, model_b, endpoint_a, endpoint_b,
 				  session_id_a, session_id_b, is_blind, created_at)
-				VALUES (?,?,?,?,?,?,?,?,?,?,?)""", id, owner, req.get("prompt"), req.get("model_a"), req.get("model_b"),
-				req.get("endpoint_a"), req.get("endpoint_b"), sessionIdA, sessionIdB, isBlind ? 1 : 0, now);
+				VALUES (?,?,?,?,?,?,?,?,?,?,?)""", id, owner, prompt, modelA, modelB,
+				endpointA, endpointB, sessionIdA, sessionIdB, isBlind ? 1 : 0, now);
 
 		return Map.of("id", id, "session_id_a", sessionIdA, "session_id_b", sessionIdB, "is_blind", isBlind, "label_a",
-				isBlind ? "Model A" : req.get("model_a"), "label_b", isBlind ? "Model B" : req.get("model_b"),
+				isBlind ? "Model A" : modelA, "label_b", isBlind ? "Model B" : modelB,
 				"created_at", now);
+	}
+
+	/** Null-safe string coercion: null → "" so NOT-NULL inserts never see null. */
+	private static String str(Object v) {
+		return v == null ? "" : v.toString();
 	}
 
 	// ── Vote ──────────────────────────────────────────────────────────────────

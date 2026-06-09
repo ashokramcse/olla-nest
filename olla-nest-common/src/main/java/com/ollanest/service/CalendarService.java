@@ -374,8 +374,13 @@ public class CalendarService {
 	 * @throws IllegalArgumentException if {@code end} is before {@code start}
 	 */
 	private void validateEventTimes(Object start, Object end) {
-		if (start == null || end == null)
-			return;
+		// start_at / end_at are NOT-NULL columns. Reject missing/blank values here as
+		// a 400 (IllegalArgumentException) instead of letting a null reach the INSERT
+		// and surface as a misleading 500 SQLITE_CONSTRAINT_NOTNULL (BUG-027 class).
+		if (start == null || start.toString().isBlank())
+			throw new IllegalArgumentException("Event start time (start_at) is required");
+		if (end == null || end.toString().isBlank())
+			throw new IllegalArgumentException("Event end time (end_at) is required");
 		try {
 			if (Instant.parse(end.toString()).isBefore(Instant.parse(start.toString()))) {
 				throw new IllegalArgumentException("Event end time cannot be before its start time");
