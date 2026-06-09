@@ -216,6 +216,19 @@
 - **Fix:** validate `prompt`/`model_a`/`model_b` (→ 400 if missing) and default `endpoint_a/endpoint_b` to `""` via a null-safe `str()` helper. Regressions: `CompareServiceTest.missingEndpointsDoNotCrash()` + `missingModelsRejected()`.
 - **Verified live:** valid models (no endpoints) → **201**; missing models → **400 "model_a and model_b are required"** after redeploy.
 
+## BUG-029 — Models with a slash in their id cannot be governed — **MAJOR (product/governance)** — FIXED (2026-06-09)
+- **Found:** Phase 5 admin sweep — `PATCH /api/admin/models/{id}/governance` for an Ollama namespaced id (`ollama:dimavz/whisper-tiny:latest`) returned **404** with a raw slash (path mis-routes) and **400** with an encoded `%2F` (Tomcat rejects encoded slashes). The admin UI already `encodeURIComponent`s the id → it sends `%2F` → **the UI genuinely cannot govern any slash-id model**. Slashless ids (e.g. `ollama:gemma3:1b`) governed fine (200).
+- **Impact:** governance (a compliance/security control: tier, privacy, sensitivity, GPU/concurrency) was un-settable for the whole class of namespaced Ollama models.
+- **Fix:** added a body-based route `PATCH /api/admin/models/governance` (`{"id": "...", ...}`) that carries the id in the JSON body, sharing logic with the path route via a private `applyGovernance(...)`. Frontend `public/admin.js` now calls the body route with `id` in the payload. Old path route kept for slashless ids.
+- **Tests:** `AdminModelsGovernanceTest` (4) — missing id → 400, slash id passes through intact to the lookup, missing-CSRF → 403, unauth → 401/403.
+- **Verified live:** body route on `ollama:dimavz/whisper-tiny:latest` → **200**, DB `governance_tier` changed `approved-local` → `approved`; missing id → 400; path route for slashless still 200.
+
+## OBS-007 — Admin mutating endpoints return 200 on a nonexistent id — **INFO (minor)**
+- `DELETE /api/admin/users/{id}`, `POST /api/admin/skills/{id}/approve`, `.../archive` return **200** for ids that don't exist (the underlying UPDATE/DELETE affects 0 rows). Idempotent and harmless, but a 404 would be more correct. Reset-password and model-governance *do* return 404 (changed==0 guard). Noted, not a blocker.
+
+## OBS-008 — MCP connect is a stub; needs SSRF/command guards when wired — **INFO (forward-looking security)**
+- `McpServerService.connectHttp` only logs the URL (never fetches it) and `connectStdio` builds a `ProcessBuilder` but never `.start()`s it — so registering an MCP server with an internal/metadata URL (`http://169.254.169.254/…`) is accepted (201) but **no SSRF or command execution actually occurs** today. When the MCP transport is implemented, `connectHttp` must validate the URL via `UrlValidator` (as webhooks do, BUG-020) and `connectStdio` must allowlist/sandbox the command. Admin-only surface. Not an active vulnerability.
+
 ## OBS-005 — Vault is admin-gated despite being documented as a workspace feature — **INFO**
 - `VaultController` config/unlock/lock/item use `requireAdminUser`; only `status` is `requireAuth`. A non-admin gets **403 "Admin access required"**. This is **intentional** (Javadoc: master password never exposed; admin-only). FEATURES §5.24 lists Vault under the Employee Workspace, which is misleading — recommend a doc note that the vault is admin-managed. Not a bug.
 
@@ -228,11 +241,11 @@
 | Severity | Count | IDs | Status |
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
-| Major | 17 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt), BUG-025 (missing-param 500→400), BUG-026 (a11y scrollable region), BUG-027 (calendar missing-times 500→400), BUG-028 (compare start 500→400/201) | FIXED |
+| Major | 18 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt), BUG-025 (missing-param 500→400), BUG-026 (a11y scrollable region), BUG-027 (calendar missing-times 500→400), BUG-028 (compare start 500→400/201), BUG-029 (model governance slash-id) | FIXED |
 | Minor | 11 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), BUG-021 (calendar end<start), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**2026-06-09 sessions added BUG-025, BUG-026, BUG-027, BUG-028 (all MAJOR, all FIXED + regression coverage, all verified live) plus OBS-005/OBS-006 (by-design notes). The three 500→400 fixes (025/027/028) are all the BUG-019 "null reaches NOT-NULL column" class in newly-swept endpoints. Cumulative: 30 findings — ALL FIXED. 13 genuine product/security bugs (BUG-001, 006, 009, 012, 013, 016, 017, 018, 019, 020, 022 research-IDOR, 023 research-NPE, 024 research-report) + BUG-021 calendar validation — each with a regression test.**
+**2026-06-09 sessions added BUG-025, BUG-026, BUG-027, BUG-028 (all MAJOR, all FIXED + regression coverage, all verified live) plus OBS-005/OBS-006 (by-design notes). The three 500→400 fixes (025/027/028) are all the BUG-019 "null reaches NOT-NULL column" class in newly-swept endpoints. Phase 5 admin sweep added BUG-029 (MAJOR, FIXED+verified live) plus OBS-007/008. Cumulative: 33 findings — ALL FIXED. 13 genuine product/security bugs (BUG-001, 006, 009, 012, 013, 016, 017, 018, 019, 020, 022 research-IDOR, 023 research-NPE, 024 research-report) + BUG-021 calendar validation — each with a regression test.**
 UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
 
 **All identified bugs are fixed. Full suite is green: 1981 tests (common module), 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS, verified 2026-06-09 after BUG-015 race fix).**

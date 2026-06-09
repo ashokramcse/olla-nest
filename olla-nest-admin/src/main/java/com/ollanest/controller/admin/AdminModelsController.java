@@ -176,6 +176,30 @@ public class AdminModelsController extends BaseController {
 	@PatchMapping("/models/{id}/governance")
 	public ResponseEntity<Map<String, Object>> updateGovernance(@PathVariable String id,
 			@RequestBody Map<String, Object> body, HttpServletRequest req) {
+		return applyGovernance(id, body, req);
+	}
+
+	/**
+	 * Body-based governance update for models whose id contains a slash (e.g. the
+	 * Ollama namespaced id {@code ollama:user/model:tag}). Such ids cannot travel
+	 * in the path: a raw {@code /} mis-routes (404) and an encoded {@code %2F} is
+	 * rejected by Tomcat (400). This variant takes the model id in the JSON body so
+	 * every model — slash or not — is governable (BUG-029).
+	 *
+	 * <p>
+	 * HTTP: {@code PATCH /api/admin/models/governance} with {@code {"id": "...", ...}}.
+	 */
+	@PatchMapping("/models/governance")
+	public ResponseEntity<Map<String, Object>> updateGovernanceByBody(@RequestBody Map<String, Object> body,
+			HttpServletRequest req) {
+		Object id = body.get("id");
+		if (id == null || id.toString().isBlank())
+			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "Model id is required"));
+		return applyGovernance(id.toString(), body, req);
+	}
+
+	private ResponseEntity<Map<String, Object>> applyGovernance(String id, Map<String, Object> body,
+			HttpServletRequest req) {
 		ResponseEntity<Map<String, Object>> err = requireAdmin(req);
 		if (err != null)
 			return err;

@@ -863,9 +863,13 @@ async function autoSaveModelTier(selectEl, modelId) {
   selectEl.disabled = true;
   if (statusEl) statusEl.textContent = "Saving…";
   try {
-    await api(`/api/admin/models/${encodeURIComponent(modelId)}/governance`, {
+    // Use the body-based governance route so model ids containing a slash
+    // (e.g. Ollama "ollama:user/model:tag") are governable — a slash in the
+    // path mis-routes (404) and an encoded %2F is rejected by Tomcat (400). BUG-029.
+    await api(`/api/admin/models/governance`, {
       method: "PATCH",
       body: JSON.stringify({
+        id: modelId,
         governanceTier: tier,
         gpuRequired: tier === "gpu-restricted",
         resourceTier: tier === "gpu-restricted" ? "gpu-heavy" : tier === "offline-only" ? "private" : "standard",

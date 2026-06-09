@@ -83,6 +83,25 @@ Authenticated as a non-admin QA user (rights `chat:use`). Read sweep + CRUD life
 
 Three new 500→400 fixes (BUG-025/027/028) are all the same **BUG-019 class** (a null/omitted field reaching a NOT-NULL column) in endpoints not previously swept. All fixed with regression tests and **verified live** after redeploy. Full suite: **2149 testcases, 0 failures, 0 errors**.
 
+## Phase 5 — Admin Control Panel sweep (live on :8080)
+
+Authenticated as admin. All admin reads 200. Mutations + negatives + RBAC + security:
+
+| Area | Result |
+|---|---|
+| User mgmt | create (name/email validated, **`<script>` HTML-escaped**), missing email → 400, dup email → 400, effective-access 200, PATCH role 200, force-logout 200, delete 200 |
+| Reset password | with body → 200, weak (<12) → 400, nonexistent → 404 |
+| Overrides | add (correct `permissionKey`) 200, invalid effect 400, **effective-access reflects `models:manage:allow`**, delete 200 |
+| Providers | create 200, missing api_key → 400, **API key encrypted at rest (plaintext absent in DB, never in API)**, test 200, delete 200 |
+| Settings / Dept rights | POST settings 200, PATCH dept rights 200 |
+| Model governance | slashless 200; **slash-id was un-governable → fixed (BUG-029)**; missing id → 400 |
+| MCP servers | create 201, connect/disconnect 200, delete 200 (connect is a stub — OBS-008) |
+| Skills moderation | approve/archive 200 (nonexistent → 200, OBS-007) |
+| CSRF | non-GET admin mutations require `x-requested-with` header → else 403 |
+| RBAC | non-admin blocked (Phase 4); mass-assignment escalation rejected |
+
+One new MAJOR fixed: **BUG-029** (slash-id models un-governable → body-based route). Two non-bug notes: OBS-007 (200 on nonexistent id), OBS-008 (MCP connect is a stub; add SSRF/command guards when wired). Full suite: **2153 testcases, 0 failures**.
+
 ## Verdict
 
 **PASS WITH MINOR ISSUES.**
