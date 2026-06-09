@@ -67,16 +67,18 @@ class DeepResearchServiceTest {
         @DisplayName("does not throw for an unknown taskId")
         void noThrowForUnknownTask() {
             // Cancelling a non-existent task must be a no-op — not an error
-            assertThatCode(() -> service.cancel("res-unknown-task"))
+            assertThatCode(() -> service.cancel("res-unknown-task", "u-owner"))
                     .doesNotThrowAnyException();
         }
 
         @Test
-        @DisplayName("calls DB update to mark task as cancelled")
+        @DisplayName("calls DB update to mark task as cancelled, scoped to the owner (BUG-022 IDOR)")
         void callsDbUpdate() {
-            service.cancel("res-abc123");
-            // Cancel must persist the cancellation status so the UI updates correctly
-            verify(db, atLeastOnce()).update(contains("cancelled"), any(), eq("res-abc123"));
+            service.cancel("res-abc123", "u-owner");
+            // Cancel must persist the cancellation AND be owner-scoped so a user cannot
+            // cancel another user's task — the WHERE clause must include owner.
+            verify(db, atLeastOnce()).update(
+                    contains("WHERE id=? AND owner=?"), any(), eq("res-abc123"), eq("u-owner"));
         }
     }
 

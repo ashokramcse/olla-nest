@@ -151,6 +151,19 @@ Run against the live user service (`:8081`) with Ollama (`:11434`, models presen
 | `calculate` | **SAFE** — self-contained arithmetic evaluator, no script engine / I/O (BUG-006). |
 | `search_knowledge_base` | scopes to `personal:{userId}` + global only → no cross-user leak. **Found BUG-018** (personal docs were never retrievable due to scope-format mismatch) — fixed + proven live. |
 
+## 4d. Deep Research — real-user E2E — EXECUTED 2026-06-09 (found+fixed 3 bugs)
+
+Drove the feature as a real user via `POST /api/chat/stream` `{deepResearch:true}` against live Ollama + a configured search provider.
+
+| Test | Result |
+|---|---|
+| Input validation (empty / >16k message, auth, CSRF, rate-limit, quota) | **PASS** — enforced before the research branch |
+| Run "benefits/risks of intermittent fasting" | **found BUG-023** — NPE on null `ragCtx` (no matching docs) aborted every general-topic run; **fixed** → now `plan→search→synthesize→done`, `status='completed'` |
+| Retrieve report `GET /api/research/tasks/{id}/report` | **found BUG-024** — `report_html` never persisted → always 404; **fixed** (flexmark render + Jsoup sanitise) → **200**, 5,359 bytes, **0 `<script>`** |
+| Cancel another user's task `DELETE /api/research/tasks/{id}` | **found BUG-022 (IDOR)** — `cancel` not owner-scoped; **fixed** → user-2's cancel is a no-op, user-1's task stays `completed` |
+
+All three fixed with regression tests; verified against the live rebuilt stack.
+
 ## 5. Recommendation
 1. **Remediate BUG-003/004/005** (test-debt) to restore a green `mvn test` gate — these are false negatives masking real coverage signal. Do **not** delete or weaken; fix the verifications/stubs.
 2. Stand up the **Playwright** and **k6** harnesses (see test plan) and execute Phases 6–18.

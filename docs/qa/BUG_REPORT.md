@@ -103,6 +103,25 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-023 — Deep Research crashes with NPE when no RAG documents match — **MAJOR (product)** — FIXED
+- **Feature:** Deep Research pipeline (`DeepResearchService.executeResearch`, triggered by `POST /api/chat/stream` with `deepResearch:true`).
+- **Discovery:** real-user live run (2026-06-09). Querying "benefits and risks of intermittent fasting" streamed `plan → search` then errored: `{"type":"error","message":"Cannot invoke \"String.isBlank()\" because \"ragCtx\" is null"}`. The `research_tasks` row was left `status='error'`.
+- **Root cause:** `RagService.buildRagContext` returns **null** when no chunks match (the common case for general-topic research with no relevant personal docs). The pipeline called `ragCtx.isBlank()` (twice) without a null check → NPE → whole research aborted. **Deep Research was broken for any user without matching documents** — i.e. most queries.
+- **Fix:** `boolean hasRag = ragCtx != null && !ragCtx.isBlank();` guards both the context add and the source count.
+- **Verification (live, post-fix):** the same query now runs `plan → search → synthesize → token stream → done`, `research_tasks.status='completed'`. Full `mvn test` BUILD SUCCESS.
+
+## BUG-024 — Deep Research report never persisted → report endpoint always 404 — **MAJOR (product)** — FIXED
+- **Feature:** `GET /api/research/tasks/{id}/report` / `DeepResearchService` completion.
+- **Discovery:** a **completed** research task had empty `report_html`; the report endpoint returned **404**. The synthesis tokens were streamed to the client but never accumulated, and the completion `UPDATE` set only `status/finished_at/duration_ms` (code comment: "for now just mark complete"). The report endpoint was effectively dead.
+- **Fix:** accumulate the streamed tokens into a `StringBuilder`, render the Markdown to HTML with **flexmark** (already a dependency — pom comment "Markdown → HTML (visual research report)"), **sanitise** it with `Jsoup.clean(Safelist.relaxed())` (the report contains untrusted web-derived text → XSS defence), wrap in a standalone HTML doc, and store it in `report_html` on completion.
+- **Verification (live, post-fix):** completed task → `report_html` length 5,359; `GET .../report` → **200** with valid HTML; **0 `<script>` tags** (sanitised). 
+
+## BUG-022 — IDOR: any user can cancel another user's research task — **MAJOR (security)** — FIXED
+- **Feature:** `DELETE /api/research/tasks/{id}` (`DeepResearchService.cancel`).
+- **Discovery:** code review during the Deep Research pass. `cancel(String taskId)` ran `UPDATE research_tasks SET status='cancelled' WHERE id=?` with **no owner check**, and the controller never passed the user id. `listTasks`/`getReport` were correctly owner-scoped; only `cancel` was not — so any authenticated user could cancel another user's running research by id.
+- **Fix:** `cancel(taskId, owner)` scopes the UPDATE with `AND owner=?` (and only evicts from the active-tasks map when a row was actually updated); the controller passes `user.id`. Internal timeout/error handlers pass the owning `user.id`.
+- **Verification (live, post-fix):** user-2 `DELETE` on user-1's task → user-1's task **remained `completed`** (no cross-user cancel). Regression test `DeepResearchServiceTest.callsDbUpdate` asserts the `WHERE id=? AND owner=?` scoping.
+
 ## BUG-020 — Webhook SSRF: IPv6 loopback/private bypass — **MAJOR (security)** — FIXED
 - **Feature:** Outbound webhook URL validation (`WebhookService.validateUrl`, `POST /api/webhooks`).
 - **Discovery:** live SSRF probe (2026-06-09). `http://[::1]/x` (IPv6 loopback) was **accepted (201)**; IPv4 loopback/private/metadata were correctly rejected.
@@ -179,11 +198,11 @@
 | Severity | Count | IDs | Status |
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
-| Major | 10 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020 (webhook SSRF IPv6), BUG-003 (test-debt) | FIXED |
+| Major | 13 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt) | FIXED |
 | Minor | 11 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), BUG-021 (calendar end<start), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**Cumulative: 21 findings — ALL FIXED. 10 genuine product/security bugs (BUG-001, BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020 webhook SSRF) + BUG-021 calendar validation — each with a regression test.**
+**Cumulative: 24 findings — ALL FIXED. 13 genuine product/security bugs (BUG-001, 006, 009, 012, 013, 016, 017, 018, 019, 020, 022 research-IDOR, 023 research-NPE, 024 research-report) + BUG-021 calendar validation — each with a regression test.**
 UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
 
 **All identified bugs are fixed. Full suite is green: 1981 tests (common module), 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS, verified 2026-06-09 after BUG-015 race fix).**

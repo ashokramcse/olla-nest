@@ -78,8 +78,9 @@ public class ResearchController extends BaseController {
      */
     @DeleteMapping("/tasks/{id}")
     public ResponseEntity<?> cancel(HttpServletRequest req, @PathVariable String id) {
-        requireAuth(req);
-        researchService.cancel(id);
+        User user = requireAuth(req);
+        // Owner-scoped so a user cannot cancel another user's research task (BUG-022 IDOR).
+        researchService.cancel(id, user.id);
         return ok(Map.of("ok", true));
     }
 

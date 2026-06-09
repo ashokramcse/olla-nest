@@ -112,13 +112,19 @@ public class DeepResearchService {
 	 * {@code "cancelled"} in the database. Safe to call for unknown task IDs.
 	 *
 	 * @param taskId the task ID returned at pipeline start; unknown IDs are silently ignored
+	 * @param owner  the requesting user's ID — the cancellation is scoped to tasks
+	 *               they own so a user cannot cancel another user's research (IDOR, BUG-022)
 	 * @since v2026.1.4
+	 * @version v2026.2.2 — added owner scoping to close an IDOR
 	 */
-	public void cancel(String taskId) {
-		activeTasks.remove(taskId);
+	public void cancel(String taskId, String owner) {
 		try {
-			db.update("UPDATE research_tasks SET status='cancelled', finished_at=? WHERE id=?",
-					java.time.Instant.now().toString(), taskId);
+			// Only remove from the active map + mark cancelled if the task is owned by
+			// the caller. The ownership check is enforced in the UPDATE's WHERE clause.
+			int updated = db.update(
+					"UPDATE research_tasks SET status='cancelled', finished_at=? WHERE id=? AND owner=?",
+					java.time.Instant.now().toString(), taskId, owner);
+			if (updated > 0) activeTasks.remove(taskId);
 		} catch (Exception ignore) {}
 	}
 
@@ -212,12 +218,12 @@ public class DeepResearchService {
 
 		emitter.onTimeout(() -> {
 			log.warn("[research] SSE emitter timed out for query: {}", query.substring(0, Math.min(50, query.length())));
-			cancel(taskId);
+			cancel(taskId, user.id);
 			emitter.complete();
 		});
 		emitter.onError(ex -> {
 			log.warn("[research] SSE emitter error: {}", ex.getMessage());
-			cancel(taskId);
+			cancel(taskId, user.id);
 			emitter.completeWithError(ex);
 		});
 
@@ -263,13 +269,15 @@ public class DeepResearchService {
 					allContext.add("**" + r.title() + "**\n" + r.snippet() + "\nSource: " + r.url());
 				}
 
-				// RAG retrieval
+				// RAG retrieval — buildRagContext returns null when no documents match
+				// (the common case for general-topic research), so guard against NPE (BUG-023).
 				String ragCtx = ragService.buildRagContext(sq, user.id);
-				if (!ragCtx.isBlank())
+				boolean hasRag = ragCtx != null && !ragCtx.isBlank();
+				if (hasRag)
 					allContext.add(ragCtx);
 
 				emit(emitter, Map.of("type", "research_step", "step", "search", "index", i, "query", sq, "status",
-						"done", "sources", webResults.size() + (ragCtx.isBlank() ? 0 : 1)));
+						"done", "sources", webResults.size() + (hasRag ? 1 : 0)));
 			}
 
 			if (System.currentTimeMillis() - startMs > RESEARCH_TIMEOUT_MS) {
@@ -292,8 +300,12 @@ public class DeepResearchService {
 							"Write a comprehensive, well-structured research report answering: " + query));
 
 			int[] tokenCount = { 0 };
+			// BUG-024: accumulate the streamed report text so it can be persisted as
+			// report_html — otherwise GET /api/research/tasks/{id}/report always 404s.
+			StringBuilder reportMd = new StringBuilder();
 			providerService.callProviderStream(provider, route.selected != null ? route.selected.model : "llama3.2:3b",
 					messages, token -> {
+						reportMd.append(token);
 						try {
 							emitter.send(SseEmitter.event()
 									.data("{\"type\":\"token\",\"content\":" + mapper.writeValueAsString(token) + "}"));
@@ -304,13 +316,13 @@ public class DeepResearchService {
 			emit(emitter, Map.of("type", "research_step", "step", "synthesize", "status", "done"));
 			emit(emitter, Map.of("type", "done", "tokensUsed", tokenCount[0], "task_id", taskId));
 
-			// Persist completion + generate HTML report
+			// Persist completion + the rendered HTML report.
 			long durationMs = System.currentTimeMillis() - startMs;
 			activeTasks.remove(taskId);
 			try {
-				// Collect final report text from token events — for now just mark complete
-				db.update("UPDATE research_tasks SET status='completed', finished_at=?, duration_ms=? WHERE id=?",
-						java.time.Instant.now().toString(), durationMs, taskId);
+				String reportHtml = renderReportHtml(query, reportMd.toString());
+				db.update("UPDATE research_tasks SET status='completed', finished_at=?, duration_ms=?, report_html=? WHERE id=?",
+						java.time.Instant.now().toString(), durationMs, reportHtml, taskId);
 			} catch (Exception ignore) {}
 
 			emitter.complete();
@@ -409,6 +421,36 @@ public class DeepResearchService {
 			sb.append("[Source ").append(i + 1).append("]\n").append(context.get(i)).append("\n\n");
 		}
 		return sb.toString();
+	}
+
+	/**
+	 * Renders the accumulated Markdown research report to sanitised HTML for
+	 * persistence in {@code report_html} (served by {@code GET .../report}).
+	 *
+	 * <p>The report text is LLM-generated from untrusted web-search content, so the
+	 * flexmark-rendered HTML is passed through {@link org.jsoup.Jsoup#clean} with a
+	 * relaxed safelist to strip any script/event-handler injection before storage.
+	 *
+	 * @param query    the original research query (used as the report title)
+	 * @param markdown the accumulated report Markdown
+	 * @return a sanitised standalone HTML document
+	 */
+	private String renderReportHtml(String query, String markdown) {
+		String bodyHtml;
+		try {
+			com.vladsch.flexmark.util.data.MutableDataSet opts = new com.vladsch.flexmark.util.data.MutableDataSet();
+			com.vladsch.flexmark.parser.Parser parser = com.vladsch.flexmark.parser.Parser.builder(opts).build();
+			com.vladsch.flexmark.html.HtmlRenderer renderer = com.vladsch.flexmark.html.HtmlRenderer.builder(opts).build();
+			String raw = renderer.render(parser.parse(markdown != null ? markdown : ""));
+			// Sanitise: the source text is untrusted (web-derived) — strip scripts/handlers.
+			bodyHtml = org.jsoup.Jsoup.clean(raw, org.jsoup.safety.Safelist.relaxed());
+		} catch (Exception e) {
+			// Fallback: escape the raw text so a render failure never yields unsafe HTML.
+			bodyHtml = "<pre>" + org.jsoup.Jsoup.clean(markdown != null ? markdown : "", org.jsoup.safety.Safelist.none()) + "</pre>";
+		}
+		String safeTitle = org.jsoup.Jsoup.clean(query != null ? query : "Research Report", org.jsoup.safety.Safelist.none());
+		return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + safeTitle
+				+ "</title></head><body><h1>" + safeTitle + "</h1>" + bodyHtml + "</body></html>";
 	}
 
 	/**
