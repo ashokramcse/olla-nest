@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import static com.ollanest.util.MapDefaults.orDefault;
+
 import java.time.Instant;
 import java.util.*;
 
@@ -123,13 +125,14 @@ public class PresetService {
                   inject_prefix, inject_suffix, sort_order, created_at, updated_at)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
                 id, owner,
-                req.getOrDefault("name", "My Preset"),
-                req.getOrDefault("system_prompt", ""),
-                req.getOrDefault("temperature", 1.0),
-                req.getOrDefault("max_tokens", 0),
-                req.getOrDefault("inject_prefix", ""),
-                req.getOrDefault("inject_suffix", ""),
-                req.getOrDefault("sort_order", 0),
+                // BUG-019: coerce explicit JSON nulls for NOT-NULL columns.
+                orDefault(req.get("name"), "My Preset"),
+                orDefault(req.get("system_prompt"), ""),
+                orDefault(req.get("temperature"), 1.0),
+                orDefault(req.get("max_tokens"), 0),
+                orDefault(req.get("inject_prefix"), ""),
+                orDefault(req.get("inject_suffix"), ""),
+                orDefault(req.get("sort_order"), 0),
                 now, now);
         return getTemplate(id, owner);
     }

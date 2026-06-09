@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import static com.ollanest.util.MapDefaults.orDefault;
+
 import java.net.URI;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -103,19 +105,20 @@ public class TaskSchedulerService {
                   then_task_id, notifications_enabled, status, next_run, created_at, updated_at)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 id, owner,
-                req.getOrDefault("name", "Task"),
+                // BUG-019: coerce explicit JSON nulls for NOT-NULL columns.
+                orDefault(req.get("name"), "Task"),
                 req.get("prompt"),
-                req.getOrDefault("task_type", "llm"),
+                orDefault(req.get("task_type"), "llm"),
                 req.get("action"),
-                req.getOrDefault("schedule", "daily"),
-                req.getOrDefault("scheduled_time", "09:00"),
+                orDefault(req.get("schedule"), "daily"),
+                orDefault(req.get("scheduled_time"), "09:00"),
                 req.get("scheduled_day"),
                 req.get("scheduled_date"),
                 req.get("cron_expression"),
-                req.getOrDefault("trigger_type", "schedule"),
+                orDefault(req.get("trigger_type"), "schedule"),
                 req.get("trigger_event"),
                 req.get("trigger_count"),
-                req.getOrDefault("output_target", "session"),
+                orDefault(req.get("output_target"), "session"),
                 req.get("model"),
                 req.get("endpoint_url"),
                 req.get("then_task_id"),
@@ -342,8 +345,9 @@ public class TaskSchedulerService {
      * @since v2026.2.1
      */
     public String computeNextRun(Map<String, Object> req) {
-        String schedule = (String) req.getOrDefault("schedule", "daily");
-        String scheduledTime = (String) req.getOrDefault("scheduled_time", "09:00");
+        // BUG-019: explicit JSON null must not reach the switch/split below.
+        String schedule = (String) orDefault(req.get("schedule"), "daily");
+        String scheduledTime = (String) orDefault(req.get("scheduled_time"), "09:00");
 
         LocalDate today = LocalDate.now();
         LocalTime time;

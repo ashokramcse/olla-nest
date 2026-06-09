@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import static com.ollanest.util.MapDefaults.orDefault;
+
 import java.time.Instant;
 import java.util.*;
 
@@ -89,20 +91,23 @@ public class NotesService {
                   pinned, archived, due_date, repeat, source, session_id, image_url, sort_order, created_at, updated_at)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 id, owner,
-                req.getOrDefault("title", ""),
+                // NOT-NULL columns: coerce nulls to defaults. getOrDefault only
+                // substitutes for ABSENT keys; an explicit JSON null would otherwise
+                // reach the prepared statement and violate NOT NULL → 500 (BUG-019).
+                orDefault(req.get("title"), ""),
                 req.get("content"),
                 toJson(req.get("items")),
-                req.getOrDefault("note_type", "note"),
-                req.getOrDefault("color", "default"),
+                orDefault(req.get("note_type"), "note"),
+                orDefault(req.get("color"), "default"),
                 req.get("label"),
                 Boolean.TRUE.equals(req.get("pinned")) ? 1 : 0,
                 0, // not archived on create
                 req.get("due_date"),
-                req.getOrDefault("repeat", "none"),
-                req.getOrDefault("source", "user"),
+                orDefault(req.get("repeat"), "none"),
+                orDefault(req.get("source"), "user"),
                 req.get("session_id"),
                 req.get("image_url"),
-                req.getOrDefault("sort_order", 0),
+                orDefault(req.get("sort_order"), 0),
                 now, now);
 
         return getById(id, owner);
@@ -129,18 +134,21 @@ public class NotesService {
                 UPDATE notes SET title=?, content=?, items_json=?, note_type=?, color=?, label=?,
                   pinned=?, archived=?, due_date=?, repeat=?, image_url=?, sort_order=?, updated_at=?
                 WHERE id=? AND owner=?""",
-                req.getOrDefault("title", existing.get("title")),
+                // NOT-NULL columns use orDefault (null → keep existing) so an explicit
+                // JSON null can't violate the constraint (BUG-019); nullable columns
+                // keep getOrDefault so they can be intentionally cleared.
+                orDefault(req.get("title"), existing.get("title")),
                 req.getOrDefault("content", existing.get("content")),
                 toJson(req.getOrDefault("items", existing.get("items"))),
-                req.getOrDefault("note_type", existing.get("note_type")),
-                req.getOrDefault("color", existing.get("color")),
+                orDefault(req.get("note_type"), existing.get("note_type")),
+                orDefault(req.get("color"), existing.get("color")),
                 req.getOrDefault("label", existing.get("label")),
                 Boolean.TRUE.equals(req.get("pinned")) ? 1 : (existing.get("pinned") != null ? existing.get("pinned") : 0),
                 Boolean.TRUE.equals(req.get("archived")) ? 1 : (existing.get("archived") != null ? existing.get("archived") : 0),
                 req.getOrDefault("due_date", existing.get("due_date")),
-                req.getOrDefault("repeat", existing.get("repeat")),
+                orDefault(req.get("repeat"), existing.get("repeat")),
                 req.getOrDefault("image_url", existing.get("image_url")),
-                req.getOrDefault("sort_order", existing.get("sort_order")),
+                orDefault(req.get("sort_order"), existing.get("sort_order")),
                 now, id, owner);
 
         return getById(id, owner);

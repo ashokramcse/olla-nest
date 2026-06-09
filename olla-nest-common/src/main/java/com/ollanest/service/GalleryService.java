@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import static com.ollanest.util.MapDefaults.orDefault;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.*;
@@ -96,7 +98,7 @@ public class GalleryService {
         String id = "alb-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String now = Instant.now().toString();
         db.update("INSERT INTO gallery_albums (id, owner, name, description, team_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
-                id, owner, req.getOrDefault("name", "Album"), req.get("description"), req.get("team_id"), now, now);
+                id, owner, orDefault(req.get("name"), "Album"), req.get("description"), req.get("team_id"), now, now);
         return getAlbum(id, owner);
     }
 
@@ -230,7 +232,7 @@ public class GalleryService {
         String now = Instant.now().toString();
         if (existingId != null && !existingId.isBlank()) {
             db.update("UPDATE editor_drafts SET name=?, payload_json=?, thumbnail=?, updated_at=? WHERE id=? AND owner=?",
-                    req.getOrDefault("name", "Draft"),
+                    orDefault(req.get("name"), "Draft"),
                     toJson(req.getOrDefault("payload", Map.of())),
                     req.get("thumbnail"),
                     now, existingId, owner);
@@ -239,7 +241,7 @@ public class GalleryService {
         String id = "dft-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         db.update("INSERT INTO editor_drafts (id, owner, name, source_image_id, width, height, payload_json, thumbnail, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 id, owner,
-                req.getOrDefault("name", "Draft"),
+                orDefault(req.get("name"), "Draft"),
                 req.get("source_image_id"),
                 req.get("width"), req.get("height"),
                 toJson(req.getOrDefault("payload", Map.of())),

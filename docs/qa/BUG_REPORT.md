@@ -103,6 +103,13 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-019 — Explicit JSON null on NOT-NULL columns → HTTP 500 (systemic) — **MAJOR (product)** — FIXED
+- **Feature:** Create endpoints across modules — notes, calendar (calendars + events), tasks, gallery (albums + drafts), presets/templates.
+- **Discovery:** negative-input sweep (2026-06-09). `POST /api/notes {"title":null,"content":null}` → **500** `{"error":"Internal server error"}` (empty `{}` → 201). Re-sweep with explicit nulls reproduced **500s** on `/api/calendar/calendars`, `/api/tasks`, `/api/gallery/albums`, `/api/presets/templates` as well.
+- **Root cause:** services use `req.getOrDefault("col", default)` to default optional fields. `Map.getOrDefault` substitutes only for an **absent** key; a JSON body with `{"col": null}` deserialises to a *present* key with a `null` value, so the null passes straight to a `NOT NULL` column → `SQLITE_CONSTRAINT_NOTNULL` surfaced as a raw 500 (a leaked DB constraint, BUG-012 class). `TaskSchedulerService.computeNextRun` additionally risked an NPE on a null `schedule`/`scheduled_time` switch/split.
+- **Fix:** added `com.ollanest.util.MapDefaults.orDefault(value, fallback)` (coerces both absent **and** explicit-null to the default) and applied it to every NOT-NULL column in the affected create/update/`computeNextRun` paths. Nullable columns keep `getOrDefault` so they can still be intentionally cleared.
+- **Verification (live, post-fix):** all five endpoints now return **201** for explicit-null payloads (were 500). Regression test `NotesServiceTest.explicitNullsCoercedToDefaults` asserts the INSERT args for NOT-NULL columns are the defaults, not null. Full `mvn test` BUILD SUCCESS.
+
 ## BUG-018 — Personal RAG documents never retrievable (scope-format mismatch) — **MAJOR (product)** — FIXED
 - **Feature:** Personal document RAG — `POST /api/documents/personal/upload` → `PersonalDocumentService.upload` → `RagService.retrieve` via chat / `search_knowledge_base` tool.
 - **Discovery:** during the tool-exfiltration probe (2026-06-09). `PersonalDocumentService` ingests with scope **`"personal:" + owner`**, but every retrieval caller (`RagService.buildRagContext`, `FunctionCallService.executeSearchKnowledgeBase`, `DeepResearchService`) passed the **raw** `user.id`. `retrieve`'s SQL is `WHERE rd.scope='global' OR rd.scope = ?`; `"personal:u-xxx"` never equals `"u-xxx"`, so a user's own uploads were **silently never surfaced** to the assistant. Global docs worked (always matched), masking the bug.
@@ -159,11 +166,11 @@
 | Severity | Count | IDs | Status |
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
-| Major | 8 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016 (prompt-injection unwired), BUG-017 (injection regex), BUG-018 (personal RAG scope), BUG-003 (test-debt) | FIXED |
+| Major | 9 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018 (personal RAG scope), BUG-019 (explicit-null 500s), BUG-003 (test-debt) | FIXED |
 | Minor | 10 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**Cumulative: 18 findings — ALL FIXED. 8 genuine product/security bugs (BUG-001, BUG-006, BUG-009, BUG-012, BUG-013, BUG-016 prompt-injection unwired, BUG-017 injection-regex gap, BUG-018 personal-RAG scope mismatch) — each with a regression test.**
+**Cumulative: 19 findings — ALL FIXED. 9 genuine product/security bugs (BUG-001, BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018 personal-RAG scope, BUG-019 systemic explicit-null 500s) — each with a regression test.**
 UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
 
 **All identified bugs are fixed. Full suite is green: 1981 tests (common module), 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS, verified 2026-06-09 after BUG-015 race fix).**

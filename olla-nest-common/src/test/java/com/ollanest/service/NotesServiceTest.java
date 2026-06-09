@@ -91,6 +91,34 @@ class NotesServiceTest {
         }
 
         @Test
+        @DisplayName("explicit JSON nulls for NOT-NULL columns are coerced to defaults (BUG-019)")
+        void explicitNullsCoercedToDefaults() {
+            when(db.queryForList(anyString(), anyString(), anyString()))
+                    .thenReturn(List.of(noteRow("note-x", "", "note", 0)));
+            // A client sending {"title":null,"note_type":null,...} must not hit a
+            // NOT NULL constraint (500). HashMap because Map.of forbids null values.
+            java.util.Map<String, Object> req = new java.util.HashMap<>();
+            req.put("title", null);
+            req.put("content", null);
+            req.put("note_type", null);
+            req.put("color", null);
+            req.put("repeat", null);
+            req.put("source", null);
+            req.put("sort_order", null);
+            notesService.create(OWNER, req);
+            ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
+            verify(db).update(contains("INSERT INTO notes"), cap.capture());
+            Object[] a = cap.getValue();
+            // NOT-NULL columns (title=2, note_type=5, color=6, repeat=11, source=12, sort_order=15)
+            assertThat(a[2]).isEqualTo("");
+            assertThat(a[5]).isEqualTo("note");
+            assertThat(a[6]).isEqualTo("default");
+            assertThat(a[11]).isEqualTo("none");
+            assertThat(a[12]).isEqualTo("user");
+            assertThat(a[15]).isEqualTo(0);
+        }
+
+        @Test
         @DisplayName("note ID starts with 'note-'")
         void idStartsWithNotePrefix() {
             // Stub DB to return a note row after creation

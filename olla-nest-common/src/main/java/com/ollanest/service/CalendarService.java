@@ -1,5 +1,7 @@
 package com.ollanest.service;
 
+import static com.ollanest.util.MapDefaults.orDefault;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jsoup.Jsoup;
@@ -114,8 +116,9 @@ public class CalendarService {
                 INSERT INTO calendars (id, owner, name, color, is_default, caldav_url, team_id, created_at, updated_at)
                 VALUES (?,?,?,?,?,?,?,?,?)""",
                 id, owner,
-                req.getOrDefault("name", "My Calendar"),
-                req.getOrDefault("color", "#F5C800"),
+                // BUG-019: coerce explicit JSON nulls for NOT-NULL columns.
+                orDefault(req.get("name"), "My Calendar"),
+                orDefault(req.get("color"), "#F5C800"),
                 isDefault ? 1 : 0,
                 req.get("caldav_url"),
                 req.get("team_id"),
@@ -177,7 +180,7 @@ public class CalendarService {
     public Map<String, Object> createEvent(String calendarId, String owner, Map<String, Object> req) {
         verifyCalendarOwner(calendarId, owner);
         String id = "evt-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
-        String uid = req.getOrDefault("uid", UUID.randomUUID().toString()).toString();
+        String uid = orDefault(req.get("uid"), UUID.randomUUID().toString()).toString();
         String now = Instant.now().toString();
 
         db.update("""
@@ -185,7 +188,7 @@ public class CalendarService {
                   start_at, end_at, all_day, rrule, exdate_json, status, created_at, updated_at)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 id, calendarId, uid,
-                req.getOrDefault("title", "Event"),
+                orDefault(req.get("title"), "Event"),
                 req.get("description"),
                 req.get("location"),
                 req.get("start_at"),
@@ -193,7 +196,7 @@ public class CalendarService {
                 Boolean.TRUE.equals(req.get("all_day")) ? 1 : 0,
                 req.get("rrule"),
                 toJson(req.getOrDefault("exdate", List.of())),
-                req.getOrDefault("status", "confirmed"),
+                orDefault(req.get("status"), "confirmed"),
                 now, now);
 
         return getEvent(id);
