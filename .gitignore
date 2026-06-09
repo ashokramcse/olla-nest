@@ -10,6 +10,9 @@ data/
 # Environment secrets
 .env
 
+# E2E/perf local credentials (disposable test creds — never commit literals)
+e2e/.e2e-creds.js
+
 # macOS
 .DS_Store
 **/.DS_Store

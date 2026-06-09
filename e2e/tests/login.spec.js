@@ -1,13 +1,8 @@
 // OCD E2E: login pages, auth flows, logout regression, error/empty/loading states,
 // responsive, and console-error detection. Evidence = screenshots in e2e/evidence/.
 const { test, expect } = require('@playwright/test');
-
-const ADMIN = 'http://localhost:8080';
-const USER = 'http://localhost:8081';
-const ADMIN_EMAIL = 'admin@ollanest.local';
-const ADMIN_PASS = 'REDACTED_TEST_CRED';
-const QA_EMAIL = 'qa.user@test.local';
-const QA_PASS = 'REDACTED_TEST_CRED';
+// Credentials sourced centrally (env / gitignored local file) — never hardcoded here.
+const { ADMIN, USER, ADMIN_EMAIL, ADMIN_PASS, QA_EMAIL, QA_PASS } = require('../helpers');
 
 // Collect console errors + failed requests per page.
 function attachDiagnostics(page, bag) {

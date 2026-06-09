@@ -12,6 +12,11 @@ async function openAddUser(page) {
   await expect(page.locator('#addUserPanel')).toBeVisible();
 }
 
+// Disposable, valid-shaped password generated at runtime — never a committed literal.
+function genPass() {
+  return `E2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-Aa1!`;
+}
+
 async function fillUser(page, { name, email, password }) {
   if (name !== undefined) await page.fill('#newUserName', name);
   if (email !== undefined) await page.fill('#newUserEmail', email);
@@ -22,7 +27,7 @@ test('admin user-create: duplicate email -> error message, no new user', async (
   const bag = collect(page);
   await openAddUser(page);
   // admin@ollanest.local already exists.
-  await fillUser(page, { name: 'Dup User', email: 'admin@ollanest.local', password: 'REDACTED_TEST_CRED' });
+  await fillUser(page, { name: 'Dup User', email: 'admin@ollanest.local', password: genPass() });
   await page.locator('#createUserForm button[type="submit"]').click();
   // Error surfaced in #userMsg (not a success).
   await expect(page.locator('#userMsg')).toHaveClass(/error/, { timeout: 8000 });
@@ -37,7 +42,7 @@ test('admin user-create: server 500 -> error message, no crash', async ({ page }
     route.request().method() === 'POST'
       ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"server boom"}' })
       : route.continue());
-  await fillUser(page, { name: 'Boom User', email: `boom${Date.now()}@test.local`, password: 'REDACTED_TEST_CRED' });
+  await fillUser(page, { name: 'Boom User', email: `boom${Date.now()}@test.local`, password: genPass() });
   await page.locator('#createUserForm button[type="submit"]').click();
   await expect(page.locator('#userMsg')).toHaveClass(/error/, { timeout: 8000 });
   await expect(page.locator('#userMsg')).toContainText(/boom|error|fail/i);
@@ -62,7 +67,7 @@ test('admin user-create: missing required fields -> blocked by validation (no PO
 test('admin user-create: valid create succeeds + persists, then cleanup', async ({ page }) => {
   await openAddUser(page);
   const email = `e2e.admincreate${Date.now()}@test.local`;
-  await fillUser(page, { name: 'E2E Created', email, password: 'REDACTED_TEST_CRED' });
+  await fillUser(page, { name: 'E2E Created', email, password: genPass() });
   await page.locator('#createUserForm button[type="submit"]').click();
   await expect(page.locator('#userMsg')).toHaveClass(/success/, { timeout: 8000 });
 

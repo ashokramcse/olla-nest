@@ -1,10 +1,20 @@
 // Shared E2E helpers: auth fixtures + diagnostics collector.
 const ADMIN = 'http://localhost:8080';
 const USER = 'http://localhost:8081';
-const ADMIN_EMAIL = 'admin@ollanest.local';
-const ADMIN_PASS = 'REDACTED_TEST_CRED';
-const QA_EMAIL = 'qa.user@test.local';
-const QA_PASS = 'REDACTED_TEST_CRED';
+// Credentials are NEVER committed as literals (GitGuardian-flagged). Resolve from
+// env vars first, then a gitignored ./.e2e-creds.js local override; fail loudly if
+// neither is present so a misconfigured run can't silently use a baked-in secret.
+let _localCreds = {};
+try { _localCreds = require('./.e2e-creds.js'); } catch (_) { /* env-only mode */ }
+function cred(name) {
+  const v = process.env[name] || _localCreds[name];
+  if (!v) throw new Error(`Missing E2E credential ${name}: set env ${name} or copy e2e/.e2e-creds.example.js -> e2e/.e2e-creds.js`);
+  return v;
+}
+const ADMIN_EMAIL = cred('ADMIN_EMAIL');
+const ADMIN_PASS = cred('ADMIN_PASS');
+const QA_EMAIL = cred('QA_EMAIL');
+const QA_PASS = cred('QA_PASS');
 
 // Attach console-error / pageerror / failed-request collectors to a page.
 // Returns the bag; benign favicon/manifest noise is filtered by callers.

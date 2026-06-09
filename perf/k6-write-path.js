@@ -5,6 +5,11 @@ import { check, sleep } from 'k6';
 
 const BASE = __ENV.BASE || 'http://localhost:8081';
 const HDR = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+// Credentials come from the environment — never hardcoded (GitGuardian-flagged).
+// Run: k6 run -e QA_EMAIL=qa.user@test.local -e QA_PASS=... perf/k6-write-path.js
+const QA_EMAIL = __ENV.QA_EMAIL || 'qa.user@test.local';
+const QA_PASS = __ENV.QA_PASS;
+if (!QA_PASS) { throw new Error('Set QA_PASS env var: k6 run -e QA_PASS=... perf/k6-write-path.js'); }
 
 export const options = {
   stages: [
@@ -21,7 +26,7 @@ export const options = {
 
 export function setup() {
   const res = http.post(`${BASE}/api/auth/login`,
-    JSON.stringify({ email: 'qa.user@test.local', password: 'REDACTED_TEST_CRED' }), { headers: HDR });
+    JSON.stringify({ email: QA_EMAIL, password: QA_PASS }), { headers: HDR });
   check(res, { 'login ok': (r) => r.status === 200 });
   const c = res.cookies['olla_nest_user_session'];
   return { cookie: c && c[0] ? `olla_nest_user_session=${c[0].value}` : '' };
