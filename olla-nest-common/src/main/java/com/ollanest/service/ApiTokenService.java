@@ -8,8 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -59,7 +57,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class ApiTokenService {
 
-	private static final Logger log = LoggerFactory.getLogger(ApiTokenService.class);
 	private static final String TOKEN_PREFIX = "oly_";
 	private static final int TOKEN_BYTES = 32;
 
@@ -209,7 +206,6 @@ public class ApiTokenService {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
-	@SuppressWarnings("unchecked")
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		r.remove("token_hash"); // never expose the hash

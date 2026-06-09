@@ -324,7 +324,6 @@ public class MemoryService {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("id", row.get("id"));

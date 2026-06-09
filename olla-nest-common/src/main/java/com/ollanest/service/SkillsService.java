@@ -9,8 +9,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -58,7 +56,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class SkillsService {
 
-	private static final Logger log = LoggerFactory.getLogger(SkillsService.class);
 
 	/** Maximum number of agent-learned skills per owner before LRU eviction. */
 	private static final int MAX_LEARNED_SKILLS = 500;
@@ -73,6 +70,7 @@ public class SkillsService {
 	private final ObjectMapper mapper;
 
 	/** Embedding service (reserved for future semantic search upgrade). */
+	@SuppressWarnings("unused")
 	private final EmbeddingService embeddingService;
 
 	/**
@@ -301,7 +299,6 @@ public class SkillsService {
 
 	// ── Private helpers ───────────────────────────────────────────────────────
 
-	@SuppressWarnings("unchecked")
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		for (String field : List.of("tags_json", "platforms_json", "procedure_json", "pitfalls_json",
@@ -331,6 +328,7 @@ public class SkillsService {
 		return v != null ? v.toString() : def;
 	}
 
+	@SuppressWarnings("unused")
 	private void enforceLearnedCap(String owner) {
 		int count = db.queryForObject("SELECT COUNT(*) FROM skills WHERE owner = ? AND source = 'learned'",
 				Integer.class, owner);

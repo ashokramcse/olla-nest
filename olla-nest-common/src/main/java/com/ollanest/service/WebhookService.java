@@ -73,8 +73,6 @@ public class WebhookService {
 	 * Recognised event names; webhooks configured with unknown events are silently
 	 * skipped.
 	 */
-	private static final Set<String> ALLOWED_EVENTS = Set.of("session.created", "chat.completed", "chat.message",
-			"email.received", "email.sent", "note.reminder", "task.triggered", "connector.synced", "webhook.test");
 
 	/** Shared HTTP client for all webhook delivery attempts. */
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
@@ -88,6 +86,7 @@ public class WebhookService {
 	/**
 	 * Application event bus; a wildcard subscription is registered at construction.
 	 */
+	@SuppressWarnings("unused")
 	private final EventBusService eventBus;
 
 	/**

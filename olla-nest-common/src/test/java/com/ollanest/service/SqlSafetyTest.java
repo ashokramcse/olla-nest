@@ -64,16 +64,6 @@ class SqlSafetyTest {
 	@DisplayName("DatabaseService.tableCount() — table-name allow-list")
 	class TableCountAllowList {
 
-		private final DatabaseService service;
-
-		TableCountAllowList() {
-			// AppConfig not needed for tableCount; use a real instance with a mock db.
-			service = new DatabaseService(db, null) {
-				// DatabaseService.seedDatabase() will be no-op since AppConfig is null
-				// and @PostConstruct runs after construction — not in this path.
-			};
-		}
-
 		@Test
 		@DisplayName("valid snake_case table name passes allow-list")
 		void validTableNameAccepted() {
@@ -221,7 +211,6 @@ class SqlSafetyTest {
 			AuthService auth = new AuthService(db, mock(UserService.class));
 			auth.forceLogoutUser("user-id-123");
 
-			ArgumentCaptor<Object[]> argsCaptor = ArgumentCaptor.forClass(Object[].class);
 			verify(db).update(contains("WHERE user_id = ?"), eq("user-id-123"));
 		}
 

@@ -298,7 +298,6 @@ public class McpServerService {
 		return result;
 	}
 
-	@SuppressWarnings("unchecked")
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		for (String field : List.of("args_json", "env_json", "disabled_tools_json")) {

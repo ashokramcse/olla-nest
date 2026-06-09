@@ -15,7 +15,6 @@ import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.testinfra.UserFactory;
 
 /**
  * OCD-level unit tests for {@link AgentLoopService}.
@@ -31,8 +30,6 @@ import com.ollanest.testinfra.UserFactory;
 @MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("AgentLoopService — unit tests")
 class AgentLoopServiceTest {
-
-	private static final String OWNER = UserFactory.USER_ID;
 
 	@Mock
 	ObjectMapper mapper;

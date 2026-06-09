@@ -7,8 +7,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -53,12 +51,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class CompareService {
 
-	private static final Logger log = LoggerFactory.getLogger(CompareService.class);
 
 	/** JDBC template for comparison persistence. */
 	private final JdbcTemplate db;
 
 	/** Shared Jackson mapper for JSON serialisation. */
+	@SuppressWarnings("unused")
 	private final ObjectMapper mapper;
 
 	/**

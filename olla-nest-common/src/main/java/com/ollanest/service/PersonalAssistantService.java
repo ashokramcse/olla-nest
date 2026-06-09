@@ -7,8 +7,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -53,7 +51,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class PersonalAssistantService {
 
-	private static final Logger log = LoggerFactory.getLogger(PersonalAssistantService.class);
 
 	/** Owner values that must never trigger assistant creation. */
 	private static final Set<String> SYNTHETIC_OWNERS = Set.of("internal-tool", "api", "demo", "system", "");
@@ -195,7 +192,6 @@ public class PersonalAssistantService {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
-	@SuppressWarnings("unchecked")
 	private Map<String, Object> enrichWithCheckIns(Map<String, Object> row, String owner) {
 		Map<String, Object> result = new LinkedHashMap<>(row);
 		try {

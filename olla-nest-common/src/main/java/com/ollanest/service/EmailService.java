@@ -699,7 +699,6 @@ public class EmailService {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	private Map<String, Object> mapMessageRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		try {

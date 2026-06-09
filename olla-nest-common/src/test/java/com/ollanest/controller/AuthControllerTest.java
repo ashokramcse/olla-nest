@@ -220,7 +220,7 @@ class AuthControllerTest {
 
 			ResponseEntity<Map<String, Object>> result = controller.login(body, req, res);
 			// 429 Too Many Requests must be returned before any DB user lookup
-			assertThat(result.getStatusCodeValue()).isEqualTo(429);
+			assertThat(result.getStatusCode().value()).isEqualTo(429);
 			assertThat(result.getBody().get("error").toString()).containsIgnoringCase("Too many");
 		}
 

@@ -98,8 +98,6 @@ public class CookbookService {
 	 * Maps quantisation format names to bytes-per-parameter values for VRAM size
 	 * calculation.
 	 */
-	private static final Map<String, Double> QUANT_BPP = Map.of("F16", 2.0, "BF16", 2.0, "Q8_0", 1.0, "Q6_K", 0.75,
-			"Q5_K_M", 0.625, "Q4_K_M", 0.5, "Q3_K_M", 0.375, "Q2_K", 0.25, "FP8", 1.0, "INT4", 0.5);
 
 	/** JDBC template for cookbook_models persistence. */
 	private final JdbcTemplate db;
@@ -309,6 +307,7 @@ public class CookbookService {
 	 * @return the job ID string (prefixed with {@code "dl-"}) for client tracking
 	 * @since v2026.2.1
 	 */
+	@SuppressWarnings("unchecked")
 	public String startDownload(String hfRepo, String hfFile, SseEmitter emitter) {
 		String jobId = "dl-" + Long.toString(System.currentTimeMillis(), 36) + "-"
 				+ UUID.randomUUID().toString().substring(0, 6);

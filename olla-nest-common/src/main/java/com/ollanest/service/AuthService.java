@@ -109,7 +109,6 @@ public class AuthService {
 	 * Expected length (in hex characters) of a valid session token. 32 random bytes
 	 * → 64 lowercase hex characters.
 	 */
-	private static final int TOKEN_HEX_LENGTH = 64;
 
 	/**
 	 * Pre-compiled pattern for validating that a token is exactly 64 lowercase hex

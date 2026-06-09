@@ -106,7 +106,6 @@ public class SsoService {
 	private static final String GOOGLE_JWKS_URI = "https://www.googleapis.com/oauth2/v3/certs";
 
 	/** Google OAuth 2.0 user-info endpoint (returns email, name, picture). */
-	private static final String GOOGLE_USERINFO = "https://www.googleapis.com/oauth2/v3/userinfo";
 
 	/**
 	 * JDBC template for reading SSO provider configurations and managing state
@@ -361,8 +360,6 @@ public class SsoService {
 		}
 		String email = googleJwt.getClaimAsString("email");
 		String name = googleJwt.getClaimAsString("name");
-		String sub = googleJwt.getClaimAsString("sub");
-		String picture = googleJwt.getClaimAsString("picture");
 		return new ClaimsResult(email != null ? email : "", name != null ? name : "", "google");
 	}
 
@@ -559,28 +556,6 @@ public class SsoService {
 		String url = issuerUrl.replaceAll("/$", "") + "/.well-known/openid-configuration";
 		HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url)).timeout(Duration.ofSeconds(10)).GET().build();
 		return mapper.readTree(http.send(req, HttpResponse.BodyHandlers.ofString()).body());
-	}
-
-	/**
-	 * Decodes the payload segment of a JWT (the middle base64url-encoded segment).
-	 *
-	 * <p>
-	 * Pads the base64url string to a multiple of 4 before decoding to handle JWT
-	 * payloads that omit padding characters.
-	 *
-	 * @param jwt a dot-separated JWT string ({@code header.payload.signature})
-	 * @return the decoded payload as a {@link JsonNode}
-	 * @throws RuntimeException if the JWT has fewer than 2 segments
-	 * @throws Exception        on base64 decode or JSON parse failure
-	 * @since v2026.1.4
-	 */
-	private JsonNode decodeJwtPayload(String jwt) throws Exception {
-		String[] parts = jwt.split("\\.");
-		if (parts.length < 2)
-			throw new RuntimeException("Invalid JWT");
-		// Pad to multiple of 4 to handle standard base64url without padding
-		byte[] payload = Base64.getUrlDecoder().decode(parts[1] + "==");
-		return mapper.readTree(new String(payload, StandardCharsets.UTF_8));
 	}
 
 	/**

@@ -66,7 +66,6 @@ class PromptTemplateServiceTest {
 		@DisplayName("unknown mode falls back to 'ask' instruction")
 		void unknownModeFallsBack() {
 			// Unknown mode must not crash — falls back to the default "ask" instruction set
-			String promptAsk = service.buildSystemPrompt("ask", "m", "r", null, null, null);
 			String promptUnknown = service.buildSystemPrompt("xyz-unknown", "m", "r", null, null, null);
 			// Both should contain the ask instruction set (give a clear answer)
 			assertThat(promptUnknown).contains("clear");

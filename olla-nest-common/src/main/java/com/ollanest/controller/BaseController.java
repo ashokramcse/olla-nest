@@ -244,6 +244,8 @@ public abstract class BaseController {
 
 	/** Thrown when authentication is required but not present. Maps to HTTP 401. */
 	public static class AuthException extends RuntimeException {
+		private static final long serialVersionUID = 1L;
+
 		public AuthException(String msg) {
 			super(msg);
 		}
@@ -251,6 +253,8 @@ public abstract class BaseController {
 
 	/** Thrown when the user lacks required permissions. Maps to HTTP 403. */
 	public static class ForbiddenException extends RuntimeException {
+		private static final long serialVersionUID = 1L;
+
 		public ForbiddenException(String msg) {
 			super(msg);
 		}

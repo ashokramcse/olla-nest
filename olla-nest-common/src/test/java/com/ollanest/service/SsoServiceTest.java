@@ -59,7 +59,7 @@ class SsoServiceTest {
 		void insertsRow() {
 			// SECURITY: OAuth state must be persisted to DB so it can be validated on
 			// callback
-			String state = ssoService.createState("provider-1", "/dashboard");
+			ssoService.createState("provider-1", "/dashboard");
 			verify(db).update(contains("INSERT INTO oauth_state"), anyString(), anyString(), anyString(), anyString());
 		}
 

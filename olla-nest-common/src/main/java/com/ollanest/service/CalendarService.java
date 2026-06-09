@@ -2,8 +2,6 @@ package com.ollanest.service;
 
 import static com.ollanest.util.MapDefaults.orDefault;
 
-import java.net.http.HttpClient;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -61,7 +59,6 @@ public class CalendarService {
 
 	private static final Logger log = LoggerFactory.getLogger(CalendarService.class);
 
-	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build();
 
 	/** JDBC template for calendar and event persistence. */
 	private final JdbcTemplate db;
@@ -70,6 +67,7 @@ public class CalendarService {
 	private final ObjectMapper mapper;
 
 	/** Used to encrypt/decrypt CalDAV credentials stored in the database. */
+	@SuppressWarnings("unused")
 	private final CryptoService cryptoService;
 
 	/**

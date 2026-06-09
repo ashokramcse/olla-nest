@@ -70,6 +70,7 @@ class FunctionCallServiceTest {
 
 		@Test
 		@DisplayName("each tool has name and description keys")
+		@SuppressWarnings("unchecked")
 		void eachHasNameAndDescription() {
 			// OpenAI function-calling spec: each tool object must have function.name
 			// and function.description for the model to understand what to invoke
@@ -82,6 +83,7 @@ class FunctionCallServiceTest {
 
 		@Test
 		@DisplayName("includes get_datetime tool")
+		@SuppressWarnings("unchecked")
 		void includesGetDatetime() {
 			// get_datetime is the most frequently used built-in — must always be present
 			assertThat(functionCallService.getToolDefinitions())

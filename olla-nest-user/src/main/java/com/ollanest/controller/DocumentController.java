@@ -125,7 +125,7 @@ public class DocumentController extends BaseController {
 	@PostMapping("/upload")
 	public ResponseEntity<Map<String, Object>> upload(@RequestParam MultipartFile file,
 			@RequestParam(defaultValue = "global") String scope, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> err = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> err = guardAuthWithCsrf(req);
 		if (err != null)
 			return err;
 		User user = getUser(req);
@@ -196,7 +196,7 @@ public class DocumentController extends BaseController {
 	 */
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Map<String, Object>> delete(@PathVariable String id, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> err = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> err = guardAuthWithCsrf(req);
 		if (err != null)
 			return err;
 		User user = getUser(req);

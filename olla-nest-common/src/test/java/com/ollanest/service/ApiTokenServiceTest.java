@@ -21,7 +21,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -112,7 +111,7 @@ class ApiTokenServiceTest {
 		@Test
 		@DisplayName("DB INSERT called with owner, name, hashed token (not raw)")
 		void dbInsertCallsWithOwnerAndName() {
-			var result = tokenService.mint(OWNER, "My Device", List.of("chat"));
+			tokenService.mint(OWNER, "My Device", List.of("chat"));
 			// INSERT must be called — raw token is never stored, only the bcrypt hash
 			verify(db).update(contains("INSERT INTO api_tokens"), any(Object[].class));
 		}
@@ -270,7 +269,6 @@ class ApiTokenServiceTest {
 		void revokeOwnerScoped() {
 			tokenService.revoke("tok-123", OWNER);
 			// Verify the owner parameter is passed to the WHERE clause
-			ArgumentCaptor<Object[]> cap = ArgumentCaptor.forClass(Object[].class);
 			verify(db).update(contains("UPDATE api_tokens SET is_active=0"), (Object) any(), (Object) any());
 		}
 	}

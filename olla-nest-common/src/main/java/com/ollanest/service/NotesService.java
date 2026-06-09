@@ -10,8 +10,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -57,7 +55,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class NotesService {
 
-	private static final Logger log = LoggerFactory.getLogger(NotesService.class);
 
 	/** JDBC template for all note persistence operations. */
 	private final JdbcTemplate db;
@@ -225,7 +222,6 @@ public class NotesService {
 				.stream().map(this::mapRow).toList();
 	}
 
-	@SuppressWarnings("unchecked")
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		try {

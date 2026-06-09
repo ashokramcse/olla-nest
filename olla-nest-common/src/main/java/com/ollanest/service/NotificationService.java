@@ -57,6 +57,7 @@ public class NotificationService {
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
 	/** JDBC template (reserved for future per-user channel preferences). */
+	@SuppressWarnings("unused")
 	private final JdbcTemplate db;
 
 	/** Provides runtime-configurable settings such as ntfy URL and topic. */

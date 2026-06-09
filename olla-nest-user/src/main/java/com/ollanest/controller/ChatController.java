@@ -188,7 +188,7 @@ public class ChatController extends BaseController {
 	 */
 	@PostMapping("/chat")
 	public ResponseEntity<Map<String, Object>> chat(@RequestBody Map<String, Object> body, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -720,7 +720,7 @@ public class ChatController extends BaseController {
 	 */
 	@PostMapping("/chat/clear")
 	public ResponseEntity<Map<String, Object>> clearChat(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -748,7 +748,7 @@ public class ChatController extends BaseController {
 	 */
 	@DeleteMapping("/chat")
 	public ResponseEntity<Map<String, Object>> deleteChat(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -778,7 +778,7 @@ public class ChatController extends BaseController {
 	 */
 	@PostMapping("/feedback")
 	public ResponseEntity<Map<String, Object>> feedback(@RequestBody Map<String, Object> body, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);

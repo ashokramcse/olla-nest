@@ -84,6 +84,7 @@ public class PersonalDocumentService {
 	private final RagService ragService;
 
 	/** JDBC template (reserved for future metadata persistence). */
+	@SuppressWarnings("unused")
 	private final JdbcTemplate db;
 
 	/**
@@ -196,14 +197,15 @@ public class PersonalDocumentService {
 	}
 
 	private String extractDocx(byte[] bytes) throws Exception {
-		try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-			return new XWPFWordExtractor(doc).getText();
+		try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes));
+				XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
+			return extractor.getText();
 		}
 	}
 
 	private String extractPptx(byte[] bytes) throws Exception {
-		try (XMLSlideShow ppt = new XMLSlideShow(new ByteArrayInputStream(bytes))) {
-			SlideShowExtractor<?, ?> extractor = new SlideShowExtractor<>(ppt);
+		try (XMLSlideShow ppt = new XMLSlideShow(new ByteArrayInputStream(bytes));
+				SlideShowExtractor<?, ?> extractor = new SlideShowExtractor<>(ppt)) {
 			extractor.setSlidesByDefault(true);
 			extractor.setNotesByDefault(true);
 			return extractor.getText();

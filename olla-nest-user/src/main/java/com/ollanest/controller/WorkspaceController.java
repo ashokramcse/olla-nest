@@ -116,7 +116,7 @@ public class WorkspaceController extends BaseController {
 	@GetMapping("/browse")
 	public ResponseEntity<Map<String, Object>> browse(@RequestParam(required = false) String path,
 			@RequestParam(required = false) String create, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User browseUser = getUser(req);
@@ -204,7 +204,7 @@ public class WorkspaceController extends BaseController {
 	@PostMapping("/local-settings")
 	public ResponseEntity<Map<String, Object>> saveLocalSettings(@RequestBody Map<String, Object> body,
 			HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);

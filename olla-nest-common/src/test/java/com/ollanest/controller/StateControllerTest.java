@@ -95,7 +95,7 @@ class StateControllerTest {
 		void returns401WhenNoUser() {
 			// Unauthenticated request must be rejected before any DB queries
 			ResponseEntity<Map<String, Object>> response = stateController.getState(unauthenticatedRequest());
-			assertThat(response.getStatusCodeValue()).isEqualTo(401);
+			assertThat(response.getStatusCode().value()).isEqualTo(401);
 		}
 	}
 
@@ -125,7 +125,7 @@ class StateControllerTest {
 			when(chatService.buildChatObject(any())).thenReturn(Map.of("id", "chat-1"));
 
 			ResponseEntity<Map<String, Object>> response = stateController.getState(req);
-			assertThat(response.getStatusCodeValue()).isEqualTo(200);
+			assertThat(response.getStatusCode().value()).isEqualTo(200);
 			assertThat(response.getBody()).isNotNull();
 		}
 
@@ -177,7 +177,7 @@ class StateControllerTest {
 			when(databaseService.getSetting(anyString(), anyString())).thenReturn("");
 
 			ResponseEntity<Map<String, Object>> response = stateController.getState(req);
-			assertThat(response.getStatusCodeValue()).isEqualTo(200);
+			assertThat(response.getStatusCode().value()).isEqualTo(200);
 			assertThat(response.getBody()).isNotNull();
 		}
 	}

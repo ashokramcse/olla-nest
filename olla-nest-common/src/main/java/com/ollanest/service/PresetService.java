@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -53,7 +51,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class PresetService {
 
-	private static final Logger log = LoggerFactory.getLogger(PresetService.class);
 
 	/**
 	 * Built-in read-only presets available to all users regardless of database
@@ -75,6 +72,7 @@ public class PresetService {
 	private final JdbcTemplate db;
 
 	/** Shared Jackson mapper (reserved for future JSON field support). */
+	@SuppressWarnings("unused")
 	private final ObjectMapper mapper;
 
 	/**

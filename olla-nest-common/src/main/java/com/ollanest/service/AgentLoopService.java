@@ -90,6 +90,7 @@ public class AgentLoopService {
 	private final ObjectMapper mapper;
 
 	/** JDBC template for session and owner lookups. */
+	@SuppressWarnings("unused")
 	private final JdbcTemplate db;
 
 	/** Delegate for web-search tool execution. */

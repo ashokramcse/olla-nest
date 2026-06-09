@@ -97,7 +97,7 @@ public class AccountController extends BaseController {
 	@PostMapping("/password")
 	public ResponseEntity<Map<String, Object>> changePassword(@RequestBody Map<String, Object> body,
 			HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -137,7 +137,7 @@ public class AccountController extends BaseController {
 	@PatchMapping("/profile")
 	public ResponseEntity<Map<String, Object>> updateProfile(@RequestBody Map<String, Object> body,
 			HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -203,7 +203,7 @@ public class AccountController extends BaseController {
 	 */
 	@GetMapping("/profile")
 	public ResponseEntity<Map<String, Object>> getProfile(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -236,7 +236,7 @@ public class AccountController extends BaseController {
 	 */
 	@GetMapping("/usage")
 	public ResponseEntity<Map<String, Object>> getUsage(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);

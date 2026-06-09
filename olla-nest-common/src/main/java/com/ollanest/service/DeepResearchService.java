@@ -86,6 +86,7 @@ public class DeepResearchService {
 
 	/** Persists research tasks to DB and generates visual HTML reports. */
 	private final JdbcTemplate db;
+	@SuppressWarnings("unused")
 	private final VisualReportService visualReportService;
 
 	/** Active research tasks for cancellation support: taskId -> true. */

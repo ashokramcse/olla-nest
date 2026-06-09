@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -58,9 +58,9 @@ class AuthIntegrationTest {
 	@Autowired ObjectMapper   mapper;
 
 	// Mock out external services and SQLite-specific infrastructure
-	@MockBean DatabaseService      databaseService;   // avoids PRAGMA/INSERT OR REPLACE SQLite-isms
-	@MockBean OllamaService        ollamaService;
-	@MockBean WhisperServerManager whisperServerManager;
+	@MockitoBean DatabaseService      databaseService;   // avoids PRAGMA/INSERT OR REPLACE SQLite-isms
+	@MockitoBean OllamaService        ollamaService;
+	@MockitoBean WhisperServerManager whisperServerManager;
 
 	private static final String PLAIN_PASSWORD = "junit-test-password-only";
 	private static final String ADMIN_EMAIL    = "junit-admin-integ@example.com";

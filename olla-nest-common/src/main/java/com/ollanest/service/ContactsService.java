@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -54,7 +52,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class ContactsService {
 
-	private static final Logger log = LoggerFactory.getLogger(ContactsService.class);
 
 	/** JDBC template for contact persistence. */
 	private final JdbcTemplate db;
@@ -214,7 +211,6 @@ public class ContactsService {
 		return sb.toString();
 	}
 
-	@SuppressWarnings("unchecked")
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		for (String field : List.of("email_json", "phone_json", "address_json")) {

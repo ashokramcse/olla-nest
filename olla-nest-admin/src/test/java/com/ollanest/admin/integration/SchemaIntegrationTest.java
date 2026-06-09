@@ -12,7 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -56,9 +56,9 @@ class SchemaIntegrationTest {
     @Autowired JdbcTemplate db;
 
     // Mock external services so the context loads without infrastructure deps
-    @MockBean DatabaseService databaseService;
-    @MockBean OllamaService ollamaService;
-    @MockBean WhisperServerManager whisperServerManager;
+    @MockitoBean DatabaseService databaseService;
+    @MockitoBean OllamaService ollamaService;
+    @MockitoBean WhisperServerManager whisperServerManager;
 
     // ── Table existence ───────────────────────────────────────────────────
 

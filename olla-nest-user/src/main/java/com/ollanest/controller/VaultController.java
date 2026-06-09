@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.ollanest.model.User;
 import com.ollanest.service.VaultService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -71,7 +70,7 @@ public class VaultController extends BaseController {
 	 */
 	@GetMapping
 	public ResponseEntity<?> config(HttpServletRequest req) {
-		User user = requireAdminUser(req);
+		requireAdminUser(req);
 		return ok(vaultService.getConfig());
 	}
 

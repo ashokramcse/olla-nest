@@ -80,6 +80,7 @@ public class ContextCompactorService {
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 
 	private final ObjectMapper mapper;
+	@SuppressWarnings("unused")
 	private final DatabaseService databaseService;
 
 	/**

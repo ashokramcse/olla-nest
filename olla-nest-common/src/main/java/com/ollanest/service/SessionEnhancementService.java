@@ -140,7 +140,6 @@ public class SessionEnhancementService {
 		if (start >= 0 && end > start) {
 			List<String> topics = mapper.readValue(content.substring(start, end + 1), new TypeReference<>() {
 			});
-			String topicsJson = mapper.writeValueAsString(topics);
 			// Store in session - update title if no meaningful title yet
 			db.update("UPDATE chat_sessions SET title=? WHERE id=? AND (title='New Chat' OR title IS NULL)",
 					topics.isEmpty() ? "Chat" : topics.get(0), sessionId);

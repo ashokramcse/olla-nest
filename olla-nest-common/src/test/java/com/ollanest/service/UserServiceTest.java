@@ -335,6 +335,7 @@ class UserServiceTest {
 
 		@Test
 		@DisplayName("non-JSON input causes mapper to throw — returns empty list")
+		@SuppressWarnings("unchecked")
 		void returnsEmptyListForInvalidJson() throws Exception {
 			// Stub: mapper throws on non-JSON input — must be caught and return []
 			when(mapper.readValue(eq("not-json"), any(TypeReference.class)))
@@ -345,6 +346,7 @@ class UserServiceTest {
 
 		@Test
 		@DisplayName("valid JSON array is parsed correctly")
+		@SuppressWarnings("unchecked")
 		void parsesValidJsonArray() throws Exception {
 			// Stub: mapper returns the deserialized rights list
 			List<String> expected = List.of("chat:use", "models:local:use");

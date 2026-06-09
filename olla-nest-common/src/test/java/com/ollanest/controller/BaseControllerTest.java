@@ -55,7 +55,7 @@ class BaseControllerTest {
 		}
 
 		public ResponseEntity<Map<String, Object>> publicRequireAuthWithCsrf(HttpServletRequest req) {
-			return requireAuthWithCsrf(req);
+			return guardAuthWithCsrf(req);
 		}
 
 		public boolean publicIsCsrfOk(HttpServletRequest req) {

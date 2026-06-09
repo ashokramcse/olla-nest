@@ -106,7 +106,7 @@ public class VoiceController extends BaseController {
 	@PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public ResponseEntity<Map<String, Object>> transcribe(@RequestParam("audio") MultipartFile file,
 			HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> err = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> err = guardAuthWithCsrf(req);
 		if (err != null)
 			return err;
 
@@ -158,7 +158,7 @@ public class VoiceController extends BaseController {
 	 */
 	@PostMapping("/speak")
 	public ResponseEntity<?> speak(@RequestBody Map<String, Object> body, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> err = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> err = guardAuthWithCsrf(req);
 		if (err != null)
 			return err;
 

@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -68,8 +68,8 @@ class Soc2SecurityIntegrationTest {
     @Autowired JdbcTemplate db;
     @Autowired ObjectMapper mapper;
 
-    @MockBean OllamaService ollamaService;
-    @MockBean WhisperServerManager whisperServerManager;
+    @MockitoBean OllamaService ollamaService;
+    @MockitoBean WhisperServerManager whisperServerManager;
 
     private static final String ADMIN_EMAIL   = "admin@ollanest.local";
     private static final String ADMIN_PASS    = "junit-integration-test-only";

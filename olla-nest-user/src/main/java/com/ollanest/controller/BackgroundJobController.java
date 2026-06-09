@@ -83,7 +83,7 @@ public class BackgroundJobController extends BaseController {
 	 */
 	@GetMapping("/active")
 	public ResponseEntity<?> active(HttpServletRequest req) {
-		User user = requireAdminUser(req);
+		requireAdminUser(req);
 		return ok(jobService.listActive());
 	}
 

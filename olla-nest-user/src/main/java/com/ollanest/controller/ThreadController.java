@@ -85,7 +85,7 @@ public class ThreadController extends BaseController {
 	 */
 	@GetMapping
 	public ResponseEntity<Map<String, Object>> listThreads(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -116,7 +116,7 @@ public class ThreadController extends BaseController {
 	 */
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Map<String, Object>> deleteThread(@PathVariable String id, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -146,7 +146,7 @@ public class ThreadController extends BaseController {
 	@PatchMapping("/{id}")
 	public ResponseEntity<Map<String, Object>> updateThread(@PathVariable String id,
 			@RequestBody Map<String, Object> body, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -193,7 +193,7 @@ public class ThreadController extends BaseController {
 	 */
 	@PostMapping("/{id}/activate")
 	public ResponseEntity<Map<String, Object>> activateThread(@PathVariable String id, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);
@@ -222,7 +222,7 @@ public class ThreadController extends BaseController {
 	 */
 	@PostMapping("/{id}/fork")
 	public ResponseEntity<Map<String, Object>> forkThread(@PathVariable String id, HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		User user = getUser(req);

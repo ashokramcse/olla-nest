@@ -64,7 +64,7 @@ public class CodeSandboxController extends BaseController {
 	@PostMapping("/run")
 	public ResponseEntity<Map<String, Object>> run(@RequestBody Map<String, Object> body, HttpServletRequest req) {
 
-		ResponseEntity<Map<String, Object>> authErr = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authErr = guardAuthWithCsrf(req);
 		if (authErr != null)
 			return authErr;
 

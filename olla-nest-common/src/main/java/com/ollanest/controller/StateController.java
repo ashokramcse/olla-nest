@@ -134,7 +134,7 @@ public class StateController extends BaseController {
 	 */
 	@GetMapping("/api/state")
 	public ResponseEntity<Map<String, Object>> getState(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 
@@ -254,7 +254,7 @@ public class StateController extends BaseController {
 	 */
 	@GetMapping("/api/ollama/ping")
 	public ResponseEntity<Map<String, Object>> ollamaPing(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		boolean ok = ollamaService.ping();
@@ -270,7 +270,7 @@ public class StateController extends BaseController {
 	 */
 	@GetMapping("/api/ollama/models")
 	public ResponseEntity<Map<String, Object>> ollamaModels(HttpServletRequest req) {
-		ResponseEntity<Map<String, Object>> authError = requireAuthWithCsrf(req);
+		ResponseEntity<Map<String, Object>> authError = guardAuthWithCsrf(req);
 		if (authError != null)
 			return authError;
 		try {
