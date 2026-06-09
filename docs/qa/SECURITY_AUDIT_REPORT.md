@@ -110,6 +110,17 @@ Run against live `/api/chat` + Ollama with an authenticated user.
 
 **Evidence:** `prompt_security_log` rows — `rag/flagged=0` (pre-fix) then `rag/flagged=1` (post-fix), same query.
 
+## 7b. Multi-user IDOR / data-isolation — EXECUTED 2026-06-09 (real 2nd user, all PASS)
+
+Created a second user via `POST /api/admin/users`, logged in as them, and attempted cross-user access to user-1's private data.
+
+| Probe | Result |
+|---|---|
+| User-2 `GET /api/notes` | **PASS** — user-1's note (`SECRET-U1`) **not** present (owner-scoped list) |
+| User-2 `PUT /api/notes/{user1NoteId}` | **PASS** — **404** (not "found" for the wrong owner) |
+| User-2 `DELETE /api/notes/{user1NoteId}` | **PASS** — **404**; user-1's note remained intact |
+| User-2 chat asks for user-1's **personal RAG doc** (BLUEFALCON secret) | **PASS** — "did not find any information"; no content disclosed. Personal docs are scoped `personal:{ownerId}`, so user-2's retrieval (`personal:{user2}` + global) can't reach it. Confirms BUG-018 fix preserved isolation. |
+
 ## 8. Outstanding security work (NOT executed)
 - Dynamic IDOR with a second user account (ownership scoping on every `/{id}` route).
 - Forbidden-role (authenticated non-admin → admin endpoint = 403) — needs a non-admin session.
