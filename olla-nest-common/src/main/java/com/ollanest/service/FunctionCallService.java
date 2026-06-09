@@ -339,7 +339,9 @@ public class FunctionCallService {
 	 */
 	private String executeSearchKnowledgeBase(String query, String userId) {
 		try {
-			List<Map<String, Object>> results = ragService.retrieve(query, userId, 3);
+			// BUG-018: use the personal scope so the user's own uploads are found
+			// (global docs are always included by retrieve()).
+			List<Map<String, Object>> results = ragService.retrieve(query, RagService.personalScope(userId), 3);
 			if (results.isEmpty())
 				return "{\"found\": false, \"message\": \"No relevant documents found\"}";
 			Map<String, Object> response = new LinkedHashMap<>();

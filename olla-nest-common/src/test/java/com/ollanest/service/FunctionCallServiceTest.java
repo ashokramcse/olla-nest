@@ -178,5 +178,28 @@ class FunctionCallServiceTest {
             String result = functionCallService.executeTool("get_system_info", Map.of(), USER_ID);
             assertThat(result).contains("Olla Nest");
         }
+
+        @Test
+        @DisplayName("get_system_info does NOT leak env vars / secrets (exfiltration guard)")
+        void getSystemInfoNoSecretLeak() {
+            // SECURITY: a tool-call exfiltration vector would be get_system_info dumping
+            // System.getenv(). It must expose only static product metadata.
+            String result = functionCallService.executeTool("get_system_info", Map.of(), USER_ID).toLowerCase();
+            assertThat(result)
+                    .doesNotContain("api_key").doesNotContain("apikey").doesNotContain("password")
+                    .doesNotContain("secret").doesNotContain("token").doesNotContain("encryption_key")
+                    .doesNotContain("anthropic").doesNotContain("openai");
+        }
+
+        @Test
+        @DisplayName("search_knowledge_base scopes retrieval to the user's personal docs (BUG-018)")
+        void searchKnowledgeBaseUsesPersonalScope() {
+            when(ragService.retrieve(anyString(), anyString(), anyInt())).thenReturn(List.of());
+            functionCallService.executeTool("search_knowledge_base",
+                    Map.of("query", "budget"), USER_ID);
+            // Must query with the personal scope, not the raw user id, or the user's
+            // own uploads (scope "personal:{id}") are silently never retrieved.
+            verify(ragService).retrieve(eq("budget"), eq("personal:" + USER_ID), anyInt());
+        }
     }
 }

@@ -134,6 +134,23 @@ Run against the live user service (`:8081`) with Ollama (`:11434`, models presen
 ## 4b. k6 staged write-path load — RE-EXECUTED 2026-06-09
 `k6 run perf/k6-write-path.js` (ramp 10→30 VUs, notes create→list→delete). **16,990/16,990 checks pass, 0.00% errors, p95 4.2ms / p99 6.55ms, 5,663 iterations, DB `integrity_check`=ok.** BUG-013 ID-collision class stays fixed under load. Evidence: `docs/qa/evidence/k6-write-path-2026-06-09.json`. Full detail in `PERFORMANCE_REPORT.md`.
 
+## 4c. Backup / restore + tool-exfiltration — EXECUTED 2026-06-09
+
+**Backup/restore (`POST /api/admin/settings/backup`, `BackupService` `VACUUM INTO`):**
+| Check | Result |
+|---|---|
+| Trigger backup (admin) | **PASS** — `{ok:true, file:…/data/backups/olla-nest-<UTC>.sqlite}` |
+| Backup file is a valid SQLite DB | **PASS** — `integrity_check=ok`, 62 tables, 15 users, 64 chat_messages (full data → restore-ready) |
+| Concurrency guard | **PASS** — 3 simultaneous requests → 1 `ok`, 2 `{ok:false,"Backup already in progress"}` (AtomicBoolean CAS); no corruption |
+| Authz | **PASS** — non-admin user → **403**, unauthenticated → **401** |
+
+**Function-calling tool-exfiltration probe (`FunctionCallService`):**
+| Tool | Result |
+|---|---|
+| `get_system_info` | **SAFE** — returns only static product/version/runtime; **no env vars / secrets**. Regression guard `getSystemInfoNoSecretLeak` added. |
+| `calculate` | **SAFE** — self-contained arithmetic evaluator, no script engine / I/O (BUG-006). |
+| `search_knowledge_base` | scopes to `personal:{userId}` + global only → no cross-user leak. **Found BUG-018** (personal docs were never retrievable due to scope-format mismatch) — fixed + proven live. |
+
 ## 5. Recommendation
 1. **Remediate BUG-003/004/005** (test-debt) to restore a green `mvn test` gate — these are false negatives masking real coverage signal. Do **not** delete or weaken; fix the verifications/stubs.
 2. Stand up the **Playwright** and **k6** harnesses (see test plan) and execute Phases 6–18.

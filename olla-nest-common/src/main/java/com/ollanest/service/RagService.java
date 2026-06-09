@@ -256,7 +256,10 @@ public class RagService {
 	 * @since v2026.1.0
 	 */
 	public String buildRagContext(String query, String userId) {
-		List<Map<String, Object>> chunks = retrieve(query, userId, TOP_K);
+		// BUG-018: personal documents are ingested with scope "personal:{userId}"
+		// (see PersonalDocumentService), so retrieval must use that same scope or
+		// the user's own uploads are never surfaced. Global docs are always included.
+		List<Map<String, Object>> chunks = retrieve(query, personalScope(userId), TOP_K);
 		if (chunks.isEmpty())
 			return null;
 		StringBuilder body = new StringBuilder();
@@ -276,6 +279,20 @@ public class RagService {
 		Map<String, Object> wrapped = promptSecurityService.wrapUntrusted("RAG knowledge base", body.toString());
 		promptSecurityService.logSecurityEvent(userId, null, "rag", flagged);
 		return String.valueOf(wrapped.get("content"));
+	}
+
+	/**
+	 * Maps a user id to the RAG scope under which that user's personal documents
+	 * are stored (see {@code PersonalDocumentService.upload}). Used by retrieval
+	 * so a user's own uploads — not just global docs — are surfaced. A blank id
+	 * falls back to {@code "global"}-only retrieval.
+	 *
+	 * @param userId the authenticated user's id, or {@code null}/blank
+	 * @return {@code "personal:" + userId}, or {@code null} for blank input
+	 * @since v2026.2.2
+	 */
+	public static String personalScope(String userId) {
+		return (userId == null || userId.isBlank()) ? null : "personal:" + userId;
 	}
 
 	/**
