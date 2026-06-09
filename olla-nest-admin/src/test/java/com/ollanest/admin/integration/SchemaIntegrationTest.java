@@ -1,6 +1,10 @@
 package com.ollanest.admin.integration;
 
-import com.ollanest.admin.OllaNestAdminApplication;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -13,14 +17,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.ollanest.admin.OllaNestAdminApplication;
 import com.ollanest.service.DatabaseService;
 import com.ollanest.service.OllamaService;
 import com.ollanest.service.WhisperServerManager;
-
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Schema integration tests — verifies Flyway migrations produce the correct

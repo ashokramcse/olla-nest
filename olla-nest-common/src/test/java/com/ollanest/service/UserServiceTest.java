@@ -1,23 +1,5 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.model.User;
-import com.ollanest.testinfra.UserFactory;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import com.fasterxml.jackson.core.type.TypeReference;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,13 +9,33 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.model.User;
+import com.ollanest.testinfra.UserFactory;
+
 /**
  * OCD-level unit tests for {@link UserService}.
  *
- * <p>Covers: publicUser hydration (all fields, edge cases), findUserById,
- * findUserByEmail, hasRight (admin bypass + explicit rights), departmentDefaults,
- * safeJsonList (null/blank/invalid/valid), allowedModelIds (admin bypass,
- * access_grants by user/department/group, implicit rights, overrides).
+ * <p>
+ * Covers: publicUser hydration (all fields, edge cases), findUserById,
+ * findUserByEmail, hasRight (admin bypass + explicit rights),
+ * departmentDefaults, safeJsonList (null/blank/invalid/valid), allowedModelIds
+ * (admin bypass, access_grants by user/department/group, implicit rights,
+ * overrides).
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -43,10 +45,13 @@ import static org.mockito.Mockito.when;
 @DisplayName("UserService — unit tests")
 class UserServiceTest {
 
-	@Mock JdbcTemplate db;
-	@Mock ObjectMapper mapper;
+	@Mock
+	JdbcTemplate db;
+	@Mock
+	ObjectMapper mapper;
 
-	@InjectMocks UserService userService;
+	@InjectMocks
+	UserService userService;
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// publicUser hydration
@@ -95,7 +100,8 @@ class UserServiceTest {
 		@Test
 		@DisplayName("isEnterprise=true when authProvider is not 'local'")
 		void isEnterpriseForSsoUser() {
-			// SSO provider (SAML, OIDC, etc.) → isEnterprise=true used by UI to show SSO badge
+			// SSO provider (SAML, OIDC, etc.) → isEnterprise=true used by UI to show SSO
+			// badge
 			Map<String, Object> row = UserFactory.adminRow();
 			row.put("auth_provider", "saml");
 			User u = userService.publicUser(row);
@@ -116,13 +122,8 @@ class UserServiceTest {
 		@DisplayName("applies all default quota values when columns are absent")
 		void appliesDefaultQuotaValues() {
 			// Minimal row: only required fields — all quota/limit columns absent
-			Map<String, Object> row = Map.of(
-					"id", "u-minimal",
-					"name", "Minimal User",
-					"email", "minimal@example.com",
-					"role", "user",
-					"active", 1
-			);
+			Map<String, Object> row = Map.of("id", "u-minimal", "name", "Minimal User", "email", "minimal@example.com",
+					"role", "user", "active", 1);
 			User u = userService.publicUser(row);
 			// Defaults from UserService — safe conservative limits for new users
 			assertThat(u.dailyTokenLimit).isEqualTo(50_000L);
@@ -148,10 +149,14 @@ class UserServiceTest {
 			assertThat(u).isNotNull();
 			// Verify via reflection there's no field named 'passwordHash' or 'password'
 			assertThatCode(() -> {
-				try { u.getClass().getDeclaredField("passwordHash"); }
-				catch (NoSuchFieldException ok) { /* expected */ }
-				try { u.getClass().getDeclaredField("password"); }
-				catch (NoSuchFieldException ok) { /* expected */ }
+				try {
+					u.getClass().getDeclaredField("passwordHash");
+				} catch (NoSuchFieldException ok) {
+					/* expected */ }
+				try {
+					u.getClass().getDeclaredField("password");
+				} catch (NoSuchFieldException ok) {
+					/* expected */ }
 			}).doesNotThrowAnyException();
 		}
 	}
@@ -177,8 +182,7 @@ class UserServiceTest {
 		@DisplayName("returns hydrated user when DB row found")
 		void returnsHydratedUser() {
 			// Stub: DB returns the admin test row
-			when(db.queryForList(anyString(), eq(UserFactory.ADMIN_ID)))
-					.thenReturn(List.of(UserFactory.adminRow()));
+			when(db.queryForList(anyString(), eq(UserFactory.ADMIN_ID))).thenReturn(List.of(UserFactory.adminRow()));
 			User u = userService.findUserById(UserFactory.ADMIN_ID);
 			assertThat(u).isNotNull();
 			// Key identity and role fields must be hydrated correctly
@@ -199,8 +203,7 @@ class UserServiceTest {
 		@DisplayName("returns null when no active user matches the email")
 		void returnsNullForUnknownEmail() {
 			// Stub: no active user row for this email (unregistered or deactivated)
-			when(db.queryForList(anyString(), eq("unknown@example.com")))
-					.thenReturn(Collections.emptyList());
+			when(db.queryForList(anyString(), eq("unknown@example.com"))).thenReturn(Collections.emptyList());
 			assertThat(userService.findUserByEmail("unknown@example.com")).isNull();
 		}
 
@@ -209,8 +212,7 @@ class UserServiceTest {
 		void returnsHydratedUserForKnownEmail() {
 			// Stub: known email → admin row returned from DB
 			String email = "junit-integration-test-only@example.com";
-			when(db.queryForList(anyString(), eq(email)))
-					.thenReturn(List.of(UserFactory.adminRow()));
+			when(db.queryForList(anyString(), eq(email))).thenReturn(List.of(UserFactory.adminRow()));
 			User u = userService.findUserByEmail(email);
 			assertThat(u).isNotNull();
 			// Email must be preserved exactly — used for session and notification targeting
@@ -229,7 +231,8 @@ class UserServiceTest {
 		@Test
 		@DisplayName("admin always has every right — role bypass")
 		void adminBypassesRightCheck() {
-			// Admin role bypasses all right checks — no need to enumerate every right for admin
+			// Admin role bypasses all right checks — no need to enumerate every right for
+			// admin
 			User admin = UserFactory.admin();
 			admin.rights = Collections.emptyList(); // explicitly no rights listed
 			// Despite empty rights list, admin gets everything
@@ -345,8 +348,7 @@ class UserServiceTest {
 		void parsesValidJsonArray() throws Exception {
 			// Stub: mapper returns the deserialized rights list
 			List<String> expected = List.of("chat:use", "models:local:use");
-			when(mapper.readValue(anyString(), any(TypeReference.class)))
-					.thenReturn(expected);
+			when(mapper.readValue(anyString(), any(TypeReference.class))).thenReturn(expected);
 			List<String> result = userService.safeJsonList("[\"chat:use\",\"models:local:use\"]");
 			assertThat(result).isEqualTo(expected);
 		}
@@ -365,8 +367,7 @@ class UserServiceTest {
 		void adminGetsAllModels() {
 			// Stub: DB returns three available models
 			User admin = UserFactory.admin();
-			when(db.queryForList(anyString(), eq(String.class)))
-					.thenReturn(List.of("llama3", "mistral", "codestral"));
+			when(db.queryForList(anyString(), eq(String.class))).thenReturn(List.of("llama3", "mistral", "codestral"));
 
 			List<String> models = userService.allowedModelIds(admin);
 			// Admin sees every model — no grant filtering applied

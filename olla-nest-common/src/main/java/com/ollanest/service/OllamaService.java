@@ -1,7 +1,5 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -16,14 +14,18 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Manages Ollama model discovery, capability inference, and health checks.
@@ -336,8 +338,7 @@ public class OllamaService {
 			// Fallback: parameters string
 			JsonNode params = data.get("parameters");
 			if (params != null) {
-				Matcher m = Pattern.compile("num_ctx\\s+(\\d+)")
-						.matcher(params.asText(""));
+				Matcher m = Pattern.compile("num_ctx\\s+(\\d+)").matcher(params.asText(""));
 				if (m.find())
 					return Long.parseLong(m.group(1));
 			}

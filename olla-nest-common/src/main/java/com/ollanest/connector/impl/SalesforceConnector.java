@@ -1,11 +1,12 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
-import org.springframework.stereotype.Component;
-
 import java.net.URLEncoder;
 import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Connector implementation that synchronises Salesforce CRM records into the
@@ -17,22 +18,31 @@ import java.util.Map;
  * alongside other organisational knowledge without requiring users to query
  * Salesforce directly.
  *
- * <h3>Credential format</h3> <pre>{@code { "accessToken": "...", // Salesforce
+ * <h3>Credential format</h3>
+ * 
+ * <pre>{@code { "accessToken": "...", // Salesforce
  * OAuth 2.0 session token. "instanceUrl": "https://yourorg.salesforce.com" //
  * Org-specific API base URL. } }</pre>
  *
- * <h3>Design notes</h3> <ul> <li>All API calls target Salesforce REST API
- * version {@code v58.0}.</li> <li>Two SOQL queries are executed in sequence:
- * one for {@code Opportunity} records and one for {@code Account} records, each
- * ordered by {@code LastModifiedDate DESC} and limited to 100 rows.</li>
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>All API calls target Salesforce REST API version {@code v58.0}.</li>
+ * <li>Two SOQL queries are executed in sequence: one for {@code Opportunity}
+ * records and one for {@code Account} records, each ordered by
+ * {@code LastModifiedDate DESC} and limited to 100 rows.</li>
  * <li>Document IDs are namespaced ({@code opp-<id>} / {@code acct-<id>}) to
- * prevent collisions between the two object types.</li> <li>A trailing slash on
- * {@code instanceUrl} is stripped before constructing API URLs.</li> </ul>
+ * prevent collisions between the two object types.</li>
+ * <li>A trailing slash on {@code instanceUrl} is stripped before constructing
+ * API URLs.</li>
+ * </ul>
  *
- * <h3>Version history</h3> <ul> <li>v2026.1.4 — initial creation</li> </ul>
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial creation</li>
+ * </ul>
  *
  * @author Ashok Ram @since v2026.1.4 @version v2026.1.4 @see
- * com.ollanest.connector.BaseConnector
+ *         com.ollanest.connector.BaseConnector
  */
 @Component
 public class SalesforceConnector extends BaseConnector {

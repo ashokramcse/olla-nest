@@ -1,11 +1,12 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
-import org.springframework.stereotype.Component;
-
 import java.util.Base64;
 import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Connector implementation that synchronises Jira issues into the Olla
@@ -17,25 +18,33 @@ import java.util.Map;
  * assistant can answer questions about project status, bug details, and team
  * discussions without requiring users to switch context into Jira.
  *
- * <h3>Credential format</h3> <pre>{@code { "email": "you@company.com",
+ * <h3>Credential format</h3>
+ * 
+ * <pre>{@code { "email": "you@company.com",
  * "apiToken": "...", // Atlassian API token (not your password) "baseUrl":
  * "https://co.atlassian.net" // trailing slash is stripped automatically }
  * }</pre>
  *
- * <h3>Design notes</h3> <ul> <li>Authentication uses HTTP Basic with the {@code
- * email:apiToken} pair Base64-encoded.</li> <li>Issues are fetched via the Jira
- * REST API v3 search endpoint with JQL {@code ORDER BY updated DESC}, limited
- * to 100 results.</li> <li>Descriptions and comment bodies use Atlassian
- * Document Format (ADF), a nested JSON tree. {@link #extractAtlassianDoc}
- * recursively traverses the tree to produce plain text with bullet-point
- * markers for list items.</li> <li>The document ID stored in Olla equals the
- * Jira issue key (e.g. {@code PROJ-42}), which is stable across renames.</li>
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Authentication uses HTTP Basic with the {@code
+ * email:apiToken} pair Base64-encoded.</li>
+ * <li>Issues are fetched via the Jira REST API v3 search endpoint with JQL
+ * {@code ORDER BY updated DESC}, limited to 100 results.</li>
+ * <li>Descriptions and comment bodies use Atlassian Document Format (ADF), a
+ * nested JSON tree. {@link #extractAtlassianDoc} recursively traverses the tree
+ * to produce plain text with bullet-point markers for list items.</li>
+ * <li>The document ID stored in Olla equals the Jira issue key (e.g.
+ * {@code PROJ-42}), which is stable across renames.</li>
  * </ul>
  *
- * <h3>Version history</h3> <ul> <li>v2026.1.4 — initial creation</li> </ul>
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial creation</li>
+ * </ul>
  *
  * @author Ashok Ram @since v2026.1.4 @version v2026.1.4 @see
- * com.ollanest.connector.BaseConnector
+ *         com.ollanest.connector.BaseConnector
  */
 @Component
 public class JiraConnector extends BaseConnector {

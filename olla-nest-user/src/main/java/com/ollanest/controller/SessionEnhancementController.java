@@ -1,7 +1,7 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.service.SessionEnhancementService;
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -9,8 +9,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ollanest.model.User;
+import com.ollanest.service.SessionEnhancementService;
+
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Map;
 
 /**
  * REST controller for chat-session enhancement operations: forking, truncating,
@@ -44,70 +46,71 @@ import java.util.Map;
 @RequestMapping("/api/sessions")
 public class SessionEnhancementController extends BaseController {
 
-    /** Service backing session forking, truncation, and topic analysis. */
-    private final SessionEnhancementService enhancementService;
+	/** Service backing session forking, truncation, and topic analysis. */
+	private final SessionEnhancementService enhancementService;
 
-    /**
-     * Constructor-injects the session enhancement service.
-     *
-     * @param enhancementService the service backing all enhancement operations
-     * @since v2026.2.1
-     */
-    public SessionEnhancementController(SessionEnhancementService enhancementService) {
-        this.enhancementService = enhancementService;
-    }
+	/**
+	 * Constructor-injects the session enhancement service.
+	 *
+	 * @param enhancementService the service backing all enhancement operations
+	 * @since v2026.2.1
+	 */
+	public SessionEnhancementController(SessionEnhancementService enhancementService) {
+		this.enhancementService = enhancementService;
+	}
 
-    /**
-     * Forks a session into a new branch at the given message index.
-     *
-     * @param req       the HTTP request, used to resolve the authenticated user
-     * @param sessionId the session to fork
-     * @param body      request payload; {@code message_index} is the branch point
-     *                  (default 10)
-     * @return a CREATED response with the forked session
-     * @since v2026.2.1
-     */
-    @PostMapping("/{sessionId}/fork")
-    public ResponseEntity<?> fork(HttpServletRequest req, @PathVariable String sessionId,
-            @RequestBody Map<String, Object> body) {
-        User user = requireAuth(req);
-        int messageIndex = ((Number) body.getOrDefault("message_index", 10)).intValue();
-        return created(enhancementService.forkSession(sessionId, user.id, messageIndex));
-    }
+	/**
+	 * Forks a session into a new branch at the given message index.
+	 *
+	 * @param req       the HTTP request, used to resolve the authenticated user
+	 * @param sessionId the session to fork
+	 * @param body      request payload; {@code message_index} is the branch point
+	 *                  (default 10)
+	 * @return a CREATED response with the forked session
+	 * @since v2026.2.1
+	 */
+	@PostMapping("/{sessionId}/fork")
+	public ResponseEntity<?> fork(HttpServletRequest req, @PathVariable String sessionId,
+			@RequestBody Map<String, Object> body) {
+		User user = requireAuth(req);
+		int messageIndex = ((Number) body.getOrDefault("message_index", 10)).intValue();
+		return created(enhancementService.forkSession(sessionId, user.id, messageIndex));
+	}
 
-    /**
-     * Truncates a session's history from a given message onward.
-     *
-     * @param req       the HTTP request, used to resolve the authenticated user
-     * @param sessionId the session to truncate
-     * @param body      request payload; {@code from_message_id} is required and
-     *                  marks the first message to remove
-     * @return an OK response acknowledging the truncation, or a 400 if
-     *         {@code from_message_id} is missing
-     * @since v2026.2.1
-     */
-    @PostMapping("/{sessionId}/truncate")
-    public ResponseEntity<?> truncate(HttpServletRequest req, @PathVariable String sessionId,
-            @RequestBody Map<String, Object> body) {
-        User user = requireAuth(req);
-        String fromMessageId = (String) body.get("from_message_id");
-        if (fromMessageId == null) return badRequest("from_message_id is required");
-        enhancementService.truncateHistory(sessionId, user.id, fromMessageId);
-        return ok(Map.of("ok", true));
-    }
+	/**
+	 * Truncates a session's history from a given message onward.
+	 *
+	 * @param req       the HTTP request, used to resolve the authenticated user
+	 * @param sessionId the session to truncate
+	 * @param body      request payload; {@code from_message_id} is required and
+	 *                  marks the first message to remove
+	 * @return an OK response acknowledging the truncation, or a 400 if
+	 *         {@code from_message_id} is missing
+	 * @since v2026.2.1
+	 */
+	@PostMapping("/{sessionId}/truncate")
+	public ResponseEntity<?> truncate(HttpServletRequest req, @PathVariable String sessionId,
+			@RequestBody Map<String, Object> body) {
+		User user = requireAuth(req);
+		String fromMessageId = (String) body.get("from_message_id");
+		if (fromMessageId == null)
+			return badRequest("from_message_id is required");
+		enhancementService.truncateHistory(sessionId, user.id, fromMessageId);
+		return ok(Map.of("ok", true));
+	}
 
-    /**
-     * Starts asynchronous topic analysis of a session.
-     *
-     * @param req       the HTTP request, used to resolve the authenticated user
-     * @param sessionId the session to analyze
-     * @return an OK response confirming analysis has started
-     * @since v2026.2.1
-     */
-    @PostMapping("/{sessionId}/analyze-topics")
-    public ResponseEntity<?> analyzeTopics(HttpServletRequest req, @PathVariable String sessionId) {
-        User user = requireAuth(req);
-        enhancementService.analyzeTopicsAsync(sessionId, user.id);
-        return ok(Map.of("ok", true, "message", "Topic analysis started"));
-    }
+	/**
+	 * Starts asynchronous topic analysis of a session.
+	 *
+	 * @param req       the HTTP request, used to resolve the authenticated user
+	 * @param sessionId the session to analyze
+	 * @return an OK response confirming analysis has started
+	 * @since v2026.2.1
+	 */
+	@PostMapping("/{sessionId}/analyze-topics")
+	public ResponseEntity<?> analyzeTopics(HttpServletRequest req, @PathVariable String sessionId) {
+		User user = requireAuth(req);
+		enhancementService.analyzeTopicsAsync(sessionId, user.id);
+		return ok(Map.of("ok", true, "message", "Topic analysis started"));
+	}
 }

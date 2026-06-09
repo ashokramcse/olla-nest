@@ -1,9 +1,7 @@
 package com.ollanest.controller.admin;
 
-import com.ollanest.controller.BaseController;
-import com.ollanest.service.MonitorService;
-
-import jakarta.servlet.http.HttpServletRequest;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -11,8 +9,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import com.ollanest.controller.BaseController;
+import com.ollanest.service.MonitorService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Admin-only health check endpoint for the Olla Nest server.

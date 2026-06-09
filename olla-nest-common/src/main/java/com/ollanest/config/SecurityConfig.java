@@ -1,8 +1,5 @@
 package com.ollanest.config;
 
-import com.ollanest.filter.SecurityHeadersFilter;
-import com.ollanest.filter.SessionAuthFilter;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -10,6 +7,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.ollanest.filter.SecurityHeadersFilter;
+import com.ollanest.filter.SessionAuthFilter;
 
 /**
  * Spring Security filter chain configuration for Olla Nest.

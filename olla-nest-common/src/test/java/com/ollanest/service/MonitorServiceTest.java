@@ -1,5 +1,12 @@
 package com.ollanest.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -8,17 +15,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
  * OCD-level unit tests for {@link MonitorService}.
  *
- * <p>No mocks needed — MonitorService is fully in-memory.
+ * <p>
+ * No mocks needed — MonitorService is fully in-memory.
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -29,105 +30,112 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("MonitorService — unit tests")
 class MonitorServiceTest {
 
-    // ── incrementRequests() ───────────────────────────────────────────────────
+	// ── incrementRequests() ───────────────────────────────────────────────────
 
-    @Nested
-    @DisplayName("incrementRequests()")
-    class IncrementRequests {
+	@Nested
+	@DisplayName("incrementRequests()")
+	class IncrementRequests {
 
-        @Test
-        @DisplayName("getSnapshot() shows increased request count")
-        void requestCountIncreases() {
-            MonitorService monitor = new MonitorService();
-            // Simulate two incoming requests arriving at the monitor
-            monitor.incrementRequests();
-            monitor.incrementRequests();
-            Map<String, Object> snap = monitor.getSnapshot();
-            // Both increments must be reflected — counter is not lossy
-            assertThat((Long) snap.get("requests")).isEqualTo(2L);
-        }
-    }
+		@Test
+		@DisplayName("getSnapshot() shows increased request count")
+		void requestCountIncreases() {
+			MonitorService monitor = new MonitorService();
+			// Simulate two incoming requests arriving at the monitor
+			monitor.incrementRequests();
+			monitor.incrementRequests();
+			Map<String, Object> snap = monitor.getSnapshot();
+			// Both increments must be reflected — counter is not lossy
+			assertThat((Long) snap.get("requests")).isEqualTo(2L);
+		}
+	}
 
-    // ── incrementErrors() ─────────────────────────────────────────────────────
+	// ── incrementErrors() ─────────────────────────────────────────────────────
 
-    @Nested
-    @DisplayName("incrementErrors()")
-    class IncrementErrors {
+	@Nested
+	@DisplayName("incrementErrors()")
+	class IncrementErrors {
 
-        @Test
-        @DisplayName("getSnapshot() shows increased error count")
-        void errorCountIncreases() {
-            MonitorService monitor = new MonitorService();
-            // Simulate one error being recorded
-            monitor.incrementErrors();
-            Map<String, Object> snap = monitor.getSnapshot();
-            // Error counter must advance by exactly 1
-            assertThat((Long) snap.get("errors")).isEqualTo(1L);
-        }
-    }
+		@Test
+		@DisplayName("getSnapshot() shows increased error count")
+		void errorCountIncreases() {
+			MonitorService monitor = new MonitorService();
+			// Simulate one error being recorded
+			monitor.incrementErrors();
+			Map<String, Object> snap = monitor.getSnapshot();
+			// Error counter must advance by exactly 1
+			assertThat((Long) snap.get("errors")).isEqualTo(1L);
+		}
+	}
 
-    // ── getSnapshot() ─────────────────────────────────────────────────────────
+	// ── getSnapshot() ─────────────────────────────────────────────────────────
 
-    @Nested
-    @DisplayName("getSnapshot()")
-    class GetSnapshot {
+	@Nested
+	@DisplayName("getSnapshot()")
+	class GetSnapshot {
 
-        @Test
-        @DisplayName("returns map with uptime, requests, errors, memory keys")
-        void containsAllKeys() {
-            MonitorService monitor = new MonitorService();
-            Map<String, Object> snap = monitor.getSnapshot();
-            // All five telemetry fields must be present — missing keys would break the dashboard
-            assertThat(snap).containsKeys("uptimeMs", "requests", "errors", "memoryUsedMb", "memoryTotalMb");
-        }
+		@Test
+		@DisplayName("returns map with uptime, requests, errors, memory keys")
+		void containsAllKeys() {
+			MonitorService monitor = new MonitorService();
+			Map<String, Object> snap = monitor.getSnapshot();
+			// All five telemetry fields must be present — missing keys would break the
+			// dashboard
+			assertThat(snap).containsKeys("uptimeMs", "requests", "errors", "memoryUsedMb", "memoryTotalMb");
+		}
 
-        @Test
-        @DisplayName("uptimeMs is non-negative")
-        void uptimeNonNegative() {
-            MonitorService monitor = new MonitorService();
-            Map<String, Object> snap = monitor.getSnapshot();
-            // Uptime must never be negative — even if the JVM clock has low resolution
-            assertThat((Long) snap.get("uptimeMs")).isGreaterThanOrEqualTo(0L);
-        }
+		@Test
+		@DisplayName("uptimeMs is non-negative")
+		void uptimeNonNegative() {
+			MonitorService monitor = new MonitorService();
+			Map<String, Object> snap = monitor.getSnapshot();
+			// Uptime must never be negative — even if the JVM clock has low resolution
+			assertThat((Long) snap.get("uptimeMs")).isGreaterThanOrEqualTo(0L);
+		}
 
-        @Test
-        @DisplayName("requests starts at 0")
-        void requestsStartsAtZero() {
-            MonitorService monitor = new MonitorService();
-            // Fresh instance — no requests have been processed yet
-            assertThat((Long) monitor.getSnapshot().get("requests")).isEqualTo(0L);
-        }
+		@Test
+		@DisplayName("requests starts at 0")
+		void requestsStartsAtZero() {
+			MonitorService monitor = new MonitorService();
+			// Fresh instance — no requests have been processed yet
+			assertThat((Long) monitor.getSnapshot().get("requests")).isEqualTo(0L);
+		}
 
-        @Test
-        @DisplayName("errors starts at 0")
-        void errorsStartsAtZero() {
-            MonitorService monitor = new MonitorService();
-            // Fresh instance — no errors have been recorded yet
-            assertThat((Long) monitor.getSnapshot().get("errors")).isEqualTo(0L);
-        }
-    }
+		@Test
+		@DisplayName("errors starts at 0")
+		void errorsStartsAtZero() {
+			MonitorService monitor = new MonitorService();
+			// Fresh instance — no errors have been recorded yet
+			assertThat((Long) monitor.getSnapshot().get("errors")).isEqualTo(0L);
+		}
+	}
 
-    // ── Thread safety ─────────────────────────────────────────────────────────
+	// ── Thread safety ─────────────────────────────────────────────────────────
 
-    @Nested
-    @DisplayName("Thread safety")
-    class ThreadSafety {
+	@Nested
+	@DisplayName("Thread safety")
+	class ThreadSafety {
 
-        @Test
-        @DisplayName("two concurrent increments result in 2 total requests")
-        void concurrentIncrements() throws Exception {
-            MonitorService monitor = new MonitorService();
-            CountDownLatch latch = new CountDownLatch(2);
-            ExecutorService exec = Executors.newFixedThreadPool(2);
+		@Test
+		@DisplayName("two concurrent increments result in 2 total requests")
+		void concurrentIncrements() throws Exception {
+			MonitorService monitor = new MonitorService();
+			CountDownLatch latch = new CountDownLatch(2);
+			ExecutorService exec = Executors.newFixedThreadPool(2);
 
-            // Two threads increment concurrently — AtomicLong must handle both increments
-            exec.submit(() -> { monitor.incrementRequests(); latch.countDown(); });
-            exec.submit(() -> { monitor.incrementRequests(); latch.countDown(); });
-            latch.await();
-            exec.shutdown();
+			// Two threads increment concurrently — AtomicLong must handle both increments
+			exec.submit(() -> {
+				monitor.incrementRequests();
+				latch.countDown();
+			});
+			exec.submit(() -> {
+				monitor.incrementRequests();
+				latch.countDown();
+			});
+			latch.await();
+			exec.shutdown();
 
-            // Neither increment should have been lost due to a race condition
-            assertThat((Long) monitor.getSnapshot().get("requests")).isEqualTo(2L);
-        }
-    }
+			// Neither increment should have been lost due to a race condition
+			assertThat((Long) monitor.getSnapshot().get("requests")).isEqualTo(2L);
+		}
+	}
 }

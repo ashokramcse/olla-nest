@@ -1,36 +1,37 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.model.ModelRecord;
-import com.ollanest.model.User;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.model.ModelRecord;
+import com.ollanest.model.User;
 
 /**
  * Unit tests for {@link ModelService}.
  *
- * <p>Covers: {@code parseModel} field hydration and defaults,
- * {@code allowedModels} access filtering and API-flag enforcement,
- * and JSON capability parsing.
+ * <p>
+ * Covers: {@code parseModel} field hydration and defaults,
+ * {@code allowedModels} access filtering and API-flag enforcement, and JSON
+ * capability parsing.
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -40,9 +41,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("ModelService — unit tests")
 class ModelServiceTest {
 
-	@Mock JdbcTemplate    db;
-	@Mock UserService     userService;
-	@Mock DatabaseService databaseService;
+	@Mock
+	JdbcTemplate db;
+	@Mock
+	UserService userService;
+	@Mock
+	DatabaseService databaseService;
 
 	private final ObjectMapper mapper = new ObjectMapper();
 	private ModelService service;
@@ -183,7 +187,8 @@ class ModelServiceTest {
 		@Test
 		@DisplayName("gpu_required=1 maps to true")
 		void gpuRequired() {
-			// gpu_required=1 must map to true so the router skips GPU models on CPU-only deployments
+			// gpu_required=1 must map to true so the router skips GPU models on CPU-only
+			// deployments
 			Map<String, Object> row = new HashMap<>();
 			row.put("gpu_required", 1);
 
@@ -224,10 +229,8 @@ class ModelServiceTest {
 			when(userService.allowedModelIds(user)).thenReturn(List.of("m-1", "m-2"));
 			when(databaseService.getSettingBool(eq("allowApiModels"), anyBoolean())).thenReturn(true);
 			// DB returns 3 models — m-3 is in the DB but not in the user's grant list
-			when(db.queryForList(anyString())).thenReturn(List.of(
-					modelRow("m-1", "ollama", "available"),
-					modelRow("m-2", "ollama", "available"),
-					modelRow("m-3", "ollama", "available")  // not in allowed set
+			when(db.queryForList(anyString())).thenReturn(List.of(modelRow("m-1", "ollama", "available"),
+					modelRow("m-2", "ollama", "available"), modelRow("m-3", "ollama", "available") // not in allowed set
 			));
 
 			List<ModelRecord> result = service.allowedModels(user);
@@ -241,10 +244,8 @@ class ModelServiceTest {
 			// Stub: user is granted both, but the global flag prohibits API models
 			when(userService.allowedModelIds(user)).thenReturn(List.of("m-local", "m-api"));
 			when(databaseService.getSettingBool(eq("allowApiModels"), anyBoolean())).thenReturn(false);
-			when(db.queryForList(anyString())).thenReturn(List.of(
-					modelRow("m-local", "ollama", "available"),
-					modelRow("m-api", "api", "configured")
-			));
+			when(db.queryForList(anyString())).thenReturn(
+					List.of(modelRow("m-local", "ollama", "available"), modelRow("m-api", "api", "configured")));
 
 			List<ModelRecord> result = service.allowedModels(user);
 			// API model must be filtered out when the admin flag is off
@@ -257,10 +258,8 @@ class ModelServiceTest {
 			// Stub: global flag allows API models
 			when(userService.allowedModelIds(user)).thenReturn(List.of("m-local", "m-api"));
 			when(databaseService.getSettingBool(eq("allowApiModels"), anyBoolean())).thenReturn(true);
-			when(db.queryForList(anyString())).thenReturn(List.of(
-					modelRow("m-local", "ollama", "available"),
-					modelRow("m-api", "api", "configured")
-			));
+			when(db.queryForList(anyString())).thenReturn(
+					List.of(modelRow("m-local", "ollama", "available"), modelRow("m-api", "api", "configured")));
 
 			List<ModelRecord> result = service.allowedModels(user);
 			// Both models must be present when the admin permits API access

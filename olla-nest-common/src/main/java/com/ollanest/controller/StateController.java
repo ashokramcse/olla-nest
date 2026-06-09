@@ -1,5 +1,16 @@
 package com.ollanest.controller;
 
+import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.model.User;
@@ -12,24 +23,13 @@ import com.ollanest.service.WorkspaceService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.lang.management.ManagementFactory;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
  * Returns the complete frontend application state in a single authenticated
  * HTTP call.
  *
  * <p>
- * {@code GET /api/state} is called once on app load and assembles everything the
- * frontend needs: the active user, model list, chat sessions, settings,
+ * {@code GET /api/state} is called once on app load and assembles everything
+ * the frontend needs: the active user, model list, chat sessions, settings,
  * departments, groups, teams, audit events, usage stats, and workspace config.
  * Returning all data in one round-trip avoids a cascade of sequential API calls
  * and eliminates race conditions between concurrent reads.
@@ -48,8 +48,8 @@ import java.util.Map;
  * credentials to the browser.</li>
  * <li>Admin users receive all active sessions (capped at 200 rows) and the 20
  * most recent audit events.</li>
- * <li>{@link #buildSettingsState()} is extracted as a private helper to keep the
- * main handler method readable.</li>
+ * <li>{@link #buildSettingsState()} is extracted as a private helper to keep
+ * the main handler method readable.</li>
  * </ul>
  *
  * <h3>Version history</h3>

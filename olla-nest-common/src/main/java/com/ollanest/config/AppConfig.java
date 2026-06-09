@@ -1,11 +1,11 @@
 package com.ollanest.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 /**
  * Central Spring {@code @Configuration} class that declares application-wide
@@ -13,10 +13,11 @@ import org.springframework.context.annotation.Configuration;
  *
  * <h3>Why this class exists</h3>
  * <p>
- * Spring Boot auto-configuration covers many concerns, but the application still
- * needs a single place to declare the shared {@link ObjectMapper} bean and to
- * bind startup properties (admin credentials, directory paths, version string)
- * to strongly-typed fields. Centralising these here keeps {@code application.
+ * Spring Boot auto-configuration covers many concerns, but the application
+ * still needs a single place to declare the shared {@link ObjectMapper} bean
+ * and to bind startup properties (admin credentials, directory paths, version
+ * string) to strongly-typed fields. Centralising these here keeps
+ * {@code application.
  * properties} as the sole configuration surface and avoids scattered
  * {@code @Value} annotations in unrelated service classes.
  *
@@ -27,8 +28,8 @@ import org.springframework.context.annotation.Configuration;
  * services and controllers.</li>
  * <li>Dates are serialised as ISO-8601 strings (not epoch milliseconds) by
  * disabling {@link SerializationFeature#WRITE_DATES_AS_TIMESTAMPS}.</li>
- * <li>All properties have safe defaults so the application starts in development
- * without any external configuration file.</li>
+ * <li>All properties have safe defaults so the application starts in
+ * development without any external configuration file.</li>
  * </ul>
  *
  * <h3>Version history</h3>

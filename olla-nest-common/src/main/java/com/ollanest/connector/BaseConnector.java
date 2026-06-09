@@ -1,13 +1,5 @@
 package com.ollanest.connector;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.service.CryptoService;
-import com.ollanest.service.RagService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -20,6 +12,15 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.service.CryptoService;
+import com.ollanest.service.RagService;
 
 /**
  * Abstract foundation for every data-source connector in Olla Nest.
@@ -299,7 +300,8 @@ public abstract class BaseConnector {
 
 		String now = Instant.now().toString();
 		if (existing.isEmpty()) {
-			String cdId = "cd-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
+			String cdId = "cd-" + Long.toString(System.currentTimeMillis(), 36) + "-"
+					+ UUID.randomUUID().toString().substring(0, 6);
 			db.update("INSERT INTO connector_documents "
 					+ "(id, connector_id, external_id, title, url, content_hash, rag_doc_id, synced_at) "
 					+ "VALUES (?,?,?,?,?,?,?,?)", cdId, connectorId, externalId, title, url, hash, docId, now);

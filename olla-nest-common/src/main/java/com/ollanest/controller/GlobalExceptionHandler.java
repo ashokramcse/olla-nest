@@ -1,5 +1,8 @@
 package com.ollanest.controller;
 
+import java.util.Map;
+import java.util.NoSuchElementException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -11,9 +14,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-
-import java.util.Map;
-import java.util.NoSuchElementException;
 
 /**
  * Global exception handler that converts unhandled exceptions into a consistent
@@ -32,10 +32,10 @@ import java.util.NoSuchElementException;
  * <li>Only maps exceptions that reach the controller layer — Spring Security
  * and filter exceptions are handled earlier in the pipeline and never arrive
  * here.</li>
- * <li>Does not expose stack traces or internal class names to the caller;
- * those are logged server-side only at WARN or ERROR level.</li>
- * <li>The catch-all {@code handleGeneric} handler returns HTTP 500 and logs
- * the full stack trace so on-call engineers can diagnose unexpected failures
+ * <li>Does not expose stack traces or internal class names to the caller; those
+ * are logged server-side only at WARN or ERROR level.</li>
+ * <li>The catch-all {@code handleGeneric} handler returns HTTP 500 and logs the
+ * full stack trace so on-call engineers can diagnose unexpected failures
  * without exposing internals to the client.</li>
  * </ul>
  *
@@ -53,11 +53,14 @@ import java.util.NoSuchElementException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	/** SLF4J logger for server-side exception details (never exposed to callers). */
+	/**
+	 * SLF4J logger for server-side exception details (never exposed to callers).
+	 */
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
 	/**
-	 * Maps {@link BaseController.AuthException} (thrown by {@code requireAuth}) to HTTP 401.
+	 * Maps {@link BaseController.AuthException} (thrown by {@code requireAuth}) to
+	 * HTTP 401.
 	 *
 	 * @param ex the authentication exception
 	 * @return 401 with {@code {ok: false, error: "message"}}
@@ -65,12 +68,12 @@ public class GlobalExceptionHandler {
 	 */
 	@ExceptionHandler(BaseController.AuthException.class)
 	public ResponseEntity<Map<String, Object>> handleAuthException(BaseController.AuthException ex) {
-		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-				.body(Map.of("ok", false, "error", ex.getMessage()));
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("ok", false, "error", ex.getMessage()));
 	}
 
 	/**
-	 * Maps {@link BaseController.ForbiddenException} (thrown by {@code requireAdminUser}) to HTTP 403.
+	 * Maps {@link BaseController.ForbiddenException} (thrown by
+	 * {@code requireAdminUser}) to HTTP 403.
 	 *
 	 * @param ex the authorisation exception
 	 * @return 403 with {@code {ok: false, error: "message"}}
@@ -78,12 +81,12 @@ public class GlobalExceptionHandler {
 	 */
 	@ExceptionHandler(BaseController.ForbiddenException.class)
 	public ResponseEntity<Map<String, Object>> handleForbiddenException(BaseController.ForbiddenException ex) {
-		return ResponseEntity.status(HttpStatus.FORBIDDEN)
-				.body(Map.of("ok", false, "error", ex.getMessage()));
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false, "error", ex.getMessage()));
 	}
 
 	/**
-	 * Maps {@link java.util.NoSuchElementException} (resource not found in DB) to HTTP 404.
+	 * Maps {@link java.util.NoSuchElementException} (resource not found in DB) to
+	 * HTTP 404.
 	 *
 	 * @param ex the not-found exception carrying the resource identifier
 	 * @return 404 with {@code {ok: false, error: "message"}}
@@ -91,12 +94,12 @@ public class GlobalExceptionHandler {
 	 */
 	@ExceptionHandler(NoSuchElementException.class)
 	public ResponseEntity<Map<String, Object>> handleNotFound(NoSuchElementException ex) {
-		return ResponseEntity.status(HttpStatus.NOT_FOUND)
-				.body(Map.of("ok", false, "error", ex.getMessage()));
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("ok", false, "error", ex.getMessage()));
 	}
 
 	/**
-	 * Maps {@link IllegalArgumentException} (invalid caller-supplied input) to HTTP 400.
+	 * Maps {@link IllegalArgumentException} (invalid caller-supplied input) to HTTP
+	 * 400.
 	 *
 	 * @param ex the bad-argument exception
 	 * @return 400 with {@code {ok: false, error: "message"}}
@@ -104,12 +107,12 @@ public class GlobalExceptionHandler {
 	 */
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<Map<String, Object>> handleBadArg(IllegalArgumentException ex) {
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-				.body(Map.of("ok", false, "error", ex.getMessage()));
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("ok", false, "error", ex.getMessage()));
 	}
 
 	/**
-	 * Maps {@link IllegalStateException} (business-rule violation) to HTTP 409 Conflict.
+	 * Maps {@link IllegalStateException} (business-rule violation) to HTTP 409
+	 * Conflict.
 	 *
 	 * @param ex the conflict exception
 	 * @return 409 with {@code {ok: false, error: "message"}}
@@ -117,8 +120,7 @@ public class GlobalExceptionHandler {
 	 */
 	@ExceptionHandler(IllegalStateException.class)
 	public ResponseEntity<Map<String, Object>> handleConflict(IllegalStateException ex) {
-		return ResponseEntity.status(HttpStatus.CONFLICT)
-				.body(Map.of("ok", false, "error", ex.getMessage()));
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("ok", false, "error", ex.getMessage()));
 	}
 
 	/**
@@ -127,10 +129,9 @@ public class GlobalExceptionHandler {
 	 * @param ex the no-handler exception
 	 * @return 404 with {@code {ok: false, error: "Not found"}}
 	 */
-	@ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+	@ExceptionHandler({ NoHandlerFoundException.class, NoResourceFoundException.class })
 	public ResponseEntity<Map<String, Object>> handleNotFound(Exception ex) {
-		return ResponseEntity.status(HttpStatus.NOT_FOUND)
-				.body(Map.of("ok", false, "error", "Not found"));
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("ok", false, "error", "Not found"));
 	}
 
 	/**
@@ -141,9 +142,8 @@ public class GlobalExceptionHandler {
 	 */
 	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
 	public ResponseEntity<Map<String, Object>> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
-		return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-				.body(Map.of("ok", false, "error",
-						"Method " + ex.getMethod() + " not allowed. Supported: " + ex.getSupportedHttpMethods()));
+		return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(Map.of("ok", false, "error",
+				"Method " + ex.getMethod() + " not allowed. Supported: " + ex.getSupportedHttpMethods()));
 	}
 
 	/**

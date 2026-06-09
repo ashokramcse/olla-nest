@@ -1,14 +1,15 @@
 package com.ollanest.controller.admin;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.controller.BaseController;
-import com.ollanest.model.User;
-import com.ollanest.service.ChatService;
-import com.ollanest.service.ModelService;
-import com.ollanest.service.OllamaService;
-
-import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -22,17 +23,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.controller.BaseController;
+import com.ollanest.model.User;
+import com.ollanest.service.ChatService;
+import com.ollanest.service.ModelService;
+import com.ollanest.service.OllamaService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Admin model management endpoints.

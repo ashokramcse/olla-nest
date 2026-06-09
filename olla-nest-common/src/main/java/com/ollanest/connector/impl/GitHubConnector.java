@@ -1,11 +1,12 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
-import org.springframework.stereotype.Component;
-
 import java.util.Base64;
 import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Spring {@code @Component} that pulls GitHub repository content into the
@@ -130,8 +131,7 @@ public class GitHubConnector extends BaseConnector {
 				// README
 				try {
 					JsonNode rm = httpGet("https://api.github.com/repos/" + rName + "/readme", auth);
-					String content = new String(
-							Base64.getMimeDecoder().decode(rm.path("content").asText("")));
+					String content = new String(Base64.getMimeDecoder().decode(rm.path("content").asText("")));
 					if (ingestDocument(connId, rName + "/README", rName + " README", rUrl, content))
 						synced++;
 					else

@@ -21,8 +21,8 @@ import java.util.List;
  *
  * <h3>Design notes</h3>
  * <ul>
- * <li>No {@code password_hash} field — this object is safe to serialise to
- * JSON and return to the browser.</li>
+ * <li>No {@code password_hash} field — this object is safe to serialise to JSON
+ * and return to the browser.</li>
  * <li>Plain public fields are used instead of getters/setters to avoid Jackson
  * getter-naming surprises with the boolean {@code isEnterprise} field; the
  * field name matches the DB column exactly.</li>

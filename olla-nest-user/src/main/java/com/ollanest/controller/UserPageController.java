@@ -1,16 +1,17 @@
 package com.ollanest.controller;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Serves the employee-facing HTML pages for the User Workspace (port 8081).
  *
  * <ul>
- *   <li>{@code GET /}      — redirects to {@code /login}</li>
- *   <li>{@code GET /login} — employee sign-in page</li>
- *   <li>{@code GET /app}   — main AI workspace (requires auth)</li>
+ * <li>{@code GET /} — redirects to {@code /login}</li>
+ * <li>{@code GET /login} — employee sign-in page</li>
+ * <li>{@code GET /app} — main AI workspace (requires auth)</li>
  * </ul>
  *
  * @author Ashok Ram
@@ -25,7 +26,10 @@ public class UserPageController extends BaseController {
 		return "redirect:/login";
 	}
 
-	/** Serves the login page, or bounces already-authenticated users to {@code /app}. */
+	/**
+	 * Serves the login page, or bounces already-authenticated users to
+	 * {@code /app}.
+	 */
 	@GetMapping("/login")
 	public String login(HttpServletRequest req) {
 		if (getUser(req) != null)
@@ -33,7 +37,10 @@ public class UserPageController extends BaseController {
 		return "forward:/login.html";
 	}
 
-	/** Serves the main workspace, or redirects unauthenticated users to {@code /login}. */
+	/**
+	 * Serves the main workspace, or redirects unauthenticated users to
+	 * {@code /login}.
+	 */
 	@GetMapping("/app")
 	public String app(HttpServletRequest req) {
 		if (getUser(req) == null)

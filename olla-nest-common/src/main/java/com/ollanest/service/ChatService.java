@@ -1,24 +1,25 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Service;
-
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import org.springframework.scheduling.annotation.Scheduled;
-import java.security.SecureRandom;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Core chat service: session lifecycle management, context-window budgeting,
@@ -93,8 +94,8 @@ public class ChatService {
 	 * @param promptTemplateService system-prompt builder
 	 * @since v2026.1.0
 	 */
-	public ChatService(JdbcTemplate db, WorkspaceService workspaceService,
-			ObjectMapper mapper, PromptTemplateService promptTemplateService) {
+	public ChatService(JdbcTemplate db, WorkspaceService workspaceService, ObjectMapper mapper,
+			PromptTemplateService promptTemplateService) {
 		this.db = db;
 		this.workspaceService = workspaceService;
 		this.mapper = mapper;
@@ -499,16 +500,15 @@ public class ChatService {
 	// Each entry is a 2-element AtomicLong[]: [count, windowStartMs].
 	// Using AtomicLong prevents the race condition where two concurrent threads
 	// could both read count < limit and both increment past the ceiling.
-	private final ConcurrentHashMap<String, AtomicLong[]>
-			rateLimitMap = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, AtomicLong[]> rateLimitMap = new ConcurrentHashMap<>();
 
 	/**
 	 * Checks and updates the in-memory rate limit for a user within a 60-second
 	 * sliding window.
 	 *
 	 * <p>
-	 * Thread-safe: the read-increment-check is performed under {@code compute}
-	 * so concurrent requests for the same user cannot both slip past the ceiling.
+	 * Thread-safe: the read-increment-check is performed under {@code compute} so
+	 * concurrent requests for the same user cannot both slip past the ceiling.
 	 *
 	 * @param userId         the user to check; must not be {@code null}
 	 * @param limitPerMinute the maximum number of requests allowed per 60 seconds;
@@ -529,10 +529,7 @@ public class ChatService {
 		long[] result = new long[1];
 		rateLimitMap.compute(userId, (k, entry) -> {
 			if (entry == null) {
-				entry = new AtomicLong[] {
-					new AtomicLong(0),
-					new AtomicLong(now)
-				};
+				entry = new AtomicLong[] { new AtomicLong(0), new AtomicLong(now) };
 			}
 			// Reset window if more than 60 s have elapsed
 			if (entry[1].get() < windowStart) {
@@ -566,9 +563,7 @@ public class ChatService {
 	public void cleanStaleRateLimitEntries() {
 		long staleThreshold = System.currentTimeMillis() - 5 * 60_000L; // 5 min after window expiry
 		int removed = 0;
-		for (Iterator<Map.Entry<String,
-				AtomicLong[]>> it =
-				rateLimitMap.entrySet().iterator(); it.hasNext();) {
+		for (Iterator<Map.Entry<String, AtomicLong[]>> it = rateLimitMap.entrySet().iterator(); it.hasNext();) {
 			Map.Entry<String, AtomicLong[]> e = it.next();
 			// entry[1] = windowStartMs; if it expired more than 5 min ago, evict
 			if (e.getValue()[1].get() < staleThreshold) {
@@ -594,20 +589,24 @@ public class ChatService {
 	 * @return a unique, URL-safe identifier string
 	 * @since v2026.1.0
 	 */
-	/** Cryptographically secure RNG used by {@link #uid(String)} for the random suffix. */
+	/**
+	 * Cryptographically secure RNG used by {@link #uid(String)} for the random
+	 * suffix.
+	 */
 	private static final SecureRandom UID_RNG = new SecureRandom();
 
 	/**
-	 * @since v2026.1.9 — replaced {@code Math.random()} with {@link java.security.SecureRandom}
-	 *        to eliminate the statistical collision risk under high-throughput burst loads
-	 *        and to satisfy cryptographic unpredictability requirements for audit IDs.
+	 * @since v2026.1.9 — replaced {@code Math.random()} with
+	 *        {@link java.security.SecureRandom} to eliminate the statistical
+	 *        collision risk under high-throughput burst loads and to satisfy
+	 *        cryptographic unpredictability requirements for audit IDs.
 	 */
 	public String uid(String prefix) {
-		// Use full 63-bit positive long for the random segment — eliminates birthday-paradox
+		// Use full 63-bit positive long for the random segment — eliminates
+		// birthday-paradox
 		// collisions that were possible when only 36^6 ≈ 2.1B values were used.
 		long rand = UID_RNG.nextLong() & Long.MAX_VALUE; // strip sign bit → always positive
-		return prefix + "-" + Long.toString(System.currentTimeMillis(), 36) + "-"
-				+ Long.toString(rand, 36);
+		return prefix + "-" + Long.toString(System.currentTimeMillis(), 36) + "-" + Long.toString(rand, 36);
 	}
 
 	/**

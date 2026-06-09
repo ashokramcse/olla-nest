@@ -1,11 +1,7 @@
 package com.ollanest.filter;
 
-import com.ollanest.model.User;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,8 +10,12 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.util.UUID;
+import com.ollanest.model.User;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Servlet filter that populates SLF4J {@link MDC} with per-request context so
@@ -35,21 +35,53 @@ import java.util.UUID;
  *
  * <h3>MDC keys set</h3>
  * <table border="1">
- * <tr><th>Key</th><th>Source</th><th>Example value</th></tr>
- * <tr><td>{@code requestId}</td><td>UUID generated per request</td><td>{@code a3f1c2d4-…}</td></tr>
- * <tr><td>{@code userId}</td><td>{@code authenticatedUser} request attribute</td><td>{@code 42} / {@code anon}</td></tr>
- * <tr><td>{@code userEmail}</td><td>{@code authenticatedUser} request attribute</td><td>{@code joe@co.com} / {@code anon}</td></tr>
- * <tr><td>{@code userRole}</td><td>{@code authenticatedUser} request attribute</td><td>{@code admin} / {@code user} / {@code anon}</td></tr>
- * <tr><td>{@code method}</td><td>HTTP method</td><td>{@code POST}</td></tr>
- * <tr><td>{@code path}</td><td>Request URI (no query string)</td><td>{@code /api/chat}</td></tr>
- * <tr><td>{@code ip}</td><td>{@code X-Forwarded-For} → {@code X-Real-IP} → remote addr</td><td>{@code 203.0.113.5}</td></tr>
+ * <tr>
+ * <th>Key</th>
+ * <th>Source</th>
+ * <th>Example value</th>
+ * </tr>
+ * <tr>
+ * <td>{@code requestId}</td>
+ * <td>UUID generated per request</td>
+ * <td>{@code a3f1c2d4-…}</td>
+ * </tr>
+ * <tr>
+ * <td>{@code userId}</td>
+ * <td>{@code authenticatedUser} request attribute</td>
+ * <td>{@code 42} / {@code anon}</td>
+ * </tr>
+ * <tr>
+ * <td>{@code userEmail}</td>
+ * <td>{@code authenticatedUser} request attribute</td>
+ * <td>{@code joe@co.com} / {@code anon}</td>
+ * </tr>
+ * <tr>
+ * <td>{@code userRole}</td>
+ * <td>{@code authenticatedUser} request attribute</td>
+ * <td>{@code admin} / {@code user} / {@code anon}</td>
+ * </tr>
+ * <tr>
+ * <td>{@code method}</td>
+ * <td>HTTP method</td>
+ * <td>{@code POST}</td>
+ * </tr>
+ * <tr>
+ * <td>{@code path}</td>
+ * <td>Request URI (no query string)</td>
+ * <td>{@code /api/chat}</td>
+ * </tr>
+ * <tr>
+ * <td>{@code ip}</td>
+ * <td>{@code X-Forwarded-For} → {@code X-Real-IP} → remote addr</td>
+ * <td>{@code 203.0.113.5}</td>
+ * </tr>
  * </table>
  *
  * <h3>Design notes</h3>
  * <ul>
- * <li>Runs <em>after</em> {@link SessionAuthFilter} (order 2 vs order 1) so
- * the {@code authenticatedUser} attribute is already set when this filter
- * reads it.</li>
+ * <li>Runs <em>after</em> {@link SessionAuthFilter} (order 2 vs order 1) so the
+ * {@code authenticatedUser} attribute is already set when this filter reads
+ * it.</li>
  * <li>MDC is always cleared in a {@code finally} block — no thread-local
  * leakage across requests on pooled Tomcat threads.</li>
  * <li>Static assets ({@code .js}, {@code .css}, {@code .html}, favicons) are
@@ -58,7 +90,8 @@ import java.util.UUID;
  *
  * <h3>Version history</h3>
  * <ul>
- * <li><b>v2026.1.9</b> — initial creation; Grafana + Loki structured logging.</li>
+ * <li><b>v2026.1.9</b> — initial creation; Grafana + Loki structured
+ * logging.</li>
  * </ul>
  *
  * @author Ashok Ram
@@ -69,31 +102,40 @@ import java.util.UUID;
 @Order(2)
 public class MdcLoggingFilter extends OncePerRequestFilter {
 
-	/** Access logger — emits one INFO line per request so traffic is visible in Loki/Grafana. */
+	/**
+	 * Access logger — emits one INFO line per request so traffic is visible in
+	 * Loki/Grafana.
+	 */
 	private static final Logger log = LoggerFactory.getLogger(MdcLoggingFilter.class);
 
 	// ── MDC key constants ─────────────────────────────────────────────────────
 
 	/** Unique ID for the current HTTP request. */
-	public static final String KEY_REQUEST_ID  = "requestId";
+	public static final String KEY_REQUEST_ID = "requestId";
 
-	/** Authenticated user's database ID, or {@code "anon"} for unauthenticated requests. */
-	public static final String KEY_USER_ID     = "userId";
+	/**
+	 * Authenticated user's database ID, or {@code "anon"} for unauthenticated
+	 * requests.
+	 */
+	public static final String KEY_USER_ID = "userId";
 
 	/** Authenticated user's e-mail address, or {@code "anon"}. */
-	public static final String KEY_USER_EMAIL  = "userEmail";
+	public static final String KEY_USER_EMAIL = "userEmail";
 
-	/** Authenticated user's role ({@code "admin"} / {@code "user"} / {@code "anon"}). */
-	public static final String KEY_USER_ROLE   = "userRole";
+	/**
+	 * Authenticated user's role ({@code "admin"} / {@code "user"} /
+	 * {@code "anon"}).
+	 */
+	public static final String KEY_USER_ROLE = "userRole";
 
 	/** HTTP method (GET, POST, …). */
-	public static final String KEY_METHOD      = "method";
+	public static final String KEY_METHOD = "method";
 
 	/** Request URI path (no query string). */
-	public static final String KEY_PATH        = "path";
+	public static final String KEY_PATH = "path";
 
 	/** Client IP address. */
-	public static final String KEY_IP          = "ip";
+	public static final String KEY_IP = "ip";
 
 	// ── Filter ───────────────────────────────────────────────────────────────
 
@@ -108,9 +150,8 @@ public class MdcLoggingFilter extends OncePerRequestFilter {
 	 * @since v2026.1.9
 	 */
 	@Override
-	protected void doFilterInternal(HttpServletRequest request,
-			HttpServletResponse response,
-			FilterChain filterChain) throws ServletException, IOException {
+	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+			throws ServletException, IOException {
 		long startNanos = System.nanoTime();
 		try {
 			populateMdc(request);
@@ -121,9 +162,8 @@ public class MdcLoggingFilter extends OncePerRequestFilter {
 			// structured context is attached. Static assets are already excluded
 			// by shouldNotFilter, keeping this signal high-value.
 			long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
-			log.info("{} {} -> {} ({} ms)",
-					request.getMethod(), request.getRequestURI(),
-					response.getStatus(), elapsedMs);
+			log.info("{} {} -> {} ({} ms)", request.getMethod(), request.getRequestURI(), response.getStatus(),
+					elapsedMs);
 			MDC.clear();
 		}
 	}
@@ -139,13 +179,8 @@ public class MdcLoggingFilter extends OncePerRequestFilter {
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = request.getRequestURI();
-		return path.endsWith(".js")
-				|| path.endsWith(".css")
-				|| path.endsWith(".html")
-				|| path.endsWith(".ico")
-				|| path.endsWith(".svg")
-				|| path.endsWith(".png")
-				|| path.endsWith(".woff2")
+		return path.endsWith(".js") || path.endsWith(".css") || path.endsWith(".html") || path.endsWith(".ico")
+				|| path.endsWith(".svg") || path.endsWith(".png") || path.endsWith(".woff2")
 				|| path.startsWith("/vendor/");
 	}
 
@@ -164,26 +199,27 @@ public class MdcLoggingFilter extends OncePerRequestFilter {
 		// User context — set by SessionAuthFilter before this filter runs
 		User user = (User) request.getAttribute("authenticatedUser");
 		if (user != null) {
-			MDC.put(KEY_USER_ID,    user.id != null ? user.id : "unknown");
+			MDC.put(KEY_USER_ID, user.id != null ? user.id : "unknown");
 			MDC.put(KEY_USER_EMAIL, user.email != null ? user.email : "unknown");
-			MDC.put(KEY_USER_ROLE,  user.role != null ? user.role : "user");
+			MDC.put(KEY_USER_ROLE, user.role != null ? user.role : "user");
 		} else {
-			MDC.put(KEY_USER_ID,    "anon");
+			MDC.put(KEY_USER_ID, "anon");
 			MDC.put(KEY_USER_EMAIL, "anon");
-			MDC.put(KEY_USER_ROLE,  "anon");
+			MDC.put(KEY_USER_ROLE, "anon");
 		}
 
 		// Request metadata
 		MDC.put(KEY_METHOD, request.getMethod());
-		MDC.put(KEY_PATH,   request.getRequestURI());
-		MDC.put(KEY_IP,     resolveClientIp(request));
+		MDC.put(KEY_PATH, request.getRequestURI());
+		MDC.put(KEY_IP, resolveClientIp(request));
 	}
 
 	/**
-	 * Resolves the real client IP by checking proxy headers before falling back
-	 * to the socket remote address.
+	 * Resolves the real client IP by checking proxy headers before falling back to
+	 * the socket remote address.
 	 *
-	 * <p>Checks in order:
+	 * <p>
+	 * Checks in order:
 	 * <ol>
 	 * <li>{@code X-Forwarded-For} — first IP in the comma-separated list</li>
 	 * <li>{@code X-Real-IP}</li>

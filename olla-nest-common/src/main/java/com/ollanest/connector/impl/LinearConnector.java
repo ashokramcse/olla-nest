@@ -1,11 +1,12 @@
 package com.ollanest.connector.impl;
 
+import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ollanest.connector.BaseConnector;
-import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 /**
  * Connector implementation that synchronises Linear issues into the Olla
@@ -17,23 +18,34 @@ import java.util.Map;
  * assistant can surface relevant engineering work alongside other
  * organisational knowledge.
  *
- * <h3>Credential format</h3> <pre>{@code { "apiKey": "lin_api_..." // Linear
+ * <h3>Credential format</h3>
+ * 
+ * <pre>{@code { "apiKey": "lin_api_..." // Linear
  * personal API key; sent as a Bearer token. } }</pre>
  *
- * <h3>Design notes</h3> <ul> <li>Linear exposes a single GraphQL endpoint
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Linear exposes a single GraphQL endpoint
  * ({@code https://api.linear.app/graphql}). All data fetching goes through
  * {@link BaseConnector#httpPost} with a JSON body containing the {@code query}
- * field.</li> <li>Issues are fetched in a single query: first 100, ordered by
+ * field.</li>
+ * <li>Issues are fetched in a single query: first 100, ordered by
  * {@code updatedAt}, including {@code state} and {@code team} nested
- * objects.</li> <li>The document ID stored in Olla is the Linear issue UUID,
- * which is stable.</li> <li>The connection test sends a minimal {@code
+ * objects.</li>
+ * <li>The document ID stored in Olla is the Linear issue UUID, which is
+ * stable.</li>
+ * <li>The connection test sends a minimal {@code
  * viewer{id}} query which is the lightest authenticated GraphQL call
- * available.</li> </ul>
+ * available.</li>
+ * </ul>
  *
- * <h3>Version history</h3> <ul> <li>v2026.1.4 — initial creation</li> </ul>
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial creation</li>
+ * </ul>
  *
  * @author Ashok Ram @since v2026.1.4 @version v2026.1.4 @see
- * com.ollanest.connector.BaseConnector
+ *         com.ollanest.connector.BaseConnector
  */
 @Component
 public class LinearConnector extends BaseConnector {
@@ -75,7 +87,8 @@ public class LinearConnector extends BaseConnector {
 		try {
 			String query = "{\"query\":\"{issues(first:100,orderBy:updatedAt){nodes{id title description url state{name}team{name}}}}\"}";
 			JsonNode resp = httpPost("https://api.linear.app/graphql", "Bearer " + key,
-					mapper.readValue(query, new TypeReference<Map<String, Object>>() {}));
+					mapper.readValue(query, new TypeReference<Map<String, Object>>() {
+					}));
 			for (JsonNode issue : resp.path("data").path("issues").path("nodes")) {
 				String id = issue.path("id").asText();
 				String title = issue.path("title").asText();

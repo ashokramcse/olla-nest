@@ -1,12 +1,12 @@
 package com.ollanest.config;
 
-import com.ollanest.service.TerminalService;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+
+import com.ollanest.service.TerminalService;
 
 /**
  * WebSocket endpoint registration and configuration for Olla Nest.
@@ -61,9 +61,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
 	 * The base URL of the application, used to restrict WebSocket origin.
 	 * <p>
 	 * WARNING: In production, always set {@code app.base-url} (e.g.
-	 * {@code https://olla.example.com}) in application properties. Leaving it
-	 * unset falls back to {@code "*"} which permits WebSocket connections from
-	 * any origin and is NOT safe for production deployments.
+	 * {@code https://olla.example.com}) in application properties. Leaving it unset
+	 * falls back to {@code "*"} which permits WebSocket connections from any origin
+	 * and is NOT safe for production deployments.
 	 */
 	@Value("${app.base-url:*}")
 	private String appBaseUrl;

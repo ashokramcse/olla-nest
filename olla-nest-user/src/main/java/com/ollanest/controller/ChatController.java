@@ -1,5 +1,24 @@
 package com.ollanest.controller;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.model.ModelRecord;
 import com.ollanest.model.User;
@@ -15,25 +34,6 @@ import com.ollanest.service.WebSearchService;
 import com.ollanest.service.WorkspaceService;
 
 import jakarta.servlet.http.HttpServletRequest;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Collections;
 
 /**
  * Primary chat API for Olla Nest.
@@ -82,8 +82,8 @@ import java.util.Collections;
  *
  * @author Ashok Ram
  * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.10 — L-4: ok:false added to all 4xx error responses;
- *          MED-1: 403 chat:use response includes ok:false
+ * @version v2026.1.10 — L-4: ok:false added to all 4xx error responses; MED-1:
+ *          403 chat:use response includes ok:false
  */
 @RestController
 @RequestMapping("/api")
@@ -193,7 +193,8 @@ public class ChatController extends BaseController {
 			return authError;
 		User user = getUser(req);
 		if (!userHasRight(user, "chat:use")) {
-			return ResponseEntity.status(403).body(Map.of("ok", false, "error", "Chat access is not enabled for this account"));
+			return ResponseEntity.status(403)
+					.body(Map.of("ok", false, "error", "Chat access is not enabled for this account"));
 		}
 		if (!chatService.checkChatRateLimit(user.id, user.apiRateLimitPerMinute)) {
 			return ResponseEntity.status(429).body(Map.of("ok", false, "error", "Rate limit reached."));
@@ -219,7 +220,8 @@ public class ChatController extends BaseController {
 		}
 		for (String img : rawImages) {
 			if (img != null && img.length() > 5 * 1024 * 1024) { // 5 MB base64 ≈ ~3.75 MB decoded
-				return ResponseEntity.status(400).body(Map.of("ok", false, "error", "Each image must be under 5 MB base64"));
+				return ResponseEntity.status(400)
+						.body(Map.of("ok", false, "error", "Each image must be under 5 MB base64"));
 			}
 		}
 
@@ -345,8 +347,7 @@ public class ChatController extends BaseController {
 
 		// Guard: session may be deleted concurrently; avoid IndexOutOfBoundsException
 		// in this hot streaming path by checking the list before indexing into it.
-		List<Map<String, Object>> sessionRows =
-				db.queryForList("SELECT * FROM chat_sessions WHERE id = ?", chatId);
+		List<Map<String, Object>> sessionRows = db.queryForList("SELECT * FROM chat_sessions WHERE id = ?", chatId);
 		if (sessionRows.isEmpty()) {
 			log.warn("[chat] Session {} vanished after update — returning partial result", chatId);
 			sessionRows = Collections.singletonList(Map.of("id", chatId));
@@ -457,17 +458,21 @@ public class ChatController extends BaseController {
 		List<String> streamImages = body.get("images") instanceof List ? (List<String>) body.get("images") : List.of();
 		if (streamImages.size() > 10) {
 			try {
-				emitter.send(SseEmitter.event().data("{\"type\":\"error\",\"message\":\"Maximum 10 images per message\"}"));
+				emitter.send(
+						SseEmitter.event().data("{\"type\":\"error\",\"message\":\"Maximum 10 images per message\"}"));
 				emitter.complete();
-			} catch (Exception ignored) {}
+			} catch (Exception ignored) {
+			}
 			return emitter;
 		}
 		for (String img : streamImages) {
 			if (img != null && img.length() > 5 * 1024 * 1024) {
 				try {
-					emitter.send(SseEmitter.event().data("{\"type\":\"error\",\"message\":\"Each image must be under 5 MB base64\"}"));
+					emitter.send(SseEmitter.event()
+							.data("{\"type\":\"error\",\"message\":\"Each image must be under 5 MB base64\"}"));
 					emitter.complete();
-				} catch (Exception ignored) {}
+				} catch (Exception ignored) {
+				}
 				return emitter;
 			}
 		}
@@ -541,7 +546,7 @@ public class ChatController extends BaseController {
 						"provider", route.selected.provider, "reason", route.reason))));
 
 				Map<String, Object> workspace = workspaceService.workspaceForUser(user.id);
-					List<String> images = validatedImages; // already validated above
+				List<String> images = validatedImages; // already validated above
 				Map<String, Object> chatSession = chatService.getActiveChat(user.id);
 				String chatId = (String) chatSession.get("id");
 				String ragContext = ragService.buildRagContext(finalMessage, user.id);
@@ -781,7 +786,8 @@ public class ChatController extends BaseController {
 		String sessionId = (String) body.get("sessionId");
 		Object ratingObj = body.get("rating");
 		if (messageId == null || sessionId == null || ratingObj == null) {
-			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "messageId, sessionId, and rating are required"));
+			return ResponseEntity.status(400)
+					.body(Map.of("ok", false, "error", "messageId, sessionId, and rating are required"));
 		}
 		int rating = ((Number) ratingObj).intValue();
 		if (rating != 1 && rating != -1) {

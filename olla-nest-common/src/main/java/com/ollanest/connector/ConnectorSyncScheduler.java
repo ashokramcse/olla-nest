@@ -1,12 +1,5 @@
 package com.ollanest.connector;
 
-import com.ollanest.service.CryptoService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +9,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import com.ollanest.service.CryptoService;
 
 /**
  * Hourly background scheduler that drives incremental sync for all enabled
@@ -57,8 +58,8 @@ import java.util.concurrent.TimeoutException;
  * per-connector try/catch isolation; sync-log write-back; 30-day log
  * pruning.</li>
  * <li><b>v2026.1.10</b> — MED-4: run connectors in parallel virtual threads
- * with 10-minute overall cap; L-8: add random suffix to logId to prevent
- * ID collision under concurrent runs.</li>
+ * with 10-minute overall cap; L-8: add random suffix to logId to prevent ID
+ * collision under concurrent runs.</li>
  * </ul>
  *
  * @author Ashok Ram
@@ -172,10 +173,10 @@ public class ConnectorSyncScheduler {
 	 *
 	 * <p>
 	 * Inserts a {@code connector_sync_log} row, calls
-	 * {@link BaseConnector#sync(Map, String)}, and writes the outcome back to
-	 * both {@code connector_configs} and {@code connector_sync_log}. All
-	 * exceptions are caught and recorded so that one failing connector does not
-	 * prevent the others from running.
+	 * {@link BaseConnector#sync(Map, String)}, and writes the outcome back to both
+	 * {@code connector_configs} and {@code connector_sync_log}. All exceptions are
+	 * caught and recorded so that one failing connector does not prevent the others
+	 * from running.
 	 *
 	 * @param cfg the {@code connector_configs} row to sync
 	 * @since v2026.1.10
@@ -190,10 +191,10 @@ public class ConnectorSyncScheduler {
 		}
 
 		// L-8: append random suffix to prevent ID collision under concurrent runs
-		String logId = "csl-" + Long.toString(System.currentTimeMillis(), 36)
-				+ "-" + Long.toString((long)(Math.random() * 1_000_000), 36);
-		db.update("INSERT INTO connector_sync_log (id, connector_id, started_at, status) VALUES (?,?,?,?)", logId,
-				id, Instant.now().toString(), "running");
+		String logId = "csl-" + Long.toString(System.currentTimeMillis(), 36) + "-"
+				+ Long.toString((long) (Math.random() * 1_000_000), 36);
+		db.update("INSERT INTO connector_sync_log (id, connector_id, started_at, status) VALUES (?,?,?,?)", logId, id,
+				Instant.now().toString(), "running");
 		db.update("UPDATE connector_configs SET sync_status='syncing', updated_at=? WHERE id=?",
 				Instant.now().toString(), id);
 
@@ -212,8 +213,7 @@ public class ConnectorSyncScheduler {
 				log.info("[connectors] {} synced {} docs, skipped {}", type, result.synced(), result.skipped());
 			} else {
 				db.update(
-						"UPDATE connector_configs "
-								+ "SET sync_status='error', sync_error=?, updated_at=? WHERE id=?",
+						"UPDATE connector_configs " + "SET sync_status='error', sync_error=?, updated_at=? WHERE id=?",
 						result.error(), Instant.now().toString(), id);
 				db.update("UPDATE connector_sync_log " + "SET finished_at=?, error=?, status='error' WHERE id=?",
 						Instant.now().toString(), result.error(), logId);
@@ -221,8 +221,7 @@ public class ConnectorSyncScheduler {
 			}
 		} catch (Exception e) {
 			log.error("[connectors] {} unexpected error: {}", type, e.getMessage());
-			db.update(
-					"UPDATE connector_configs " + "SET sync_status='error', sync_error=?, updated_at=? WHERE id=?",
+			db.update("UPDATE connector_configs " + "SET sync_status='error', sync_error=?, updated_at=? WHERE id=?",
 					e.getMessage(), Instant.now().toString(), id);
 			db.update("UPDATE connector_sync_log " + "SET finished_at=?, error=?, status='error' WHERE id=?",
 					Instant.now().toString(), e.getMessage(), logId);

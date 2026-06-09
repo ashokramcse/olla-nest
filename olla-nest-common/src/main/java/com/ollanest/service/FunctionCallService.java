@@ -245,8 +245,7 @@ public class FunctionCallService {
 			// so the tool now works without any external script engine and without
 			// the code-execution surface of eval().
 			double result = new ArithmeticEvaluator(safe).parse();
-			String num = (result == Math.rint(result) && !Double.isInfinite(result))
-					? String.valueOf((long) result)
+			String num = (result == Math.rint(result) && !Double.isInfinite(result)) ? String.valueOf((long) result)
 					: String.valueOf(result);
 			return "{\"expression\": \"" + expression + "\", \"result\": " + num + "}";
 		} catch (ArithmeticException e) {
@@ -265,20 +264,29 @@ public class FunctionCallService {
 		private final String s;
 		private int pos = -1, ch;
 
-		ArithmeticEvaluator(String s) { this.s = s; }
+		ArithmeticEvaluator(String s) {
+			this.s = s;
+		}
 
 		double parse() {
 			nextChar();
 			double x = parseExpression();
-			if (pos < s.length()) throw new ArithmeticException("Unexpected: '" + (char) ch + "'");
+			if (pos < s.length())
+				throw new ArithmeticException("Unexpected: '" + (char) ch + "'");
 			return x;
 		}
 
-		private void nextChar() { ch = (++pos < s.length()) ? s.charAt(pos) : -1; }
+		private void nextChar() {
+			ch = (++pos < s.length()) ? s.charAt(pos) : -1;
+		}
 
 		private boolean eat(int c) {
-			while (ch == ' ') nextChar();
-			if (ch == c) { nextChar(); return true; }
+			while (ch == ' ')
+				nextChar();
+			if (ch == c) {
+				nextChar();
+				return true;
+			}
 			return false;
 		}
 
@@ -286,9 +294,12 @@ public class FunctionCallService {
 		private double parseExpression() {
 			double x = parseTerm();
 			for (;;) {
-				if (eat('+')) x += parseTerm();
-				else if (eat('-')) x -= parseTerm();
-				else return x;
+				if (eat('+'))
+					x += parseTerm();
+				else if (eat('-'))
+					x -= parseTerm();
+				else
+					return x;
 			}
 		}
 
@@ -296,29 +307,37 @@ public class FunctionCallService {
 		private double parseTerm() {
 			double x = parseFactor();
 			for (;;) {
-				if (eat('*')) x *= parseFactor();
+				if (eat('*'))
+					x *= parseFactor();
 				else if (eat('/')) {
 					double d = parseFactor();
-					if (d == 0) throw new ArithmeticException("Division by zero");
+					if (d == 0)
+						throw new ArithmeticException("Division by zero");
 					x /= d;
 				} else if (eat('%')) {
 					double d = parseFactor();
-					if (d == 0) throw new ArithmeticException("Division by zero");
+					if (d == 0)
+						throw new ArithmeticException("Division by zero");
 					x %= d;
-				} else return x;
+				} else
+					return x;
 			}
 		}
 
 		private double parseFactor() {
-			if (eat('+')) return parseFactor();
-			if (eat('-')) return -parseFactor();
+			if (eat('+'))
+				return parseFactor();
+			if (eat('-'))
+				return -parseFactor();
 			double x;
 			int startPos = pos;
 			if (eat('(')) {
 				x = parseExpression();
-				if (!eat(')')) throw new ArithmeticException("Missing ')'");
+				if (!eat(')'))
+					throw new ArithmeticException("Missing ')'");
 			} else if ((ch >= '0' && ch <= '9') || ch == '.') {
-				while ((ch >= '0' && ch <= '9') || ch == '.') nextChar();
+				while ((ch >= '0' && ch <= '9') || ch == '.')
+					nextChar();
 				x = Double.parseDouble(s.substring(startPos, pos));
 			} else {
 				throw new ArithmeticException("Unexpected: '" + (ch == -1 ? "EOF" : (char) ch) + "'");

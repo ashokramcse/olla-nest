@@ -1,6 +1,8 @@
 package com.ollanest.service;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,8 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 
 /**
  * Retrieval-Augmented Generation (RAG) pipeline for document ingestion and
@@ -92,8 +92,8 @@ public class RagService {
 	/**
 	 * Prompt-injection hardening for untrusted RAG content. Retrieved document
 	 * chunks are external/untrusted data: they may contain embedded instructions
-	 * (indirect prompt injection). Every assembled context is wrapped with a
-	 * safety preamble and audited to {@code prompt_security_log}.
+	 * (indirect prompt injection). Every assembled context is wrapped with a safety
+	 * preamble and audited to {@code prompt_security_log}.
 	 */
 	private final PromptSecurityService promptSecurityService;
 
@@ -103,12 +103,12 @@ public class RagService {
 	 * @param db                    Spring JDBC template bound to the application's
 	 *                              data source
 	 * @param embeddingService      embedding computation and similarity service
-	 * @param promptSecurityService prompt-injection hardening / audit for RAG content
+	 * @param promptSecurityService prompt-injection hardening / audit for RAG
+	 *                              content
 	 * @since v2026.1.0
 	 * @version v2026.2.2 — wired prompt-injection hardening into RAG retrieval
 	 */
-	public RagService(JdbcTemplate db, EmbeddingService embeddingService,
-			PromptSecurityService promptSecurityService) {
+	public RagService(JdbcTemplate db, EmbeddingService embeddingService, PromptSecurityService promptSecurityService) {
 		this.db = db;
 		this.embeddingService = embeddingService;
 		this.promptSecurityService = promptSecurityService;
@@ -285,9 +285,9 @@ public class RagService {
 
 	/**
 	 * Maps a user id to the RAG scope under which that user's personal documents
-	 * are stored (see {@code PersonalDocumentService.upload}). Used by retrieval
-	 * so a user's own uploads — not just global docs — are surfaced. A blank id
-	 * falls back to {@code "global"}-only retrieval.
+	 * are stored (see {@code PersonalDocumentService.upload}). Used by retrieval so
+	 * a user's own uploads — not just global docs — are surfaced. A blank id falls
+	 * back to {@code "global"}-only retrieval.
 	 *
 	 * @param userId the authenticated user's id, or {@code null}/blank
 	 * @return {@code "personal:" + userId}, or {@code null} for blank input
@@ -328,7 +328,10 @@ public class RagService {
 	 * @return the generated document ID (e.g. {@code doc-lx7k3a-p2q8r5})
 	 * @since v2026.1.0
 	 */
-	/** SecureRandom for document ID generation — used to prevent ID collision and guessing. */
+	/**
+	 * SecureRandom for document ID generation — used to prevent ID collision and
+	 * guessing.
+	 */
 	private static final SecureRandom INGEST_RNG = new SecureRandom();
 
 	public String ingestText(String content, String name, String scope) {

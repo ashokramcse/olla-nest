@@ -1,10 +1,13 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.service.ChatService;
-import com.ollanest.service.UserService;
-
-import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -16,14 +19,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import com.ollanest.model.User;
+import com.ollanest.service.ChatService;
+import com.ollanest.service.UserService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Handles user self-service account operations for the authenticated user.
@@ -154,28 +154,30 @@ public class AccountController extends BaseController {
 		// Per-field maximum lengths — prevents unbounded string storage and protects
 		// downstream systems that may truncate or choke on excessively long values.
 		Map<String, Integer> maxLengths = new HashMap<>();
-		maxLengths.put("name",            150);
-		maxLengths.put("phone",            30);
-		maxLengths.put("avatar_initials",   4);
-		maxLengths.put("designation",     100);
-		maxLengths.put("team",            100);
-		maxLengths.put("branch",          100);
+		maxLengths.put("name", 150);
+		maxLengths.put("phone", 30);
+		maxLengths.put("avatar_initials", 4);
+		maxLengths.put("designation", 100);
+		maxLengths.put("team", 100);
+		maxLengths.put("branch", 100);
 
 		List<String> setClauses = new ArrayList<>();
 		List<Object> values = new ArrayList<>();
 		for (String field : allowed) {
 			String camel = snakeToCamel(field);
-			if (!body.containsKey(camel)) continue;
+			if (!body.containsKey(camel))
+				continue;
 			// Sanitize and validate each user-supplied string value.
 			// sanitizeText() strips HTML/XSS characters; length guard prevents
 			// oversized payloads from reaching the DB.
 			String raw = String.valueOf(body.get(camel));
 			String sanitized = sanitizeText(raw);
-			if (sanitized == null) sanitized = "";
+			if (sanitized == null)
+				sanitized = "";
 			int maxLen = maxLengths.getOrDefault(field, 255);
 			if (sanitized.length() > maxLen) {
-				return ResponseEntity.status(400).body(Map.of("error",
-						"Field '" + camel + "' exceeds maximum length of " + maxLen + " characters"));
+				return ResponseEntity.status(400).body(
+						Map.of("error", "Field '" + camel + "' exceeds maximum length of " + maxLen + " characters"));
 			}
 			setClauses.add(field + " = ?");
 			values.add(sanitized);

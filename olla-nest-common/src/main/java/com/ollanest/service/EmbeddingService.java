@@ -1,24 +1,25 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.util.stream.Collectors;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Computes, stores, and compares vector embeddings for RAG document retrieval.
@@ -53,7 +54,8 @@ import java.util.Set;
  *
  * @author Ashok Ram
  * @since v2026.1.0
- * @version v2026.1.10 — HIGH-3 static shared HttpClient; L-2 retry logic for transient Ollama failures
+ * @version v2026.1.10 — HIGH-3 static shared HttpClient; L-2 retry logic for
+ *          transient Ollama failures
  */
 @Service
 public class EmbeddingService {
@@ -61,9 +63,11 @@ public class EmbeddingService {
 	/** SLF4J logger for this class. */
 	private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
 
-	/** Shared HTTP client for Ollama embedding API calls. Thread-safe; reuse avoids connection-pool thrashing. */
-	private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-			.connectTimeout(Duration.ofSeconds(30))
+	/**
+	 * Shared HTTP client for Ollama embedding API calls. Thread-safe; reuse avoids
+	 * connection-pool thrashing.
+	 */
+	private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30))
 			.build();
 
 	/**

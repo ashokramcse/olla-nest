@@ -1,6 +1,9 @@
 package com.ollanest.controller;
 
-import com.ollanest.config.AppConfig;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -9,10 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import com.ollanest.config.AppConfig;
 
 /**
  * Provides the minimal data the frontend needs before the user has logged in.
@@ -105,8 +105,8 @@ public class BootstrapController {
 	 * BCrypt.checkpw (≈250ms) on every page load.
 	 *
 	 * <p>
-	 * Thread safety: multiple concurrent callers may all compute the value on
-	 * cache miss; this is acceptable since BCrypt is idempotent and the result is
+	 * Thread safety: multiple concurrent callers may all compute the value on cache
+	 * miss; this is acceptable since BCrypt is idempotent and the result is
 	 * consistent. The cache is intentionally not locked to keep the hot path fast.
 	 *
 	 * @return {@code true} if the admin password is still the factory default

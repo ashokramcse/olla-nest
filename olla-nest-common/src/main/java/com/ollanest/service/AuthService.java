@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +20,6 @@ import com.ollanest.model.User;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.regex.Pattern;
 
 /**
  * Session management: in-memory cache backed by DB persistence.
@@ -38,8 +38,9 @@ import java.util.regex.Pattern;
  * Cookie configuration:
  * <ul>
  * <li>Name: configurable via {@code app.session-cookie-name} (default
- * {@code olla_nest_session}). The admin and user apps set distinct names so they
- * do not share a cookie when running on the same host but different ports.</li>
+ * {@code olla_nest_session}). The admin and user apps set distinct names so
+ * they do not share a cookie when running on the same host but different
+ * ports.</li>
  * <li>Flags: {@code HttpOnly; SameSite=Lax; Path=/}</li>
  * <li>Duration: 12 hours (43 200 seconds)</li>
  * <li>Optional {@code Secure} flag controlled by the {@code app.cookie-secure}
@@ -86,8 +87,9 @@ public class AuthService {
 	/**
 	 * Name of the session cookie set on the browser.
 	 *
-	 * <p>Configurable per service so that the admin and user applications — which
-	 * run on the same host ({@code localhost}) but different ports — do not share a
+	 * <p>
+	 * Configurable per service so that the admin and user applications — which run
+	 * on the same host ({@code localhost}) but different ports — do not share a
 	 * cookie. Cookies are scoped by host, not port, so a shared name would let a
 	 * login (or logout) in one app clobber the other's session. Each app sets a
 	 * distinct {@code app.session-cookie-name}; the default preserves the original
@@ -104,22 +106,30 @@ public class AuthService {
 	private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
 	/**
-	 * Expected length (in hex characters) of a valid session token.
-	 * 32 random bytes → 64 lowercase hex characters.
+	 * Expected length (in hex characters) of a valid session token. 32 random bytes
+	 * → 64 lowercase hex characters.
 	 */
 	private static final int TOKEN_HEX_LENGTH = 64;
 
-	/** Pre-compiled pattern for validating that a token is exactly 64 lowercase hex chars. */
-	private static final Pattern TOKEN_PATTERN =
-			Pattern.compile("^[0-9a-f]{64}$");
+	/**
+	 * Pre-compiled pattern for validating that a token is exactly 64 lowercase hex
+	 * chars.
+	 */
+	private static final Pattern TOKEN_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
 
 	/** Session lifetime in seconds (12 hours). */
 	private static final long SESSION_DURATION_SECONDS = 43200;
 
-	/** Maximum number of sessions to hold in the in-memory cache. Prevents unbounded growth. */
+	/**
+	 * Maximum number of sessions to hold in the in-memory cache. Prevents unbounded
+	 * growth.
+	 */
 	private static final int MAX_CACHE_SIZE = 10_000;
 
-	/** Lock for cache eviction — prevents two concurrent setSession() calls from over-evicting. */
+	/**
+	 * Lock for cache eviction — prevents two concurrent setSession() calls from
+	 * over-evicting.
+	 */
 	private static final Object CACHE_EVICTION_LOCK = new Object();
 
 	/**
@@ -169,9 +179,9 @@ public class AuthService {
 	public static class CachedSession {
 
 		/**
-		 * The authenticated user associated with this session.
-		 * Declared {@code final} to prevent external code from replacing the user
-		 * reference on a live cached session (immutability defence).
+		 * The authenticated user associated with this session. Declared {@code final}
+		 * to prevent external code from replacing the user reference on a live cached
+		 * session (immutability defence).
 		 */
 		public final User user;
 
@@ -200,9 +210,9 @@ public class AuthService {
 	 * Extracts the raw session token string from the request cookies.
 	 *
 	 * <p>
-	 * Iterates the cookie array looking for a cookie whose name equals
-	 * the configured session cookie name. Returns {@code null} if the cookie is absent or if the
-	 * request carries no cookies at all.
+	 * Iterates the cookie array looking for a cookie whose name equals the
+	 * configured session cookie name. Returns {@code null} if the cookie is absent
+	 * or if the request carries no cookies at all.
 	 *
 	 * @param req the current HTTP servlet request; must not be {@code null}
 	 * @return the session token string, or {@code null} if not present
@@ -321,7 +331,8 @@ public class AuthService {
 		// from both observing size >= MAX_CACHE_SIZE and over-evicting, or from
 		// adding a new session that gets immediately removed by a racing eviction.
 		// Use a dedicated lock object rather than synchronizing on 'sessions' itself
-		// (which would serialize all ConcurrentHashMap operations, defeating its purpose).
+		// (which would serialize all ConcurrentHashMap operations, defeating its
+		// purpose).
 		synchronized (CACHE_EVICTION_LOCK) {
 			if (sessions.size() >= MAX_CACHE_SIZE) {
 				// Pass 1: remove expired entries — O(n) but cheap in the common case
@@ -331,9 +342,7 @@ public class AuthService {
 					int toRemove = MAX_CACHE_SIZE / 10;
 					sessions.entrySet().stream()
 							.sorted(Map.Entry.comparingByValue(Comparator.comparingLong(s -> s.expiresAtMs)))
-							.limit(toRemove)
-							.map(Map.Entry::getKey)
-							.toList()  // collect before modifying the map
+							.limit(toRemove).map(Map.Entry::getKey).toList() // collect before modifying the map
 							.forEach(sessions::remove);
 				}
 			}
@@ -347,8 +356,8 @@ public class AuthService {
 		// same cookie name; browsers process both, and the one without SameSite may
 		// be stored instead of the hardened one on some older browsers.
 		String secureFlag = cookieSecure ? "; Secure" : "";
-		res.setHeader("Set-Cookie", cookieName + "=" + token
-				+ "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" + SESSION_DURATION_SECONDS + secureFlag);
+		res.setHeader("Set-Cookie", cookieName + "=" + token + "; HttpOnly; SameSite=Lax; Path=/; Max-Age="
+				+ SESSION_DURATION_SECONDS + secureFlag);
 	}
 
 	/**

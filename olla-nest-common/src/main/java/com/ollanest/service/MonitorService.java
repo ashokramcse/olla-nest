@@ -1,11 +1,11 @@
 package com.ollanest.service;
 
-import org.springframework.stereotype.Service;
-
 import java.lang.management.ManagementFactory;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.springframework.stereotype.Service;
 
 /**
  * In-process telemetry counter used by the health and metrics endpoints.

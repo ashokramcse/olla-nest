@@ -1,32 +1,5 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.LinkedHashMap;
-import org.springframework.dao.DataAccessException;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,10 +10,38 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
  * Unit tests for {@link ChatService}.
  *
- * <p>Covers: token estimation, rate-limit concurrency safety (race-condition
+ * <p>
+ * Covers: token estimation, rate-limit concurrency safety (race-condition
  * regression), UID uniqueness + entropy, context-window budgeting, message
  * parsing, and audit/trace persistence.
  *
@@ -52,9 +53,12 @@ import static org.mockito.Mockito.when;
 @DisplayName("ChatService — unit tests")
 class ChatServiceTest {
 
-	@Mock JdbcTemplate            db;
-	@Mock WorkspaceService        workspaceService;
-	@Mock PromptTemplateService   promptTemplateService;
+	@Mock
+	JdbcTemplate db;
+	@Mock
+	WorkspaceService workspaceService;
+	@Mock
+	PromptTemplateService promptTemplateService;
 
 	private final ObjectMapper mapper = new ObjectMapper();
 	private ChatService service;
@@ -163,12 +167,13 @@ class ChatServiceTest {
 		/**
 		 * Concurrency regression test for the race condition fixed in v2026.1.9.
 		 *
-		 * <p>20 threads simultaneously call checkChatRateLimit with limit=10 for the
-		 * same user. A correct implementation must allow EXACTLY 10 and deny the other
-		 * 10. The original {@code long[] counter; counter[0]++} code was not atomic —
-		 * under contention two threads could both read count &lt; limit and both
-		 * increment, allowing up to 20 requests through. This test would have been
-		 * flaky (passing sometimes, failing sometimes) before the fix.
+		 * <p>
+		 * 20 threads simultaneously call checkChatRateLimit with limit=10 for the same
+		 * user. A correct implementation must allow EXACTLY 10 and deny the other 10.
+		 * The original {@code long[] counter; counter[0]++} code was not atomic — under
+		 * contention two threads could both read count &lt; limit and both increment,
+		 * allowing up to 20 requests through. This test would have been flaky (passing
+		 * sometimes, failing sometimes) before the fix.
 		 */
 		@Test
 		@DisplayName("race condition fix: exactly 10 of 20 concurrent requests allowed (limit=10)")
@@ -177,9 +182,9 @@ class ChatServiceTest {
 			int threadCount = 20;
 			int limit = 10;
 			AtomicInteger allowed = new AtomicInteger(0);
-			AtomicInteger denied  = new AtomicInteger(0);
+			AtomicInteger denied = new AtomicInteger(0);
 			CountDownLatch startGate = new CountDownLatch(1);
-			CountDownLatch done      = new CountDownLatch(threadCount);
+			CountDownLatch done = new CountDownLatch(threadCount);
 
 			ExecutorService pool = Executors.newFixedThreadPool(threadCount);
 			for (int i = 0; i < threadCount; i++) {
@@ -201,12 +206,8 @@ class ChatServiceTest {
 			assertThat(done.await(5, TimeUnit.SECONDS)).isTrue();
 			pool.shutdown();
 
-			assertThat(allowed.get())
-					.as("Allowed requests must equal the limit (not exceed it)")
-					.isEqualTo(limit);
-			assertThat(denied.get())
-					.as("Denied requests must fill the remainder")
-					.isEqualTo(threadCount - limit);
+			assertThat(allowed.get()).as("Allowed requests must equal the limit (not exceed it)").isEqualTo(limit);
+			assertThat(denied.get()).as("Denied requests must fill the remainder").isEqualTo(threadCount - limit);
 		}
 	}
 
@@ -297,7 +298,8 @@ class ChatServiceTest {
 		@Test
 		@DisplayName("null live defaults to true")
 		void nullLiveIsTrue() {
-			// Null live (column absent in older rows) defaults to true (message is considered live)
+			// Null live (column absent in older rows) defaults to true (message is
+			// considered live)
 			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("role", "assistant");
 			row.put("content", "x");
@@ -351,11 +353,9 @@ class ChatServiceTest {
 		void writesAuditRow() {
 			// Audit write: userId, event, detail, ip, timestamp — all parameterized
 			service.appendAudit("alice", "user.login", "Signed in", null);
-			verify(db).update(
-					contains("INSERT INTO audit_events"),
+			verify(db).update(contains("INSERT INTO audit_events"),
 					// args: id, userId, event, detail, ip, created_at
-					any(), eq("alice"), eq("user.login"), eq("Signed in"),
-					anyString(), anyString());
+					any(), eq("alice"), eq("user.login"), eq("Signed in"), anyString(), anyString());
 		}
 
 		@Test
@@ -363,9 +363,7 @@ class ChatServiceTest {
 		void nullDetailBecomesEmptyString() {
 			// Null detail must be coerced to "" — avoids NOT NULL constraint violation
 			service.appendAudit("system", "startup", null, null);
-			verify(db).update(
-					contains("INSERT INTO audit_events"),
-					any(), eq("system"), eq("startup"), eq(""),
+			verify(db).update(contains("INSERT INTO audit_events"), any(), eq("system"), eq("startup"), eq(""),
 					anyString(), anyString());
 		}
 
@@ -373,12 +371,10 @@ class ChatServiceTest {
 		@DisplayName("DB exception during audit is silently swallowed (fire-and-forget)")
 		void dbExceptionSwallowed() {
 			// Stub: DB throws during audit INSERT (e.g. disk full)
-			doThrow(new DataAccessException("DB down") {})
-					.when(db).update(contains("INSERT INTO audit_events"),
-							any(), any(), any(), any(), any(), any());
+			doThrow(new DataAccessException("DB down") {
+			}).when(db).update(contains("INSERT INTO audit_events"), any(), any(), any(), any(), any(), any());
 			// Audit is fire-and-forget — a DB failure must NEVER crash the chat flow
-			assertThatNoException()
-					.isThrownBy(() -> service.appendAudit("u", "action", "detail", null));
+			assertThatNoException().isThrownBy(() -> service.appendAudit("u", "action", "detail", null));
 		}
 	}
 
@@ -392,10 +388,8 @@ class ChatServiceTest {
 		@BeforeEach
 		void stubModelAndHistory() {
 			// No model found → fallback context window = 8192
-			when(db.queryForList(contains("FROM models"), anyString(), anyString()))
-					.thenReturn(List.of());
-			when(db.queryForList(contains("FROM api_models"), anyString()))
-					.thenReturn(List.of());
+			when(db.queryForList(contains("FROM models"), anyString(), anyString())).thenReturn(List.of());
+			when(db.queryForList(contains("FROM api_models"), anyString())).thenReturn(List.of());
 		}
 
 		@Test
@@ -404,8 +398,8 @@ class ChatServiceTest {
 			// Stub: no prior messages in this session
 			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(List.of());
 
-			List<Map<String, Object>> msgs = service.buildContextMessages(
-					"sess-1", "You are helpful.", "Hello!", "llama3", null);
+			List<Map<String, Object>> msgs = service.buildContextMessages("sess-1", "You are helpful.", "Hello!",
+					"llama3", null);
 
 			// [system prompt, user turn] — minimal valid message array for the LLM
 			assertThat(msgs).hasSize(2);
@@ -418,14 +412,12 @@ class ChatServiceTest {
 		@DisplayName("history messages are included between system and user")
 		void historyMessagesIncluded() {
 			// Stub: 2 prior messages in the session
-			List<Map<String, Object>> history = List.of(
-					Map.of("role", "user",      "content", "First question"),
-					Map.of("role", "assistant",  "content", "First answer")
-			);
+			List<Map<String, Object>> history = List.of(Map.of("role", "user", "content", "First question"),
+					Map.of("role", "assistant", "content", "First answer"));
 			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(history);
 
-			List<Map<String, Object>> msgs = service.buildContextMessages(
-					"sess-2", "sys", "Follow-up?", "llama3", null);
+			List<Map<String, Object>> msgs = service.buildContextMessages("sess-2", "sys", "Follow-up?", "llama3",
+					null);
 
 			// Order: system, history[0], history[1], user
 			assertThat(msgs).hasSize(4); // system + 2 history + user
@@ -440,11 +432,11 @@ class ChatServiceTest {
 			// Stub: no history — vision request with one image
 			when(db.queryForList(contains("chat_messages"), anyString())).thenReturn(List.of());
 
-			List<Map<String, Object>> msgs = service.buildContextMessages(
-					"sess-3", "sys", "Describe this image", "llama3",
-					List.of("base64encodedImageData=="));
+			List<Map<String, Object>> msgs = service.buildContextMessages("sess-3", "sys", "Describe this image",
+					"llama3", List.of("base64encodedImageData=="));
 
-			// Images array must be attached to the last (user) message, not the system message
+			// Images array must be attached to the last (user) message, not the system
+			// message
 			@SuppressWarnings("unchecked")
 			List<String> images = (List<String>) msgs.get(msgs.size() - 1).get("images");
 			assertThat(images).containsExactly("base64encodedImageData==");
@@ -462,8 +454,8 @@ class ChatServiceTest {
 
 			// Context window is 8192 (fallback); system + user message use ~512 reserved
 			// So budget ~7680 tokens; 100 * 50 = 5000 tokens — all should fit here
-			List<Map<String, Object>> msgs = service.buildContextMessages(
-					"sess-4", "s".repeat(100), "m".repeat(100), "llama3", null);
+			List<Map<String, Object>> msgs = service.buildContextMessages("sess-4", "s".repeat(100), "m".repeat(100),
+					"llama3", null);
 
 			// Result must always begin with system and end with user
 			assertThat(msgs.size()).isGreaterThanOrEqualTo(2); // at minimum system + user

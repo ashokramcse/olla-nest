@@ -1,8 +1,8 @@
 package com.ollanest.controller;
 
-import com.ollanest.config.AppConfig;
-
-import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import com.ollanest.config.AppConfig;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Provides dev-mode login hints to the browser on localhost only.
@@ -28,9 +28,9 @@ import java.util.Map;
  * <b>Security contract:</b>
  * <ul>
  * <li>The endpoint returns {@code 404 Not Found} for every caller that is
- * <em>not</em> connecting from a loopback address
- * ({@code 127.0.0.1}, {@code ::1}, {@code localhost}).
- * This is enforced server-side and cannot be bypassed by spoofing headers.</li>
+ * <em>not</em> connecting from a loopback address ({@code 127.0.0.1},
+ * {@code ::1}, {@code localhost}). This is enforced server-side and cannot be
+ * bypassed by spoofing headers.</li>
  * <li>The response only includes credentials for accounts that exist in the
  * database — it does not expose the raw configured values.</li>
  * <li>This endpoint is disabled entirely in production by design: the loopback
@@ -57,7 +57,7 @@ public class DevHintsController {
 	private static final Logger log = LoggerFactory.getLogger(DevHintsController.class);
 
 	/** Application configuration; provides seeded demo account credentials. */
-	private final AppConfig   appConfig;
+	private final AppConfig appConfig;
 	/** JDBC template for checking whether demo accounts exist in the database. */
 	private final JdbcTemplate db;
 
@@ -78,8 +78,8 @@ public class DevHintsController {
 	 *
 	 * <p>
 	 * Blocked with 404 for every non-loopback remote address. The loopback check
-	 * uses {@link HttpServletRequest#getRemoteAddr()} which reflects the actual
-	 * TCP peer — it cannot be overridden by {@code X-Forwarded-For} headers.
+	 * uses {@link HttpServletRequest#getRemoteAddr()} which reflects the actual TCP
+	 * peer — it cannot be overridden by {@code X-Forwarded-For} headers.
 	 *
 	 * @param req the HTTP request used to verify the caller is on loopback
 	 * @return 200 with account list on localhost; 404 otherwise
@@ -88,26 +88,24 @@ public class DevHintsController {
 	public ResponseEntity<Map<String, Object>> hints(HttpServletRequest req) {
 		// Hard loopback check — use getRemoteAddr() only (ignores X-Forwarded-For)
 		String remote = req.getRemoteAddr();
-		boolean isLoopback = "127.0.0.1".equals(remote)
-				|| "0:0:0:0:0:0:0:1".equals(remote)
-				|| "::1".equals(remote);
+		boolean isLoopback = "127.0.0.1".equals(remote) || "0:0:0:0:0:0:0:1".equals(remote) || "::1".equals(remote);
 
 		if (!isLoopback) {
 			log.warn("DEV /api/dev/hints blocked for non-loopback caller: {}", remote);
 			return ResponseEntity.notFound().build();
 		}
 
-		String adminEmail  = appConfig.getDefaultAdminEmail();
-		String adminPass   = appConfig.getDefaultAdminPassword();
-		String userPass    = appConfig.getDefaultUserPassword();
+		String adminEmail = appConfig.getDefaultAdminEmail();
+		String adminPass = appConfig.getDefaultAdminPassword();
+		String userPass = appConfig.getDefaultUserPassword();
 
 		// Only include accounts that actually exist in the DB
 		List<Map<String, Object>> accounts = new ArrayList<>();
 
-		addIfExists(accounts, "Admin",    adminEmail,                      adminPass, "#F5C800");
-		addIfExists(accounts, "Employee", "employee@ollanest.local",       userPass,  "#4ade80");
-		addIfExists(accounts, "Builder",  "builder@ollanest.local",        userPass,  "#60a5fa");
-		addIfExists(accounts, "Support",  "support@ollanest.local",        userPass,  "#c084fc");
+		addIfExists(accounts, "Admin", adminEmail, adminPass, "#F5C800");
+		addIfExists(accounts, "Employee", "employee@ollanest.local", userPass, "#4ade80");
+		addIfExists(accounts, "Builder", "builder@ollanest.local", userPass, "#60a5fa");
+		addIfExists(accounts, "Support", "support@ollanest.local", userPass, "#c084fc");
 
 		return ResponseEntity.ok(Map.of("accounts", accounts));
 	}
@@ -123,13 +121,14 @@ public class DevHintsController {
 	 * @param color    hex colour string for the UI badge
 	 * @since v2026.1.9
 	 */
-	private void addIfExists(List<Map<String, Object>> list,
-			String label, String email, String password, String color) {
+	private void addIfExists(List<Map<String, Object>> list, String label, String email, String password,
+			String color) {
 		// Skip placeholder passwords — no point offering a hint that won't work
-		if (password == null || password.startsWith("CHANGE_ME") || password.startsWith("SET_A_")) return;
+		if (password == null || password.startsWith("CHANGE_ME") || password.startsWith("SET_A_"))
+			return;
 
-		Integer count = db.queryForObject(
-				"SELECT COUNT(*) FROM users WHERE email = ? AND active = 1", Integer.class, email);
+		Integer count = db.queryForObject("SELECT COUNT(*) FROM users WHERE email = ? AND active = 1", Integer.class,
+				email);
 		if (count != null && count > 0) {
 			list.add(Map.of("label", label, "email", email, "password", password, "color", color));
 		}

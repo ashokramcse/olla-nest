@@ -1,5 +1,6 @@
 package com.ollanest.service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -9,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -16,8 +18,6 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.model.User;
-import java.time.Instant;
-import java.util.stream.Collectors;
 
 /**
  * User model hydration, permission resolution, and access-control helpers.
@@ -69,11 +69,10 @@ public class UserService {
 	/**
 	 * Usernames the auth layer reserves as internal "synthetic owner" sentinels.
 	 * These must never belong to a real account — creating or renaming into any of
-	 * them would grant silent privilege escalation (internal-tool is treated as admin
-	 * by require_admin, api is the bearer-token owner sentinel, etc.).
+	 * them would grant silent privilege escalation (internal-tool is treated as
+	 * admin by require_admin, api is the bearer-token owner sentinel, etc.).
 	 */
-	public static final Set<String> RESERVED_USERNAMES =
-			Set.of("internal-tool", "api", "demo", "system", "admin");
+	public static final Set<String> RESERVED_USERNAMES = Set.of("internal-tool", "api", "demo", "system", "admin");
 
 	/** JDBC template for all database queries in this service. */
 	private final JdbcTemplate db;
@@ -306,10 +305,8 @@ public class UserService {
 		if (!groupIds.isEmpty()) {
 			String placeholders = groupIds.stream().map(g -> "?").collect(Collectors.joining(","));
 			Object[] params = groupIds.toArray();
-			ids.addAll(db.queryForList(
-					"SELECT model_id FROM access_grants WHERE subject_type = 'group' "
-							+ "AND subject_id IN (" + placeholders + ") AND can_use = 1",
-					String.class, params));
+			ids.addAll(db.queryForList("SELECT model_id FROM access_grants WHERE subject_type = 'group' "
+					+ "AND subject_id IN (" + placeholders + ") AND can_use = 1", String.class, params));
 		}
 
 		// Implicit grants from effective rights

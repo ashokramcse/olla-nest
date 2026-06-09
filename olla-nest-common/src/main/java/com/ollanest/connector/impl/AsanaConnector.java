@@ -1,10 +1,11 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
+import java.util.Map;
+
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Spring {@code @Component} that pulls Asana tasks into the Olla-Nest knowledge

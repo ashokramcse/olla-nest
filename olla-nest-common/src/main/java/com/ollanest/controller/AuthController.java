@@ -1,12 +1,8 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.service.AuthService;
-import com.ollanest.service.ChatService;
-import com.ollanest.service.UserService;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -18,9 +14,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import com.ollanest.model.User;
+import com.ollanest.service.AuthService;
+import com.ollanest.service.ChatService;
+import com.ollanest.service.UserService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * REST controller for the authentication lifecycle: login, logout, and session
@@ -31,25 +31,27 @@ import java.util.Map;
  * <ul>
  * <li>{@code POST /api/auth/login} — authenticate with email and password; sets
  * an HttpOnly session cookie on success</li>
- * <li>{@code POST /api/auth/logout} — invalidates the current session cookie</li>
- * <li>{@code GET /api/auth/me} — returns authenticated status and the user object</li>
+ * <li>{@code POST /api/auth/logout} — invalidates the current session
+ * cookie</li>
+ * <li>{@code GET /api/auth/me} — returns authenticated status and the user
+ * object</li>
  * </ul>
  *
  * <h3>Why this class exists</h3>
  * <p>
  * Centralising the login flow in a dedicated controller keeps auth logic out of
  * the general-purpose {@code StateController} and makes it straightforward to
- * audit all credential-handling code in one place. The separation also simplifies
- * future work such as adding MFA or SSO flows without touching the chat or model
- * controllers.
+ * audit all credential-handling code in one place. The separation also
+ * simplifies future work such as adding MFA or SSO flows without touching the
+ * chat or model controllers.
  *
  * <h3>Design notes</h3>
  * <ul>
  * <li>Rate limit state is stored in the {@code login_attempts} DB table rather
  * than in-memory so it survives restarts and works correctly with multiple JVM
  * instances.</li>
- * <li>A dummy BCrypt hash is used for constant-time comparison when the email is
- * not found, preventing user-enumeration via timing attacks.</li>
+ * <li>A dummy BCrypt hash is used for constant-time comparison when the email
+ * is not found, preventing user-enumeration via timing attacks.</li>
  * <li>The same 401 message is returned for bad password, unknown email, and
  * expired account to prevent user enumeration.</li>
  * <li>A 1 % probabilistic cleanup of stale {@code login_attempts} rows runs on
@@ -60,8 +62,10 @@ import java.util.Map;
  * <h3>Version history</h3>
  * <ul>
  * <li>v2026.1.0 — initial Java Spring Boot migration</li>
- * <li>v2026.1.0 — security hardening: enforce {@code access_expires_at} (HIGH-2)</li>
- * <li>v2026.1.10 — L-18: probabilistic cleanup of stale login_attempts rows</li>
+ * <li>v2026.1.0 — security hardening: enforce {@code access_expires_at}
+ * (HIGH-2)</li>
+ * <li>v2026.1.10 — L-18: probabilistic cleanup of stale login_attempts
+ * rows</li>
  * </ul>
  *
  * @author Ashok Ram
@@ -89,11 +93,11 @@ public class AuthController extends BaseController {
 
 	/**
 	 * Dummy BCrypt hash used for constant-time comparison when the email is not
-	 * found.  Without this, an attacker can enumerate valid emails by timing how
+	 * found. Without this, an attacker can enumerate valid emails by timing how
 	 * long the login endpoint takes: a missing-user response returns immediately
-	 * (no BCrypt), while a wrong-password response takes ~100 ms (BCrypt work).
-	 * By always calling {@code BCrypt.checkpw} against this sentinel hash we
-	 * equalise response times for both failure modes.
+	 * (no BCrypt), while a wrong-password response takes ~100 ms (BCrypt work). By
+	 * always calling {@code BCrypt.checkpw} against this sentinel hash we equalise
+	 * response times for both failure modes.
 	 */
 	private static final String DUMMY_HASH = BCrypt.hashpw("dummy-constant-time-sentinel", BCrypt.gensalt(10));
 
@@ -117,8 +121,7 @@ public class AuthController extends BaseController {
 	 * @param db          the JDBC template for rate-limit queries
 	 * @since v2026.1.0 — initial Java Spring Boot migration
 	 */
-	public AuthController(AuthService authService, UserService userService,
-			ChatService chatService, JdbcTemplate db) {
+	public AuthController(AuthService authService, UserService userService, ChatService chatService, JdbcTemplate db) {
 		this.authService = authService;
 		this.userService = userService;
 		this.chatService = chatService;
@@ -204,8 +207,7 @@ public class AuthController extends BaseController {
 						+ "concurrent_model_limit, api_rate_limit_per_minute, max_context_size, "
 						+ "mfa_enabled, security_risk_score, access_status, access_expires_at, "
 						+ "last_active_at, auth_provider, phone, avatar_initials, password_hash "
-						+ "FROM users WHERE email = ? AND active = 1 "
-						+ "AND auth_provider = 'local' "
+						+ "FROM users WHERE email = ? AND active = 1 " + "AND auth_provider = 'local' "
 						+ "AND (access_expires_at IS NULL OR access_expires_at = '' "
 						+ "OR access_expires_at > datetime('now'))", email);
 
@@ -226,8 +228,7 @@ public class AuthController extends BaseController {
 					resetAt);
 			// SOC 2: log security event for failed login (audit trail) — no user PII in
 			// the message since the email may not correspond to any real account.
-			chatService.appendAudit("system", "auth.login.failed",
-					"Failed login attempt from " + ip, Map.of("ip", ip));
+			chatService.appendAudit("system", "auth.login.failed", "Failed login attempt from " + ip, Map.of("ip", ip));
 			return ResponseEntity.status(401).body(Map.of("ok", false, "error", "Invalid email or password"));
 		}
 
@@ -238,7 +239,8 @@ public class AuthController extends BaseController {
 		if (Math.random() < 0.01) {
 			try {
 				db.update("DELETE FROM login_attempts WHERE reset_at < ?", now - 86_400_000L); // 24h ago
-			} catch (Exception ignored) {}
+			} catch (Exception ignored) {
+			}
 		}
 
 		User user = userService.publicUser(row);

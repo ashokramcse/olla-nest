@@ -1,9 +1,12 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.service.RagService;
-
-import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.InputStream;
+import java.security.SecureRandom;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,14 +21,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.security.SecureRandom;
+import com.ollanest.model.User;
+import com.ollanest.service.RagService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * REST API for RAG document management.
@@ -57,7 +56,8 @@ import java.security.SecureRandom;
  *
  * @author Ashok Ram
  * @since v2026.1.2 — introduced with Spring AI 1.0.0 integration
- * @version v2026.1.10 — HIGH-1 IDOR ownership check on delete; HIGH-4 MIME type validation
+ * @version v2026.1.10 — HIGH-1 IDOR ownership check on delete; HIGH-4 MIME type
+ *          validation
  */
 @RestController
 @RequestMapping("/api/documents")
@@ -132,8 +132,8 @@ public class DocumentController extends BaseController {
 
 		// HIGH-5 FIX: Per-user upload rate limit (20 uploads per hour)
 		if (!checkUploadRateLimit(user.id)) {
-			return ResponseEntity.status(429).body(Map.of("ok", false,
-				"error", "Upload rate limit reached (max " + UPLOAD_RATE_LIMIT_PER_HOUR + " per hour)"));
+			return ResponseEntity.status(429).body(Map.of("ok", false, "error",
+					"Upload rate limit reached (max " + UPLOAD_RATE_LIMIT_PER_HOUR + " per hour)"));
 		}
 
 		if (file.isEmpty()) {
@@ -143,24 +143,27 @@ public class DocumentController extends BaseController {
 			return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "File too large (max 10 MB)"));
 		}
 
-		// HIGH-4 FIX: Validate by magic bytes AND extension — do NOT trust client MIME type.
-		// application/octet-stream is a generic catch-all that bypasses whitelist intent.
+		// HIGH-4 FIX: Validate by magic bytes AND extension — do NOT trust client MIME
+		// type.
+		// application/octet-stream is a generic catch-all that bypasses whitelist
+		// intent.
 		String fname = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase().trim() : "";
 		boolean allowedExt = fname.endsWith(".pdf") || fname.endsWith(".txt") || fname.endsWith(".md");
 		if (!allowedExt) {
-			return ResponseEntity.badRequest().body(Map.of("ok", false,
-				"error", "Unsupported file type. Allowed extensions: .pdf, .txt, .md"));
+			return ResponseEntity.badRequest()
+					.body(Map.of("ok", false, "error", "Unsupported file type. Allowed extensions: .pdf, .txt, .md"));
 		}
 		// Magic byte validation: verify the file content matches its declared extension
 		String resolvedType;
 		try {
 			resolvedType = validateMagicBytes(file, fname);
 		} catch (IOException e) {
-			return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "Could not read file: " + e.getMessage()));
+			return ResponseEntity.badRequest()
+					.body(Map.of("ok", false, "error", "Could not read file: " + e.getMessage()));
 		}
 		if (resolvedType == null) {
-			return ResponseEntity.badRequest().body(Map.of("ok", false,
-				"error", "File content does not match its extension (magic byte mismatch)"));
+			return ResponseEntity.badRequest().body(
+					Map.of("ok", false, "error", "File content does not match its extension (magic byte mismatch)"));
 		}
 
 		String name = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
@@ -197,15 +200,15 @@ public class DocumentController extends BaseController {
 		if (err != null)
 			return err;
 		User user = getUser(req);
-		List<Map<String, Object>> docs = db.queryForList(
-			"SELECT id, uploaded_by FROM rag_documents WHERE id = ?", id);
+		List<Map<String, Object>> docs = db.queryForList("SELECT id, uploaded_by FROM rag_documents WHERE id = ?", id);
 		if (docs.isEmpty()) {
 			return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Document not found"));
 		}
 		// Admins can delete any doc; regular users can only delete their own
 		String uploadedBy = (String) docs.get(0).get("uploaded_by");
 		if (!"admin".equals(user.role) && !user.name.equals(uploadedBy) && !user.id.equals(uploadedBy)) {
-			return ResponseEntity.status(403).body(Map.of("ok", false, "error", "You can only delete your own documents"));
+			return ResponseEntity.status(403)
+					.body(Map.of("ok", false, "error", "You can only delete your own documents"));
 		}
 		ragService.deleteDocument(id);
 		return ResponseEntity.ok(Map.of("ok", true));
@@ -214,8 +217,8 @@ public class DocumentController extends BaseController {
 	// ── Private helpers ──────────────────────────────────────────────────────
 
 	/**
-	 * HIGH-5: Sliding-window per-user upload rate limit.
-	 * Returns true if the user is within the limit; false if they should be rejected.
+	 * HIGH-5: Sliding-window per-user upload rate limit. Returns true if the user
+	 * is within the limit; false if they should be rejected.
 	 */
 	private boolean checkUploadRateLimit(String userId) {
 		long now = System.currentTimeMillis();
@@ -223,7 +226,7 @@ public class DocumentController extends BaseController {
 		long[] allowed = new long[1];
 		uploadRateLimitMap.compute(userId, (k, entry) -> {
 			if (entry == null) {
-				entry = new AtomicLong[]{new AtomicLong(0), new AtomicLong(now)};
+				entry = new AtomicLong[] { new AtomicLong(0), new AtomicLong(now) };
 			}
 			if (entry[1].get() < now - windowMs) {
 				entry[0].set(0);
@@ -239,7 +242,7 @@ public class DocumentController extends BaseController {
 	}
 
 	/** PDF magic bytes: %PDF */
-	private static final byte[] PDF_MAGIC = {0x25, 0x50, 0x44, 0x46};
+	private static final byte[] PDF_MAGIC = { 0x25, 0x50, 0x44, 0x46 };
 
 	/**
 	 * HIGH-4: Validates that the uploaded file's magic bytes match its extension.
@@ -249,22 +252,25 @@ public class DocumentController extends BaseController {
 		byte[] header = new byte[8];
 		try (InputStream is = file.getInputStream()) {
 			int read = is.read(header);
-			if (read < 4) return null;
+			if (read < 4)
+				return null;
 		}
 		if (lowerFilename.endsWith(".pdf")) {
 			// Must start with %PDF
 			for (int i = 0; i < PDF_MAGIC.length; i++) {
-				if (header[i] != PDF_MAGIC[i]) return null;
+				if (header[i] != PDF_MAGIC[i])
+					return null;
 			}
 			return "application/pdf";
 		}
 		if (lowerFilename.endsWith(".txt") || lowerFilename.endsWith(".md")) {
 			// Text files: reject binary signatures (PDF, PK/ZIP, ELF, PE)
 			boolean isBinary = (header[0] == 0x25 && header[1] == 0x50) // %PDF
-				|| (header[0] == 0x50 && header[1] == 0x4B)             // PK zip
-				|| (header[0] == 0x7F && header[1] == 0x45)             // ELF
-				|| (header[0] == 0x4D && header[1] == 0x5A);            // MZ/PE
-			if (isBinary) return null;
+					|| (header[0] == 0x50 && header[1] == 0x4B) // PK zip
+					|| (header[0] == 0x7F && header[1] == 0x45) // ELF
+					|| (header[0] == 0x4D && header[1] == 0x5A); // MZ/PE
+			if (isBinary)
+				return null;
 			return lowerFilename.endsWith(".md") ? "text/markdown" : "text/plain";
 		}
 		return null; // unknown extension — caller rejects

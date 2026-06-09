@@ -1,25 +1,26 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.model.User;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.model.User;
 import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.data.MutableDataSet;
-import java.time.Instant;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import org.jsoup.Jsoup;
-import org.jsoup.safety.Safelist;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Multi-step agentic deep-research pipeline that streams progress via
@@ -49,7 +50,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * <ul>
  * <li><b>v2026.1.4</b> — initial creation</li>
  * <li><b>v2026.1.10</b> — MED-2: overall timeout + sub-question cap; L-5: SSE
- *     onTimeout/onError handlers added</li>
+ * onTimeout/onError handlers added</li>
  * </ul>
  *
  * @author Ashok Ram
@@ -91,20 +92,23 @@ public class DeepResearchService {
 	private final ConcurrentHashMap<String, Boolean> activeTasks = new ConcurrentHashMap<>();
 
 	/**
-	 * Constructs a {@code DeepResearchService} with all required infrastructure dependencies.
+	 * Constructs a {@code DeepResearchService} with all required infrastructure
+	 * dependencies.
 	 *
 	 * @param providerService     resolves LLM provider configuration maps
 	 * @param routerService       routes queries to the appropriate model
 	 * @param webSearchService    executes live web searches
-	 * @param ragService          retrieves relevant document chunks from the vector store
+	 * @param ragService          retrieves relevant document chunks from the vector
+	 *                            store
 	 * @param mapper              Jackson mapper for SSE event serialisation
 	 * @param db                  JDBC template for research_tasks persistence
-	 * @param visualReportService generates visual HTML reports from research results
+	 * @param visualReportService generates visual HTML reports from research
+	 *                            results
 	 * @since v2026.1.4
 	 */
 	public DeepResearchService(ProviderService providerService, RouterService routerService,
-			WebSearchService webSearchService, RagService ragService, ObjectMapper mapper,
-			JdbcTemplate db, VisualReportService visualReportService) {
+			WebSearchService webSearchService, RagService ragService, ObjectMapper mapper, JdbcTemplate db,
+			VisualReportService visualReportService) {
 		this.providerService = providerService;
 		this.routerService = routerService;
 		this.webSearchService = webSearchService;
@@ -117,13 +121,16 @@ public class DeepResearchService {
 	/**
 	 * Cancels an in-progress research task.
 	 *
-	 * <p>Removes the task from the active-tasks map (stops the cancellation check
+	 * <p>
+	 * Removes the task from the active-tasks map (stops the cancellation check
 	 * inside the pipeline) and marks the {@code research_tasks} row as
 	 * {@code "cancelled"} in the database. Safe to call for unknown task IDs.
 	 *
-	 * @param taskId the task ID returned at pipeline start; unknown IDs are silently ignored
+	 * @param taskId the task ID returned at pipeline start; unknown IDs are
+	 *               silently ignored
 	 * @param owner  the requesting user's ID — the cancellation is scoped to tasks
-	 *               they own so a user cannot cancel another user's research (IDOR, BUG-022)
+	 *               they own so a user cannot cancel another user's research (IDOR,
+	 *               BUG-022)
 	 * @since v2026.1.4
 	 * @version v2026.2.2 — added owner scoping to close an IDOR
 	 */
@@ -134,16 +141,18 @@ public class DeepResearchService {
 			int updated = db.update(
 					"UPDATE research_tasks SET status='cancelled', finished_at=? WHERE id=? AND owner=?",
 					Instant.now().toString(), taskId, owner);
-			if (updated > 0) activeTasks.remove(taskId);
-		} catch (Exception ignore) {}
+			if (updated > 0)
+				activeTasks.remove(taskId);
+		} catch (Exception ignore) {
+		}
 	}
 
 	/**
 	 * Lists the most recent research tasks created by the given owner.
 	 *
 	 * @param owner the user ID whose tasks should be listed
-	 * @return a list of task rows (up to 50) ordered by {@code started_at} descending;
-	 *         never null
+	 * @return a list of task rows (up to 50) ordered by {@code started_at}
+	 *         descending; never null
 	 * @since v2026.1.4
 	 */
 	public List<Map<String, Object>> listTasks(String owner) {
@@ -162,9 +171,10 @@ public class DeepResearchService {
 	 * @since v2026.1.4
 	 */
 	public String getReport(String taskId, String owner) {
-		List<Map<String, Object>> rows = db.queryForList(
-				"SELECT report_html FROM research_tasks WHERE id=? AND owner=?", taskId, owner);
-		if (rows.isEmpty()) return null;
+		List<Map<String, Object>> rows = db
+				.queryForList("SELECT report_html FROM research_tasks WHERE id=? AND owner=?", taskId, owner);
+		if (rows.isEmpty())
+			return null;
 		return (String) rows.get(0).get("report_html");
 	}
 
@@ -206,28 +216,36 @@ public class DeepResearchService {
 	}
 
 	/**
-	 * Executes the deep-research pipeline, associating results with the given session ID.
+	 * Executes the deep-research pipeline, associating results with the given
+	 * session ID.
 	 *
-	 * <p>Delegates to the three-phase pipeline (Plan → Search → Synthesise) and
+	 * <p>
+	 * Delegates to the three-phase pipeline (Plan → Search → Synthesise) and
 	 * persists the created task linked to {@code sessionId}.
 	 *
 	 * @param query     the natural-language research question; must not be blank
 	 * @param user      the authenticated user, for model routing and RAG scoping
-	 * @param emitter   the SSE emitter over which progress events and tokens are pushed
-	 * @param sessionId optional chat session ID to link the research task; may be null
+	 * @param emitter   the SSE emitter over which progress events and tokens are
+	 *                  pushed
+	 * @param sessionId optional chat session ID to link the research task; may be
+	 *                  null
 	 * @since v2026.1.10
 	 */
 	public void executeResearch(String query, User user, SseEmitter emitter, String sessionId) {
 		// Create persistent task record
-		String taskId = "res-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
+		String taskId = "res-" + Long.toString(System.currentTimeMillis(), 36) + "-"
+				+ UUID.randomUUID().toString().substring(0, 6);
 		try {
-			db.update("INSERT INTO research_tasks (id, owner, session_id, query, status, started_at) VALUES (?,?,?,?,?,?)",
+			db.update(
+					"INSERT INTO research_tasks (id, owner, session_id, query, status, started_at) VALUES (?,?,?,?,?,?)",
 					taskId, user.id, sessionId, query, "running", Instant.now().toString());
-		} catch (Exception ignore) {}
+		} catch (Exception ignore) {
+		}
 		activeTasks.put(taskId, true);
 
 		emitter.onTimeout(() -> {
-			log.warn("[research] SSE emitter timed out for query: {}", query.substring(0, Math.min(50, query.length())));
+			log.warn("[research] SSE emitter timed out for query: {}",
+					query.substring(0, Math.min(50, query.length())));
 			cancel(taskId, user.id);
 			emitter.complete();
 		});
@@ -238,7 +256,10 @@ public class DeepResearchService {
 		});
 
 		// Send taskId so client can reference it
-		try { emit(emitter, Map.of("type", "task_id", "task_id", taskId)); } catch (Exception ignore) {}
+		try {
+			emit(emitter, Map.of("type", "task_id", "task_id", taskId));
+		} catch (Exception ignore) {
+		}
 
 		try {
 			long startMs = System.currentTimeMillis();
@@ -257,8 +278,8 @@ public class DeepResearchService {
 			}
 
 			if (System.currentTimeMillis() - startMs > RESEARCH_TIMEOUT_MS) {
-				emit(emitter, Map.of("type", "research_step", "step", "timeout", "status", "error",
-						"msg", "Research timed out after 5 minutes"));
+				emit(emitter, Map.of("type", "research_step", "step", "timeout", "status", "error", "msg",
+						"Research timed out after 5 minutes"));
 				emitter.complete();
 				return;
 			}
@@ -291,8 +312,8 @@ public class DeepResearchService {
 			}
 
 			if (System.currentTimeMillis() - startMs > RESEARCH_TIMEOUT_MS) {
-				emit(emitter, Map.of("type", "research_step", "step", "timeout", "status", "error",
-						"msg", "Research timed out after 5 minutes"));
+				emit(emitter, Map.of("type", "research_step", "step", "timeout", "status", "error", "msg",
+						"Research timed out after 5 minutes"));
 				emitter.complete();
 				return;
 			}
@@ -331,9 +352,11 @@ public class DeepResearchService {
 			activeTasks.remove(taskId);
 			try {
 				String reportHtml = renderReportHtml(query, reportMd.toString());
-				db.update("UPDATE research_tasks SET status='completed', finished_at=?, duration_ms=?, report_html=? WHERE id=?",
+				db.update(
+						"UPDATE research_tasks SET status='completed', finished_at=?, duration_ms=?, report_html=? WHERE id=?",
 						Instant.now().toString(), durationMs, reportHtml, taskId);
-			} catch (Exception ignore) {}
+			} catch (Exception ignore) {
+			}
 
 			emitter.complete();
 
@@ -343,7 +366,8 @@ public class DeepResearchService {
 			try {
 				db.update("UPDATE research_tasks SET status='error', finished_at=? WHERE id=?",
 						Instant.now().toString(), taskId);
-			} catch (Exception ignore) {}
+			} catch (Exception ignore) {
+			}
 			try {
 				emit(emitter, Map.of("type", "error", "message", e.getMessage()));
 				emitter.complete();
@@ -437,7 +461,8 @@ public class DeepResearchService {
 	 * Renders the accumulated Markdown research report to sanitised HTML for
 	 * persistence in {@code report_html} (served by {@code GET .../report}).
 	 *
-	 * <p>The report text is LLM-generated from untrusted web-search content, so the
+	 * <p>
+	 * The report text is LLM-generated from untrusted web-search content, so the
 	 * flexmark-rendered HTML is passed through {@link org.jsoup.Jsoup#clean} with a
 	 * relaxed safelist to strip any script/event-handler injection before storage.
 	 *
@@ -452,15 +477,16 @@ public class DeepResearchService {
 			Parser parser = Parser.builder(opts).build();
 			HtmlRenderer renderer = HtmlRenderer.builder(opts).build();
 			String raw = renderer.render(parser.parse(markdown != null ? markdown : ""));
-			// Sanitise: the source text is untrusted (web-derived) — strip scripts/handlers.
+			// Sanitise: the source text is untrusted (web-derived) — strip
+			// scripts/handlers.
 			bodyHtml = Jsoup.clean(raw, Safelist.relaxed());
 		} catch (Exception e) {
 			// Fallback: escape the raw text so a render failure never yields unsafe HTML.
 			bodyHtml = "<pre>" + Jsoup.clean(markdown != null ? markdown : "", Safelist.none()) + "</pre>";
 		}
 		String safeTitle = Jsoup.clean(query != null ? query : "Research Report", Safelist.none());
-		return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + safeTitle
-				+ "</title></head><body><h1>" + safeTitle + "</h1>" + bodyHtml + "</body></html>";
+		return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + safeTitle + "</title></head><body><h1>"
+				+ safeTitle + "</h1>" + bodyHtml + "</body></html>";
 	}
 
 	/**

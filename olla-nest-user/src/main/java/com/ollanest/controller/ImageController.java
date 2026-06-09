@@ -1,8 +1,10 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.service.ImageGenerationService;
-import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -10,10 +12,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
-import java.util.Map;
-import java.util.LinkedHashMap;
-import java.util.UUID;
+import com.ollanest.model.User;
+import com.ollanest.service.ImageGenerationService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * REST API for AI image generation.
@@ -119,7 +121,8 @@ public class ImageController extends BaseController {
 		if (prompt.isBlank())
 			return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "prompt is required"));
 
-		String logId = "ig-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
+		String logId = "ig-" + Long.toString(System.currentTimeMillis(), 36) + "-"
+				+ UUID.randomUUID().toString().substring(0, 6);
 		try {
 			ImageGenerationService.ImageResult result = imageService.generate(prompt, provider);
 

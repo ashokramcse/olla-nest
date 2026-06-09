@@ -1,7 +1,7 @@
 package com.ollanest.controller.admin;
 
-import com.ollanest.controller.BaseController;
-import com.ollanest.service.SkillsService;
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,8 +11,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ollanest.controller.BaseController;
+import com.ollanest.service.SkillsService;
+
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Map;
 
 /**
  * Admin REST controller for moderating the skills library.

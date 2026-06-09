@@ -1,20 +1,20 @@
 package com.ollanest.service;
 
+import java.io.File;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-
-import java.io.File;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.time.ZoneOffset;
-import java.util.Map;
 
 /**
  * Scheduled SQLite backup service using the {@code VACUUM INTO} statement.
@@ -66,16 +66,16 @@ public class BackupService {
 	 *
 	 * <p>
 	 * {@code VACUUM INTO} holds a shared read lock on the database for its
-	 * duration. Running two concurrent backups would produce conflicting
-	 * filenames (same second timestamp) and could exhaust disk space with
-	 * two simultaneous full-copy writes. Using a CAS flag ensures only one
-	 * backup runs at a time; additional requests are rejected immediately.
+	 * duration. Running two concurrent backups would produce conflicting filenames
+	 * (same second timestamp) and could exhaust disk space with two simultaneous
+	 * full-copy writes. Using a CAS flag ensures only one backup runs at a time;
+	 * additional requests are rejected immediately.
 	 */
 	private final AtomicBoolean backupInProgress = new AtomicBoolean(false);
 
 	/**
-	 * Returns {@code true} if a backup is currently running.
-	 * Exposed for monitoring and testing.
+	 * Returns {@code true} if a backup is currently running. Exposed for monitoring
+	 * and testing.
 	 *
 	 * @return {@code true} if backup is in progress
 	 * @since v2026.1.0 — SOC 2 hardening

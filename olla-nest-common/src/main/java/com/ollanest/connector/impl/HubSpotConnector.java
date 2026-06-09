@@ -1,10 +1,11 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
+import java.util.Map;
+
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Connector implementation that synchronises CRM data from HubSpot into the
@@ -15,20 +16,30 @@ import java.util.Map;
  * Olla vector store so that AI-assisted queries can surface relevant customer
  * and pipeline data alongside other enterprise content.
  *
- * <h3>Credential format</h3> <pre>{@code { "apiKey": "..." // HubSpot
+ * <h3>Credential format</h3>
+ * 
+ * <pre>{@code { "apiKey": "..." // HubSpot
  * private-app access token (Bearer token). } }</pre>
  *
- * <h3>Design notes</h3> <ul> <li>Contacts are ingested with name, email, job
- * title, and company fields.</li> <li>Deals are ingested with deal name, stage,
- * amount, and close date.</li> <li>Each CRM record is given a namespaced
- * document ID ({@code contact-<id>} / {@code deal-<id>}) so that contacts and
- * deals cannot collide in the store.</li> <li>Results are capped at 100 per
- * object type; cursor-based pagination is not yet implemented.</li> </ul>
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Contacts are ingested with name, email, job title, and company
+ * fields.</li>
+ * <li>Deals are ingested with deal name, stage, amount, and close date.</li>
+ * <li>Each CRM record is given a namespaced document ID ({@code contact-<id>} /
+ * {@code deal-<id>}) so that contacts and deals cannot collide in the
+ * store.</li>
+ * <li>Results are capped at 100 per object type; cursor-based pagination is not
+ * yet implemented.</li>
+ * </ul>
  *
- * <h3>Version history</h3> <ul> <li>v2026.1.4 — initial creation</li> </ul>
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial creation</li>
+ * </ul>
  *
  * @author Ashok Ram @since v2026.1.4 @version v2026.1.4 @see
- * com.ollanest.connector.BaseConnector
+ *         com.ollanest.connector.BaseConnector
  */
 @Component
 public class HubSpotConnector extends BaseConnector {

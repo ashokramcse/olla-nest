@@ -1,30 +1,32 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.testinfra.UserFactory;
-import jakarta.servlet.http.HttpServletRequest;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.util.Map;
+import com.ollanest.model.User;
+import com.ollanest.testinfra.UserFactory;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Unit tests for {@link BaseController} guards and helpers.
  *
- * <p>Uses a concrete anonymous subclass to access protected methods.
- * Covers: getUser, requireAuth, requireAdmin (auth/role/CSRF), requireAuthWithCsrf,
+ * <p>
+ * Uses a concrete anonymous subclass to access protected methods. Covers:
+ * getUser, requireAuth, requireAdmin (auth/role/CSRF), requireAuthWithCsrf,
  * isCsrfOk, sanitizeText (XSS vectors, null, empty, whitespace).
  *
  * @author Ashok Ram
@@ -37,18 +39,38 @@ class BaseControllerTest {
 
 	/** Minimal concrete subclass to exercise protected BaseController methods. */
 	private static class TestableController extends BaseController {
-		public User publicGetUser(HttpServletRequest req) { return getUser(req); }
-		/** Tests the legacy guard-style requireAuth (returns ResponseEntity or null). */
-		public ResponseEntity<Map<String,Object>> publicRequireAuth(HttpServletRequest req) { return guardAuth(req); }
-		public ResponseEntity<Map<String,Object>> publicRequireAdmin(HttpServletRequest req) { return requireAdmin(req); }
-		public ResponseEntity<Map<String,Object>> publicRequireAuthWithCsrf(HttpServletRequest req) { return requireAuthWithCsrf(req); }
-		public boolean publicIsCsrfOk(HttpServletRequest req) { return isCsrfOk(req); }
-		public static String publicSanitize(String input) { return sanitizeText(input); }
+		public User publicGetUser(HttpServletRequest req) {
+			return getUser(req);
+		}
+
+		/**
+		 * Tests the legacy guard-style requireAuth (returns ResponseEntity or null).
+		 */
+		public ResponseEntity<Map<String, Object>> publicRequireAuth(HttpServletRequest req) {
+			return guardAuth(req);
+		}
+
+		public ResponseEntity<Map<String, Object>> publicRequireAdmin(HttpServletRequest req) {
+			return requireAdmin(req);
+		}
+
+		public ResponseEntity<Map<String, Object>> publicRequireAuthWithCsrf(HttpServletRequest req) {
+			return requireAuthWithCsrf(req);
+		}
+
+		public boolean publicIsCsrfOk(HttpServletRequest req) {
+			return isCsrfOk(req);
+		}
+
+		public static String publicSanitize(String input) {
+			return sanitizeText(input);
+		}
 	}
 
 	private final TestableController controller = new TestableController();
 
-	@Mock HttpServletRequest req;
+	@Mock
+	HttpServletRequest req;
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// getUser()
@@ -97,7 +119,7 @@ class BaseControllerTest {
 		void returns401ForUnauthenticated() {
 			// Stub: no user → unauthenticated → must return 401
 			when(req.getAttribute("authenticatedUser")).thenReturn(null);
-			ResponseEntity<Map<String,Object>> result = controller.publicRequireAuth(req);
+			ResponseEntity<Map<String, Object>> result = controller.publicRequireAuth(req);
 			assertThat(result).isNotNull();
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 			assertThat(result.getBody()).containsEntry("ok", false);
@@ -138,7 +160,7 @@ class BaseControllerTest {
 		void returns401WhenNotAuthenticated() {
 			// Stub: no user → unauthenticated, not just non-admin
 			when(req.getAttribute("authenticatedUser")).thenReturn(null);
-			ResponseEntity<Map<String,Object>> result = controller.publicRequireAdmin(req);
+			ResponseEntity<Map<String, Object>> result = controller.publicRequireAdmin(req);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 		}
 
@@ -148,10 +170,11 @@ class BaseControllerTest {
 			// Stub: regular user (role = "user") — authenticated but lacks admin role
 			User regularUser = UserFactory.regularUser(); // role = "user"
 			when(req.getAttribute("authenticatedUser")).thenReturn(regularUser);
-			ResponseEntity<Map<String,Object>> result = controller.publicRequireAdmin(req);
+			ResponseEntity<Map<String, Object>> result = controller.publicRequireAdmin(req);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
 			assertThat(result.getBody()).containsEntry("ok", false);
-			// Error message must mention "admin" so the client understands the access level required
+			// Error message must mention "admin" so the client understands the access level
+			// required
 			assertThat(result.getBody().get("error").toString()).containsIgnoringCase("admin");
 		}
 
@@ -162,9 +185,10 @@ class BaseControllerTest {
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.admin());
 			when(req.getMethod()).thenReturn("POST");
 			when(req.getHeader("x-requested-with")).thenReturn(null);
-			ResponseEntity<Map<String,Object>> result = controller.publicRequireAdmin(req);
+			ResponseEntity<Map<String, Object>> result = controller.publicRequireAdmin(req);
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-			// SECURITY: error must reference CSRF so the client knows what header is missing
+			// SECURITY: error must reference CSRF so the client knows what header is
+			// missing
 			assertThat(result.getBody().get("error").toString()).containsIgnoringCase("CSRF");
 		}
 
@@ -175,7 +199,7 @@ class BaseControllerTest {
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.admin());
 			when(req.getMethod()).thenReturn("DELETE");
 			when(req.getHeader("x-requested-with")).thenReturn(null);
-			ResponseEntity<Map<String,Object>> result = controller.publicRequireAdmin(req);
+			ResponseEntity<Map<String, Object>> result = controller.publicRequireAdmin(req);
 			// DELETE is a mutating method — CSRF check applies the same as POST
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
 		}
@@ -213,8 +237,7 @@ class BaseControllerTest {
 		void returns401ForUnauthenticated() {
 			// Stub: no user → authentication check fails before CSRF check
 			when(req.getAttribute("authenticatedUser")).thenReturn(null);
-			assertThat(controller.publicRequireAuthWithCsrf(req).getStatusCode())
-					.isEqualTo(HttpStatus.UNAUTHORIZED);
+			assertThat(controller.publicRequireAuthWithCsrf(req).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 		}
 
 		@Test
@@ -224,8 +247,7 @@ class BaseControllerTest {
 			when(req.getAttribute("authenticatedUser")).thenReturn(UserFactory.regularUser());
 			when(req.getMethod()).thenReturn("POST");
 			when(req.getHeader("x-requested-with")).thenReturn(null);
-			assertThat(controller.publicRequireAuthWithCsrf(req).getStatusCode())
-					.isEqualTo(HttpStatus.FORBIDDEN);
+			assertThat(controller.publicRequireAuthWithCsrf(req).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
 		}
 	}
 
@@ -248,7 +270,8 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("POST with X-Requested-With passes CSRF check")
 		void postWithHeaderPasses() {
-			// XMLHttpRequest header proves the request was made by JS, not a cross-origin form
+			// XMLHttpRequest header proves the request was made by JS, not a cross-origin
+			// form
 			when(req.getMethod()).thenReturn("POST");
 			when(req.getHeader("x-requested-with")).thenReturn("XMLHttpRequest");
 			assertThat(controller.publicIsCsrfOk(req)).isTrue();
@@ -275,12 +298,13 @@ class BaseControllerTest {
 		@Test
 		@DisplayName("null input returns null without NPE")
 		void nullInputReturnsNull() {
-			// Null must pass through as null — callers may use null to indicate "not provided"
+			// Null must pass through as null — callers may use null to indicate "not
+			// provided"
 			assertThat(TestableController.publicSanitize(null)).isNull();
 		}
 
 		@ParameterizedTest(name = "blank input ''{0}'' returns empty string")
-		@ValueSource(strings = {"", "   ", "\t", "\n"})
+		@ValueSource(strings = { "", "   ", "\t", "\n" })
 		void blankInputReturnsEmpty(String input) {
 			// Blank/whitespace-only input should be normalised to empty string
 			assertThat(TestableController.publicSanitize(input)).isEmpty();
@@ -308,7 +332,8 @@ class BaseControllerTest {
 		@DisplayName("double quote is HTML-escaped to &quot;")
 		void escapesDoubleQuote() {
 			String result = TestableController.publicSanitize("say \"hello\"");
-			// Unescaped double quotes in HTML attributes could break out of attribute context
+			// Unescaped double quotes in HTML attributes could break out of attribute
+			// context
 			assertThat(result).contains("&quot;");
 		}
 

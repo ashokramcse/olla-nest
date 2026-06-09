@@ -1,6 +1,19 @@
 package com.ollanest.service;
 
-import com.ollanest.config.AppConfig;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -13,26 +26,15 @@ import org.mockito.quality.Strictness;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.ollanest.config.AppConfig;
 
 /**
  * Unit tests for {@link DatabaseService}.
  *
- * <p>Covers: getSetting/setSetting/getSettingBool contract, null-value guard
- * (NOT NULL schema constraint), tableCount SQL-injection guard, and
- * seedDatabase idempotency logic.
+ * <p>
+ * Covers: getSetting/setSetting/getSettingBool contract, null-value guard (NOT
+ * NULL schema constraint), tableCount SQL-injection guard, and seedDatabase
+ * idempotency logic.
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -42,8 +44,10 @@ import static org.mockito.Mockito.when;
 @DisplayName("DatabaseService — unit tests")
 class DatabaseServiceTest {
 
-	@Mock JdbcTemplate db;
-	@Mock AppConfig    appConfig;
+	@Mock
+	JdbcTemplate db;
+	@Mock
+	AppConfig appConfig;
 
 	private DatabaseService service;
 
@@ -71,8 +75,7 @@ class DatabaseServiceTest {
 		@DisplayName("returns fallback when key is absent")
 		void returnsFallbackWhenAbsent() {
 			// Stub DB to return empty list — key does not exist
-			when(db.queryForList("SELECT value FROM settings WHERE key = ?", "missing"))
-					.thenReturn(List.of());
+			when(db.queryForList("SELECT value FROM settings WHERE key = ?", "missing")).thenReturn(List.of());
 			assertThat(service.getSetting("missing", "default")).isEqualTo("default");
 		}
 
@@ -82,8 +85,7 @@ class DatabaseServiceTest {
 			// Stub DB to return a row with null value — treat same as absent
 			Map<String, Object> row = new HashMap<>();
 			row.put("value", null);
-			when(db.queryForList("SELECT value FROM settings WHERE key = ?", "k"))
-					.thenReturn(List.of(row));
+			when(db.queryForList("SELECT value FROM settings WHERE key = ?", "k")).thenReturn(List.of(row));
 			assertThat(service.getSetting("k", "fb")).isEqualTo("fb");
 		}
 
@@ -91,8 +93,8 @@ class DatabaseServiceTest {
 		@DisplayName("returns fallback on DataAccessException (e.g. table missing at early startup)")
 		void returnsFallbackOnException() {
 			// Stub DB to throw — settings table may not exist during early startup
-			when(db.queryForList(anyString(), anyString()))
-					.thenThrow(new DataAccessException("table not found") {});
+			when(db.queryForList(anyString(), anyString())).thenThrow(new DataAccessException("table not found") {
+			});
 			// No exception thrown = service degrades gracefully using fallback
 			assertThat(service.getSetting("k", "safe")).isEqualTo("safe");
 		}
@@ -116,9 +118,7 @@ class DatabaseServiceTest {
 		void writesValue() {
 			service.setSetting("theme", "dark");
 			// INSERT OR REPLACE upserts the key — no separate UPDATE needed
-			verify(db).update(
-					"INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-					"theme", "dark");
+			verify(db).update("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", "theme", "dark");
 		}
 
 		@Test
@@ -126,18 +126,14 @@ class DatabaseServiceTest {
 		void nullValueBecomesEmptyString() {
 			service.setSetting("someKey", null);
 			// SECURITY: null must not be stored — settings column is NOT NULL
-			verify(db).update(
-					"INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-					"someKey", "");
+			verify(db).update("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", "someKey", "");
 		}
 
 		@Test
 		@DisplayName("empty string value is persisted as-is")
 		void emptyStringPersisted() {
 			service.setSetting("k", "");
-			verify(db).update(
-					"INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-					"k", "");
+			verify(db).update("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", "k", "");
 		}
 	}
 
@@ -151,8 +147,7 @@ class DatabaseServiceTest {
 			if (value == null) {
 				when(db.queryForList(anyString(), anyString())).thenReturn(List.of());
 			} else {
-				when(db.queryForList(anyString(), anyString()))
-						.thenReturn(List.of(Map.of("value", value)));
+				when(db.queryForList(anyString(), anyString())).thenReturn(List.of(Map.of("value", value)));
 			}
 		}
 
@@ -258,9 +253,10 @@ class DatabaseServiceTest {
 		@Test
 		@DisplayName("exception during seeding is swallowed — server stays up")
 		void exceptionSwallowed() {
-			when(db.queryForObject(anyString(), eq(Integer.class)))
-					.thenThrow(new DataAccessException("DB down") {});
-			// No exception thrown = DB failures during seeding do not prevent server startup
+			when(db.queryForObject(anyString(), eq(Integer.class))).thenThrow(new DataAccessException("DB down") {
+			});
+			// No exception thrown = DB failures during seeding do not prevent server
+			// startup
 			assertThatNoException().isThrownBy(() -> service.seedDatabase());
 		}
 	}

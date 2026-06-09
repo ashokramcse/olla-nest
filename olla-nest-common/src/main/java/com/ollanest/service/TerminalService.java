@@ -1,5 +1,13 @@
 package com.ollanest.service;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -9,14 +17,6 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * WebSocket handler that bridges each connected client to a dedicated shell
@@ -77,7 +77,9 @@ public class TerminalService extends AbstractWebSocketHandler {
 	/** User ID associated with each terminal session (for audit logs). */
 	private final ConcurrentHashMap<String, String> sessionUserMap = new ConcurrentHashMap<>();
 
-	/** Input buffer for each session — used to capture commands for audit logging. */
+	/**
+	 * Input buffer for each session — used to capture commands for audit logging.
+	 */
 	private final ConcurrentHashMap<String, StringBuilder> inputBuffers = new ConcurrentHashMap<>();
 
 	public TerminalService(JdbcTemplate db) {
@@ -146,8 +148,7 @@ public class TerminalService extends AbstractWebSocketHandler {
 		inputBuffers.put(session.getId(), new StringBuilder());
 
 		// Audit log: terminal session opened
-		auditTerminalEvent(userId, "terminal.session.open",
-			"Terminal session started: wsSessionId=" + session.getId());
+		auditTerminalEvent(userId, "terminal.session.open", "Terminal session started: wsSessionId=" + session.getId());
 
 		log.info("[terminal] Session started: wsId={} userId={}", session.getId(), userId);
 	}
@@ -178,8 +179,7 @@ public class TerminalService extends AbstractWebSocketHandler {
 						String cmd = buf.toString().trim();
 						if (!cmd.isEmpty()) {
 							String userId = sessionUserMap.getOrDefault(session.getId(), "unknown");
-							auditTerminalEvent(userId, "terminal.command",
-								"Terminal input: " + truncateForLog(cmd));
+							auditTerminalEvent(userId, "terminal.command", "Terminal input: " + truncateForLog(cmd));
 						}
 						buf.setLength(0);
 					} else {
@@ -231,7 +231,10 @@ public class TerminalService extends AbstractWebSocketHandler {
 		// JVM/OS combinations where the stream is not released until closed explicitly.
 		OutputStream stdin = stdinMap.remove(id);
 		if (stdin != null) {
-			try { stdin.close(); } catch (IOException ignored) { /* broken pipe is expected */ }
+			try {
+				stdin.close();
+			} catch (IOException ignored) {
+				/* broken pipe is expected */ }
 		}
 		Process process = processes.remove(id);
 		if (process != null) {
@@ -240,7 +243,7 @@ public class TerminalService extends AbstractWebSocketHandler {
 		String userId = sessionUserMap.remove(id);
 		inputBuffers.remove(id);
 		auditTerminalEvent(userId != null ? userId : "unknown", "terminal.session.close",
-			"Terminal session closed: wsSessionId=" + id + " status=" + closeStatus.getCode());
+				"Terminal session closed: wsSessionId=" + id + " status=" + closeStatus.getCode());
 		log.info("[terminal] Session closed: wsId={} userId={}", id, userId);
 	}
 
@@ -265,14 +268,16 @@ public class TerminalService extends AbstractWebSocketHandler {
 
 	// ── Private helpers ──────────────────────────────────────────────────────
 
-	/** Writes a terminal audit event to the audit_events table. Silent on failure. */
+	/**
+	 * Writes a terminal audit event to the audit_events table. Silent on failure.
+	 */
 	private void auditTerminalEvent(String userId, String action, String detail) {
 		try {
 			String id = "audit-" + Long.toString(System.currentTimeMillis(), 36) + "-"
-				+ Long.toHexString(new SecureRandom().nextLong() & Long.MAX_VALUE);
+					+ Long.toHexString(new SecureRandom().nextLong() & Long.MAX_VALUE);
 			db.update(
-				"INSERT INTO audit_events (id, actor, action, detail, extra_json, created_at) VALUES (?,?,?,?,?,?)",
-				id, userId, action, detail, "{}", Instant.now().toString());
+					"INSERT INTO audit_events (id, actor, action, detail, extra_json, created_at) VALUES (?,?,?,?,?,?)",
+					id, userId, action, detail, "{}", Instant.now().toString());
 		} catch (Exception e) {
 			log.warn("[terminal] Failed to write audit event: {}", e.getMessage());
 		}

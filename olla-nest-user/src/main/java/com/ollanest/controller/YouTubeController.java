@@ -1,15 +1,16 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.service.YouTubeService;
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ollanest.service.YouTubeService;
+
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Map;
 
 /**
  * REST controller that extracts YouTube video transcripts for RAG ingestion and
@@ -43,37 +44,38 @@ import java.util.Map;
 @RequestMapping("/api/youtube")
 public class YouTubeController extends BaseController {
 
-    /** Service that resolves video ids and fetches transcripts. */
-    private final YouTubeService youtubeService;
+	/** Service that resolves video ids and fetches transcripts. */
+	private final YouTubeService youtubeService;
 
-    /**
-     * Constructor-injects the YouTube service.
-     *
-     * @param youtubeService the service backing transcript extraction
-     * @since v2026.2.1
-     */
-    public YouTubeController(YouTubeService youtubeService) {
-        this.youtubeService = youtubeService;
-    }
+	/**
+	 * Constructor-injects the YouTube service.
+	 *
+	 * @param youtubeService the service backing transcript extraction
+	 * @since v2026.2.1
+	 */
+	public YouTubeController(YouTubeService youtubeService) {
+		this.youtubeService = youtubeService;
+	}
 
-    /**
-     * Fetches the transcript for a YouTube video.
-     *
-     * @param req the HTTP request; authentication is required
-     * @param url the YouTube video URL or id
-     * @return an OK response with the video id, transcript text, and character
-     *         count; a 400 if the URL is invalid; or a 404 if no transcript is
-     *         available
-     * @since v2026.2.1
-     */
-    @GetMapping("/transcript")
-    public ResponseEntity<?> transcript(HttpServletRequest req,
-            @RequestParam String url) {
-        requireAuth(req);
-        String videoId = youtubeService.extractVideoId(url);
-        if (videoId == null) return badRequest("Invalid YouTube URL or video ID");
-        String transcript = youtubeService.getTranscript(url);
-        if (transcript == null) return notFound("Transcript not available for this video");
-        return ok(Map.of("video_id", videoId, "transcript", transcript, "chars", transcript.length()));
-    }
+	/**
+	 * Fetches the transcript for a YouTube video.
+	 *
+	 * @param req the HTTP request; authentication is required
+	 * @param url the YouTube video URL or id
+	 * @return an OK response with the video id, transcript text, and character
+	 *         count; a 400 if the URL is invalid; or a 404 if no transcript is
+	 *         available
+	 * @since v2026.2.1
+	 */
+	@GetMapping("/transcript")
+	public ResponseEntity<?> transcript(HttpServletRequest req, @RequestParam String url) {
+		requireAuth(req);
+		String videoId = youtubeService.extractVideoId(url);
+		if (videoId == null)
+			return badRequest("Invalid YouTube URL or video ID");
+		String transcript = youtubeService.getTranscript(url);
+		if (transcript == null)
+			return notFound("Transcript not available for this video");
+		return ok(Map.of("video_id", videoId, "transcript", transcript, "chars", transcript.length()));
+	}
 }

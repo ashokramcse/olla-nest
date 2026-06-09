@@ -1,14 +1,15 @@
 package com.ollanest.connector;
 
-import com.ollanest.service.CryptoService;
-import com.ollanest.service.RagService;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+import com.ollanest.service.CryptoService;
+import com.ollanest.service.RagService;
 
 /**
  * Spring-managed registry that maps connector type keys to their

@@ -1,14 +1,15 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
-import org.springframework.stereotype.Component;
-
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Connector implementation that synchronises text files from Microsoft OneDrive
@@ -19,25 +20,35 @@ import java.util.Map;
  * text-based files from a user's OneDrive root so that the AI assistant can
  * surface relevant documents stored there alongside other enterprise content.
  *
- * <h3>Credential format</h3> <pre>{@code { "accessToken": "..." // Microsoft
+ * <h3>Credential format</h3>
+ * 
+ * <pre>{@code { "accessToken": "..." // Microsoft
  * identity platform OAuth 2.0 Bearer token. // Requires Files.Read (or
  * Files.Read.All) scope. } }</pre>
  *
- * <h3>Design notes</h3> <ul> <li>Only the immediate children of the OneDrive
- * root folder are listed; recursive traversal into subfolders is not yet
- * implemented.</li> <li>Folder items (identified by the presence of a {@code
- * folder} property) are skipped entirely.</li> <li>Files are filtered by MIME
- * type: only those whose type contains {@code "text"}, {@code "word"}, or
- * {@code "plain"} are downloaded and ingested.</li> <li>File content is
- * downloaded via the Graph {@code /content} endpoint which follows redirects
- * automatically via the JDK {@link java.net.http.HttpClient}.</li> <li>Per-file
- * download failures are logged as warnings and do not abort the sync.</li>
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Only the immediate children of the OneDrive root folder are listed;
+ * recursive traversal into subfolders is not yet implemented.</li>
+ * <li>Folder items (identified by the presence of a {@code
+ * folder} property) are skipped entirely.</li>
+ * <li>Files are filtered by MIME type: only those whose type contains
+ * {@code "text"}, {@code "word"}, or {@code "plain"} are downloaded and
+ * ingested.</li>
+ * <li>File content is downloaded via the Graph {@code /content} endpoint which
+ * follows redirects automatically via the JDK
+ * {@link java.net.http.HttpClient}.</li>
+ * <li>Per-file download failures are logged as warnings and do not abort the
+ * sync.</li>
  * </ul>
  *
- * <h3>Version history</h3> <ul> <li>v2026.1.4 — initial creation</li> </ul>
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial creation</li>
+ * </ul>
  *
  * @author Ashok Ram @since v2026.1.4 @version v2026.1.4 @see
- * com.ollanest.connector.BaseConnector
+ *         com.ollanest.connector.BaseConnector
  */
 @Component
 public class OneDriveConnector extends BaseConnector {
@@ -95,10 +106,9 @@ public class OneDriveConnector extends BaseConnector {
 					continue;
 				try {
 					URI uri = URI.create(BASE + "/me/drive/items/" + id + "/content");
-					HttpRequest req = HttpRequest.newBuilder().uri(uri)
-							.header("Authorization", auth).timeout(Duration.ofSeconds(30)).GET().build();
-					HttpResponse<String> resp = http.send(req,
-							HttpResponse.BodyHandlers.ofString());
+					HttpRequest req = HttpRequest.newBuilder().uri(uri).header("Authorization", auth)
+							.timeout(Duration.ofSeconds(30)).GET().build();
+					HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
 					if (ingestDocument(connId, id, name, url, resp.body()))
 						synced++;
 					else

@@ -1,9 +1,9 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.service.ChatService;
-
-import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import com.ollanest.model.User;
+import com.ollanest.service.ChatService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Manages chat thread (session) lifecycle operations for the authenticated
@@ -173,8 +173,7 @@ public class ThreadController extends BaseController {
 		db.update("UPDATE chat_sessions SET updated_at = ? WHERE id = ?", now, id);
 		// Guard against IndexOutOfBoundsException — the session could be deleted
 		// between the ownership check above and this re-fetch (e.g. concurrent delete).
-		List<Map<String, Object>> reloaded =
-				db.queryForList("SELECT * FROM chat_sessions WHERE id = ?", id);
+		List<Map<String, Object>> reloaded = db.queryForList("SELECT * FROM chat_sessions WHERE id = ?", id);
 		if (reloaded.isEmpty())
 			return ResponseEntity.status(404).body(Map.of("ok", false, "error", "Thread not found"));
 		return ResponseEntity.ok(Map.of("ok", true, "thread", chatService.buildChatObject(reloaded.get(0))));

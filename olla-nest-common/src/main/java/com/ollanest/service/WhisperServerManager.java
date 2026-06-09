@@ -1,10 +1,5 @@
 package com.ollanest.service;
 
-import jakarta.annotation.PreDestroy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -13,6 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import jakarta.annotation.PreDestroy;
 
 /**
  * Manages the lifecycle of the local faster-whisper HTTP server process.
@@ -55,8 +56,8 @@ import java.util.concurrent.TimeUnit;
  *
  * <h3>Version history</h3>
  * <ul>
- * <li><b>v2026.1.5</b> — initial creation; auto-start local Whisper STT
- * server on port 8765 as part of application startup.</li>
+ * <li><b>v2026.1.5</b> — initial creation; auto-start local Whisper STT server
+ * on port 8765 as part of application startup.</li>
  * <li><b>v2026.1.6</b> — full cross-platform support: macOS, Linux VPS,
  * Windows, Windows Server; OS-specific Python venv path resolution;
  * platform-specific setup instructions in warning messages.</li>
@@ -74,12 +75,14 @@ public class WhisperServerManager {
 	/** Port the local Whisper server listens on. */
 	private static final int WHISPER_PORT = 8765;
 
-	/** Relative path from project root to the server script (forward slashes — Java resolves on all OS). */
+	/**
+	 * Relative path from project root to the server script (forward slashes — Java
+	 * resolves on all OS).
+	 */
 	private static final String SCRIPT_RELATIVE = "scripts/whisper_server.py";
 
 	/** {@code true} when running on any Windows variant. */
-	private static final boolean IS_WINDOWS =
-			System.getProperty("os.name", "").toLowerCase().contains("win");
+	private static final boolean IS_WINDOWS = System.getProperty("os.name", "").toLowerCase().contains("win");
 
 	/**
 	 * Venv Python binary path, relative to project root.
@@ -91,8 +94,7 @@ public class WhisperServerManager {
 	 * {@code .ps1} on Windows) which enforces Python 3.11 so that all
 	 * faster-whisper binary wheels are available.
 	 */
-	private static final String PYTHON_RELATIVE = IS_WINDOWS
-			? "scripts/venv/Scripts/python.exe"
+	private static final String PYTHON_RELATIVE = IS_WINDOWS ? "scripts/venv/Scripts/python.exe"
 			: "scripts/venv/bin/python";
 
 	private Process whisperProcess;
@@ -102,9 +104,9 @@ public class WhisperServerManager {
 	 *
 	 * <p>
 	 * Called automatically by Spring after all beans are initialised (via
-	 * constructor injection — this bean has no hard dependencies, so Spring
-	 * creates it early). The server process is started in a background thread
-	 * so the main startup sequence is not blocked while the Whisper model loads.
+	 * constructor injection — this bean has no hard dependencies, so Spring creates
+	 * it early). The server process is started in a background thread so the main
+	 * startup sequence is not blocked while the Whisper model loads.
 	 *
 	 * @since v2026.1.5
 	 */
@@ -120,21 +122,21 @@ public class WhisperServerManager {
 	 * Locates and launches the local Whisper STT server subprocess.
 	 *
 	 * <p>
-	 * Runs on a daemon thread so it does not block Spring context startup.
-	 * The method performs the following steps in order:
+	 * Runs on a daemon thread so it does not block Spring context startup. The
+	 * method performs the following steps in order:
 	 * <ol>
 	 * <li>Sleeps 500 ms to allow Spring to finish wiring beans before logging.</li>
 	 * <li>Checks whether a Whisper server is already listening on
-	 *     {@link #WHISPER_PORT}; skips launch if so.</li>
-	 * <li>Walks parent directories from the working directory to find the
-	 *     project root (identified by {@code scripts/whisper_server.py}).</li>
+	 * {@link #WHISPER_PORT}; skips launch if so.</li>
+	 * <li>Walks parent directories from the working directory to find the project
+	 * root (identified by {@code scripts/whisper_server.py}).</li>
 	 * <li>Verifies that the Python virtual environment exists at
-	 *     {@code scripts/venv/}; logs a platform-specific setup hint and returns
-	 *     if it is missing.</li>
+	 * {@code scripts/venv/}; logs a platform-specific setup hint and returns if it
+	 * is missing.</li>
 	 * <li>Starts the Python subprocess via {@link ProcessBuilder}, streams its
-	 *     stdout to the application log on a second daemon thread, and stores
-	 *     a reference to the {@link Process} so {@link #stop()} can terminate
-	 *     it cleanly on shutdown.</li>
+	 * stdout to the application log on a second daemon thread, and stores a
+	 * reference to the {@link Process} so {@link #stop()} can terminate it cleanly
+	 * on shutdown.</li>
 	 * </ol>
 	 *
 	 * <p>
@@ -156,7 +158,8 @@ public class WhisperServerManager {
 
 			Path projectRoot = findProjectRoot();
 			if (projectRoot == null) {
-				log.warn("[whisper] Could not locate project root (scripts/whisper_server.py not found) — skipping auto-start");
+				log.warn(
+						"[whisper] Could not locate project root (scripts/whisper_server.py not found) — skipping auto-start");
 				return;
 			}
 
@@ -191,8 +194,7 @@ public class WhisperServerManager {
 			// Stream process output to application log
 			Process proc = whisperProcess;
 			Thread logger = new Thread(() -> {
-				try (BufferedReader br = new BufferedReader(
-						new InputStreamReader(proc.getInputStream()))) {
+				try (BufferedReader br = new BufferedReader(new InputStreamReader(proc.getInputStream()))) {
 					String line;
 					while ((line = br.readLine()) != null) {
 						// Python script already prefixes lines with [whisper] — log as-is
@@ -221,9 +223,11 @@ public class WhisperServerManager {
 	/**
 	 * Stops the managed Whisper server process.
 	 *
-	 * <p>Sends {@code SIGTERM} via {@link Process#destroy()}; if the process has not
-	 * exited within 5 seconds it is force-killed with {@link Process#destroyForcibly()}.
-	 * Safe to call when the process was never started (no-op).
+	 * <p>
+	 * Sends {@code SIGTERM} via {@link Process#destroy()}; if the process has not
+	 * exited within 5 seconds it is force-killed with
+	 * {@link Process#destroyForcibly()}. Safe to call when the process was never
+	 * started (no-op).
 	 *
 	 * @since v2026.1.5
 	 */
@@ -251,8 +255,8 @@ public class WhisperServerManager {
 	 */
 	private boolean isAlreadyRunning() {
 		try {
-			HttpURLConnection conn = (HttpURLConnection)
-					URI.create("http://localhost:" + WHISPER_PORT + "/health").toURL().openConnection();
+			HttpURLConnection conn = (HttpURLConnection) URI.create("http://localhost:" + WHISPER_PORT + "/health")
+					.toURL().openConnection();
 			conn.setConnectTimeout(800);
 			conn.setReadTimeout(800);
 			conn.setRequestMethod("GET");
@@ -265,9 +269,8 @@ public class WhisperServerManager {
 	}
 
 	/**
-	 * Walks up from the JVM working directory to find the project root —
-	 * the first ancestor directory that contains
-	 * {@code scripts/whisper_server.py}.
+	 * Walks up from the JVM working directory to find the project root — the first
+	 * ancestor directory that contains {@code scripts/whisper_server.py}.
 	 *
 	 * @return the project root path, or {@code null} if not found
 	 */

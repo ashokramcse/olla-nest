@@ -1,8 +1,16 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.model.ModelRecord;
-import com.ollanest.model.User;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -13,23 +21,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import java.util.Map;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.model.ModelRecord;
+import com.ollanest.model.User;
 
 /**
  * Unit tests for {@link RouterService}.
  *
- * <p>Covers: sensitive-content detection, request classification, model
- * routing (privacy blocking, scoring, router-disabled path, empty candidate
- * list), and the null-safety fix in {@code detectSensitiveContent}.
+ * <p>
+ * Covers: sensitive-content detection, request classification, model routing
+ * (privacy blocking, scoring, router-disabled path, empty candidate list), and
+ * the null-safety fix in {@code detectSensitiveContent}.
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -39,8 +41,10 @@ import static org.mockito.Mockito.when;
 @DisplayName("RouterService — unit tests")
 class RouterServiceTest {
 
-	@Mock ModelService     modelService;
-	@Mock DatabaseService  databaseService;
+	@Mock
+	ModelService modelService;
+	@Mock
+	DatabaseService databaseService;
 
 	/** Real ObjectMapper — no stubs needed for JSON parsing. */
 	private final ObjectMapper mapper = new ObjectMapper();
@@ -54,8 +58,8 @@ class RouterServiceTest {
 
 	// ── Helper ───────────────────────────────────────────────────────────────
 
-	private ModelRecord model(String id, String name, String privacy, String provider,
-			int speed, int quality, String... caps) {
+	private ModelRecord model(String id, String name, String privacy, String provider, int speed, int quality,
+			String... caps) {
 		ModelRecord m = new ModelRecord();
 		m.id = id;
 		m.name = name;
@@ -108,7 +112,8 @@ class RouterServiceTest {
 		@Test
 		@DisplayName("SSN pattern detected")
 		void detectsSSN() {
-			// SECURITY: SSN pattern must be caught to prevent local-only data from going to API models
+			// SECURITY: SSN pattern must be caught to prevent local-only data from going to
+			// API models
 			RouterService.SensitivityResult r = router.detectSensitiveContent("My SSN is 123-45-6789 — keep it safe.");
 			assertThat(r.isSensitive).isTrue();
 			assertThat(r.reasons).contains("SSN");
@@ -126,7 +131,8 @@ class RouterServiceTest {
 		@Test
 		@DisplayName("OpenAI-style API key pattern detected")
 		void detectsApiKey() {
-			// SECURITY: API key in prompt must be caught before it leaks to an external provider
+			// SECURITY: API key in prompt must be caught before it leaks to an external
+			// provider
 			RouterService.SensitivityResult r = router.detectSensitiveContent("Use key sk-abcdefghijklmnopqrstu123");
 			assertThat(r.isSensitive).isTrue();
 			assertThat(r.reasons).contains("API key");
@@ -136,7 +142,8 @@ class RouterServiceTest {
 		@DisplayName("medical/PHI terms detected (case-insensitive)")
 		void detectsMedical() {
 			// SECURITY: HIPAA — medical/PHI keywords must trigger local-only routing
-			RouterService.SensitivityResult r = router.detectSensitiveContent("Patient record shows HIPAA-covered diagnosis");
+			RouterService.SensitivityResult r = router
+					.detectSensitiveContent("Patient record shows HIPAA-covered diagnosis");
 			assertThat(r.isSensitive).isTrue();
 			assertThat(r.reasons).containsAnyOf("medical/PHI");
 		}
@@ -145,8 +152,7 @@ class RouterServiceTest {
 		@DisplayName("admin-configured custom pattern detected")
 		void detectsAdminPattern() {
 			// Stub: admin has added a custom regex for a proprietary project codename
-			when(databaseService.getSetting(eq("sensitivePatterns"), any()))
-					.thenReturn("[\"secret-project-[A-Z]+\"]");
+			when(databaseService.getSetting(eq("sensitivePatterns"), any())).thenReturn("[\"secret-project-[A-Z]+\"]");
 			RouterService.SensitivityResult r = router.detectSensitiveContent("Working on secret-project-ALPHA");
 			assertThat(r.isSensitive).isTrue();
 			// Custom admin pattern must be surfaced in reasons for audit purposes
@@ -157,8 +163,7 @@ class RouterServiceTest {
 		@DisplayName("invalid admin regex pattern is silently ignored")
 		void invalidAdminPatternIgnored() {
 			// Stub: admin has misconfigured a broken regex — must not crash the router
-			when(databaseService.getSetting(eq("sensitivePatterns"), any()))
-					.thenReturn("[\"[invalid-regex\"]");
+			when(databaseService.getSetting(eq("sensitivePatterns"), any())).thenReturn("[\"[invalid-regex\"]");
 			RouterService.SensitivityResult r = router.detectSensitiveContent("Hello world");
 			// Invalid regex must be silently skipped — not propagate as an exception
 			assertThat(r.isSensitive).isFalse();
@@ -167,9 +172,10 @@ class RouterServiceTest {
 		@Test
 		@DisplayName("multiple patterns in same text — all reasons reported")
 		void multiplePatternsSameText() {
-			// Both SSN and credit card appear in the same message — both reasons must be reported
-			RouterService.SensitivityResult r = router.detectSensitiveContent(
-					"SSN 123-45-6789 and card 4111-1111-1111-1111");
+			// Both SSN and credit card appear in the same message — both reasons must be
+			// reported
+			RouterService.SensitivityResult r = router
+					.detectSensitiveContent("SSN 123-45-6789 and card 4111-1111-1111-1111");
 			assertThat(r.reasons).containsExactlyInAnyOrder("SSN", "credit card");
 		}
 	}
@@ -199,7 +205,8 @@ class RouterServiceTest {
 		@Test
 		@DisplayName("'bug' keyword maps to fix/debugging/coding")
 		void bugKeywordMapsToCoding() {
-			// "bug" is a keyword that signals debugging intent — router must tag for code-capable models
+			// "bug" is a keyword that signals debugging intent — router must tag for
+			// code-capable models
 			List<String> tags = router.classifyRequest("There is a bug in my code", "ask");
 			assertThat(tags).contains("fix", "debugging", "coding");
 		}
@@ -215,7 +222,8 @@ class RouterServiceTest {
 		@Test
 		@DisplayName("medical keyword maps to medical/analysis")
 		void medicalKeyword() {
-			// Medical keywords must route to models with medical/analysis capabilities when available
+			// Medical keywords must route to models with medical/analysis capabilities when
+			// available
 			List<String> tags = router.classifyRequest("What is the diagnosis for this patient?", "ask");
 			assertThat(tags).contains("medical", "analysis");
 		}
@@ -223,7 +231,8 @@ class RouterServiceTest {
 		@Test
 		@DisplayName("'fix' mode always adds fix/debugging/coding")
 		void fixModeAddsTags() {
-			// "fix" mode unconditionally adds fix/debugging/coding tags — code model required
+			// "fix" mode unconditionally adds fix/debugging/coding tags — code model
+			// required
 			List<String> tags = router.classifyRequest("Anything", "fix");
 			assertThat(tags).contains("fix", "debugging", "coding");
 		}
@@ -231,7 +240,8 @@ class RouterServiceTest {
 		@Test
 		@DisplayName("tags are deduplicated when keyword and mode both match")
 		void tagsAreDeduplicated() {
-			// When keyword and mode both add the same tag, the list must not contain duplicates
+			// When keyword and mode both add the same tag, the list must not contain
+			// duplicates
 			List<String> tags = router.classifyRequest("debug my code", "debug");
 			long unique = tags.stream().distinct().count();
 			assertThat(unique).isEqualTo(tags.size());
@@ -276,7 +286,7 @@ class RouterServiceTest {
 		void privacyBlockingEliminatesApiModels() {
 			// Stub: one local model and one API model
 			ModelRecord localModel = model("m-local", "Local", "local", "ollama", 80, 80, "general");
-			ModelRecord apiModel  = model("m-api", "GPT-4", "external", "api", 90, 95, "general");
+			ModelRecord apiModel = model("m-api", "GPT-4", "external", "api", 90, 95, "general");
 			when(modelService.allowedModels(any())).thenReturn(Arrays.asList(localModel, apiModel));
 
 			// SSN in message must trigger privacy blocking
@@ -294,7 +304,7 @@ class RouterServiceTest {
 		void fixModeTriggerLocalOnly() {
 			// Stub: one local, one API model
 			ModelRecord localModel = model("m-local", "Local", "local", "ollama", 80, 80, "coding");
-			ModelRecord apiModel  = model("m-api", "GPT-4", "external", "api", 95, 99, "coding");
+			ModelRecord apiModel = model("m-api", "GPT-4", "external", "api", 95, 99, "coding");
 			when(modelService.allowedModels(any())).thenReturn(Arrays.asList(localModel, apiModel));
 
 			// "fix" mode is in the localOnlyModes list by default — code stays local
@@ -353,10 +363,10 @@ class RouterServiceTest {
 
 			RouterService.RouteResult r = router.routeModel(adminUser(), "Explain SOLID principles", "ask");
 			assertThat(r.candidates).hasSize(1);
-			// Breakdown map must have all scoring dimensions so the admin can see why a model was chosen
+			// Breakdown map must have all scoring dimensions so the admin can see why a
+			// model was chosen
 			@SuppressWarnings("unchecked")
-			Map<String, Object> breakdown =
-					(Map<String, Object>) r.candidates.get(0).get("breakdown");
+			Map<String, Object> breakdown = (Map<String, Object>) r.candidates.get(0).get("breakdown");
 			assertThat(breakdown).containsKey("capabilityMatch");
 			assertThat(breakdown).containsKey("speedScore");
 			assertThat(breakdown).containsKey("qualityScore");

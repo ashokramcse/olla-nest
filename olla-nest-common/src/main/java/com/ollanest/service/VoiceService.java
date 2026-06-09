@@ -1,11 +1,5 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -15,6 +9,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Voice I/O service providing speech-to-text transcription and text-to-speech
@@ -26,16 +27,16 @@ import java.util.UUID;
  * dictate messages instead of typing, and a speaker button that reads AI
  * responses aloud. {@code VoiceService} is the single integration point for
  * both capabilities. STT can be handled by a local Ollama Whisper model
- * (default, free, private) or by the OpenAI Whisper API (paid, cloud).
- * TTS always uses the OpenAI TTS-1 API. All HTTP and multipart-form encoding
+ * (default, free, private) or by the OpenAI Whisper API (paid, cloud). TTS
+ * always uses the OpenAI TTS-1 API. All HTTP and multipart-form encoding
  * details are contained here so that the {@code VoiceController} remains thin.
  *
  * <h3>Speech-to-Text — provider selection</h3>
  * <p>
  * The {@code sttProvider} setting controls which backend is used:
  * <ul>
- * <li>{@code "local"} (default) — calls a local faster-whisper HTTP server
- * at the URL stored in {@code sttLocalUrl} (default:
+ * <li>{@code "local"} (default) — calls a local faster-whisper HTTP server at
+ * the URL stored in {@code sttLocalUrl} (default:
  * {@code http://localhost:8765/v1/audio/transcriptions}). Uses the same
  * multipart/form-data format as OpenAI. Free, private, no API key.</li>
  * <li>{@code "openai"} — calls
@@ -51,8 +52,8 @@ import java.util.UUID;
  *
  * <h3>Design notes</h3>
  * <ul>
- * <li>The multipart/form-data body for OpenAI Whisper is hand-built because
- * the JDK HTTP client does not include a built-in multipart encoder.</li>
+ * <li>The multipart/form-data body for OpenAI Whisper is hand-built because the
+ * JDK HTTP client does not include a built-in multipart encoder.</li>
  * <li>Both calls use a 60-second response timeout because audio transcription
  * and synthesis can take several seconds for long inputs.</li>
  * </ul>
@@ -61,9 +62,9 @@ import java.util.UUID;
  * <ul>
  * <li><b>v2026.1.4</b> — initial creation; OpenAI Whisper STT and TTS-1.</li>
  * <li><b>v2026.1.5</b> — added local faster-whisper STT as default;
- * {@code sttProvider} (local/openai) and {@code sttLocalUrl} settings;
- * removed non-functional Ollama audio route (Ollama does not support
- * audio inference).</li>
+ * {@code sttProvider} (local/openai) and {@code sttLocalUrl} settings; removed
+ * non-functional Ollama audio route (Ollama does not support audio
+ * inference).</li>
  * </ul>
  *
  * @author Ashok Ram
@@ -89,8 +90,8 @@ public class VoiceService {
 	private static final String TTS_ENDPOINT = "https://api.openai.com/v1/audio/speech";
 
 	/**
-	 * Default local faster-whisper server URL. OpenAI-compatible endpoint.
-	 * Start with: {@code pip install faster-whisper uvicorn} then run the server.
+	 * Default local faster-whisper server URL. OpenAI-compatible endpoint. Start
+	 * with: {@code pip install faster-whisper uvicorn} then run the server.
 	 */
 	private static final String DEFAULT_LOCAL_WHISPER_URL = "http://localhost:8765/v1/audio/transcriptions";
 
@@ -168,10 +169,12 @@ public class VoiceService {
 	 * <p>
 	 * The server must expose an OpenAI-compatible
 	 * {@code POST /v1/audio/transcriptions} endpoint. The URL is read from
-	 * {@code sttLocalUrl} (default: {@code http://localhost:8765/v1/audio/transcriptions}).
+	 * {@code sttLocalUrl} (default:
+	 * {@code http://localhost:8765/v1/audio/transcriptions}).
 	 *
 	 * <p>
 	 * Setup (one-time):
+	 * 
 	 * <pre>
 	 *   pip install faster-whisper
 	 *   # then start with the provided server script, or use:
@@ -242,10 +245,8 @@ public class VoiceService {
 		body.write(nl.getBytes(StandardCharsets.UTF_8));
 		body.write(("--" + boundary + "--" + nl).getBytes(StandardCharsets.UTF_8));
 
-		HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
-				.uri(URI.create(endpoint))
-				.header("Content-Type", "multipart/form-data; boundary=" + boundary)
-				.timeout(Duration.ofSeconds(120))
+		HttpRequest.Builder reqBuilder = HttpRequest.newBuilder().uri(URI.create(endpoint))
+				.header("Content-Type", "multipart/form-data; boundary=" + boundary).timeout(Duration.ofSeconds(120))
 				.POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()));
 		if (apiKey != null && !apiKey.isBlank()) {
 			reqBuilder.header("Authorization", "Bearer " + apiKey);

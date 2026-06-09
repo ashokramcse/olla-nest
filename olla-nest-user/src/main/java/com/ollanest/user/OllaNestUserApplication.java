@@ -21,19 +21,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * @since v2026.1.5
  */
 /**
- * Exclude all admin-only controllers — they live only in olla-nest-admin.
- * User controllers and UserPageController are in this module and are picked
- * up normally. AdminPageController is excluded via the admin package filter.
+ * Exclude all admin-only controllers — they live only in olla-nest-admin. User
+ * controllers and UserPageController are in this module and are picked up
+ * normally. AdminPageController is excluded via the admin package filter.
  */
 @SpringBootApplication
 @EnableScheduling
-@ComponentScan(
-	basePackages = "com.ollanest",
-	excludeFilters = @ComponentScan.Filter(
-		type = FilterType.REGEX,
-		pattern = "com\\.ollanest\\.(controller\\.admin\\..*|controller\\.AdminPageController|admin\\..*)"
-	)
-)
+@ComponentScan(basePackages = "com.ollanest", excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com\\.ollanest\\.(controller\\.admin\\..*|controller\\.AdminPageController|admin\\..*)"))
 public class OllaNestUserApplication {
 
 	public static void main(String[] args) {

@@ -1,14 +1,15 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
-import org.springframework.stereotype.Component;
-
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Connector implementation that synchronises Notion pages into the Olla
@@ -20,26 +21,35 @@ import java.util.Map;
  * the AI assistant can answer questions grounded in the organisation's Notion
  * workspace without requiring users to leave the Olla interface.
  *
- * <h3>Credential format</h3> <pre>{@code { "token": "secret_..." // Notion
+ * <h3>Credential format</h3>
+ * 
+ * <pre>{@code { "token": "secret_..." // Notion
  * integration token from notion.so/my-integrations. } }</pre>
  *
- * <h3>Design notes</h3> <ul> <li>The Notion API requires a custom {@code
- * Notion-Version} header on every request. This is handled by overriding {@link
- * #httpGet} to inject the header, and by the private {@link #notionPost} helper
- * for POST requests.</li> <li>Pages are discovered via the {@code POST /search}
- * endpoint filtered to objects of type {@code page}. Up to 50 pages are
- * returned per call; cursor-based pagination is not yet implemented.</li>
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The Notion API requires a custom {@code
+ * Notion-Version} header on every request. This is handled by overriding
+ * {@link #httpGet} to inject the header, and by the private {@link #notionPost}
+ * helper for POST requests.</li>
+ * <li>Pages are discovered via the {@code POST /search} endpoint filtered to
+ * objects of type {@code page}. Up to 50 pages are returned per call;
+ * cursor-based pagination is not yet implemented.</li>
  * <li>For each page, block children are fetched via {@code GET
  * /blocks/{pageId}/children} (up to 100 blocks). Only blocks with a {@code
  * rich_text} array are rendered; nested blocks (e.g. children of toggle or
- * column blocks) are not recursed into.</li> <li>The title is extracted by
- * probing common Notion property key names ({@code title}, {@code Title},
- * {@code Name}, {@code name}).</li> </ul>
+ * column blocks) are not recursed into.</li>
+ * <li>The title is extracted by probing common Notion property key names
+ * ({@code title}, {@code Title}, {@code Name}, {@code name}).</li>
+ * </ul>
  *
- * <h3>Version history</h3> <ul> <li>v2026.1.4 — initial creation</li> </ul>
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial creation</li>
+ * </ul>
  *
  * @author Ashok Ram @since v2026.1.4 @version v2026.1.4 @see
- * com.ollanest.connector.BaseConnector
+ *         com.ollanest.connector.BaseConnector
  */
 @Component
 public class NotionConnector extends BaseConnector {

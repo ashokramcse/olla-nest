@@ -1,13 +1,14 @@
 package com.ollanest.filter;
 
+import java.io.IOException;
+
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
 
 /**
  * {@link OncePerRequestFilter} that adds HTTP security headers to every
@@ -25,9 +26,9 @@ import java.io.IOException;
  * <ul>
  * <li>{@code 'unsafe-inline'} is permitted for scripts and styles because the
  * frontend uses inline event handlers; a nonce-based CSP is a future
- * improvement.
- * TODO (tech-debt): replace {@code 'unsafe-inline'} on script-src with a
- * nonce-based CSP to eliminate XSS risk from injected inline scripts.</li>
+ * improvement. TODO (tech-debt): replace {@code 'unsafe-inline'} on script-src
+ * with a nonce-based CSP to eliminate XSS risk from injected inline
+ * scripts.</li>
  * <li>The filter is registered via {@link Component} so Spring Boot
  * auto-detects it, but its position in the security filter chain is controlled
  * explicitly in {@link com.ollanest.config.SecurityConfig#filterChain}.</li>
@@ -41,8 +42,8 @@ import java.io.IOException;
  * {@code Strict-Transport-Security} (MED-2) headers as part of the security
  * hardening pass</li>
  * <li>v2026.1.10 — CRIT-5: changed Permissions-Policy microphone from () to
- * (self) so voice recording works; MED-6: removed deprecated
- * X-XSS-Protection header (harmful in modern browsers)</li>
+ * (self) so voice recording works; MED-6: removed deprecated X-XSS-Protection
+ * header (harmful in modern browsers)</li>
  * </ul>
  *
  * <p>
@@ -82,7 +83,8 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
 		response.setHeader("X-Content-Type-Options", "nosniff");
 		// DENY is stricter than SAMEORIGIN — the app never needs to iframe itself.
 		response.setHeader("X-Frame-Options", "DENY");
-		// MED-6 FIX: Prevent sensitive API responses from being cached by proxies or browsers.
+		// MED-6 FIX: Prevent sensitive API responses from being cached by proxies or
+		// browsers.
 		// Applied to /api/** only; static assets can be cached by the reverse proxy.
 		String path = request.getRequestURI();
 		if (path != null && path.startsWith("/api/")) {
@@ -98,18 +100,12 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
 		response.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=(), payment=()");
 		// TODO (tech-debt): remove 'unsafe-inline' from script-src and replace with
 		// a nonce-based CSP once the frontend no longer uses inline event handlers.
-		response.setHeader("Content-Security-Policy",
-				"default-src 'self'; "
-						+ "script-src 'self' 'unsafe-inline'; "
-						// Fonts are self-hosted (see public/fonts.css) — no external
-						// font/style origins needed, tightening the CSP.
-						+ "style-src 'self' 'unsafe-inline'; "
-						+ "img-src 'self' data: blob:; "
-						+ "connect-src 'self' ws: wss:; "
-						+ "font-src 'self' data:; "
-						+ "frame-ancestors 'none'; "
-						+ "base-uri 'self'; "
-						+ "form-action 'self'");
+		response.setHeader("Content-Security-Policy", "default-src 'self'; " + "script-src 'self' 'unsafe-inline'; "
+		// Fonts are self-hosted (see public/fonts.css) — no external
+		// font/style origins needed, tightening the CSP.
+				+ "style-src 'self' 'unsafe-inline'; " + "img-src 'self' data: blob:; "
+				+ "connect-src 'self' ws: wss:; " + "font-src 'self' data:; " + "frame-ancestors 'none'; "
+				+ "base-uri 'self'; " + "form-action 'self'");
 		// HSTS only when the connection is already over HTTPS — setting it on
 		// plain HTTP would poison the browser's HSTS cache for dev environments.
 		if (request.isSecure()) {

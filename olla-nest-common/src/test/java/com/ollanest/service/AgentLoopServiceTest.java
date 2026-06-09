@@ -1,7 +1,8 @@
 package com.ollanest.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.testinfra.UserFactory;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -13,13 +14,14 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.testinfra.UserFactory;
 
 /**
  * OCD-level unit tests for {@link AgentLoopService}.
  *
- * <p>Covers isRunning() and cancel() — testable without SSE or LLM connections.
+ * <p>
+ * Covers isRunning() and cancel() — testable without SSE or LLM connections.
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -30,53 +32,61 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 @DisplayName("AgentLoopService — unit tests")
 class AgentLoopServiceTest {
 
-    private static final String OWNER = UserFactory.USER_ID;
+	private static final String OWNER = UserFactory.USER_ID;
 
-    @Mock ObjectMapper mapper;
-    @Mock JdbcTemplate db;
-    @Mock WebSearchService webSearchService;
-    @Mock MemoryService memoryService;
-    @Mock NotesService notesService;
-    @Mock CalendarService calendarService;
-    @Mock TaskSchedulerService taskService;
+	@Mock
+	ObjectMapper mapper;
+	@Mock
+	JdbcTemplate db;
+	@Mock
+	WebSearchService webSearchService;
+	@Mock
+	MemoryService memoryService;
+	@Mock
+	NotesService notesService;
+	@Mock
+	CalendarService calendarService;
+	@Mock
+	TaskSchedulerService taskService;
 
-    @InjectMocks AgentLoopService agentLoopService;
+	@InjectMocks
+	AgentLoopService agentLoopService;
 
-    // ── isRunning() ───────────────────────────────────────────────────────────
+	// ── isRunning() ───────────────────────────────────────────────────────────
 
-    @Nested
-    @DisplayName("isRunning()")
-    class IsRunning {
+	@Nested
+	@DisplayName("isRunning()")
+	class IsRunning {
 
-        @Test
-        @DisplayName("returns false for unknown sessionId")
-        void falseForUnknown() {
-            // No active run registered for this session — must return false, not throw
-            assertThat(agentLoopService.isRunning("unknown-session-xyz")).isFalse();
-        }
-    }
+		@Test
+		@DisplayName("returns false for unknown sessionId")
+		void falseForUnknown() {
+			// No active run registered for this session — must return false, not throw
+			assertThat(agentLoopService.isRunning("unknown-session-xyz")).isFalse();
+		}
+	}
 
-    // ── cancel() ─────────────────────────────────────────────────────────────
+	// ── cancel() ─────────────────────────────────────────────────────────────
 
-    @Nested
-    @DisplayName("cancel()")
-    class Cancel {
+	@Nested
+	@DisplayName("cancel()")
+	class Cancel {
 
-        @Test
-        @DisplayName("no exception for unknown sessionId")
-        void noExceptionForUnknown() {
-            // Cancelling an unknown session must be a no-op (idempotent)
-            assertThatCode(() -> agentLoopService.cancel("unknown-session-abc"))
-                    .doesNotThrowAnyException();
-        }
+		@Test
+		@DisplayName("no exception for unknown sessionId")
+		void noExceptionForUnknown() {
+			// Cancelling an unknown session must be a no-op (idempotent)
+			assertThatCode(() -> agentLoopService.cancel("unknown-session-abc")).doesNotThrowAnyException();
+		}
 
-        @Test
-        @DisplayName("after cancel, isRunning returns false")
-        void isRunningFalseAfterCancel() {
-            // Step 1: cancel a session that was never started (no-op)
-            agentLoopService.cancel("session-123");
-            // Step 2: isRunning must still return false — cancel must not accidentally register the session
-            assertThat(agentLoopService.isRunning("session-123")).isFalse();
-        }
-    }
+		@Test
+		@DisplayName("after cancel, isRunning returns false")
+		void isRunningFalseAfterCancel() {
+			// Step 1: cancel a session that was never started (no-op)
+			agentLoopService.cancel("session-123");
+			// Step 2: isRunning must still return false — cancel must not accidentally
+			// register the session
+			assertThat(agentLoopService.isRunning("session-123")).isFalse();
+		}
+	}
 }

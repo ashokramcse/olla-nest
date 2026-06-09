@@ -1,7 +1,8 @@
 package com.ollanest.controller;
 
-import com.ollanest.service.VoiceService;
-import jakarta.servlet.http.HttpServletRequest;
+import java.util.Map;
+import java.util.Set;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -12,8 +13,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Map;
-import java.util.Set;
+import com.ollanest.service.VoiceService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * REST API for voice input (speech-to-text) and voice output (text-to-speech).
@@ -36,9 +38,9 @@ import java.util.Set;
  * <li>The {@code /speak} response carries binary MP3 bytes with
  * {@code Content-Type: audio/mpeg} so the browser can play it directly via the
  * HTML {@code <audio>} element.</li>
- * <li>The {@code voice} parameter is validated against
- * {@link #ALLOWED_VOICES} before being passed to the TTS service (MED-8);
- * unrecognised values are silently defaulted to {@code "alloy"}.</li>
+ * <li>The {@code voice} parameter is validated against {@link #ALLOWED_VOICES}
+ * before being passed to the TTS service (MED-8); unrecognised values are
+ * silently defaulted to {@code "alloy"}.</li>
  * </ul>
  *
  * <h3>Version history</h3>
@@ -60,12 +62,11 @@ import java.util.Set;
 public class VoiceController extends BaseController {
 
 	/**
-	 * Exhaustive set of voice IDs accepted by the OpenAI TTS API (MED-8).
-	 * Any value not in this set is replaced with {@code "alloy"} before the
-	 * request reaches the service layer.
+	 * Exhaustive set of voice IDs accepted by the OpenAI TTS API (MED-8). Any value
+	 * not in this set is replaced with {@code "alloy"} before the request reaches
+	 * the service layer.
 	 */
-	private static final Set<String> ALLOWED_VOICES =
-			Set.of("alloy", "echo", "fable", "onyx", "nova", "shimmer");
+	private static final Set<String> ALLOWED_VOICES = Set.of("alloy", "echo", "fable", "onyx", "nova", "shimmer");
 
 	/** Delegates Whisper STT and OpenAI TTS calls to the voice service. */
 	private final VoiceService voiceService;

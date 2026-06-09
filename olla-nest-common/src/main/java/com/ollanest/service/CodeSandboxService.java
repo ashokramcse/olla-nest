@@ -1,11 +1,8 @@
 package com.ollanest.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -16,9 +13,12 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 /**
  * Isolated code execution sandbox that runs user-supplied snippets in a
@@ -30,7 +30,8 @@ import java.util.regex.Pattern;
  * <li>10-second wall-clock timeout (SIGKILL on breach)</li>
  * <li>Stdout + stderr combined, capped at 64 KB</li>
  * <li>Temp-file cleanup in a {@code finally} block</li>
- * <li>Per-language interpreter detection (python3 / node / ruby / bash / java)</li>
+ * <li>Per-language interpreter detection (python3 / node / ruby / bash /
+ * java)</li>
  * </ul>
  *
  * <p>
@@ -56,12 +57,12 @@ import java.util.regex.Pattern;
  *
  * <h3>Design notes</h3>
  * <ul>
- * <li>The subprocess environment is cleared and rebuilt from a safe minimal
- * set ({@code PATH}, {@code HOME}, {@code TMPDIR}, {@code LANG}) so that no
+ * <li>The subprocess environment is cleared and rebuilt from a safe minimal set
+ * ({@code PATH}, {@code HOME}, {@code TMPDIR}, {@code LANG}) so that no
  * parent-process secrets can be read by the executed code.</li>
  * <li>{@code ulimit -v} and {@code ulimit -t} are applied via a wrapping
- * {@code bash -c} invocation on Unix/macOS systems; Windows runs without
- * these limits (Docker is the recommended Windows isolation approach).</li>
+ * {@code bash -c} invocation on Unix/macOS systems; Windows runs without these
+ * limits (Docker is the recommended Windows isolation approach).</li>
  * <li>For production deployments with untrusted users, wrap each run in a
  * Docker container or use Firecracker/gVisor. The current implementation is
  * suitable for trusted internal teams.</li>
@@ -70,8 +71,8 @@ import java.util.regex.Pattern;
  * <h3>Version history</h3>
  * <ul>
  * <li>v2026.1.4 — initial implementation</li>
- * <li>v2026.1.9 — security hardening: cleared env, TMPDIR/HOME redirect,
- * ulimit wrapping</li>
+ * <li>v2026.1.9 — security hardening: cleared env, TMPDIR/HOME redirect, ulimit
+ * wrapping</li>
  * </ul>
  *
  * @author Ashok Ram
@@ -147,8 +148,8 @@ public class CodeSandboxService {
 	// ── Interpreted languages (python, node, ruby, bash) ────────────────────
 
 	/**
-	 * Executes a code snippet using an OS interpreter (Python, Node.js, Ruby,
-	 * Bash, etc.).
+	 * Executes a code snippet using an OS interpreter (Python, Node.js, Ruby, Bash,
+	 * etc.).
 	 *
 	 * <p>
 	 * Locates the first available interpreter from {@link LangSpec#commands()},
@@ -157,7 +158,8 @@ public class CodeSandboxService {
 	 * {@link #executeProcess}.
 	 *
 	 * @param code    the raw source code submitted by the user
-	 * @param spec    the language specification (file extension + interpreter candidates)
+	 * @param spec    the language specification (file extension + interpreter
+	 *                candidates)
 	 * @param tempDir the isolated temporary directory for this execution
 	 * @return the execution result including output, exit code and elapsed time
 	 * @throws Exception if file I/O or process creation fails
@@ -184,9 +186,9 @@ public class CodeSandboxService {
 	 * disable network access where possible at the interpreter level.
 	 *
 	 * <p>
-	 * This is a defence-in-depth layer — the primary isolation mechanism should
-	 * be Docker containers with {@code --network=none} in production. These
-	 * preambles add a second layer of protection when running without Docker.
+	 * This is a defence-in-depth layer — the primary isolation mechanism should be
+	 * Docker containers with {@code --network=none} in production. These preambles
+	 * add a second layer of protection when running without Docker.
 	 *
 	 * @param extension the file extension ({@code .py}, {@code .sh}, etc.)
 	 * @param code      the original user code
@@ -194,9 +196,9 @@ public class CodeSandboxService {
 	 */
 	private String injectSafetyPreamble(String extension, String code) {
 		return switch (extension) {
-			case ".py" -> PYTHON_PREAMBLE + code;
-			case ".sh" -> BASH_PREAMBLE + code;
-			default -> code;
+		case ".py" -> PYTHON_PREAMBLE + code;
+		case ".sh" -> BASH_PREAMBLE + code;
+		default -> code;
 		};
 	}
 
@@ -208,50 +210,47 @@ public class CodeSandboxService {
 	 * Note: determined attackers can bypass this with ctypes or C extensions.
 	 * Docker network isolation remains the recommended production control.
 	 */
-	private static final String PYTHON_PREAMBLE =
-		"""
-		import sys as _sys, os as _os, resource as _resource
-		# Enforce 256 MB virtual memory soft limit
-		try:
-		    _mem_limit = 256 * 1024 * 1024
-		    _resource.setrlimit(_resource.RLIMIT_AS, (_mem_limit, _mem_limit))
-		except Exception:
-		    pass
-		# Block network modules — redirect them to a sentinel that raises
-		class _NetBlocker:
-		    def __getattr__(self, name):
-		        raise RuntimeError("Network access is disabled in this sandbox")
-		    def __call__(self, *a, **kw):
-		        raise RuntimeError("Network access is disabled in this sandbox")
-		for _mod in ['socket','urllib','urllib.request','urllib.parse','http','http.client',
-		             'requests','httpx','aiohttp','ftplib','smtplib']:
-		    _sys.modules[_mod] = _NetBlocker()
-		del _sys, _os, _resource, _NetBlocker, _mod, _mem_limit
-		# ── User code below ───────────────────────────────────────────────────
-		""";
+	private static final String PYTHON_PREAMBLE = """
+			import sys as _sys, os as _os, resource as _resource
+			# Enforce 256 MB virtual memory soft limit
+			try:
+			    _mem_limit = 256 * 1024 * 1024
+			    _resource.setrlimit(_resource.RLIMIT_AS, (_mem_limit, _mem_limit))
+			except Exception:
+			    pass
+			# Block network modules — redirect them to a sentinel that raises
+			class _NetBlocker:
+			    def __getattr__(self, name):
+			        raise RuntimeError("Network access is disabled in this sandbox")
+			    def __call__(self, *a, **kw):
+			        raise RuntimeError("Network access is disabled in this sandbox")
+			for _mod in ['socket','urllib','urllib.request','urllib.parse','http','http.client',
+			             'requests','httpx','aiohttp','ftplib','smtplib']:
+			    _sys.modules[_mod] = _NetBlocker()
+			del _sys, _os, _resource, _NetBlocker, _mod, _mem_limit
+			# ── User code below ───────────────────────────────────────────────────
+			""";
 
 	/**
 	 * Bash preamble: restricts PATH to disallow network tools and overrides
 	 * curl/wget/nc/ssh with no-ops that print a sandbox error message.
 	 *
 	 * <p>
-	 * Note: a determined attacker can still open TCP sockets via /dev/tcp.
-	 * Docker network isolation remains the recommended production control.
+	 * Note: a determined attacker can still open TCP sockets via /dev/tcp. Docker
+	 * network isolation remains the recommended production control.
 	 */
-	private static final String BASH_PREAMBLE =
-		"""
-		# Sandbox: override network tools with error stubs
-		curl()  { echo "[sandbox] Network access is disabled"; return 1; }
-		wget()  { echo "[sandbox] Network access is disabled"; return 1; }
-		nc()    { echo "[sandbox] Network access is disabled"; return 1; }
-		ncat()  { echo "[sandbox] Network access is disabled"; return 1; }
-		ssh()   { echo "[sandbox] Network access is disabled"; return 1; }
-		scp()   { echo "[sandbox] Network access is disabled"; return 1; }
-		ftp()   { echo "[sandbox] Network access is disabled"; return 1; }
-		export -f curl wget nc ncat ssh scp ftp 2>/dev/null || true
-		# ── User code below ───────────────────────────────────────────────────
-		""";
-
+	private static final String BASH_PREAMBLE = """
+			# Sandbox: override network tools with error stubs
+			curl()  { echo "[sandbox] Network access is disabled"; return 1; }
+			wget()  { echo "[sandbox] Network access is disabled"; return 1; }
+			nc()    { echo "[sandbox] Network access is disabled"; return 1; }
+			ncat()  { echo "[sandbox] Network access is disabled"; return 1; }
+			ssh()   { echo "[sandbox] Network access is disabled"; return 1; }
+			scp()   { echo "[sandbox] Network access is disabled"; return 1; }
+			ftp()   { echo "[sandbox] Network access is disabled"; return 1; }
+			export -f curl wget nc ncat ssh scp ftp 2>/dev/null || true
+			# ── User code below ───────────────────────────────────────────────────
+			""";
 
 	// ── Java: compile then run ───────────────────────────────────────────────
 
@@ -262,9 +261,9 @@ public class CodeSandboxService {
 	 * Extracts the {@code public class} name from the source via regex (falls back
 	 * to {@code "Main"} if not found), writes the source to a matching
 	 * {@code .java} file, compiles it with {@code javac}, and — if compilation
-	 * succeeds — runs the resulting class with {@code java -cp}.  Compilation
-	 * errors are returned as a {@link RunResult} with phase {@code "compile"} so
-	 * the UI can display them distinctly from runtime errors.
+	 * succeeds — runs the resulting class with {@code java -cp}. Compilation errors
+	 * are returned as a {@link RunResult} with phase {@code "compile"} so the UI
+	 * can display them distinctly from runtime errors.
 	 *
 	 * @param code    the Java source code submitted by the user
 	 * @param tempDir the isolated temporary directory for this execution
@@ -305,12 +304,13 @@ public class CodeSandboxService {
 	// ── Core process runner ──────────────────────────────────────────────────
 
 	/**
-	 * Builds the actual command list to execute, wrapping with {@code ulimit}
-	 * on Unix-like systems to enforce memory limits.
+	 * Builds the actual command list to execute, wrapping with {@code ulimit} on
+	 * Unix-like systems to enforce memory limits.
 	 *
 	 * <p>
-	 * On macOS/Linux: wraps as {@code bash -c "ulimit -v LIMIT && ulimit -t TIME && cmd args..."}.
-	 * This limits virtual memory and CPU seconds. On Windows the command runs as-is
+	 * On macOS/Linux: wraps as
+	 * {@code bash -c "ulimit -v LIMIT && ulimit -t TIME && cmd args..."}. This
+	 * limits virtual memory and CPU seconds. On Windows the command runs as-is
 	 * (Docker isolation is the recommended Windows approach).
 	 *
 	 * @param cmd     the interpreter command and arguments
@@ -323,12 +323,13 @@ public class CodeSandboxService {
 		}
 		// Escape each argument for shell embedding
 		StringBuilder shellCmd = new StringBuilder();
-		// Set virtual memory limit (ulimit -v in KB) and CPU time limit (ulimit -t in seconds)
-		shellCmd.append("ulimit -v ").append(MEMORY_LIMIT_KB)
-				.append(" 2>/dev/null; ulimit -t ").append(TIMEOUT_SECONDS)
+		// Set virtual memory limit (ulimit -v in KB) and CPU time limit (ulimit -t in
+		// seconds)
+		shellCmd.append("ulimit -v ").append(MEMORY_LIMIT_KB).append(" 2>/dev/null; ulimit -t ").append(TIMEOUT_SECONDS)
 				.append(" 2>/dev/null; ");
 		for (int i = 0; i < cmd.size(); i++) {
-			if (i > 0) shellCmd.append(' ');
+			if (i > 0)
+				shellCmd.append(' ');
 			shellCmd.append(shellEscape(cmd.get(i)));
 		}
 		return List.of("bash", "-c", shellCmd.toString());
@@ -345,21 +346,22 @@ public class CodeSandboxService {
 	 *
 	 * <p>
 	 * The command is first wrapped via {@link #wrapWithLimits} which prepends
-	 * {@code ulimit} memory and CPU constraints on Unix-like systems.  The
+	 * {@code ulimit} memory and CPU constraints on Unix-like systems. The
 	 * subprocess environment is cleared and rebuilt from a minimal safe set
 	 * ({@code PATH}, {@code HOME}, {@code TMPDIR}, {@code LANG}) so that no
 	 * parent-process secrets, API keys, or proxy settings are inherited.
 	 *
 	 * <p>
 	 * Output is drained in a virtual thread to avoid blocking the carrier thread
-	 * while the process runs.  If the process does not finish within
-	 * {@link #TIMEOUT_SECONDS} it is force-killed via {@link Process#destroyForcibly()}.
+	 * while the process runs. If the process does not finish within
+	 * {@link #TIMEOUT_SECONDS} it is force-killed via
+	 * {@link Process#destroyForcibly()}.
 	 *
-	 * @param cmd       the interpreter command and its arguments (not yet wrapped)
-	 * @param workDir   the sandbox working directory; used as {@code HOME} and
-	 *                  {@code TMPDIR} for the subprocess
-	 * @param extraEnv  optional additional environment variables to set after the
-	 *                  minimal safe set; may be {@code null}
+	 * @param cmd      the interpreter command and its arguments (not yet wrapped)
+	 * @param workDir  the sandbox working directory; used as {@code HOME} and
+	 *                 {@code TMPDIR} for the subprocess
+	 * @param extraEnv optional additional environment variables to set after the
+	 *                 minimal safe set; may be {@code null}
 	 * @return the execution result with output, exit code, elapsed time and phase
 	 * @throws Exception if process creation or I/O draining fails unexpectedly
 	 * @author Ashok Ram
@@ -446,7 +448,8 @@ public class CodeSandboxService {
 	 * Used to decide whether {@code ulimit} wrapping and Unix-specific sandbox
 	 * controls should be applied.
 	 *
-	 * @return {@code true} if {@code os.name} contains {@code "win"} (case-insensitive)
+	 * @return {@code true} if {@code os.name} contains {@code "win"}
+	 *         (case-insensitive)
 	 * @author Ashok Ram
 	 * @since v2026.1.4
 	 */
@@ -508,10 +511,10 @@ public class CodeSandboxService {
 		/**
 		 * Creates a {@link RunResult} from a completed subprocess.
 		 *
-		 * @param output     merged stdout + stderr text
-		 * @param exitCode   process exit code
-		 * @param elapsedMs  wall-clock execution time in milliseconds
-		 * @param phase      the execution phase ({@code "run"} or {@code "compile"})
+		 * @param output    merged stdout + stderr text
+		 * @param exitCode  process exit code
+		 * @param elapsedMs wall-clock execution time in milliseconds
+		 * @param phase     the execution phase ({@code "run"} or {@code "compile"})
 		 * @return a result whose {@code ok} flag reflects whether {@code exitCode} is 0
 		 * @since v2026.1.4
 		 */

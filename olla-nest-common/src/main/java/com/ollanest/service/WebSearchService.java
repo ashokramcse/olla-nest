@@ -1,6 +1,7 @@
 package com.ollanest.service;
 
 import java.net.URI;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -10,6 +11,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,9 +20,6 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.net.URLDecoder;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Web search abstraction supporting three interchangeable provider backends.
@@ -105,12 +105,16 @@ public class WebSearchService {
 	private final PromptSecurityService promptSecurityService;
 
 	/**
-	 * Constructs a {@code WebSearchService} with the required infrastructure dependencies.
+	 * Constructs a {@code WebSearchService} with the required infrastructure
+	 * dependencies.
 	 *
-	 * @param dbService             application settings service for reading search provider configuration
+	 * @param dbService             application settings service for reading search
+	 *                              provider configuration
 	 * @param mapper                shared Jackson mapper for API response parsing
-	 * @param cacheService          cache service for deduplicating repeat search queries
-	 * @param promptSecurityService prompt-injection hardening / audit for web content
+	 * @param cacheService          cache service for deduplicating repeat search
+	 *                              queries
+	 * @param promptSecurityService prompt-injection hardening / audit for web
+	 *                              content
 	 * @since v2026.2.1
 	 * @version v2026.2.2 — wired prompt-injection hardening into result formatting
 	 */
@@ -127,7 +131,8 @@ public class WebSearchService {
 	/**
 	 * Classifies a search query into a category that influences provider selection.
 	 *
-	 * <p>Returns {@code "news"} for queries containing time-sensitive keywords
+	 * <p>
+	 * Returns {@code "news"} for queries containing time-sensitive keywords
 	 * (breaking, today, latest, news), {@code "research"} for longer analytical
 	 * queries, or {@code "general"} for everything else.
 	 *
@@ -136,10 +141,13 @@ public class WebSearchService {
 	 * @since v2026.2.1
 	 */
 	public String classifyQuery(String query) {
-		if (query == null) return "general";
+		if (query == null)
+			return "general";
 		String q = query.toLowerCase();
-		if (q.contains("breaking") || q.contains("today") || q.contains("latest") || q.contains("news")) return "news";
-		if (q.contains("research") || q.contains("study") || q.contains("analysis") || q.length() > 80) return "research";
+		if (q.contains("breaking") || q.contains("today") || q.contains("latest") || q.contains("news"))
+			return "news";
+		if (q.contains("research") || q.contains("study") || q.contains("analysis") || q.length() > 80)
+			return "research";
 		return "general";
 	}
 
@@ -148,8 +156,9 @@ public class WebSearchService {
 	/**
 	 * Fetches the plain-text body of a web page by stripping HTML tags.
 	 *
-	 * <p>Uses a 10-second response timeout. Returns {@code null} on any error
-	 * (non-200 status, network failure, etc.) so callers can degrade gracefully.
+	 * <p>
+	 * Uses a 10-second response timeout. Returns {@code null} on any error (non-200
+	 * status, network failure, etc.) so callers can degrade gracefully.
 	 *
 	 * @param url the fully-qualified URL to fetch; must be a valid URI
 	 * @return the stripped plain-text content, or {@code null} on failure
@@ -158,14 +167,15 @@ public class WebSearchService {
 	public String fetchPageContent(String url) {
 		try {
 			HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url))
-					.header("User-Agent", "Mozilla/5.0 (compatible; OllaNest/1.0)")
-					.timeout(Duration.ofSeconds(10)).GET().build();
+					.header("User-Agent", "Mozilla/5.0 (compatible; OllaNest/1.0)").timeout(Duration.ofSeconds(10))
+					.GET().build();
 			HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-			if (resp.statusCode() != 200) return null;
+			if (resp.statusCode() != 200)
+				return null;
 			// Strip HTML
 			String text = resp.body().replaceAll("<style[^>]*>[\\s\\S]*?</style>", "")
-					.replaceAll("<script[^>]*>[\\s\\S]*?</script>", "")
-					.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
+					.replaceAll("<script[^>]*>[\\s\\S]*?</script>", "").replaceAll("<[^>]+>", " ")
+					.replaceAll("\\s+", " ").trim();
 			return text.length() > 8000 ? text.substring(0, 8000) + "..." : text;
 		} catch (Exception e) {
 			return null;
@@ -174,15 +184,21 @@ public class WebSearchService {
 
 	// ── Result ranking ────────────────────────────────────────────────────────
 	private List<SearchResult> rank(List<SearchResult> results, String query) {
-		if (results.isEmpty()) return results;
+		if (results.isEmpty())
+			return results;
 		String[] terms = query.toLowerCase().split("\\s+");
-		record Scored(SearchResult r, int score) {}
+		record Scored(SearchResult r, int score) {
+		}
 		var scored = results.stream().map(r -> {
 			int score = 0;
 			String text = (r.title() + " " + r.snippet()).toLowerCase();
-			for (String t : terms) { if (text.contains(t)) score++; }
+			for (String t : terms) {
+				if (text.contains(t))
+					score++;
+			}
 			// Boost HTTPS
-			if (r.url().startsWith("https")) score++;
+			if (r.url().startsWith("https"))
+				score++;
 			return new Scored(r, score);
 		}).sorted((a, b) -> b.score() - a.score()).toList();
 		return scored.stream().map(Scored::r).toList();
@@ -234,7 +250,8 @@ public class WebSearchService {
 	 * @since v2026.1.4
 	 */
 	public List<SearchResult> search(String query, int maxResults) {
-		if (query == null || query.isBlank()) return List.of();
+		if (query == null || query.isBlank())
+			return List.of();
 		String provider = dbService.getSetting("searchProvider", "serper");
 		int limit = maxResults > 0 ? maxResults : DEFAULT_RESULTS;
 		String queryType = classifyQuery(query);
@@ -242,16 +259,17 @@ public class WebSearchService {
 		// Check cache first
 		String key = cacheService.cacheKey(query, provider);
 		List<SearchResult> cached = cacheService.get(key);
-		if (cached != null) return cached;
+		if (cached != null)
+			return cached;
 
 		try {
 			List<SearchResult> results = switch (provider) {
-				case "brave"      -> searchBrave(query, limit);
-				case "searxng"    -> searchSearXng(query, limit);
-				case "duckduckgo" -> searchDuckDuckGo(query, limit);
-				case "google_pse" -> searchGooglePse(query, limit);
-				case "tavily"     -> searchTavily(query, limit);
-				default           -> searchSerper(query, limit);
+			case "brave" -> searchBrave(query, limit);
+			case "searxng" -> searchSearXng(query, limit);
+			case "duckduckgo" -> searchDuckDuckGo(query, limit);
+			case "google_pse" -> searchGooglePse(query, limit);
+			case "tavily" -> searchTavily(query, limit);
+			default -> searchSerper(query, limit);
 			};
 			results = rank(results, query);
 			cacheService.put(key, query, provider, queryType, results);
@@ -266,8 +284,7 @@ public class WebSearchService {
 	private List<SearchResult> searchDuckDuckGo(String query, int limit) throws Exception {
 		String url = "https://html.duckduckgo.com/html/?q=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
 		HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url))
-				.header("User-Agent", "Mozilla/5.0 (compatible; OllaNest/1.0)")
-				.header("Accept", "text/html")
+				.header("User-Agent", "Mozilla/5.0 (compatible; OllaNest/1.0)").header("Accept", "text/html")
 				.timeout(Duration.ofSeconds(15)).GET().build();
 		String html = http.send(req, HttpResponse.BodyHandlers.ofString()).body();
 		List<SearchResult> results = new ArrayList<>();
@@ -277,18 +294,20 @@ public class WebSearchService {
 		Matcher titleMatcher = titlePat.matcher(html);
 		Matcher snippetMatcher = snippetPat.matcher(html);
 		List<String> snippets = new ArrayList<>();
-		while (snippetMatcher.find()) snippets.add(snippetMatcher.group(1));
+		while (snippetMatcher.find())
+			snippets.add(snippetMatcher.group(1));
 		int i = 0;
 		while (titleMatcher.find() && results.size() < limit) {
 			String href = titleMatcher.group(1);
 			String title = titleMatcher.group(2);
-			if (href.startsWith("//duckduckgo.com")) continue;
+			if (href.startsWith("//duckduckgo.com"))
+				continue;
 			// Resolve DuckDuckGo redirect URLs
 			if (href.contains("uddg=")) {
 				try {
-					href = URLDecoder.decode(
-							href.substring(href.indexOf("uddg=") + 5), StandardCharsets.UTF_8);
-				} catch (Exception ignore) {}
+					href = URLDecoder.decode(href.substring(href.indexOf("uddg=") + 5), StandardCharsets.UTF_8);
+				} catch (Exception ignore) {
+				}
 			}
 			results.add(new SearchResult(title, href, snippets.size() > i ? snippets.get(i) : ""));
 			i++;
@@ -304,16 +323,16 @@ public class WebSearchService {
 			log.debug("[websearch] Google PSE not configured (needs searchApiKey + googleSearchCx)");
 			return List.of();
 		}
-		String url = "https://www.googleapis.com/customsearch/v1?key=" + apiKey + "&cx=" + cx
-				+ "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8) + "&num=" + Math.min(limit, 10);
-		HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url))
-				.timeout(Duration.ofSeconds(15)).GET().build();
+		String url = "https://www.googleapis.com/customsearch/v1?key=" + apiKey + "&cx=" + cx + "&q="
+				+ URLEncoder.encode(query, StandardCharsets.UTF_8) + "&num=" + Math.min(limit, 10);
+		HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url)).timeout(Duration.ofSeconds(15)).GET().build();
 		JsonNode root = mapper.readTree(http.send(req, HttpResponse.BodyHandlers.ofString()).body());
 		List<SearchResult> results = new ArrayList<>();
 		for (JsonNode item : root.path("items")) {
 			results.add(new SearchResult(item.path("title").asText(), item.path("link").asText(),
 					item.path("snippet").asText("")));
-			if (results.size() >= limit) break;
+			if (results.size() >= limit)
+				break;
 		}
 		return results;
 	}
@@ -327,15 +346,15 @@ public class WebSearchService {
 		}
 		String body = mapper.writeValueAsString(Map.of("query", query, "max_results", limit, "api_key", apiKey));
 		HttpRequest req = HttpRequest.newBuilder().uri(URI.create("https://api.tavily.com/search"))
-				.header("Content-Type", "application/json")
-				.timeout(Duration.ofSeconds(15))
+				.header("Content-Type", "application/json").timeout(Duration.ofSeconds(15))
 				.POST(HttpRequest.BodyPublishers.ofString(body)).build();
 		JsonNode root = mapper.readTree(http.send(req, HttpResponse.BodyHandlers.ofString()).body());
 		List<SearchResult> results = new ArrayList<>();
 		for (JsonNode r : root.path("results")) {
-			results.add(new SearchResult(r.path("title").asText(), r.path("url").asText(),
-					r.path("content").asText("")));
-			if (results.size() >= limit) break;
+			results.add(
+					new SearchResult(r.path("title").asText(), r.path("url").asText(), r.path("content").asText("")));
+			if (results.size() >= limit)
+				break;
 		}
 		return results;
 	}

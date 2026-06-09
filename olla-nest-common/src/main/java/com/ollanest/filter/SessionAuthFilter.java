@@ -1,24 +1,24 @@
 package com.ollanest.filter;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.web.context.support.WebApplicationContextUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import com.ollanest.model.User;
+import com.ollanest.service.ApiTokenService;
 import com.ollanest.service.AuthService;
+import com.ollanest.service.UserService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import com.ollanest.service.ApiTokenService;
-import com.ollanest.service.UserService;
-import java.util.List;
-import java.util.Map;
-import org.springframework.context.ApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 /**
  * {@link OncePerRequestFilter} that authenticates every HTTP request via the
@@ -44,8 +44,8 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  * <li>The following paths are intentionally served without a user attribute:
  * {@code POST /api/auth/login} and {@code GET /api/bootstrap}.</li>
  * <li>{@code @Order(1)} ensures this filter runs before
- * {@code MdcLoggingFilter} ({@code @Order(2)}) so the MDC context always has
- * an authenticated user available when log entries are written (HIGH-5).</li>
+ * {@code MdcLoggingFilter} ({@code @Order(2)}) so the MDC context always has an
+ * authenticated user available when log entries are written (HIGH-5).</li>
  * </ul>
  *
  * <h3>Version history</h3>
@@ -106,8 +106,7 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 			String rawToken = authHeader.substring("Bearer ".length()).trim();
 			try {
 				// Lazy-load ApiTokenService to avoid circular dependency
-				ApiTokenService tokenService =
-						getApplicationContext(request).getBean(ApiTokenService.class);
+				ApiTokenService tokenService = getApplicationContext(request).getBean(ApiTokenService.class);
 				if (tokenService != null) {
 					Map<String, Object> token = tokenService.validate(rawToken);
 					if (token != null) {
@@ -134,11 +133,9 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 
-	private ApplicationContext getApplicationContext(
-			HttpServletRequest request) {
+	private ApplicationContext getApplicationContext(HttpServletRequest request) {
 		try {
-			return WebApplicationContextUtils
-					.getWebApplicationContext(request.getServletContext());
+			return WebApplicationContextUtils.getWebApplicationContext(request.getServletContext());
 		} catch (Exception e) {
 			return null;
 		}

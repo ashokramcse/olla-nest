@@ -1,9 +1,10 @@
 package com.ollanest.filter;
 
-import com.ollanest.model.User;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,17 +13,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.MDC;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.when;
+import com.ollanest.model.User;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Unit tests for {@link MdcLoggingFilter}.
  *
- * <p>Verifies MDC population for authenticated and anonymous requests,
- * MDC cleanup after the chain, IP resolution priority, and the
- * {@code shouldNotFilter} static-asset bypass.
+ * <p>
+ * Verifies MDC population for authenticated and anonymous requests, MDC cleanup
+ * after the chain, IP resolution priority, and the {@code shouldNotFilter}
+ * static-asset bypass.
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -34,9 +37,12 @@ class MdcLoggingFilterTest {
 
 	private final MdcLoggingFilter filter = new MdcLoggingFilter();
 
-	@Mock HttpServletRequest  req;
-	@Mock HttpServletResponse res;
-	@Mock FilterChain         chain;
+	@Mock
+	HttpServletRequest req;
+	@Mock
+	HttpServletResponse res;
+	@Mock
+	FilterChain chain;
 
 	@AfterEach
 	void clearMdc() {
@@ -49,9 +55,9 @@ class MdcLoggingFilterTest {
 	@DisplayName("authenticated user populates userId, userEmail, userRole, method, path, requestId")
 	void authenticatedUserPopulatesMdc() throws Exception {
 		User user = new User();
-		user.id    = "u-123";
+		user.id = "u-123";
 		user.email = "alice@example.com";
-		user.role  = "admin";
+		user.role = "admin";
 
 		// Stub: authenticated user placed in request attribute by SessionAuthFilter
 		when(req.getAttribute("authenticatedUser")).thenReturn(user);
@@ -61,21 +67,22 @@ class MdcLoggingFilterTest {
 		when(req.getHeader("X-Real-IP")).thenReturn(null);
 		when(req.getRemoteAddr()).thenReturn("127.0.0.1");
 
-		// Capture MDC state inside the chain — we must read it before the filter clears it
-		final String[] capturedUserId    = {null};
-		final String[] capturedUserEmail = {null};
-		final String[] capturedUserRole  = {null};
-		final String[] capturedRequestId = {null};
-		final String[] capturedMethod    = {null};
-		final String[] capturedPath      = {null};
+		// Capture MDC state inside the chain — we must read it before the filter clears
+		// it
+		final String[] capturedUserId = { null };
+		final String[] capturedUserEmail = { null };
+		final String[] capturedUserRole = { null };
+		final String[] capturedRequestId = { null };
+		final String[] capturedMethod = { null };
+		final String[] capturedPath = { null };
 
 		doAnswer(inv -> {
-			capturedUserId[0]    = MDC.get(MdcLoggingFilter.KEY_USER_ID);
+			capturedUserId[0] = MDC.get(MdcLoggingFilter.KEY_USER_ID);
 			capturedUserEmail[0] = MDC.get(MdcLoggingFilter.KEY_USER_EMAIL);
-			capturedUserRole[0]  = MDC.get(MdcLoggingFilter.KEY_USER_ROLE);
+			capturedUserRole[0] = MDC.get(MdcLoggingFilter.KEY_USER_ROLE);
 			capturedRequestId[0] = MDC.get(MdcLoggingFilter.KEY_REQUEST_ID);
-			capturedMethod[0]    = MDC.get(MdcLoggingFilter.KEY_METHOD);
-			capturedPath[0]      = MDC.get(MdcLoggingFilter.KEY_PATH);
+			capturedMethod[0] = MDC.get(MdcLoggingFilter.KEY_METHOD);
+			capturedPath[0] = MDC.get(MdcLoggingFilter.KEY_PATH);
 			return null;
 		}).when(chain).doFilter(req, res);
 
@@ -103,17 +110,18 @@ class MdcLoggingFilterTest {
 		when(req.getHeader("X-Real-IP")).thenReturn(null);
 		when(req.getRemoteAddr()).thenReturn("10.0.0.1");
 
-		final String[] userId = {null}, email = {null}, role = {null};
+		final String[] userId = { null }, email = { null }, role = { null };
 		doAnswer(inv -> {
 			userId[0] = MDC.get(MdcLoggingFilter.KEY_USER_ID);
-			email[0]  = MDC.get(MdcLoggingFilter.KEY_USER_EMAIL);
-			role[0]   = MDC.get(MdcLoggingFilter.KEY_USER_ROLE);
+			email[0] = MDC.get(MdcLoggingFilter.KEY_USER_EMAIL);
+			role[0] = MDC.get(MdcLoggingFilter.KEY_USER_ROLE);
 			return null;
 		}).when(chain).doFilter(req, res);
 
 		filter.doFilterInternal(req, res, chain);
 
-		// Anonymous requests must use "anon" sentinel — never null — so log queries work cleanly
+		// Anonymous requests must use "anon" sentinel — never null — so log queries
+		// work cleanly
 		assertThat(userId[0]).isEqualTo("anon");
 		assertThat(email[0]).isEqualTo("anon");
 		assertThat(role[0]).isEqualTo("anon");
@@ -133,7 +141,8 @@ class MdcLoggingFilterTest {
 
 		filter.doFilterInternal(req, res, chain);
 
-		// MDC must be empty after the filter completes — no MDC leakage into the next request
+		// MDC must be empty after the filter completes — no MDC leakage into the next
+		// request
 		assertThat(MDC.get(MdcLoggingFilter.KEY_REQUEST_ID)).isNull();
 		assertThat(MDC.get(MdcLoggingFilter.KEY_USER_ID)).isNull();
 	}
@@ -147,14 +156,17 @@ class MdcLoggingFilterTest {
 		when(req.getHeader("X-Forwarded-For")).thenReturn(null);
 		when(req.getHeader("X-Real-IP")).thenReturn(null);
 		when(req.getRemoteAddr()).thenReturn("127.0.0.1");
-		// Stub: downstream filter throws — MDC cleanup must still happen (finally block)
+		// Stub: downstream filter throws — MDC cleanup must still happen (finally
+		// block)
 		doThrow(new RuntimeException("downstream error")).when(chain).doFilter(req, res);
 
 		try {
 			filter.doFilterInternal(req, res, chain);
-		} catch (RuntimeException ignored) {}
+		} catch (RuntimeException ignored) {
+		}
 
-		// MDC must be cleared even after an exception — thread pool reuse makes this critical
+		// MDC must be cleared even after an exception — thread pool reuse makes this
+		// critical
 		assertThat(MDC.get(MdcLoggingFilter.KEY_REQUEST_ID)).isNull();
 	}
 
@@ -170,8 +182,11 @@ class MdcLoggingFilterTest {
 		when(req.getHeader("X-Forwarded-For")).thenReturn("203.0.113.5, 10.0.0.1");
 		// X-Real-IP should not be called since X-Forwarded-For is set
 
-		final String[] ip = {null};
-		doAnswer(inv -> { ip[0] = MDC.get(MdcLoggingFilter.KEY_IP); return null; }).when(chain).doFilter(req, res);
+		final String[] ip = { null };
+		doAnswer(inv -> {
+			ip[0] = MDC.get(MdcLoggingFilter.KEY_IP);
+			return null;
+		}).when(chain).doFilter(req, res);
 
 		filter.doFilterInternal(req, res, chain);
 
@@ -189,8 +204,11 @@ class MdcLoggingFilterTest {
 		// Stub: only X-Real-IP is available (set by some reverse proxies)
 		when(req.getHeader("X-Real-IP")).thenReturn("198.51.100.42");
 
-		final String[] ip = {null};
-		doAnswer(inv -> { ip[0] = MDC.get(MdcLoggingFilter.KEY_IP); return null; }).when(chain).doFilter(req, res);
+		final String[] ip = { null };
+		doAnswer(inv -> {
+			ip[0] = MDC.get(MdcLoggingFilter.KEY_IP);
+			return null;
+		}).when(chain).doFilter(req, res);
 
 		filter.doFilterInternal(req, res, chain);
 
@@ -208,8 +226,11 @@ class MdcLoggingFilterTest {
 		when(req.getHeader("X-Real-IP")).thenReturn(null);
 		when(req.getRemoteAddr()).thenReturn("192.168.1.10");
 
-		final String[] ip = {null};
-		doAnswer(inv -> { ip[0] = MDC.get(MdcLoggingFilter.KEY_IP); return null; }).when(chain).doFilter(req, res);
+		final String[] ip = { null };
+		doAnswer(inv -> {
+			ip[0] = MDC.get(MdcLoggingFilter.KEY_IP);
+			return null;
+		}).when(chain).doFilter(req, res);
 
 		filter.doFilterInternal(req, res, chain);
 

@@ -1,9 +1,11 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+
+import com.ollanest.model.User;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Serves the admin-only HTML pages for the Admin Control Panel (port 8080).

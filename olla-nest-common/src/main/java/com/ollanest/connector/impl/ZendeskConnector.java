@@ -1,11 +1,12 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
-import org.springframework.stereotype.Component;
-
 import java.util.Base64;
 import java.util.Map;
+
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Connector implementation that synchronises Zendesk support tickets and Help
@@ -17,26 +18,36 @@ import java.util.Map;
  * customer-facing documentation without requiring support agents or developers
  * to switch context into Zendesk.
  *
- * <h3>Credential format</h3> <pre>{@code { "email": "agent@company.com",
+ * <h3>Credential format</h3>
+ * 
+ * <pre>{@code { "email": "agent@company.com",
  * "apiToken": "...", // Zendesk API token (not the account password).
  * "subdomain": "myco" // The subdomain in https://myco.zendesk.com. } }</pre>
  *
- * <h3>Design notes</h3> <ul> <li>Authentication uses HTTP Basic with the format
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Authentication uses HTTP Basic with the format
  * {@code email/token:apiToken} Base64-encoded, as required by the Zendesk API
- * token auth scheme.</li> <li>Tickets are fetched sorted by {@code updated_at
+ * token auth scheme.</li>
+ * <li>Tickets are fetched sorted by {@code updated_at
  * DESC} with up to 100 per page; cursor-based pagination is not yet
- * implemented.</li> <li>Help Center articles are fetched from {@code
+ * implemented.</li>
+ * <li>Help Center articles are fetched from {@code
  * /api/v2/help_center/articles.json}. Article bodies are HTML; tags are
  * stripped via a simple regex to produce plain text. If the Help Center
  * endpoint is unavailable (e.g. the plan does not include Guide), the exception
- * is silently swallowed so that ticket sync still succeeds.</li> <li>Document
- * IDs are namespaced ({@code ticket-<id>} / {@code article-<id>}) to prevent
- * collisions between the two content types.</li> </ul>
+ * is silently swallowed so that ticket sync still succeeds.</li>
+ * <li>Document IDs are namespaced ({@code ticket-<id>} / {@code article-<id>})
+ * to prevent collisions between the two content types.</li>
+ * </ul>
  *
- * <h3>Version history</h3> <ul> <li>v2026.1.4 — initial creation</li> </ul>
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial creation</li>
+ * </ul>
  *
  * @author Ashok Ram @since v2026.1.4 @version v2026.1.4 @see
- * com.ollanest.connector.BaseConnector
+ *         com.ollanest.connector.BaseConnector
  */
 @Component
 public class ZendeskConnector extends BaseConnector {

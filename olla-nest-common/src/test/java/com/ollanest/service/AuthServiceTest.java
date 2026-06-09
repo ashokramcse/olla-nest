@@ -1,32 +1,5 @@
 package com.ollanest.service;
 
-import com.ollanest.model.User;
-import com.ollanest.testinfra.UserFactory;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.HashSet;
-import java.util.Set;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,11 +13,41 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.ollanest.model.User;
+import com.ollanest.testinfra.UserFactory;
+
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
 /**
  * OCD-level unit tests for {@link AuthService}.
  *
- * <p>All DB and servlet interactions are Mockito-stubbed — no Spring context,
- * no real DB, no network calls. Covers: token extraction, session resolution
+ * <p>
+ * All DB and servlet interactions are Mockito-stubbed — no Spring context, no
+ * real DB, no network calls. Covers: token extraction, session resolution
  * (cache hit / miss / expired), session creation (rotation, DB write, cookie),
  * clearSession, removeSession, forceLogoutUser, scheduled cleanup.
  *
@@ -57,14 +60,19 @@ import static org.mockito.Mockito.when;
 class AuthServiceTest {
 
 	private static final String COOKIE_NAME = "olla_nest_session";
-	private static final String TOKEN       = "a".repeat(64); // 64-char hex token
+	private static final String TOKEN = "a".repeat(64); // 64-char hex token
 
-	@Mock JdbcTemplate   db;
-	@Mock UserService    userService;
-	@Mock HttpServletRequest  req;
-	@Mock HttpServletResponse res;
+	@Mock
+	JdbcTemplate db;
+	@Mock
+	UserService userService;
+	@Mock
+	HttpServletRequest req;
+	@Mock
+	HttpServletResponse res;
 
-	@InjectMocks AuthService authService;
+	@InjectMocks
+	AuthService authService;
 
 	@BeforeEach
 	void setup() {
@@ -83,7 +91,7 @@ class AuthServiceTest {
 		@DisplayName("returns token when cookie present")
 		void returnsTokenWhenPresent() {
 			Cookie cookie = new Cookie(COOKIE_NAME, TOKEN);
-			when(req.getCookies()).thenReturn(new Cookie[]{cookie});
+			when(req.getCookies()).thenReturn(new Cookie[] { cookie });
 			assertThat(authService.getToken(req)).isEqualTo(TOKEN);
 		}
 
@@ -98,7 +106,7 @@ class AuthServiceTest {
 		@DisplayName("returns null when cookies present but session cookie missing")
 		void returnsNullWrongCookieName() {
 			Cookie other = new Cookie("other_cookie", "value");
-			when(req.getCookies()).thenReturn(new Cookie[]{other});
+			when(req.getCookies()).thenReturn(new Cookie[] { other });
 			assertThat(authService.getToken(req)).isNull();
 		}
 
@@ -108,7 +116,7 @@ class AuthServiceTest {
 			Cookie sessionCookie = new Cookie(COOKIE_NAME, TOKEN);
 			Cookie other1 = new Cookie("foo", "bar");
 			Cookie other2 = new Cookie("baz", "qux");
-			when(req.getCookies()).thenReturn(new Cookie[]{other1, sessionCookie, other2});
+			when(req.getCookies()).thenReturn(new Cookie[] { other1, sessionCookie, other2 });
 			assertThat(authService.getToken(req)).isEqualTo(TOKEN);
 		}
 	}
@@ -132,7 +140,7 @@ class AuthServiceTest {
 		@DisplayName("returns null when token is blank")
 		void nullWhenBlankToken() {
 			Cookie cookie = new Cookie(COOKIE_NAME, "   ");
-			when(req.getCookies()).thenReturn(new Cookie[]{cookie});
+			when(req.getCookies()).thenReturn(new Cookie[] { cookie });
 			assertThat(authService.getSessionUser(req)).isNull();
 		}
 
@@ -140,7 +148,7 @@ class AuthServiceTest {
 		@DisplayName("DB miss returns null (no matching session row)")
 		void dbMissReturnsNull() {
 			Cookie cookie = new Cookie(COOKIE_NAME, TOKEN);
-			when(req.getCookies()).thenReturn(new Cookie[]{cookie});
+			when(req.getCookies()).thenReturn(new Cookie[] { cookie });
 			when(db.queryForList(anyString(), eq(TOKEN))).thenReturn(Collections.emptyList());
 			assertThat(authService.getSessionUser(req)).isNull();
 		}
@@ -149,7 +157,7 @@ class AuthServiceTest {
 		@DisplayName("DB hit but user not found returns null")
 		void dbHitButUserMissingReturnsNull() {
 			Cookie cookie = new Cookie(COOKIE_NAME, TOKEN);
-			when(req.getCookies()).thenReturn(new Cookie[]{cookie});
+			when(req.getCookies()).thenReturn(new Cookie[] { cookie });
 			when(db.queryForList(anyString(), eq(TOKEN)))
 					.thenReturn(List.of(Map.of("user_id", UserFactory.ADMIN_ID, "expires_at", "2030-01-01 00:00:00")));
 			when(userService.findUserById(UserFactory.ADMIN_ID)).thenReturn(null);
@@ -161,7 +169,7 @@ class AuthServiceTest {
 		void dbHitCachesUser() {
 			User admin = UserFactory.admin();
 			Cookie cookie = new Cookie(COOKIE_NAME, TOKEN);
-			when(req.getCookies()).thenReturn(new Cookie[]{cookie});
+			when(req.getCookies()).thenReturn(new Cookie[] { cookie });
 			when(db.queryForList(anyString(), eq(TOKEN)))
 					.thenReturn(List.of(Map.of("user_id", admin.id, "expires_at", "2030-01-01 00:00:00")));
 			when(userService.findUserById(admin.id)).thenReturn(admin);
@@ -180,7 +188,7 @@ class AuthServiceTest {
 		@DisplayName("DB exception returns null gracefully")
 		void dbExceptionReturnsNull() {
 			Cookie cookie = new Cookie(COOKIE_NAME, TOKEN);
-			when(req.getCookies()).thenReturn(new Cookie[]{cookie});
+			when(req.getCookies()).thenReturn(new Cookie[] { cookie });
 			when(db.queryForList(anyString(), eq(TOKEN))).thenThrow(new RuntimeException("DB down"));
 			assertThat(authService.getSessionUser(req)).isNull();
 		}
@@ -221,12 +229,8 @@ class AuthServiceTest {
 			authService.setSession(res, req, admin);
 
 			// HIGH-1 FIX: now uses setHeader (not addHeader) to prevent double Set-Cookie
-			verify(res).setHeader(eq("Set-Cookie"), argThat(v ->
-					v.contains("olla_nest_session")
-					&& v.contains("HttpOnly")
-					&& v.contains("SameSite=Lax")
-					&& v.contains("Path=/")
-			));
+			verify(res).setHeader(eq("Set-Cookie"), argThat(v -> v.contains("olla_nest_session")
+					&& v.contains("HttpOnly") && v.contains("SameSite=Lax") && v.contains("Path=/")));
 		}
 
 		@Test
@@ -235,7 +239,7 @@ class AuthServiceTest {
 			User admin = UserFactory.admin();
 			String oldToken = "b".repeat(64);
 			Cookie oldCookie = new Cookie(COOKIE_NAME, oldToken);
-			when(req.getCookies()).thenReturn(new Cookie[]{oldCookie});
+			when(req.getCookies()).thenReturn(new Cookie[] { oldCookie });
 
 			authService.setSession(res, req, admin);
 
@@ -257,8 +261,7 @@ class AuthServiceTest {
 			ArgumentCaptor<String> headerCaptor = ArgumentCaptor.forClass(String.class);
 			verify(res).setHeader(eq("Set-Cookie"), headerCaptor.capture());
 			// The raw header written by authService should NOT contain "; Secure"
-			boolean anyHasSecure = headerCaptor.getAllValues().stream()
-					.anyMatch(v -> v.contains("; Secure"));
+			boolean anyHasSecure = headerCaptor.getAllValues().stream().anyMatch(v -> v.contains("; Secure"));
 			assertThat(anyHasSecure).isFalse();
 		}
 	}
@@ -277,10 +280,8 @@ class AuthServiceTest {
 			authService.clearSession(res, TOKEN);
 
 			verify(db).update(contains("DELETE FROM sessions WHERE token"), eq(TOKEN));
-			verify(res).addHeader(eq("Set-Cookie"), argThat(v ->
-					v.contains("olla_nest_session=;")
-					&& v.contains("Max-Age=0")
-			));
+			verify(res).addHeader(eq("Set-Cookie"),
+					argThat(v -> v.contains("olla_nest_session=;") && v.contains("Max-Age=0")));
 		}
 
 		@Test
@@ -372,7 +373,7 @@ class AuthServiceTest {
 	class TokenFormatGuard {
 
 		private void stubCookie(String value) {
-			when(req.getCookies()).thenReturn(new Cookie[]{new Cookie(COOKIE_NAME, value)});
+			when(req.getCookies()).thenReturn(new Cookie[] { new Cookie(COOKIE_NAME, value) });
 		}
 
 		@Test
@@ -447,17 +448,14 @@ class AuthServiceTest {
 		void userFieldIsFinal() throws Exception {
 			Field f = AuthService.CachedSession.class.getField("user");
 			assertThat(Modifier.isFinal(f.getModifiers()))
-					.as("CachedSession.user must be final to prevent external mutation")
-					.isTrue();
+					.as("CachedSession.user must be final to prevent external mutation").isTrue();
 		}
 
 		@Test
 		@DisplayName("expiresAtMs field is final")
 		void expiresAtMsFieldIsFinal() throws Exception {
 			Field f = AuthService.CachedSession.class.getField("expiresAtMs");
-			assertThat(Modifier.isFinal(f.getModifiers()))
-					.as("CachedSession.expiresAtMs must be final")
-					.isTrue();
+			assertThat(Modifier.isFinal(f.getModifiers())).as("CachedSession.expiresAtMs must be final").isTrue();
 		}
 	}
 
@@ -474,9 +472,7 @@ class AuthServiceTest {
 		@DisplayName("SECURE_RANDOM static field exists — no per-call SecureRandom instantiation")
 		void staticSecureRandomFieldExists() throws Exception {
 			Field f = AuthService.class.getDeclaredField("SECURE_RANDOM");
-			assertThat(Modifier.isStatic(f.getModifiers()))
-					.as("SECURE_RANDOM must be a static field")
-					.isTrue();
+			assertThat(Modifier.isStatic(f.getModifiers())).as("SECURE_RANDOM must be a static field").isTrue();
 		}
 
 		@Test

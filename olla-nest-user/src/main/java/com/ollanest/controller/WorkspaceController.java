@@ -1,10 +1,14 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.service.ChatService;
-import com.ollanest.service.WorkspaceService;
-
-import jakarta.servlet.http.HttpServletRequest;
+import java.io.File;
+import java.nio.file.Paths;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -16,15 +20,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.File;
-import java.nio.file.Paths;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import com.ollanest.model.User;
+import com.ollanest.service.ChatService;
+import com.ollanest.service.WorkspaceService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Workspace file system operations for the authenticated user.

@@ -1,7 +1,9 @@
 package com.ollanest.controller;
 
-import com.ollanest.service.CodeSandboxService;
-import jakarta.servlet.http.HttpServletRequest;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -9,10 +11,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
 import com.ollanest.model.User;
+import com.ollanest.service.CodeSandboxService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Code execution sandbox REST API.
@@ -67,14 +69,16 @@ public class CodeSandboxController extends BaseController {
 			return authErr;
 
 		// CRIT-1 MITIGATION: Gate sandbox execution on an explicit 'sandbox:run' right.
-		// Without Docker/container isolation the sandbox is OS-level RCE for the JVM user.
-		// Admins implicitly have all rights; regular users need 'sandbox:run' granted explicitly.
+		// Without Docker/container isolation the sandbox is OS-level RCE for the JVM
+		// user.
+		// Admins implicitly have all rights; regular users need 'sandbox:run' granted
+		// explicitly.
 		User sandboxUser = getUser(req);
 		boolean hasSandboxRight = "admin".equals(sandboxUser.role)
-			|| (sandboxUser.rights != null && sandboxUser.rights.contains("sandbox:run"));
+				|| (sandboxUser.rights != null && sandboxUser.rights.contains("sandbox:run"));
 		if (!hasSandboxRight) {
-			return ResponseEntity.status(403).body(Map.of("ok", false,
-				"error", "Code execution requires the 'sandbox:run' permission. Contact your administrator."));
+			return ResponseEntity.status(403).body(Map.of("ok", false, "error",
+					"Code execution requires the 'sandbox:run' permission. Contact your administrator."));
 		}
 
 		String language = (String) body.getOrDefault("language", "");

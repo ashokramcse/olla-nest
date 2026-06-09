@@ -1,7 +1,15 @@
 package com.ollanest.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -11,20 +19,13 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.List;
-import org.springframework.http.HttpMethod;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-
 /**
  * Unit tests for {@link GlobalExceptionHandler}.
  *
- * <p>Verifies that each exception type is translated to the correct
- * HTTP status and {@code {ok: false, error: "..."}} JSON envelope without
- * leaking any stack trace detail.
+ * <p>
+ * Verifies that each exception type is translated to the correct HTTP status
+ * and {@code {ok: false, error: "..."}} JSON envelope without leaking any stack
+ * trace detail.
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -49,9 +50,9 @@ class GlobalExceptionHandlerTest {
 	@Test
 	@DisplayName("NoResourceFoundException → 404 with ok=false")
 	void handlesNoResourceFound() throws Exception {
-		// Use reflection to instantiate — constructor is package-private in some versions
-		NoResourceFoundException ex = new NoResourceFoundException(
-				HttpMethod.GET, "/static/missing.js");
+		// Use reflection to instantiate — constructor is package-private in some
+		// versions
+		NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "/static/missing.js");
 		ResponseEntity<Map<String, Object>> r = handler.handleNotFound(ex);
 		// Static resource 404 must produce the same envelope as route 404
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -61,11 +62,11 @@ class GlobalExceptionHandlerTest {
 	@Test
 	@DisplayName("HttpRequestMethodNotSupportedException → 405 with supported methods in error")
 	void handlesMethodNotAllowed() {
-		HttpRequestMethodNotSupportedException ex =
-				new HttpRequestMethodNotSupportedException("DELETE",
-						Set.of("GET", "POST"));
+		HttpRequestMethodNotSupportedException ex = new HttpRequestMethodNotSupportedException("DELETE",
+				Set.of("GET", "POST"));
 		ResponseEntity<Map<String, Object>> r = handler.handleMethodNotAllowed(ex);
-		// 405 must include the unsupported method name so the client understands the rejection
+		// 405 must include the unsupported method name so the client understands the
+		// rejection
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
 		assertThat(r.getBody()).containsEntry("ok", false);
 		assertThat(r.getBody().get("error").toString()).contains("DELETE");
@@ -76,7 +77,8 @@ class GlobalExceptionHandlerTest {
 	void handlesBadJson() {
 		HttpMessageNotReadableException ex = mock(HttpMessageNotReadableException.class);
 		ResponseEntity<Map<String, Object>> r = handler.handleBadJson(ex);
-		// Malformed request body must return 400 with a descriptive but safe error message
+		// Malformed request body must return 400 with a descriptive but safe error
+		// message
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 		assertThat(r.getBody()).containsEntry("ok", false);
 		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("malformed");
@@ -85,7 +87,8 @@ class GlobalExceptionHandlerTest {
 	@Test
 	@DisplayName("HttpMediaTypeNotSupportedException → 415 with ok=false")
 	void handlesUnsupportedMediaType() {
-		HttpMediaTypeNotSupportedException ex = new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN, List.of(MediaType.APPLICATION_JSON));
+		HttpMediaTypeNotSupportedException ex = new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN,
+				List.of(MediaType.APPLICATION_JSON));
 		ResponseEntity<Map<String, Object>> r = handler.handleUnsupportedMediaType(ex);
 		// 415 must identify the unsupported content-type in the error message
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
@@ -101,8 +104,7 @@ class GlobalExceptionHandlerTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 		assertThat(r.getBody()).containsEntry("ok", false);
 		// SECURITY: internal detail must NOT be exposed — generic message only
-		assertThat(r.getBody().get("error").toString())
-				.doesNotContain("DB connection pool", "RuntimeException")
+		assertThat(r.getBody().get("error").toString()).doesNotContain("DB connection pool", "RuntimeException")
 				.isEqualTo("Internal server error");
 	}
 

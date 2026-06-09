@@ -1,16 +1,15 @@
 package com.ollanest.controller.admin;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ollanest.controller.BaseController;
-import com.ollanest.model.User;
-import com.ollanest.service.ChatService;
-import com.ollanest.service.CryptoService;
-import com.ollanest.service.OllamaService;
-import com.ollanest.service.ProviderService;
-import com.ollanest.util.UrlValidator;
-
-import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,16 +22,17 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.controller.BaseController;
+import com.ollanest.model.User;
+import com.ollanest.service.ChatService;
+import com.ollanest.service.CryptoService;
+import com.ollanest.service.OllamaService;
+import com.ollanest.service.ProviderService;
+import com.ollanest.util.UrlValidator;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Admin API provider management: CRUD, model sync, and connectivity testing.

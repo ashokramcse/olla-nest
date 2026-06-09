@@ -1,10 +1,11 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
+import java.util.Map;
+
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Connector implementation that synchronises Slack public channel messages into
@@ -16,28 +17,39 @@ import java.util.Map;
  * announcements, and discussions that live in Slack rather than in structured
  * documentation.
  *
- * <h3>Credential format</h3> <pre>{@code { "token": "xoxb-..." // Slack bot
+ * <h3>Credential format</h3>
+ * 
+ * <pre>{@code { "token": "xoxb-..." // Slack bot
  * token with channels:read and channels:history scopes. } }</pre>
  *
- * <h3>Configuration format</h3> <pre>{@code { "channels": ["general",
+ * <h3>Configuration format</h3>
+ * 
+ * <pre>{@code { "channels": ["general",
  * "engineering"] // Optional channel filter (not yet used; all // public
  * channels are listed via the API). } }</pre>
  *
- * <h3>Design notes</h3> <ul> <li>All Slack Web API responses include an {@code
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>All Slack Web API responses include an {@code
  * ok} boolean field. This connector checks {@code ok} on the channel list
  * response and skips individual channel history fetches that return {@code ok:
- * false} rather than throwing.</li> <li>Up to 100 public channels are listed,
- * and up to 100 messages are fetched per channel. Cursor-based pagination is
- * not yet implemented.</li> <li>Empty messages (e.g. bot events with no text)
- * are silently skipped during content assembly.</li> <li>Each channel is stored
- * as a single document whose ID equals the Slack channel ID; re-syncing
- * replaces the previous snapshot via the deduplication logic in {@link
- * BaseConnector#ingestDocument}.</li> </ul>
+ * false} rather than throwing.</li>
+ * <li>Up to 100 public channels are listed, and up to 100 messages are fetched
+ * per channel. Cursor-based pagination is not yet implemented.</li>
+ * <li>Empty messages (e.g. bot events with no text) are silently skipped during
+ * content assembly.</li>
+ * <li>Each channel is stored as a single document whose ID equals the Slack
+ * channel ID; re-syncing replaces the previous snapshot via the deduplication
+ * logic in {@link BaseConnector#ingestDocument}.</li>
+ * </ul>
  *
- * <h3>Version history</h3> <ul> <li>v2026.1.4 — initial creation</li> </ul>
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial creation</li>
+ * </ul>
  *
  * @author Ashok Ram @since v2026.1.4 @version v2026.1.4 @see
- * com.ollanest.connector.BaseConnector
+ *         com.ollanest.connector.BaseConnector
  */
 @Component
 public class SlackConnector extends BaseConnector {

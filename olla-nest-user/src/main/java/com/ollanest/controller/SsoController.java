@@ -1,12 +1,12 @@
 package com.ollanest.controller;
 
-import com.ollanest.model.User;
-import com.ollanest.service.AuthService;
-import com.ollanest.service.CryptoService;
-import com.ollanest.service.SsoService;
-import com.ollanest.service.UserService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.net.URLEncoder;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,12 +19,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.net.URLEncoder;
-import java.util.UUID;
-import org.slf4j.LoggerFactory;
+import com.ollanest.model.User;
+import com.ollanest.service.AuthService;
+import com.ollanest.service.CryptoService;
+import com.ollanest.service.SsoService;
+import com.ollanest.service.UserService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * SSO authentication endpoints for Google OAuth 2.0, generic OIDC, and SAML
@@ -304,12 +306,12 @@ public class SsoController {
 		// Until OpenSAML-based XML signature verification is integrated, SAML SSO
 		// is disabled by default. Admins can re-enable by setting saml.enabled=true
 		// ONLY in environments where they accept the risk of unsigned assertions.
-		boolean samlEnabled = "true".equalsIgnoreCase(
-			System.getProperty("saml.enabled", System.getenv("SAML_ENABLED")));
+		boolean samlEnabled = "true"
+				.equalsIgnoreCase(System.getProperty("saml.enabled", System.getenv("SAML_ENABLED")));
 		if (!samlEnabled) {
-			LoggerFactory.getLogger(SsoController.class).warn(
-				"[sso] SAML ACS request rejected: SAML is disabled pending XML signature verification. " +
-				"Set SAML_ENABLED=true env var only if you accept unsigned assertion risk.");
+			LoggerFactory.getLogger(SsoController.class)
+					.warn("[sso] SAML ACS request rejected: SAML is disabled pending XML signature verification. "
+							+ "Set SAML_ENABLED=true env var only if you accept unsigned assertion risk.");
 			res.sendRedirect("/login?sso_error=saml_disabled");
 			return;
 		}
@@ -384,7 +386,8 @@ public class SsoController {
 		ResponseEntity<Map<String, Object>> err = requireAdmin(req);
 		if (err != null)
 			return err;
-		String id = "sso-" + body.get("type") + "-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
+		String id = "sso-" + body.get("type") + "-" + Long.toString(System.currentTimeMillis(), 36) + "-"
+				+ UUID.randomUUID().toString().substring(0, 6);
 		String secretEnc = "";
 		if (body.containsKey("clientSecret") && !body.get("clientSecret").toString().isBlank())
 			secretEnc = cryptoService.encryptKey(body.get("clientSecret").toString());
@@ -478,7 +481,8 @@ public class SsoController {
 	private User provisionUser(SsoService.ClaimsResult claims) {
 		User user = userService.findUserByEmail(claims.email());
 		if (user == null) {
-			String newId = "u-sso-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
+			String newId = "u-sso-" + Long.toString(System.currentTimeMillis(), 36) + "-"
+					+ UUID.randomUUID().toString().substring(0, 6);
 			db.update(
 					"INSERT INTO users (id, name, email, password_hash, role, auth_provider, access_status, created_at) VALUES (?,?,?,NULL,'user',?,?,?)",
 					newId, claims.name(), claims.email(), claims.provider(), "active", Instant.now().toString());

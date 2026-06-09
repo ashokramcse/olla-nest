@@ -1,10 +1,11 @@
 package com.ollanest.connector.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.ollanest.connector.BaseConnector;
+import java.util.Map;
+
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ollanest.connector.BaseConnector;
 
 /**
  * Connector implementation that synchronises Microsoft Teams channel messages
@@ -16,24 +17,32 @@ import java.util.Map;
  * conversations, decisions, and announcements alongside structured documents
  * from other connectors.
  *
- * <h3>Credential format</h3> <pre>{@code { "accessToken": "..." // Microsoft
+ * <h3>Credential format</h3>
+ * 
+ * <pre>{@code { "accessToken": "..." // Microsoft
  * identity platform OAuth 2.0 Bearer token. // Requires Team.ReadBasic.All and
  * ChannelMessage.Read.All scopes. } }</pre>
  *
- * <h3>Design notes</h3> <ul> <li>The connector iterates over all teams the
- * authenticated user has joined ({@code GET /me/joinedTeams}), then all
- * channels in each team, then up to 50 messages per channel.</li> <li>Teams
- * message bodies are HTML; the HTML tags are stripped via a simple regex
- * ({@code replaceAll("<[^>]+>", "")}) to produce plain text.</li>
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The connector iterates over all teams the authenticated user has joined
+ * ({@code GET /me/joinedTeams}), then all channels in each team, then up to 50
+ * messages per channel.</li>
+ * <li>Teams message bodies are HTML; the HTML tags are stripped via a simple
+ * regex ({@code replaceAll("<[^>]+>", "")}) to produce plain text.</li>
  * <li>Per-channel message fetch failures are caught and logged as warnings so
  * that a single restricted channel does not abort the entire sync.</li>
  * <li>Each channel is stored as a single document with a composite ID ({@code
- * <teamId>/<channelId>}) that is stable across renames.</li> </ul>
+ * <teamId>/<channelId>}) that is stable across renames.</li>
+ * </ul>
  *
- * <h3>Version history</h3> <ul> <li>v2026.1.4 — initial creation</li> </ul>
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.4 — initial creation</li>
+ * </ul>
  *
  * @author Ashok Ram @since v2026.1.4 @version v2026.1.4 @see
- * com.ollanest.connector.BaseConnector
+ *         com.ollanest.connector.BaseConnector
  */
 @Component
 public class TeamsConnector extends BaseConnector {

@@ -1,8 +1,7 @@
 package com.ollanest.config;
 
-import com.ollanest.model.User;
-import com.ollanest.service.AuthService;
-import jakarta.servlet.http.HttpServletRequest;
+import java.util.Map;
+
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
@@ -10,7 +9,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
-import java.util.Map;
+import com.ollanest.model.User;
+import com.ollanest.service.AuthService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * WebSocket handshake interceptor that gates terminal access to authenticated

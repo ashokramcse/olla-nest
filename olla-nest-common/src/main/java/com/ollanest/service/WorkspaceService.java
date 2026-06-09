@@ -1,28 +1,28 @@
 package com.ollanest.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Service;
-
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 
 /**
  * Workspace management service: resolves a user's workspace directory, lists
@@ -209,8 +209,8 @@ public class WorkspaceService {
 				int depth = 0;
 
 				/**
-				 * Skips hidden directories, {@code node_modules}, and any subtree deeper
-				 * than 4 levels or after 50 files have already been collected.
+				 * Skips hidden directories, {@code node_modules}, and any subtree deeper than 4
+				 * levels or after 50 files have already been collected.
 				 *
 				 * {@inheritDoc}
 				 */
@@ -495,30 +495,27 @@ public class WorkspaceService {
 	 * @since v2026.1.4
 	 */
 	/**
-	 * Allowed file extensions for AI-generated workspace artifacts.
-	 * Extensions not in this set are rejected before any filesystem write.
+	 * Allowed file extensions for AI-generated workspace artifacts. Extensions not
+	 * in this set are rejected before any filesystem write.
 	 */
-	private static final Set<String> ALLOWED_ARTIFACT_EXTENSIONS = Set.of(
-		"html", "htm", "css", "js", "jsx", "ts", "tsx",
-		"json", "md", "txt", "py", "rb", "java", "go",
-		"rs", "c", "cpp", "h", "hpp", "sh", "yaml", "yml",
-		"toml", "xml", "sql", "env", "gitignore", "dockerfile"
-	);
+	private static final Set<String> ALLOWED_ARTIFACT_EXTENSIONS = Set.of("html", "htm", "css", "js", "jsx", "ts",
+			"tsx", "json", "md", "txt", "py", "rb", "java", "go", "rs", "c", "cpp", "h", "hpp", "sh", "yaml", "yml",
+			"toml", "xml", "sql", "env", "gitignore", "dockerfile");
 
 	/**
 	 * Pattern for safe artifact filenames: only alphanumerics, dots, hyphens,
-	 * underscores, and forward-slashes (for sub-directory paths).
-	 * Rejects any path component starting with a dot (hidden files/traversal),
-	 * double dots, or absolute paths.
+	 * underscores, and forward-slashes (for sub-directory paths). Rejects any path
+	 * component starting with a dot (hidden files/traversal), double dots, or
+	 * absolute paths.
 	 */
-	private static final Pattern SAFE_FILENAME_PATTERN =
-		Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._/\\-]*$");
+	private static final Pattern SAFE_FILENAME_PATTERN = Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._/\\-]*$");
 
 	/**
 	 * Sanitizes an AI-provided artifact filename to prevent path traversal and
 	 * symlink attacks.
 	 *
-	 * <p>CRIT-5 fix: AI model output can contain adversarial filenames such as
+	 * <p>
+	 * CRIT-5 fix: AI model output can contain adversarial filenames such as
 	 * {@code ../../../etc/passwd} or {@code .env}. This method:
 	 * <ol>
 	 * <li>Strips any leading slashes or drive letters.</li>
@@ -532,7 +529,8 @@ public class WorkspaceService {
 	 * @return the sanitized filename, or {@code null} if the name is unsafe
 	 */
 	private String sanitizeArtifactFilename(String rawName) {
-		if (rawName == null || rawName.isBlank()) return null;
+		if (rawName == null || rawName.isBlank())
+			return null;
 		// Strip leading slashes (absolute path attack) and Windows drive letters
 		String name = rawName.trim().replaceAll("^[/\\\\]+", "").replaceAll("^[a-zA-Z]:[/\\\\]", "");
 		// Reject path components containing ".." (directory traversal)
@@ -541,14 +539,18 @@ public class WorkspaceService {
 				return null;
 		}
 		// Enforce safe character allowlist
-		if (!SAFE_FILENAME_PATTERN.matcher(name).matches()) return null;
+		if (!SAFE_FILENAME_PATTERN.matcher(name).matches())
+			return null;
 		// Enforce extension allowlist
 		int dotIdx = name.lastIndexOf('.');
-		if (dotIdx < 0) return null; // no extension — reject
+		if (dotIdx < 0)
+			return null; // no extension — reject
 		String ext = name.substring(dotIdx + 1).toLowerCase();
-		if (!ALLOWED_ARTIFACT_EXTENSIONS.contains(ext)) return null;
+		if (!ALLOWED_ARTIFACT_EXTENSIONS.contains(ext))
+			return null;
 		// Cap total path length
-		if (name.length() > 200) return null;
+		if (name.length() > 200)
+			return null;
 		return name;
 	}
 
@@ -570,7 +572,8 @@ public class WorkspaceService {
 				continue;
 			}
 			Path filePath = root.resolve(safeName).normalize();
-			// Double-check path containment using normalized paths (covers symlink edge cases)
+			// Double-check path containment using normalized paths (covers symlink edge
+			// cases)
 			if (!filePath.startsWith(root)) {
 				log.warn("[workspace] Path traversal blocked: '{}' escapes workspace root", safeName);
 				continue;
@@ -580,7 +583,7 @@ public class WorkspaceService {
 				Path parent = filePath.getParent();
 				Files.createDirectories(parent);
 				Path realParent = parent.toRealPath();
-				Path realRoot   = root.toRealPath();
+				Path realRoot = root.toRealPath();
 				if (!realParent.startsWith(realRoot)) {
 					log.warn("[workspace] Symlink traversal blocked: '{}' resolves outside workspace", safeName);
 					continue;
