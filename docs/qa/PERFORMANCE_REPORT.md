@@ -37,6 +37,21 @@ First run exposed a **systemic concurrency bug** — `POST /api/notes` failed **
 
 Latency is excellent and error-free under 30 concurrent write-heavy VUs after the fix; no DB corruption.
 
+### Re-verification run — 2026-06-09 (regression-stable under load)
+Re-ran the same staged scenario after the BUG-013 fix had been in place for a release cycle. Evidence: `docs/qa/evidence/k6-write-path-2026-06-09.json`.
+
+| Metric | Result |
+|---|---|
+| `login/create/list/delete` checks | **16,990 / 16,990 (100.00%)** |
+| `http_req_failed` | **0.00%** (0 of 16,990) |
+| p95 latency | **4.2ms** |
+| p99 latency | **6.55ms** |
+| throughput | 421.85 req/s, 140.6 iter/s sustained at 30 VUs |
+| iterations completed / interrupted | **5,663 / 0** |
+| DB `integrity_check` after run | **ok** (WAL mode) |
+
+All thresholds green. The systemic ID-collision class (BUG-013) remains fixed — **zero `SQLITE_CONSTRAINT_PRIMARYKEY` failures** across 5,663 concurrent create/delete cycles.
+
 ## NOT executed (recommended next)
 - **k6/Gatling** with staged ramp (10 → 50 → 100 → 500 VUs), think-time, and proper percentile aggregation.
 - **Chat streaming under load** (requires Ollama) — latency + cancellation storms.
