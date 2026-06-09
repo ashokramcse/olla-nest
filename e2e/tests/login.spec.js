@@ -55,12 +55,11 @@ test('admin: invalid login shows error state, no redirect', async ({ page }) => 
   await page.fill('#email', ADMIN_EMAIL);
   await page.fill('#password', 'WRONG-PASSWORD');
   await page.click('#submitBtn');
-  // Stays on login page; an error message becomes visible somewhere
-  await page.waitForTimeout(1500);
+  // Wait for the error message to surface (poll up to timeout — WebKit is slower
+  // than fixing a fixed wait), and confirm we stayed on the login page.
+  await expect(page.locator('body')).toContainText(/invalid|incorrect|wrong|error|failed|try again/i, { timeout: 10000 });
   expect(page.url()).toContain('/admin-login');
   await page.screenshot({ path: 'evidence/admin-login-invalid.png', fullPage: true });
-  const body = (await page.locator('body').innerText()).toLowerCase();
-  expect(body, 'an error/invalid message is surfaced').toMatch(/invalid|incorrect|wrong|error|failed|try again/);
 });
 
 test('admin: valid login -> dashboard renders (Enter key submits)', async ({ page }) => {
@@ -82,6 +81,8 @@ test('admin: logout returns to /admin-login (regression for /login bug)', async 
   await page.fill('#password', ADMIN_PASS);
   await page.click('#submitBtn');
   await page.waitForURL(/\/admin(\b|$|\?)/, { timeout: 15000 });
+  // Wait for the logout control to be ready before clicking (WebKit render lag).
+  await expect(page.locator('#logoutBtn')).toBeVisible({ timeout: 10000 });
   await page.click('#logoutBtn');
   await page.waitForURL(/\/admin-login/, { timeout: 10000 });
   expect(page.url()).toContain('/admin-login');

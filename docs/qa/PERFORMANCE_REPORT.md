@@ -19,6 +19,24 @@
 ## Assessment
 Read-path latency is excellent (single-digit ms p99) and error-free under 50 concurrent clients; no DB corruption or lock contention. This validates the basic concurrency-safety acceptance criterion ("stress tests do not corrupt DB").
 
+## k6 write-path load test (`perf/k6-write-path.js`) — EXECUTED
+**Tooling:** k6 v2.0.0. **Scenario:** ramping 10 → 30 VUs over 40s; each iteration does notes **create → list → delete** (with cleanup) against the user service. **Thresholds:** p95 < 500ms, error rate < 1%, checks > 99%.
+
+### Finding: BUG-013 (caught by this test)
+First run exposed a **systemic concurrency bug** — `POST /api/notes` failed **~73%** (31.94% `http_req_failed`) with `SQLITE_CONSTRAINT_PRIMARYKEY: notes.id`: ~21 ID generators used timestamp-only IDs that collide under load. Fixed (random UUID suffix everywhere).
+
+### After fix (PASS)
+| Metric | Result |
+|---|---|
+| `create` 2xx | **100%** (was 27%) |
+| `http_req_failed` | **0.00%** (was 31.94%) |
+| checks succeeded | **16,786 / 16,786 (100%)** |
+| p95 latency | **5.0ms** |
+| p99 latency | **7.4ms** |
+| iterations | ~157/s sustained at 30 VUs |
+
+Latency is excellent and error-free under 30 concurrent write-heavy VUs after the fix; no DB corruption.
+
 ## NOT executed (recommended next)
 - **k6/Gatling** with staged ramp (10 → 50 → 100 → 500 VUs), think-time, and proper percentile aggregation.
 - **Chat streaming under load** (requires Ollama) — latency + cancellation storms.

@@ -103,6 +103,22 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-013 — Systemic timestamp-only ID collisions under concurrency — **MAJOR (product)** — FIXED
+- **Feature:** All write paths using generated IDs (notes, contacts, skills, calendar, gallery, mcp, webhooks, compare, presets, prompt-security, event-bus, assistant, api-tokens, cookbook, deep-research, connectors, images, audit events).
+- **Discovery:** **k6 load test** (`perf/k6-write-path.js`, 30 VUs) — `POST /api/notes` failed **~73%** with `SQLITE_CONSTRAINT_PRIMARYKEY: notes.id`.
+- **Root cause:** ~21 sites generated IDs as `"<prefix>-" + Long.toString(System.currentTimeMillis(), 36)` with **no random component**; same-millisecond concurrent creates collided on the primary key → 500.
+- **Fix:** appended `UUID.randomUUID().substring(0,6)` to every collision-prone ID assignment across the codebase (same fix as BUG-009/BUG-012, now applied systemically).
+- **Verification (under load, post-fix):** `POST /api/notes` create **100% 2xx**, `http_req_failed` **0.00%** (was 31.94%), p95=5ms / p99=7.4ms, 16,786/16,786 checks pass. Regression test `NotesServiceTest.rapidCreatesProduceUniqueIds`.
+
+## BUG-012 — Email account create 500 on missing required field — **MAJOR (product)** — FIXED
+- **Feature:** `POST /api/email/accounts` (`EmailService.createAccount`).
+- **Discovery:** negative API probe with a payload missing `username` → **HTTP 500** (`SQLITE_CONSTRAINT_NOTNULL: email_accounts.username`).
+- **Root cause:** required NOT-NULL columns without DB defaults (`username`, `imap_host`, `smtp_host`) were inserted unvalidated; a null leaked a DB constraint as a 500 instead of a 400.
+- **Fix:** validate the three required fields → `IllegalArgumentException` (mapped to **400** by `GlobalExceptionHandler`); also gave the account id a random suffix (BUG-013 class). Verified: missing field → 400, valid → 201. Regression test `EmailServiceTest.missingRequiredFieldsRejected`.
+
+## OBS-004 — External Google-Fonts CDN dependency — **MINOR (resilience/privacy)** — FIXED
+- Was an `@import` from `fonts.googleapis.com` (fails offline/air-gapped; third-party request; Firefox console errors). **Self-hosted** 8 woff2 files under `public/fonts/` (declared in `public/fonts.css`); CSP tightened to drop the external font/style origins (`'self' data:`). Verified: 0 external font requests, 0 console errors.
+
 ## OBS-001 — SQLite foreign-key enforcement is per-connection — **INFO**
 - `PRAGMA foreign_keys` returned `0` on a fresh CLI connection. FK enforcement relies on Hikari `connection-init-sql` (`PRAGMA foreign_keys=ON`) running on **every** pooled connection. Verified configured in `application.properties`. Recommend an integration test that asserts a FK violation is actually rejected through the app's datasource (not just configured). See `DB_AUDIT_REPORT.md`.
 
@@ -112,12 +128,12 @@
 | Severity | Count | IDs | Status |
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
-| Major | 3 | BUG-006 (calculate tool), BUG-009 (assistant 500 / task-id collision), BUG-003 (test-debt) | FIXED |
-| Minor | 8 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive) | FIXED |
+| Major | 5 | BUG-006 (calculate tool), BUG-009 (assistant 500 / task-id collision), BUG-012 (email create 500), BUG-013 (systemic ID collisions), BUG-003 (test-debt) | FIXED |
+| Minor | 9 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**Cumulative: 11 findings — ALL FIXED. 3 genuine product bugs (BUG-001 cookie NPE, BUG-006 calculate tool, BUG-009 task-id collision) — each with a regression test.**
-UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete), OBS-004 (external Google-Fonts CDN dependency — recommend self-hosting).
+**Cumulative: 14 findings — ALL FIXED. 5 genuine product bugs (BUG-001 cookie NPE, BUG-006 calculate tool, BUG-009 task-id collision, BUG-012 email-create 500, BUG-013 systemic ID collisions) — each with a regression test.**
+UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
 
 **All identified bugs are fixed. Full suite is green: 2069 tests, 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS).**
 
