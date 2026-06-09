@@ -103,6 +103,19 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-020 — Webhook SSRF: IPv6 loopback/private bypass — **MAJOR (security)** — FIXED
+- **Feature:** Outbound webhook URL validation (`WebhookService.validateUrl`, `POST /api/webhooks`).
+- **Discovery:** live SSRF probe (2026-06-09). `http://[::1]/x` (IPv6 loopback) was **accepted (201)**; IPv4 loopback/private/metadata were correctly rejected.
+- **Root cause:** `WebhookService` used its **own** validator with a **string-prefix block-list** (`PRIVATE_PREFIXES`) instead of the project's robust `com.ollanest.util.UrlValidator`. For `[::1]`, `InetAddress.getByName` resolves to `0:0:0:0:0:0:0:1`, whose `getHostAddress()` string matches none of the IPv4 prefixes (`127.`, `10.`, …) → bypass. An attacker could make the server issue requests to loopback/internal services.
+- **Fix:** `validateUrl` now delegates to `UrlValidator.isSafeUrl` (resolves every A/AAAA record and rejects via `InetAddress.isLoopbackAddress/isLinkLocal/isSiteLocal`). Removed the dead `PRIVATE_PREFIXES` list. Additionally **hardened `UrlValidator`** to also reject any-local (`0.0.0.0`/`::`, `isAnyLocalAddress`) and IPv6 unique-local `fc00::/7` (not covered by the JDK site-local check) — otherwise delegating would have *regressed* the old prefix list's `fc`/`fd` block.
+- **Verification (live, post-fix):** `[::1]` → **400**, `[fc00::1]` → **400** (no regression), `0.0.0.0`/`169.254.169.254`/RFC-1918 → 400, `https://example.com` → 201. New `UrlValidatorTest` (16 cases) + green `WebhookServiceTest`. Full `mvn test` BUILD SUCCESS.
+
+## BUG-021 — Calendar event accepts end-time before start-time — **MINOR (validation)** — FIXED
+- **Feature:** `CalendarService.createEvent` / `updateEvent` (`POST/PUT /api/calendar/.../events`).
+- **Discovery:** semantic-validation probe — an event with `start_at` after `end_at` was **accepted (201)**, persisting a logically-invalid record.
+- **Fix:** added `validateEventTimes` — if both timestamps are present and ISO-8601, `end < start` → `IllegalArgumentException` (→ 400). Non-ISO/all-day strings are accepted as-is. Also fixed the update path's NOT-NULL `title`/`status` (BUG-019 class).
+- **Verification (live):** end-before-start → **400** ("Event end time cannot be before its start time"); valid event → 201. Regression test `CalendarServiceTest.rejectsEndBeforeStart`.
+
 ## BUG-019 — Explicit JSON null on NOT-NULL columns → HTTP 500 (systemic) — **MAJOR (product)** — FIXED
 - **Feature:** Create endpoints across modules — notes, calendar (calendars + events), tasks, gallery (albums + drafts), presets/templates.
 - **Discovery:** negative-input sweep (2026-06-09). `POST /api/notes {"title":null,"content":null}` → **500** `{"error":"Internal server error"}` (empty `{}` → 201). Re-sweep with explicit nulls reproduced **500s** on `/api/calendar/calendars`, `/api/tasks`, `/api/gallery/albums`, `/api/presets/templates` as well.
@@ -166,11 +179,11 @@
 | Severity | Count | IDs | Status |
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
-| Major | 9 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018 (personal RAG scope), BUG-019 (explicit-null 500s), BUG-003 (test-debt) | FIXED |
-| Minor | 10 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), OBS-004 (font CDN) | FIXED |
+| Major | 10 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020 (webhook SSRF IPv6), BUG-003 (test-debt) | FIXED |
+| Minor | 11 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), BUG-021 (calendar end<start), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**Cumulative: 19 findings — ALL FIXED. 9 genuine product/security bugs (BUG-001, BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018 personal-RAG scope, BUG-019 systemic explicit-null 500s) — each with a regression test.**
+**Cumulative: 21 findings — ALL FIXED. 10 genuine product/security bugs (BUG-001, BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020 webhook SSRF) + BUG-021 calendar validation — each with a regression test.**
 UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
 
 **All identified bugs are fixed. Full suite is green: 1981 tests (common module), 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS, verified 2026-06-09 after BUG-015 race fix).**

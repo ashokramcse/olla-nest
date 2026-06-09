@@ -125,7 +125,7 @@ Created a second user via `POST /api/admin/users`, logged in as them, and attemp
 - Dynamic IDOR with a second user account (ownership scoping on every `/{id}` route).
 - Forbidden-role (authenticated non-admin → admin endpoint = 403) — needs a non-admin session.
 - ~~Dynamic prompt-injection / RAG-document-injection against live chat~~ — **DONE 2026-06-09 (§7a); found+fixed BUG-016/017.** Tool-call exfiltration via function-calling still pending.
-- SSRF probes against connector/MCP/webhook URL inputs (live).
+- ~~SSRF probes against webhook URL inputs (live)~~ — **DONE 2026-06-09; found+fixed BUG-020** (IPv6 `[::1]` loopback bypass; hardened `UrlValidator` for any-local + IPv6 ULA). Connector/MCP URL SSRF still pending.
 - ZAP/OWASP automated scan.
 - TLS deployment: confirm `Secure` cookie + HSTS.
 

@@ -181,6 +181,17 @@ class CalendarServiceTest {
             // calendar_id must be stored so events can be listed by calendar
             assertThat(result.get("calendar_id")).isEqualTo("cal-1");
         }
+
+        @Test
+        @DisplayName("rejects an event whose end is before its start (400, not a stored bad event)")
+        void rejectsEndBeforeStart() {
+            when(db.queryForObject(contains("COUNT(*)"), eq(Integer.class), anyString(), anyString())).thenReturn(1);
+            assertThatThrownBy(() -> calendarService.createEvent("cal-1", OWNER,
+                    Map.of("title", "X", "start_at", "2027-01-02T10:00:00Z", "end_at", "2027-01-01T10:00:00Z")))
+                    .isInstanceOf(IllegalArgumentException.class);
+            // Must not have written a malformed event.
+            verify(db, never()).update(contains("INSERT INTO calendar_events"), any(Object[].class));
+        }
     }
 
     // ── updateEvent() ─────────────────────────────────────────────────────────

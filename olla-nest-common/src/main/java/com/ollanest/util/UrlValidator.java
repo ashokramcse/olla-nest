@@ -119,7 +119,14 @@ public class UrlValidator {
 			return true;
 		if (addr.isSiteLocalAddress())
 			return true;
+		// 0.0.0.0 / :: — wildcard addresses route to localhost on many stacks (SSRF).
+		if (addr.isAnyLocalAddress())
+			return true;
 		byte[] b = addr.getAddress();
+		// IPv6 unique-local address (ULA) fc00::/7 — private, not covered by the JDK
+		// site-local check; must be blocked (e.g. http://[fc00::1]/).
+		if (b.length == 16 && (b[0] & 0xFE) == 0xFC)
+			return true;
 		if (b.length == 4) {
 			int b0 = b[0] & 0xFF;
 			int b1 = b[1] & 0xFF;

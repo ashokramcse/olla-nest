@@ -179,6 +179,7 @@ public class CalendarService {
      */
     public Map<String, Object> createEvent(String calendarId, String owner, Map<String, Object> req) {
         verifyCalendarOwner(calendarId, owner);
+        validateEventTimes(req.get("start_at"), req.get("end_at"));
         String id = "evt-" + Long.toString(System.currentTimeMillis(), 36) + "-" + java.util.UUID.randomUUID().toString().substring(0, 6);
         String uid = orDefault(req.get("uid"), UUID.randomUUID().toString()).toString();
         String now = Instant.now().toString();
@@ -217,20 +218,24 @@ public class CalendarService {
         if (existing == null) throw new NoSuchElementException("Event not found: " + id);
         verifyCalendarOwner((String) existing.get("calendar_id"), owner);
 
+        Object effStart = req.getOrDefault("start_at", existing.get("start_at"));
+        Object effEnd = req.getOrDefault("end_at", existing.get("end_at"));
+        validateEventTimes(effStart, effEnd);
+
         String now = Instant.now().toString();
         db.update("""
                 UPDATE calendar_events SET title=?, description=?, location=?,
                   start_at=?, end_at=?, all_day=?, rrule=?, exdate_json=?, status=?, updated_at=?
                 WHERE id=?""",
-                req.getOrDefault("title", existing.get("title")),
+                orDefault(req.get("title"), existing.get("title")),
                 req.get("description"),
                 req.get("location"),
-                req.getOrDefault("start_at", existing.get("start_at")),
-                req.getOrDefault("end_at", existing.get("end_at")),
+                effStart,
+                effEnd,
                 Boolean.TRUE.equals(req.get("all_day")) ? 1 : 0,
                 req.get("rrule"),
                 toJson(req.getOrDefault("exdate", List.of())),
-                req.getOrDefault("status", existing.get("status")),
+                orDefault(req.get("status"), existing.get("status")),
                 now, id);
 
         return getEvent(id);
@@ -360,6 +365,26 @@ public class CalendarService {
 
     private String toJson(Object obj) {
         try { return mapper.writeValueAsString(obj); } catch (Exception e) { return "[]"; }
+    }
+
+    /**
+     * Rejects an event whose end is strictly before its start. Both values must be
+     * ISO-8601 instants; if either is absent or unparseable the check is skipped
+     * (parsing/format errors are not this method's concern).
+     *
+     * @param start the start timestamp (any type; only non-null ISO strings are checked)
+     * @param end   the end timestamp
+     * @throws IllegalArgumentException if {@code end} is before {@code start}
+     */
+    private void validateEventTimes(Object start, Object end) {
+        if (start == null || end == null) return;
+        try {
+            if (Instant.parse(end.toString()).isBefore(Instant.parse(start.toString()))) {
+                throw new IllegalArgumentException("Event end time cannot be before its start time");
+            }
+        } catch (java.time.format.DateTimeParseException ignore) {
+            // Non-ISO timestamps are accepted as-is (e.g. all-day date strings).
+        }
     }
 
     private String foldIcs(String text) {

@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -64,14 +63,6 @@ public class WebhookService {
             "session.created", "chat.completed", "chat.message",
             "email.received", "email.sent", "note.reminder",
             "task.triggered", "connector.synced", "webhook.test"
-    );
-
-    /** IP/hostname prefixes that map to private or loopback networks (SSRF block-list). */
-    private static final List<String> PRIVATE_PREFIXES = List.of(
-            "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.",
-            "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.",
-            "172.27.", "172.28.", "172.29.", "172.30.", "172.31.",
-            "192.168.", "127.", "169.254.", "0.", "::1", "fc", "fd", "fe80"
     );
 
     /** Shared HTTP client for all webhook delivery attempts. */
@@ -283,30 +274,13 @@ public class WebhookService {
         if (!url.startsWith("https://") && !url.startsWith("http://")) {
             throw new IllegalArgumentException("Webhook URL must use http or https");
         }
-        try {
-            URI uri = URI.create(url);
-            String host = uri.getHost();
-            if (host == null) throw new IllegalArgumentException("Invalid webhook URL");
-
-            // Block private networks
-            for (String prefix : PRIVATE_PREFIXES) {
-                if (host.startsWith(prefix) || host.equals("localhost")) {
-                    throw new IllegalArgumentException("Webhook URL targets a private/internal network");
-                }
-            }
-
-            // Resolve and check the IP
-            InetAddress addr = InetAddress.getByName(host);
-            String ip = addr.getHostAddress();
-            for (String prefix : PRIVATE_PREFIXES) {
-                if (ip.startsWith(prefix)) {
-                    throw new IllegalArgumentException("Webhook URL resolves to a private IP");
-                }
-            }
-        } catch (IllegalArgumentException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Cannot validate webhook URL: " + e.getMessage());
+        // BUG-020: delegate to the central UrlValidator. The previous home-grown
+        // string-prefix matching missed IPv6 addresses (e.g. http://[::1]/ — the
+        // resolved "0:0:0:0:0:0:0:1" matched no IPv4 prefix), allowing SSRF to
+        // loopback/internal services. UrlValidator resolves every A/AAAA record and
+        // rejects loopback/link-local/site-local via InetAddress (IPv4 + IPv6).
+        if (!com.ollanest.util.UrlValidator.isSafeUrl(url)) {
+            throw new IllegalArgumentException("Webhook URL targets a private, internal, or unresolvable address");
         }
     }
 
