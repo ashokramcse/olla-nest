@@ -36,8 +36,6 @@ class ContextCompactorServiceTest {
 
 	@Mock
 	ObjectMapper mapper;
-	@Mock
-	DatabaseService databaseService;
 
 	@InjectMocks
 	ContextCompactorService contextCompactorService;

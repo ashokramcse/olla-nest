@@ -56,10 +56,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class SkillsService {
 
-
-	/** Maximum number of agent-learned skills per owner before LRU eviction. */
-	private static final int MAX_LEARNED_SKILLS = 500;
-
 	/** JDBC template for all skill persistence operations. */
 	private final JdbcTemplate db;
 
@@ -69,22 +65,16 @@ public class SkillsService {
 	 */
 	private final ObjectMapper mapper;
 
-	/** Embedding service (reserved for future semantic search upgrade). */
-	@SuppressWarnings("unused")
-	private final EmbeddingService embeddingService;
-
 	/**
-	 * Constructor-injects persistence, serialization, and embedding dependencies.
+	 * Constructor-injects persistence and serialization dependencies.
 	 *
-	 * @param db               the JDBC template for skill CRUD operations
-	 * @param mapper           the shared Jackson object mapper
-	 * @param embeddingService the embedding service (reserved for semantic search)
+	 * @param db     the JDBC template for skill CRUD operations
+	 * @param mapper the shared Jackson object mapper
 	 * @since v2026.2.1
 	 */
-	public SkillsService(JdbcTemplate db, ObjectMapper mapper, EmbeddingService embeddingService) {
+	public SkillsService(JdbcTemplate db, ObjectMapper mapper) {
 		this.db = db;
 		this.mapper = mapper;
-		this.embeddingService = embeddingService;
 	}
 
 	// ── CRUD ──────────────────────────────────────────────────────────────────
@@ -326,18 +316,5 @@ public class SkillsService {
 	private String getString(Map<String, Object> map, String key, String def) {
 		Object v = map.get(key);
 		return v != null ? v.toString() : def;
-	}
-
-	@SuppressWarnings("unused")
-	private void enforceLearnedCap(String owner) {
-		int count = db.queryForObject("SELECT COUNT(*) FROM skills WHERE owner = ? AND source = 'learned'",
-				Integer.class, owner);
-		if (count >= MAX_LEARNED_SKILLS) {
-			db.update("""
-					DELETE FROM skills WHERE id IN (
-					  SELECT id FROM skills WHERE owner = ? AND source = 'learned'
-					  ORDER BY use_count ASC, updated_at ASC LIMIT ?
-					)""", owner, 50);
-		}
 	}
 }

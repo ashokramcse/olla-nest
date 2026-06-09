@@ -84,10 +84,8 @@ public class DeepResearchService {
 	/** Jackson mapper used to serialise SSE event payloads. */
 	private final ObjectMapper mapper;
 
-	/** Persists research tasks to DB and generates visual HTML reports. */
+	/** Persists research tasks to DB. */
 	private final JdbcTemplate db;
-	@SuppressWarnings("unused")
-	private final VisualReportService visualReportService;
 
 	/** Active research tasks for cancellation support: taskId -> true. */
 	private final ConcurrentHashMap<String, Boolean> activeTasks = new ConcurrentHashMap<>();
@@ -103,20 +101,16 @@ public class DeepResearchService {
 	 *                            store
 	 * @param mapper              Jackson mapper for SSE event serialisation
 	 * @param db                  JDBC template for research_tasks persistence
-	 * @param visualReportService generates visual HTML reports from research
-	 *                            results
 	 * @since v2026.1.4
 	 */
 	public DeepResearchService(ProviderService providerService, RouterService routerService,
-			WebSearchService webSearchService, RagService ragService, ObjectMapper mapper, JdbcTemplate db,
-			VisualReportService visualReportService) {
+			WebSearchService webSearchService, RagService ragService, ObjectMapper mapper, JdbcTemplate db) {
 		this.providerService = providerService;
 		this.routerService = routerService;
 		this.webSearchService = webSearchService;
 		this.ragService = ragService;
 		this.mapper = mapper;
 		this.db = db;
-		this.visualReportService = visualReportService;
 	}
 
 	/**

@@ -24,7 +24,6 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -83,20 +82,14 @@ public class PersonalDocumentService {
 	/** RAG ingestion service that vectorises extracted text for retrieval. */
 	private final RagService ragService;
 
-	/** JDBC template (reserved for future metadata persistence). */
-	@SuppressWarnings("unused")
-	private final JdbcTemplate db;
-
 	/**
-	 * Constructor-injects RAG and persistence dependencies.
+	 * Constructor-injects the RAG ingestion dependency.
 	 *
 	 * @param ragService the RAG ingestion service for vectorising extracted text
-	 * @param db         the JDBC template
 	 * @since v2026.2.1
 	 */
-	public PersonalDocumentService(RagService ragService, JdbcTemplate db) {
+	public PersonalDocumentService(RagService ragService) {
 		this.ragService = ragService;
-		this.db = db;
 	}
 
 	/**

@@ -12,7 +12,6 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Manages system-defined presets and user-editable prompt templates.
@@ -71,20 +70,14 @@ public class PresetService {
 	/** JDBC template for user template CRUD. */
 	private final JdbcTemplate db;
 
-	/** Shared Jackson mapper (reserved for future JSON field support). */
-	@SuppressWarnings("unused")
-	private final ObjectMapper mapper;
-
 	/**
-	 * Constructor-injects persistence and serialization dependencies.
+	 * Constructor-injects the persistence dependency.
 	 *
-	 * @param db     the JDBC template for user template operations
-	 * @param mapper the shared Jackson object mapper
+	 * @param db the JDBC template for user template operations
 	 * @since v2026.2.1
 	 */
-	public PresetService(JdbcTemplate db, ObjectMapper mapper) {
+	public PresetService(JdbcTemplate db) {
 		this.db = db;
-		this.mapper = mapper;
 	}
 
 	/**

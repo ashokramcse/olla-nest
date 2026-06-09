@@ -66,23 +66,17 @@ public class CalendarService {
 	/** Shared Jackson mapper for JSON serialisation. */
 	private final ObjectMapper mapper;
 
-	/** Used to encrypt/decrypt CalDAV credentials stored in the database. */
-	@SuppressWarnings("unused")
-	private final CryptoService cryptoService;
-
 	/**
-	 * Constructor-injects persistence, serialisation, and crypto dependencies.
+	 * Constructor-injects persistence and serialisation dependencies.
 	 *
-	 * @param db            JDBC template for {@code calendars} and
-	 *                      {@code calendar_events} tables
-	 * @param mapper        shared Jackson mapper
-	 * @param cryptoService service for encrypting CalDAV credentials
+	 * @param db     JDBC template for {@code calendars} and
+	 *               {@code calendar_events} tables
+	 * @param mapper shared Jackson mapper
 	 * @since v2026.2.1
 	 */
-	public CalendarService(JdbcTemplate db, ObjectMapper mapper, CryptoService cryptoService) {
+	public CalendarService(JdbcTemplate db, ObjectMapper mapper) {
 		this.db = db;
 		this.mapper = mapper;
-		this.cryptoService = cryptoService;
 	}
 
 	// ── Calendar CRUD ─────────────────────────────────────────────────────────

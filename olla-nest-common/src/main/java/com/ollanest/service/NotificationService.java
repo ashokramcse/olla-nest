@@ -10,7 +10,6 @@ import java.util.Base64;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -56,23 +55,17 @@ public class NotificationService {
 	/** Shared HTTP client for ntfy push requests. */
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
-	/** JDBC template (reserved for future per-user channel preferences). */
-	@SuppressWarnings("unused")
-	private final JdbcTemplate db;
-
 	/** Provides runtime-configurable settings such as ntfy URL and topic. */
 	private final DatabaseService databaseService;
 
 	/**
-	 * Constructor-injects persistence and settings dependencies.
+	 * Constructor-injects the settings dependency.
 	 *
-	 * @param db              the JDBC template
 	 * @param databaseService the settings service used to look up the notification
 	 *                        channel and credentials
 	 * @since v2026.2.1
 	 */
-	public NotificationService(JdbcTemplate db, DatabaseService databaseService) {
-		this.db = db;
+	public NotificationService(DatabaseService databaseService) {
 		this.databaseService = databaseService;
 	}
 

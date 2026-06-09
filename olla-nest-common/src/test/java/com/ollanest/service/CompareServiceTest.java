@@ -23,7 +23,6 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.testinfra.UserFactory;
 
 /**
@@ -50,8 +49,6 @@ class CompareServiceTest {
 
 	@Mock
 	JdbcTemplate db;
-	@Mock
-	ObjectMapper mapper;
 
 	@InjectMocks
 	CompareService svc;

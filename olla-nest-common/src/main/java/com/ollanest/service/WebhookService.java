@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.UUID;
 
 import javax.crypto.Mac;
@@ -84,12 +83,6 @@ public class WebhookService {
 	private final ObjectMapper mapper;
 
 	/**
-	 * Application event bus; a wildcard subscription is registered at construction.
-	 */
-	@SuppressWarnings("unused")
-	private final EventBusService eventBus;
-
-	/**
 	 * Constructs a {@code WebhookService} and wires the wildcard event-bus
 	 * subscription that dispatches all events to registered webhooks.
 	 *
@@ -102,7 +95,6 @@ public class WebhookService {
 	public WebhookService(JdbcTemplate db, ObjectMapper mapper, EventBusService eventBus) {
 		this.db = db;
 		this.mapper = mapper;
-		this.eventBus = eventBus;
 
 		// Subscribe to all events and dispatch to webhooks
 		eventBus.subscribe("*", this::dispatch);

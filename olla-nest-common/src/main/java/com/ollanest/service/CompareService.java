@@ -10,7 +10,6 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Blind model A/B comparison service that allocates side-by-side ephemeral chat
@@ -55,20 +54,14 @@ public class CompareService {
 	/** JDBC template for comparison persistence. */
 	private final JdbcTemplate db;
 
-	/** Shared Jackson mapper for JSON serialisation. */
-	@SuppressWarnings("unused")
-	private final ObjectMapper mapper;
-
 	/**
-	 * Constructor-injects persistence and serialisation dependencies.
+	 * Constructor-injects the persistence dependency.
 	 *
-	 * @param db     JDBC template for the {@code comparisons} table
-	 * @param mapper shared Jackson mapper
+	 * @param db JDBC template for the {@code comparisons} table
 	 * @since v2026.2.1
 	 */
-	public CompareService(JdbcTemplate db, ObjectMapper mapper) {
+	public CompareService(JdbcTemplate db) {
 		this.db = db;
-		this.mapper = mapper;
 	}
 
 	// ── Create comparison ─────────────────────────────────────────────────────

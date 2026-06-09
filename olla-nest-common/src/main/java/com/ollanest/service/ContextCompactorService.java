@@ -80,20 +80,15 @@ public class ContextCompactorService {
 	private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 
 	private final ObjectMapper mapper;
-	@SuppressWarnings("unused")
-	private final DatabaseService databaseService;
 
 	/**
 	 * Constructs a {@code ContextCompactorService} with the required dependencies.
 	 *
-	 * @param mapper          shared Jackson mapper for JSON operations
-	 * @param databaseService application settings service used to read provider
-	 *                        config
+	 * @param mapper shared Jackson mapper for JSON operations
 	 * @since v2026.2.1
 	 */
-	public ContextCompactorService(ObjectMapper mapper, DatabaseService databaseService) {
+	public ContextCompactorService(ObjectMapper mapper) {
 		this.mapper = mapper;
-		this.databaseService = databaseService;
 	}
 
 	/**

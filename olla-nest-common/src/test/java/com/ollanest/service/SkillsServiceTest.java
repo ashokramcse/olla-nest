@@ -57,8 +57,6 @@ class SkillsServiceTest {
 	JdbcTemplate db;
 	@Mock
 	ObjectMapper mapper;
-	@Mock
-	EmbeddingService embeddingService;
 
 	@InjectMocks
 	SkillsService skillsService;

@@ -59,8 +59,6 @@ class DeepResearchServiceTest {
 	ObjectMapper mapper;
 	@Mock
 	JdbcTemplate db;
-	@Mock
-	VisualReportService visualReportService;
 
 	@InjectMocks
 	DeepResearchService service;

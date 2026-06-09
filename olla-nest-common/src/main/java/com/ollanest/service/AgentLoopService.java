@@ -15,7 +15,6 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -89,10 +88,6 @@ public class AgentLoopService {
 	/** Shared Jackson mapper for JSON serialisation. */
 	private final ObjectMapper mapper;
 
-	/** JDBC template for session and owner lookups. */
-	@SuppressWarnings("unused")
-	private final JdbcTemplate db;
-
 	/** Delegate for web-search tool execution. */
 	private final WebSearchService webSearchService;
 
@@ -112,7 +107,6 @@ public class AgentLoopService {
 	 * Constructor-injects all required service dependencies.
 	 *
 	 * @param mapper           shared Jackson mapper
-	 * @param db               JDBC template
 	 * @param webSearchService web-search tool delegate
 	 * @param memoryService    memory tool delegate
 	 * @param notesService     notes tool delegate
@@ -120,11 +114,9 @@ public class AgentLoopService {
 	 * @param taskService      task-scheduler tool delegate
 	 * @since v2026.2.1
 	 */
-	public AgentLoopService(ObjectMapper mapper, JdbcTemplate db, WebSearchService webSearchService,
-			MemoryService memoryService, NotesService notesService, CalendarService calendarService,
-			TaskSchedulerService taskService) {
+	public AgentLoopService(ObjectMapper mapper, WebSearchService webSearchService, MemoryService memoryService,
+			NotesService notesService, CalendarService calendarService, TaskSchedulerService taskService) {
 		this.mapper = mapper;
-		this.db = db;
 		this.webSearchService = webSearchService;
 		this.memoryService = memoryService;
 		this.notesService = notesService;

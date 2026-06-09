@@ -22,7 +22,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.ollanest.testinfra.UserFactory;
@@ -57,8 +56,6 @@ class PersonalDocumentServiceTest {
 
 	@Mock
 	RagService ragService;
-	@Mock
-	JdbcTemplate db;
 
 	@InjectMocks
 	PersonalDocumentService svc;

@@ -16,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.ollanest.testinfra.UserFactory;
 
@@ -43,8 +42,6 @@ class NotificationServiceTest {
 
 	private static final String OWNER = UserFactory.USER_ID;
 
-	@Mock
-	JdbcTemplate db;
 	@Mock
 	DatabaseService databaseService;
 

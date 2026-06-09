@@ -12,7 +12,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -33,8 +32,6 @@ class AgentLoopServiceTest {
 
 	@Mock
 	ObjectMapper mapper;
-	@Mock
-	JdbcTemplate db;
 	@Mock
 	WebSearchService webSearchService;
 	@Mock

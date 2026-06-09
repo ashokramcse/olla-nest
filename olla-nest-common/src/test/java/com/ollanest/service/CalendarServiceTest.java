@@ -48,8 +48,6 @@ class CalendarServiceTest {
 	JdbcTemplate db;
 	@Mock
 	ObjectMapper mapper;
-	@Mock
-	CryptoService cryptoService;
 
 	@InjectMocks
 	CalendarService calendarService;
