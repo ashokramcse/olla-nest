@@ -103,6 +103,13 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-015 — Flaky concurrency in EventBusServiceTest (non-thread-safe collector) — **MINOR (test)** — FIXED
+- **Feature:** `EventBusService` unit tests (`multipleSubscribersAllInvoked`, `wildcardReceivesAllEvents`).
+- **Discovery:** full-suite re-run on 2026-06-09 → `EventBusServiceTest.multipleSubscribersAllInvoked` **FAILED** `Expected size: 2 but was: 1 in: ["A"]` (suite was previously reported green at 2069). Intermittent — a race, not a deterministic regression.
+- **Root cause:** the test collected handler results into a plain `ArrayList`, but `EventBusService.fire()` dispatches each subscriber on a **virtual-thread executor**, so two handlers `add()` concurrently. `ArrayList.add` is not thread-safe → lost-update (both threads write index 0, size ends at 1). The product code is correct: both subscribers are submitted and both run (the `CountDownLatch(2)` reaching 0 proves it); only the test's collector dropped an element.
+- **Fix:** switched the two concurrent-collector lists to `CopyOnWriteArrayList`. **No assertion weakened** — `hasSize(2)` / `containsExactly` are unchanged.
+- **Verification:** the two race-prone tests run **8/8 green** in a repeat loop; `EventBusServiceTest` **8/8**; full `mvn test` → **BUILD SUCCESS, 0 failures, 0 errors, 0 skipped**.
+
 ## BUG-013 — Systemic timestamp-only ID collisions under concurrency — **MAJOR (product)** — FIXED
 - **Feature:** All write paths using generated IDs (notes, contacts, skills, calendar, gallery, mcp, webhooks, compare, presets, prompt-security, event-bus, assistant, api-tokens, cookbook, deep-research, connectors, images, audit events).
 - **Discovery:** **k6 load test** (`perf/k6-write-path.js`, 30 VUs) — `POST /api/notes` failed **~73%** with `SQLITE_CONSTRAINT_PRIMARYKEY: notes.id`.
@@ -129,13 +136,13 @@
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
 | Major | 5 | BUG-006 (calculate tool), BUG-009 (assistant 500 / task-id collision), BUG-012 (email create 500), BUG-013 (systemic ID collisions), BUG-003 (test-debt) | FIXED |
-| Minor | 9 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), OBS-004 (font CDN) | FIXED |
+| Minor | 10 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**Cumulative: 14 findings — ALL FIXED. 5 genuine product bugs (BUG-001 cookie NPE, BUG-006 calculate tool, BUG-009 task-id collision, BUG-012 email-create 500, BUG-013 systemic ID collisions) — each with a regression test.**
+**Cumulative: 15 findings — ALL FIXED. 5 genuine product bugs (BUG-001 cookie NPE, BUG-006 calculate tool, BUG-009 task-id collision, BUG-012 email-create 500, BUG-013 systemic ID collisions) — each with a regression test.**
 UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
 
-**All identified bugs are fixed. Full suite is green: 2069 tests, 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS).**
+**All identified bugs are fixed. Full suite is green: 1981 tests (common module), 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS, verified 2026-06-09 after BUG-015 race fix).**
 
 - 2 genuine product bugs found and fixed: **BUG-001** (session-cookie NPE regression) and **BUG-006** (`calculate` tool dead on JDK 15+).
 - The rest were pre-existing **test-debt** (Mockito varargs matching, `Map.of(null)`, re-stub gotchas, DNS dependency) — fixed without weakening any assertion.

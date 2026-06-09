@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -120,7 +121,9 @@ class EventBusServiceTest {
         void wildcardReceivesAllEvents() throws Exception {
             // Latch for 2 events
             CountDownLatch latch = new CountDownLatch(2);
-            List<String> received = new ArrayList<>();
+            // Thread-safe: the two events are delivered on concurrent virtual threads,
+            // so a plain ArrayList would race (lost-update) and intermittently size 1.
+            List<String> received = new CopyOnWriteArrayList<>();
             // Wildcard subscriber must receive every event regardless of name
             svc.subscribe("*", (owner, payload) -> {
                 received.add("received");
@@ -164,7 +167,9 @@ class EventBusServiceTest {
         @DisplayName("multiple subscribers for same event are all invoked")
         void multipleSubscribersAllInvoked() throws Exception {
             CountDownLatch latch = new CountDownLatch(2);
-            List<String> received = new ArrayList<>();
+            // Thread-safe: both handlers run on concurrent virtual threads, so a plain
+            // ArrayList would race (lost-update) and intermittently report size 1 (["A"]).
+            List<String> received = new CopyOnWriteArrayList<>();
             // Two subscribers on the same event — both must be invoked
             svc.subscribe("msg.sent", (o, p) -> { received.add("A"); latch.countDown(); });
             svc.subscribe("msg.sent", (o, p) -> { received.add("B"); latch.countDown(); });
