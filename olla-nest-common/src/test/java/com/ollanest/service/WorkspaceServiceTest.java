@@ -17,7 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * OCD-level unit tests for pure string-processing methods in {@link WorkspaceService}.

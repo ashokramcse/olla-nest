@@ -16,7 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * OCD-level unit tests for {@link AtomicWriteService}.

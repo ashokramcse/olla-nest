@@ -10,7 +10,7 @@ import org.mockito.quality.Strictness;
 
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * OCD-level unit tests for {@link CodeSandboxService} — pure/static parts only.

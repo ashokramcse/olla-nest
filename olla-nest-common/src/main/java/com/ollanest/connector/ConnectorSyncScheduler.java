@@ -1,11 +1,11 @@
 package com.ollanest.connector;
 
+import com.ollanest.service.CryptoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import com.ollanest.service.CryptoService;
 
 import java.time.Instant;
 import java.util.ArrayList;

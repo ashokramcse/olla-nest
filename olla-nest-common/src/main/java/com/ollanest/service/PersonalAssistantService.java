@@ -9,7 +9,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.UUID;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Manages each user's personal AI assistant — a single {@code crew_member} row

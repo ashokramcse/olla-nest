@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * OCD-level unit tests for {@link ContextCompactorService}.

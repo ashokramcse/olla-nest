@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ollanest.connector.BaseConnector;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
 import java.util.Base64;
+import java.util.Map;
 
 /**
  * Spring {@code @Component} that pulls GitHub repository content into the

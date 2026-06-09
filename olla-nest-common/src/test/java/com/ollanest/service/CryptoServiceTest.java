@@ -11,7 +11,7 @@ import java.util.Set;
 import java.lang.reflect.Field;
 import java.security.SecureRandom;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link CryptoService}.

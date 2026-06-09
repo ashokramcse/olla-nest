@@ -10,11 +10,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
-import java.util.UUID;
 
 /**
  * Lightweight in-process event bus that dispatches named events to registered handlers

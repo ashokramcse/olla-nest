@@ -2,24 +2,21 @@ package com.ollanest.service;
 
 import static com.ollanest.util.MapDefaults.orDefault;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jsoup.Jsoup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.*;
-import java.time.format.DateTimeFormatter;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
-import java.util.*;
 
 /**
  * Local SQLite-backed calendar service with CalDAV synchronisation support.

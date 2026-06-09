@@ -4,11 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ollanest.connector.BaseConnector;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
 
 /**
  * Connector implementation that synchronises text files from Microsoft OneDrive

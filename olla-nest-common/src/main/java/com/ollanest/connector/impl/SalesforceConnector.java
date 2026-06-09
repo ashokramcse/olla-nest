@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ollanest.connector.BaseConnector;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
 import java.net.URLEncoder;
+import java.util.Map;
 
 /**
  * Connector implementation that synchronises Salesforce CRM records into the

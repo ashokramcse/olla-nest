@@ -3,21 +3,24 @@ package com.ollanest.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.model.ModelRecord;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.*;
-import java.util.function.Consumer;
-import java.io.InputStream;
 import java.time.Instant;
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Provider call layer — resolves the active provider and executes both blocking

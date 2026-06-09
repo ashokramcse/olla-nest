@@ -1,5 +1,11 @@
 package com.ollanest.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -9,13 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Voice I/O service providing speech-to-text transcription and text-to-speech

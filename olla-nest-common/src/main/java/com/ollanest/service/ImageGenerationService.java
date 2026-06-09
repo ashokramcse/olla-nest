@@ -1,16 +1,15 @@
 package com.ollanest.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Service;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
-
-import org.springframework.stereotype.Service;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * AI image generation service supporting DALL-E 3 and self-hosted Stable

@@ -11,7 +11,11 @@ import static com.ollanest.util.MapDefaults.orDefault;
 
 import java.time.Instant;
 import java.util.UUID;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
 /**
  * Google Keep-style note management with support for checklists, colors, labels,

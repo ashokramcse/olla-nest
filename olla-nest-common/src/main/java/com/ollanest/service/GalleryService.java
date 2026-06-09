@@ -16,11 +16,15 @@ import static com.ollanest.util.MapDefaults.orDefault;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.UUID;
-import java.util.*;
 
 /**
  * Photo and image library service with album management, EXIF extraction,

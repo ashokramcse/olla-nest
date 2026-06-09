@@ -4,14 +4,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.socket.*;
+import org.springframework.web.socket.BinaryMessage;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
-import java.security.SecureRandom;
 
 /**
  * WebSocket handler that bridges each connected client to a dedicated shell

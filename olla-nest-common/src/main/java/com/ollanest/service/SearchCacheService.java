@@ -10,11 +10,15 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
 
 /**
  * Disk-backed LRU cache for web search results, keyed by a SHA-256 hash of the

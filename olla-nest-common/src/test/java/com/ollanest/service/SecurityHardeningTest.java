@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.scheduling.annotation.Scheduled;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Security-hardening validation tests.

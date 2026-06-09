@@ -11,7 +11,8 @@ import org.mockito.quality.Strictness;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
  * OCD-level unit tests for {@link VisualReportService}.

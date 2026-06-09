@@ -20,9 +20,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 /**
  * OCD-level unit tests for {@link PersonalDocumentService}.

@@ -2,17 +2,17 @@ package com.ollanest.connector.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ollanest.connector.BaseConnector;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
+import java.util.Map;
 
 /**
  * Connector implementation that synchronises content from Google Drive into the

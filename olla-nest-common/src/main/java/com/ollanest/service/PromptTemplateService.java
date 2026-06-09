@@ -3,7 +3,9 @@ package com.ollanest.service;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Assembles the system prompt for each chat turn by combining an identity

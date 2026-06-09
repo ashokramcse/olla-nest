@@ -16,8 +16,8 @@ import java.util.Set;
 import java.util.List;
 import org.springframework.http.HttpMethod;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * Unit tests for {@link GlobalExceptionHandler}.

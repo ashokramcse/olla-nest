@@ -2,7 +2,19 @@ package com.ollanest.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.model.User;
-import com.ollanest.service.*;
+import com.ollanest.service.ChatService;
+import com.ollanest.service.DatabaseService;
+import com.ollanest.service.ModelService;
+import com.ollanest.service.OllamaService;
+import com.ollanest.service.UserService;
+import com.ollanest.service.WorkspaceService;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import com.ollanest.testinfra.UserFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
@@ -20,9 +32,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 /**
  * OCD-level unit tests for {@link StateController}.

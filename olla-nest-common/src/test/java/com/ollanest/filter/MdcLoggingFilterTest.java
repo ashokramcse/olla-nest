@@ -13,7 +13,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.MDC;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link MdcLoggingFilter}.
