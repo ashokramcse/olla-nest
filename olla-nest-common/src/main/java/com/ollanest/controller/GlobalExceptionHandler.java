@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -168,6 +169,24 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<Map<String, Object>> handleBadJson(HttpMessageNotReadableException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 				.body(Map.of("ok", false, "error", "Request body is malformed or missing"));
+	}
+
+	/**
+	 * Maps a missing required request parameter
+	 * ({@link MissingServletRequestParameterException}) to HTTP 400.
+	 *
+	 * <p>
+	 * Without this handler the framework exception falls through to the generic
+	 * catch-all and is reported as a misleading 500 Internal Server Error, even
+	 * though the fault is caller-supplied (an omitted required query/form param).
+	 *
+	 * @param ex the missing-parameter exception
+	 * @return 400 with {@code {ok: false, error: "Missing required parameter: name"}}
+	 */
+	@ExceptionHandler(MissingServletRequestParameterException.class)
+	public ResponseEntity<Map<String, Object>> handleMissingParam(MissingServletRequestParameterException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(Map.of("ok", false, "error", "Missing required parameter: " + ex.getParameterName()));
 	}
 
 	/**

@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -94,6 +95,20 @@ class GlobalExceptionHandlerTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
 		assertThat(r.getBody()).containsEntry("ok", false);
 		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("text/plain");
+	}
+
+	@Test
+	@DisplayName("MissingServletRequestParameterException → 400 (regression: was 500)")
+	void handlesMissingRequestParam() {
+		// Regression for BUG-001: an omitted required @RequestParam (e.g.
+		// GET /api/memory/search with no ?q=) previously fell through to the generic
+		// catch-all and surfaced as a misleading 500. It must be a 400 Bad Request.
+		MissingServletRequestParameterException ex = new MissingServletRequestParameterException("q", "String");
+		ResponseEntity<Map<String, Object>> r = handler.handleMissingParam(ex);
+		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(r.getBody()).containsEntry("ok", false);
+		// The error must name the missing parameter so the client can correct the call
+		assertThat(r.getBody().get("error").toString()).contains("q");
 	}
 
 	@Test

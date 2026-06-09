@@ -191,6 +191,18 @@
 
 ## OBS-001 — SQLite foreign-key enforcement is per-connection — **INFO**
 - `PRAGMA foreign_keys` returned `0` on a fresh CLI connection. FK enforcement relies on Hikari `connection-init-sql` (`PRAGMA foreign_keys=ON`) running on **every** pooled connection. Verified configured in `application.properties`. Recommend an integration test that asserts a FK violation is actually rejected through the app's datasource (not just configured). See `DB_AUDIT_REPORT.md`.
+- **2026-06-09 follow-up:** live `PRAGMA foreign_key_check` on `data/olla-nest.sqlite` surfaced **2 orphaned `connector_sync_log` rows** (`csl-mpi1npe7`→`conn-github-mpi1np0t`, `csl-mpi1u4kq`→`conn-slack-mpi1u4ir`) whose parent `connector_configs` rows no longer exist. **Pre-existing residue** from connectors deleted while FK enforcement was off — `AdminConnectorController.delete()` does `DELETE FROM connector_configs` and relies on `ON DELETE CASCADE`, which only fires when `foreign_keys=ON` on that connection. Not an active regression (current pooled connections enforce FKs), but confirms OBS-001's risk was once realized. Cleanup SQL: `DELETE FROM connector_sync_log WHERE connector_id NOT IN (SELECT id FROM connector_configs);`
+
+## BUG-025 — Missing required `@RequestParam` returns 500 instead of 400 — **MAJOR (API contract)** — FIXED (2026-06-09)
+- **Found:** live probe `GET http://localhost:8081/api/memory/search` (no `?q=`) returned **500 `{"error":"Internal server error"}`**, while `?q=test` correctly returned 401, and every other unauthenticated protected endpoint returns 401. So a malformed (param-missing) request is mis-reported as a server fault.
+- **Root cause:** `GlobalExceptionHandler` had no handler for Spring's `MissingServletRequestParameterException`; an omitted required `@RequestParam` fell through to the generic catch-all → 500. Affects every endpoint with a required query param (≥5 in the codebase).
+- **Fix:** added `@ExceptionHandler(MissingServletRequestParameterException.class)` → **400** `{"ok":false,"error":"Missing required parameter: q"}` in `olla-nest-common/.../GlobalExceptionHandler.java`.
+- **Regression test:** `GlobalExceptionHandlerTest.handlesMissingRequestParam()` (class now 8 tests, was 7) — green. **Live verification of the running :8081 instance requires a user-jar redeploy** (the running process predates the fix); unit-level behavior is proven.
+
+## BUG-026 — Chat scroll container not keyboard-accessible (WCAG 2.1.1) — **MAJOR (a11y, serious)** — FIXED (2026-06-09)
+- **Found:** fresh Playwright + axe-core run flagged a **serious** `scrollable-region-focusable` violation on the authenticated workspace shell (`e2e/tests/a11y.spec.js:51`). Target pinpointed via a scoped axe probe to `#messages.messages-area` (the chat transcript scroll container) — scrollable but not keyboard-focusable, so keyboard-only users cannot scroll the conversation.
+- **Fix:** `public/app.html` — added `role="log" aria-label="Conversation messages" aria-live="polite" tabindex="0"` to `#messages`.
+- **Verified live:** re-ran the a11y suite (chromium) → **4 passed, 0 violations** (was 1 failed, 1 serious). `aria-live="polite"` additionally improves screen-reader announcement of streamed replies.
 
 ---
 
@@ -198,11 +210,11 @@
 | Severity | Count | IDs | Status |
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
-| Major | 13 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt) | FIXED |
+| Major | 15 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt), BUG-025 (missing-param 500→400), BUG-026 (a11y scrollable region) | FIXED |
 | Minor | 11 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), BUG-021 (calendar end<start), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**Cumulative: 24 findings — ALL FIXED. 13 genuine product/security bugs (BUG-001, 006, 009, 012, 013, 016, 017, 018, 019, 020, 022 research-IDOR, 023 research-NPE, 024 research-report) + BUG-021 calendar validation — each with a regression test.**
+**2026-06-09 re-validation session added BUG-025 and BUG-026 (both MAJOR, both FIXED with regression coverage). Cumulative: 26 findings — ALL FIXED. 13 genuine product/security bugs (BUG-001, 006, 009, 012, 013, 016, 017, 018, 019, 020, 022 research-IDOR, 023 research-NPE, 024 research-report) + BUG-021 calendar validation — each with a regression test.**
 UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
 
 **All identified bugs are fixed. Full suite is green: 1981 tests (common module), 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS, verified 2026-06-09 after BUG-015 race fix).**
