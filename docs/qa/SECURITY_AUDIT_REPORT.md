@@ -160,6 +160,12 @@ Auth + `workspace:build` right + origin validation are all enforced at handshake
 
 **Backup → restore full cycle — PASS:** `POST /api/admin/settings/backup` (`VACUUM INTO`) → restored file copied into a fresh `DATA_DIR` → a user service booted against it on :8099 → **login 200 + `/api/notes` 200** (16 users + data intact). The backup is a complete, bootable database.
 
+## 7e. Email IDOR — CRITICAL, found + fixed 2026-06-10
+
+The account-scoped email endpoints (`/api/email/accounts/{accountId}/messages…`, threads, read/star/reply-draft/delete) only called `requireAuth` and **never verified account ownership**; the service queries scoped by `account_id` only. **Any authenticated user could read/list/delete another user's private email and obtain LLM reply drafts built from the victim's email body** by supplying the victim's `accountId`.
+- **Fix:** controller ownership guard `denyIfNotOwned(user, accountId)` (404 unless `getAccount(accountId, user.id)` resolves) on every account-scoped endpoint, plus an owner-scoped JOIN in `generateReplyDraft`.
+- **Verified live:** second user → **404** on list/get/reply-draft/delete of user-1's account; owner → 200. See BUG-044.
+
 ## 8. Outstanding security work (NOT executed)
 - Dynamic IDOR with a second user account (ownership scoping on every `/{id}` route).
 - Forbidden-role (authenticated non-admin → admin endpoint = 403) — needs a non-admin session.

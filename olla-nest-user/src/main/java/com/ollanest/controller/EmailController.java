@@ -64,6 +64,22 @@ public class EmailController extends BaseController {
 		this.emailService = emailService;
 	}
 
+	/**
+	 * Ownership guard for every account-scoped endpoint (BUG-044). The message
+	 * read/list/star/delete/reply-draft service queries scope only by
+	 * {@code account_id}, so without this check any authenticated user could
+	 * access another user's private email by putting the victim's {@code accountId}
+	 * in the URL. Returns a 404 response if the account is not visible to the user
+	 * (owner or shared team), or {@code null} if access is allowed.
+	 *
+	 * @param user      the authenticated user
+	 * @param accountId the account id from the path
+	 * @return a 404 {@link ResponseEntity} to return, or {@code null} if allowed
+	 */
+	private ResponseEntity<?> denyIfNotOwned(User user, String accountId) {
+		return emailService.getAccount(accountId, user.id) == null ? notFound("Account not found") : null;
+	}
+
 	// ── Accounts ──────────────────────────────────────────────────────────────
 
 	/**
@@ -143,6 +159,8 @@ public class EmailController extends BaseController {
 			@RequestParam(defaultValue = "INBOX") String folder, @RequestParam(defaultValue = "1") int page,
 			@RequestParam(defaultValue = "30") int pageSize) {
 		User user = requireAuth(req);
+		ResponseEntity<?> deny = denyIfNotOwned(user, accountId);
+		if (deny != null) return deny;
 		return ok(emailService.listMessages(accountId, user.id, folder, page, pageSize));
 	}
 
@@ -158,7 +176,9 @@ public class EmailController extends BaseController {
 	@GetMapping("/accounts/{accountId}/messages/{messageId}")
 	public ResponseEntity<?> getMessage(HttpServletRequest req, @PathVariable String accountId,
 			@PathVariable String messageId) {
-		requireAuth(req);
+		User user = requireAuth(req);
+		ResponseEntity<?> deny = denyIfNotOwned(user, accountId);
+		if (deny != null) return deny;
 		var msg = emailService.getMessage(messageId, accountId);
 		if (msg == null)
 			return notFound("Message not found");
@@ -177,7 +197,9 @@ public class EmailController extends BaseController {
 	@GetMapping("/accounts/{accountId}/threads/{threadId}")
 	public ResponseEntity<?> getThread(HttpServletRequest req, @PathVariable String accountId,
 			@PathVariable String threadId) {
-		requireAuth(req);
+		User user = requireAuth(req);
+		ResponseEntity<?> deny = denyIfNotOwned(user, accountId);
+		if (deny != null) return deny;
 		return ok(emailService.getThread(threadId, accountId));
 	}
 
@@ -193,7 +215,9 @@ public class EmailController extends BaseController {
 	@PostMapping("/accounts/{accountId}/messages/{messageId}/read")
 	public ResponseEntity<?> markRead(HttpServletRequest req, @PathVariable String accountId,
 			@PathVariable String messageId) {
-		requireAuth(req);
+		User user = requireAuth(req);
+		ResponseEntity<?> deny = denyIfNotOwned(user, accountId);
+		if (deny != null) return deny;
 		emailService.markRead(messageId, accountId);
 		return ok(Map.of("ok", true));
 	}
@@ -211,7 +235,9 @@ public class EmailController extends BaseController {
 	@PostMapping("/accounts/{accountId}/messages/{messageId}/star")
 	public ResponseEntity<?> markStarred(HttpServletRequest req, @PathVariable String accountId,
 			@PathVariable String messageId, @RequestBody Map<String, Object> body) {
-		requireAuth(req);
+		User user = requireAuth(req);
+		ResponseEntity<?> deny = denyIfNotOwned(user, accountId);
+		if (deny != null) return deny;
 		boolean starred = Boolean.TRUE.equals(body.get("starred"));
 		emailService.markStarred(messageId, accountId, starred);
 		return ok(Map.of("ok", true));
@@ -229,7 +255,9 @@ public class EmailController extends BaseController {
 	@DeleteMapping("/accounts/{accountId}/messages/{messageId}")
 	public ResponseEntity<?> deleteMessage(HttpServletRequest req, @PathVariable String accountId,
 			@PathVariable String messageId) {
-		requireAuth(req);
+		User user = requireAuth(req);
+		ResponseEntity<?> deny = denyIfNotOwned(user, accountId);
+		if (deny != null) return deny;
 		emailService.deleteMessage(messageId, accountId);
 		return ok(Map.of("ok", true));
 	}
@@ -278,6 +306,8 @@ public class EmailController extends BaseController {
 	public ResponseEntity<?> replyDraft(HttpServletRequest req, @PathVariable String accountId,
 			@PathVariable String messageId) {
 		User user = requireAuth(req);
+		ResponseEntity<?> deny = denyIfNotOwned(user, accountId);
+		if (deny != null) return deny;
 		String draft = emailService.generateReplyDraft(messageId, accountId, user.id);
 		return ok(Map.of("draft", draft));
 	}

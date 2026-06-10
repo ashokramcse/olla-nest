@@ -508,9 +508,15 @@ public class EmailService {
 	 */
 	public String generateReplyDraft(String messageId, String accountId, String owner) {
 		try {
+			// BUG-044: scope to the owner via a JOIN on email_accounts. The previous
+			// query filtered only id+account_id, so any user who knew another user's
+			// accountId+messageId could obtain an LLM reply draft built from that
+			// user's private email subject/body (IDOR information disclosure).
 			List<Map<String, Object>> rows = db.queryForList(
-					"SELECT subject, from_addr, body_text FROM email_messages WHERE id = ? AND account_id = ?",
-					messageId, accountId);
+					"SELECT m.subject, m.from_addr, m.body_text FROM email_messages m "
+							+ "JOIN email_accounts a ON m.account_id = a.id "
+							+ "WHERE m.id = ? AND m.account_id = ? AND a.owner = ?",
+					messageId, accountId, owner);
 			if (rows.isEmpty())
 				return "";
 

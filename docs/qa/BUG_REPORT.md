@@ -103,6 +103,13 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-044 — IDOR: cross-user access to another user's email messages — **CRITICAL (security)** — FIXED
+- **Feature:** All account-scoped email endpoints — `GET/POST/DELETE /api/email/accounts/{accountId}/messages…`, `/threads/{threadId}`, `/messages/{id}/read|star|reply-draft`.
+- **Discovery:** feature-completeness sweep (2026-06-10). `reply-draft` to an arbitrary account returned **200**; deeper audit showed the controller only called `requireAuth(req)` and **never verified account ownership**, while the `EmailService` message queries scope by `account_id` **only** (no `owner`). `getMessage/getThread/markRead/markStarred/deleteMessage` don't even take an owner; `listMessages`/`generateReplyDraft` take `owner` but never used it in the SQL.
+- **Impact (CRITICAL):** any authenticated user who supplies another user's `accountId` in the URL could **list, read, mark, delete** that user's private email messages and obtain **LLM reply drafts built from the victim's email subject/body** — cross-user private-data disclosure and tampering.
+- **Fix:** (1) controller-level ownership guard `denyIfNotOwned(user, accountId)` (→ 404 when `getAccount(accountId, user.id)` is null) applied to **every** account-scoped message endpoint; (2) defense-in-depth — `generateReplyDraft` now JOINs `email_accounts` and filters `a.owner = ?`.
+- **Verification (live, post-fix):** as a second user, `list/get/reply-draft/delete` on user-1's account all return **404** (were 200); user-1 retains **200** on their own account. Full `mvn test` BUILD SUCCESS.
+
 ## BUG-043 — Admin provider update (PUT) 500 on explicit null fields — **MAJOR (product)** — FIXED
 - **Feature:** `PUT /api/admin/providers/{id}` (`AdminProvidersController.updateProvider`).
 - **Discovery:** connectors/providers/governance admin sweep (2026-06-10). `PUT {"name":null,"type":null,"base_url":null}` → **500**. BUG-019 class on an update path.
@@ -333,7 +340,7 @@
 ## Severity ledger
 | Severity | Count | IDs | Status |
 |---|---|---|---|
-| Critical | 1 | BUG-001 | FIXED |
+| Critical | 2 | BUG-001 (cookie NPE), BUG-044 (email cross-user IDOR) | FIXED |
 | Major | 23 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt), BUG-025 (missing-param 500→400), BUG-026 (a11y scrollable region), BUG-027 (calendar missing-times 500→400), BUG-028 (compare start 500→400/201), BUG-029 (model governance slash-id), BUG-031 (feedback rating type 500→400), BUG-032 (RBAC overrides not enforced at runtime), BUG-033 (FK never enforced — cascades/orphans), BUG-035 (SSO create 500→400), BUG-036 (connector create 500→400) | FIXED |
 | Minor | 16 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), BUG-021 (calendar end<start), BUG-040 (delete missing/other-user → 404), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
