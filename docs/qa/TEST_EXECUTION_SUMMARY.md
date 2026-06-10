@@ -7,6 +7,29 @@
 
 ---
 
+## 0. Consolidated release-readiness verdict — 2026-06-10
+
+**Authoritative `mvn clean test` (all 3 modules): 2,186 tests · 0 failures · 0 errors · 0 skipped** (counted from surefire XML, 87 test classes). Migrations: 13/13 `success`, `integrity_check=ok`, 62 tables, WAL.
+
+This campaign (2026-06-09/10) swept user + admin features, AI/RAG/Deep-Research, connectors, governance, enterprise, sandbox, SSO, WS terminal, observability, backup/restore, load/concurrency, and an exhaustive IDOR audit. **Findings fixed this campaign (each with a regression test + live verification):**
+
+| ID | Sev | Title |
+|---|---|---|
+| BUG-044 | **Critical** | Email cross-user IDOR (read/delete/reply-draft of others' mail) |
+| BUG-020 | Major | Webhook SSRF (IPv6 loopback bypass) + UrlValidator hardening |
+| BUG-022/023/024 | Major | Deep Research IDOR / NPE / report never persisted |
+| BUG-019 | Major | Explicit-null → 500 (systemic, user write endpoints) |
+| BUG-041/043 | Major | Admin MCP / provider create-update 500 on null |
+| BUG-045 | Major | Background-job cross-user IDOR (read/cancel) |
+| BUG-021/040/042 | Minor | Calendar end<start; delete 200→404; admin invalid-email |
+| (infra) | — | EventBus test-race fix; GitGuardian hardcoded-secret remediation |
+
+**Verified-solid (no bug):** vault/crypto (AES-256-GCM), prompt-injection wiring, SSO CSRF, code-sandbox isolation (macOS sandbox-exec), MDC/Loki observability (no secret leak), WS terminal auth+origin, backup→restore bootable cycle, multi-user IDOR across ~13 resource types, k6 load (0% errors) + 120-way concurrency (DB integrity ok).
+
+**Verdict: PASS for release on the locally-testable surface** — backend, security/RBAC/IDOR, DB integrity, AI/RAG, admin, and core flows are proven green with evidence. **Still NOT EXECUTED** (need external inputs): live IMAP/SMTP email send/poll, real image/TTS provider keys, multi-hour soak, full Playwright a11y/responsive re-run, and the git-history secret purge.
+
+---
+
 ## 1. Headline result
 
 | Metric | Value |
