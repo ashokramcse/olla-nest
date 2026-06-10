@@ -145,6 +145,21 @@ Created a second user via `POST /api/admin/users`, logged in as them, and attemp
 - `logback-spring.xml` Loki appender emits them in the structured message body (low-cardinality labels only — avoids Loki label explosion).
 - **No secret leakage**: live `user.log`/`admin.log` scan for password/api_key/`sk-`/raw creds → **0 matches**.
 
+## 7d. WebSocket terminal + backup/restore — EXECUTED 2026-06-10 (verified, no new bugs)
+
+**Terminal WS (`/api/terminal`) handshake — PASS:**
+| Probe | Result |
+|---|---|
+| No auth | no upgrade (200, not 101) |
+| Valid user **without** `workspace:build` | no upgrade (200) |
+| Admin + valid origin (`localhost:8081`) | **101** (upgrade granted) |
+| Admin + **evil origin** (`evil.com`) | **403** (origin enforced via `setAllowedOriginPatterns`) |
+| Admin + no Origin header (non-browser client) | 101 (allowed — standard) |
+
+Auth + `workspace:build` right + origin validation are all enforced at handshake (`WebSocketAuthInterceptor.beforeHandshake`).
+
+**Backup → restore full cycle — PASS:** `POST /api/admin/settings/backup` (`VACUUM INTO`) → restored file copied into a fresh `DATA_DIR` → a user service booted against it on :8099 → **login 200 + `/api/notes` 200** (16 users + data intact). The backup is a complete, bootable database.
+
 ## 8. Outstanding security work (NOT executed)
 - Dynamic IDOR with a second user account (ownership scoping on every `/{id}` route).
 - Forbidden-role (authenticated non-admin → admin endpoint = 403) — needs a non-admin session.

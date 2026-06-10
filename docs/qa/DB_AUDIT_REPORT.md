@@ -33,7 +33,7 @@
 - **Constraint enforcement tests:** unique/NOT NULL/foreign-key rejection through the app datasource (Testcontainers or `@SpringBootTest` with a temp `DATA_DIR`).
 - **Cascade / orphan behavior:** delete parent (user/team/calendar/email account) → verify children handling.
 - **Concurrency / DB-lock:** parallel writes under WAL + busy_timeout.
-- **Corruption / backup-restore:** trigger `POST /api/admin/settings/backup`, validate restore.
+- ~~**Corruption / backup-restore:** trigger `POST /api/admin/settings/backup`, validate restore.~~ — **DONE 2026-06-10 (full cycle PASS):** backup via `VACUUM INTO` → restored into a fresh `DATA_DIR` → a user service **booted against it on :8099** → login **200** + `/api/notes` **200** (16 users + data intact). Backup is bootable and complete.
 - **ENCRYPTION_KEY rotation impact:** confirm graceful failure for previously-encrypted secrets.
 
 ## Verdict
