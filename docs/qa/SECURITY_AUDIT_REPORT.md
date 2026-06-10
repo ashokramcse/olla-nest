@@ -125,6 +125,26 @@ Created a second user via `POST /api/admin/users`, logged in as them, and attemp
 | User-2 `DELETE /api/notes/{user1NoteId}` | **PASS** — **404**; user-1's note remained intact |
 | User-2 chat asks for user-1's **personal RAG doc** (BLUEFALCON secret) | **PASS** — "did not find any information"; no content disclosed. Personal docs are scoped `personal:{ownerId}`, so user-2's retrieval (`personal:{user2}` + global) can't reach it. Confirms BUG-018 fix preserved isolation. |
 
+## 7c. SSO / sandbox / observability — EXECUTED 2026-06-10 (verified, no new bugs)
+
+**SSO (OAuth/SAML) — PASS:**
+| Probe | Result |
+|---|---|
+| `authorize/{unknown}` | 404 (no provider leak beyond path) |
+| OAuth `callback` missing/forged `state` | **302 → `/login?sso_error=invalid_state`, NO session cookie set** — CSRF state validation holds, no auth bypass |
+| SAML `acs` with garbage `SAMLResponse` | 302 → `/login?sso_error=saml_disabled`, no session |
+
+**Code sandbox (`/api/sandbox/run`) — PASS (SEC-001 mitigation confirmed):**
+- Permission-gated on `sandbox:run` (403 without it).
+- macOS `sandbox-exec` profile **blocks** the app `.env`, the SQLite DB, and **network egress** ("Operation not permitted") — verified live with Python + bash payloads.
+- 10s wall-clock **timeout** stops infinite-loop DoS (`phase=timeout`).
+- `/etc/passwd` / `id` succeed by design (world-readable system files so interpreters start). Sensitive app data is protected. (Linux/Windows still need container isolation — documented under SEC-001.)
+
+**Observability — PASS:**
+- `MdcLoggingFilter` populates all 7 keys (`requestId, userId, userEmail, userRole, method, path, ip`) per request and clears them after.
+- `logback-spring.xml` Loki appender emits them in the structured message body (low-cardinality labels only — avoids Loki label explosion).
+- **No secret leakage**: live `user.log`/`admin.log` scan for password/api_key/`sk-`/raw creds → **0 matches**.
+
 ## 8. Outstanding security work (NOT executed)
 - Dynamic IDOR with a second user account (ownership scoping on every `/{id}` route).
 - Forbidden-role (authenticated non-admin → admin endpoint = 403) — needs a non-admin session.
