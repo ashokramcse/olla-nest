@@ -187,6 +187,16 @@ public class CompareService {
 				ORDER BY wins DESC""", teamId);
 	}
 
+	/**
+	 * Returns a defensive mutable copy of a raw {@code comparisons} row for the API
+	 * response (no column transformation is needed for comparisons).
+	 *
+	 * @param row the raw DB row
+	 * @return a copy of the row
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		return new LinkedHashMap<>(row);
 	}

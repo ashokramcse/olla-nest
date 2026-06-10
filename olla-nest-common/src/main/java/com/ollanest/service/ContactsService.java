@@ -210,6 +210,17 @@ public class ContactsService {
 		return sb.toString();
 	}
 
+	/**
+	 * Maps a raw {@code contacts} row to the API shape, deserialising the multi-value
+	 * {@code email_json}/{@code phone_json}/{@code address_json} columns into their
+	 * list equivalents (empty list on invalid JSON) and removing the raw columns.
+	 *
+	 * @param row the raw DB row
+	 * @return the API-mapped contact record
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		for (String field : List.of("email_json", "phone_json", "address_json")) {
@@ -224,6 +235,16 @@ public class ContactsService {
 		return r;
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper (used for the multi-value columns),
+	 * returning {@code "[]"} on error so a bad value never aborts a contact write.
+	 *
+	 * @param obj the value to serialise
+	 * @return the JSON string, or {@code "[]"} on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toJson(Object obj) {
 		try {
 			return mapper.writeValueAsString(obj);

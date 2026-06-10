@@ -17,6 +17,15 @@ public class ProviderUnavailableException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Creates a provider-unavailable exception with an actionable message naming the
+	 * missing/unreachable provider (surfaced in the 503 response body).
+	 *
+	 * @param message the human-readable reason (e.g. "OpenAI API key not configured")
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	public ProviderUnavailableException(String message) {
 		super(message);
 	}

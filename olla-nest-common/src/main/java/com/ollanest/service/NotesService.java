@@ -221,6 +221,17 @@ public class NotesService {
 				.stream().map(this::mapRow).toList();
 	}
 
+	/**
+	 * Maps a raw {@code notes} row to the API shape, deserialising the checklist
+	 * {@code items_json} column into an {@code items} list ({@code null} on missing or
+	 * invalid JSON) and removing the raw column.
+	 *
+	 * @param row the raw DB row
+	 * @return the API-mapped note record
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		try {
@@ -233,6 +244,16 @@ public class NotesService {
 		return r;
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper (used for the {@code items_json} column),
+	 * returning {@code null} for null input or on any serialisation error.
+	 *
+	 * @param obj the value to serialise (may be null)
+	 * @return the JSON string, or {@code null}
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toJson(Object obj) {
 		try {
 			return obj != null ? mapper.writeValueAsString(obj) : null;

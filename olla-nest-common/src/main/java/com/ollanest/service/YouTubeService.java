@@ -120,6 +120,17 @@ public class YouTubeService {
 		return transcript;
 	}
 
+	/**
+	 * Fetches the caption/transcript text for a YouTube video id from YouTube's
+	 * timed-text endpoint, returning an empty string when no transcript is available
+	 * (private video, captions disabled, or fetch failure).
+	 *
+	 * @param videoId the 11-character YouTube video id
+	 * @return the transcript text, or {@code ""} when unavailable
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String fetchTranscript(String videoId) {
 		try {
 			// First: get the page to find available caption tracks
@@ -162,6 +173,16 @@ public class YouTubeService {
 		}
 	}
 
+	/**
+	 * Fetches the video title for a YouTube video id (via the oEmbed/watch metadata),
+	 * returning an empty string on any failure.
+	 *
+	 * @param videoId the 11-character YouTube video id
+	 * @return the video title, or {@code ""} when unavailable
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String fetchTitle(String videoId) {
 		try {
 			String url = "https://www.youtube.com/watch?v=" + videoId;

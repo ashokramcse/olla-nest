@@ -129,6 +129,18 @@ public class MemoryExtractorService {
 		});
 	}
 
+	/**
+	 * Extracts durable facts from a conversation via the LLM and stores them as
+	 * memories for the owner, so the assistant can recall them in later sessions.
+	 * Runs best-effort: failures are logged and do not affect the chat flow.
+	 *
+	 * @param owner     the user id the memories belong to
+	 * @param sessionId the source chat session id
+	 * @param messages  the conversation messages to mine for facts
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void extract(String owner, String sessionId, List<Map<String, Object>> messages) {
 		String ollamaUrl = databaseService.getSetting("ollamaUrl", "http://localhost:11434");
 		String model = databaseService.getSetting("memoryExtractorModel",

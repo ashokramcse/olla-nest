@@ -246,6 +246,14 @@ public abstract class BaseController {
 	public static class AuthException extends RuntimeException {
 		private static final long serialVersionUID = 1L;
 
+		/**
+		 * Creates an authentication-required exception with the given message.
+		 *
+		 * @param msg the human-readable reason (surfaced in the 401 response body)
+		 * @author Ashok Ram
+		 * @since v2026.1.4
+		 * @version v2026.1.4
+		 */
 		public AuthException(String msg) {
 			super(msg);
 		}
@@ -255,6 +263,14 @@ public abstract class BaseController {
 	public static class ForbiddenException extends RuntimeException {
 		private static final long serialVersionUID = 1L;
 
+		/**
+		 * Creates a forbidden exception with the given message.
+		 *
+		 * @param msg the human-readable reason (surfaced in the 403 response body)
+		 * @author Ashok Ram
+		 * @since v2026.1.4
+		 * @version v2026.1.4
+		 */
 		public ForbiddenException(String msg) {
 			super(msg);
 		}

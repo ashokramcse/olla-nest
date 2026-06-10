@@ -95,6 +95,19 @@ public class NotificationService {
 		}
 	}
 
+	/**
+	 * Delivers a push notification via the user's configured ntfy.sh topic, mapping
+	 * the title/message/priority to the ntfy HTTP API. No-ops (best-effort) when ntfy
+	 * is not configured for the owner.
+	 *
+	 * @param owner    the user id to notify
+	 * @param title    the notification title
+	 * @param message  the notification body
+	 * @param priority the ntfy priority level
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void sendNtfy(String owner, String title, String message, int priority) {
 		try {
 			String ntfyUrl = databaseService.getSetting("ntfyUrl", "https://ntfy.sh");

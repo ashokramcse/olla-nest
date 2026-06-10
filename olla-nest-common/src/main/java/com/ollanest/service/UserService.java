@@ -456,6 +456,19 @@ public class UserService {
 		return sortedPerms;
 	}
 
+	/**
+	 * Builds the full effective-access view shown in the admin UI for a user: the
+	 * resolved permission set (see {@link #effectivePermissions}), the explicitly
+	 * denied permissions, the allowed model ids, group memberships, the source
+	 * precedence order, and the user's quotas.
+	 *
+	 * @param user the user to compute access for
+	 * @return a map with {@code permissions}, {@code denied}, {@code allowedModelIds},
+	 *         {@code groups}, {@code sourcePriority}, and {@code quotas}
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	public Map<String, Object> effectiveAccess(User user) {
 		List<String> sortedPerms = effectivePermissions(user);
 

@@ -166,6 +166,18 @@ public class ContextCompactorService {
 		return result;
 	}
 
+	/**
+	 * Summarises a block of older conversation messages via the LLM so the running
+	 * context can be compacted to fit the model window while preserving meaning.
+	 *
+	 * @param messages  the messages to condense
+	 * @param ollamaUrl the Ollama base URL
+	 * @param model     the model id used to produce the summary
+	 * @return the summary text (or a best-effort fallback on failure)
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String summarize(List<Map<String, Object>> messages, String ollamaUrl, String model) {
 		try {
 			StringBuilder transcript = new StringBuilder();

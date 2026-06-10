@@ -106,6 +106,17 @@ public class SessionEnhancementService {
 		});
 	}
 
+	/**
+	 * Analyses a chat session via the LLM to derive its topics/title and persists the
+	 * result, enabling topic-based organisation of conversations.
+	 *
+	 * @param sessionId the chat session to analyse
+	 * @param userId    the owning user id (ownership scope)
+	 * @throws Exception on model-call or persistence failure
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void analyzeTopics(String sessionId, String userId) throws Exception {
 		// Get last 10 messages
 		List<Map<String, Object>> msgs = db.queryForList("""
@@ -224,6 +235,17 @@ public class SessionEnhancementService {
 		log.info("[history] Truncated {} messages from session {} at {}", deleted, sessionId, pivotDate);
 	}
 
+	/**
+	 * Null-safe string truncation: returns {@code ""} for null, otherwise caps the
+	 * string at {@code max} characters appending an ellipsis when shortened.
+	 *
+	 * @param s   the input string (may be null)
+	 * @param max the maximum length before truncation
+	 * @return the truncated string, never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String truncate(String s, int max) {
 		if (s == null)
 			return "";

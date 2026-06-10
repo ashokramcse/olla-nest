@@ -206,6 +206,17 @@ public class ApiTokenService {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
+	/**
+	 * Maps a raw {@code api_tokens} row to the API shape: <b>always strips the
+	 * {@code token_hash}</b> so the secret hash is never exposed, and deserialises
+	 * {@code scopes_json} into a {@code scopes} list (defaulting to {@code [chat]}).
+	 *
+	 * @param row the raw DB row
+	 * @return the API-safe token record (no hash)
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		r.remove("token_hash"); // never expose the hash
@@ -219,6 +230,16 @@ public class ApiTokenService {
 		return r;
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper (used for the {@code scopes_json} column),
+	 * returning {@code "[]"} on error so a bad value never aborts a token write.
+	 *
+	 * @param obj the value to serialise
+	 * @return the JSON string, or {@code "[]"} on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toJson(Object obj) {
 		try {
 			return mapper.writeValueAsString(obj);

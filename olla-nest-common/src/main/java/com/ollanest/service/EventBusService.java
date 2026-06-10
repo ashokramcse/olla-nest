@@ -157,6 +157,17 @@ public class EventBusService {
 		fire(eventName, owner, Map.of());
 	}
 
+	/**
+	 * Persists an emitted event to the {@code event_log} table for the audit trail
+	 * and asynchronous consumers, serialising the payload to JSON.
+	 *
+	 * @param eventName the event name (e.g. {@code email.received})
+	 * @param owner     the owning user id (or {@code null} for system events)
+	 * @param payload   the event payload to record
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void persistEvent(String eventName, String owner, Map<String, Object> payload) {
 		try {
 			String id = "ev-" + Long.toString(System.currentTimeMillis(), 36) + "-"

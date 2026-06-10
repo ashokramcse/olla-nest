@@ -125,6 +125,14 @@ public class RateLimiterService {
 		log.keySet().removeIf(k -> k.endsWith(":" + key));
 	}
 
+	/**
+	 * Removes expired entries from the in-memory rate-limit window map to bound its
+	 * size, called opportunistically before recording a new attempt.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	private void evictStale() {
 		long cutoff = Instant.now().getEpochSecond() - 3600; // keep 1h max
 		synchronized (this) {

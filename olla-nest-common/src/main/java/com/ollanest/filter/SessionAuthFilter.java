@@ -66,8 +66,19 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 
 	/** Resolves and validates session cookies against the session store. */
 	private final AuthService authService;
+	/** Resolves API-token owners to user records for the Bearer-token auth path. */
 	private final UserService userService;
 
+	/**
+	 * Constructor-injects the session and user services used to resolve the caller on
+	 * each request.
+	 *
+	 * @param authService the session-cookie/API-token validation service
+	 * @param userService the user lookup service (API-token owner resolution)
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	public SessionAuthFilter(AuthService authService, UserService userService) {
 		this.authService = authService;
 		this.userService = userService;
@@ -133,6 +144,17 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 
+	/**
+	 * Resolves the Spring {@link ApplicationContext} from the servlet context, used
+	 * to lazily look up {@code ApiTokenService} on the API-token auth path (avoiding a
+	 * constructor-time circular dependency).
+	 *
+	 * @param request the current request (provides the servlet context)
+	 * @return the web application context, or {@code null} if unavailable
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	private ApplicationContext getApplicationContext(HttpServletRequest request) {
 		try {
 			return WebApplicationContextUtils.getWebApplicationContext(request.getServletContext());
