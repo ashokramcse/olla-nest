@@ -1,6 +1,7 @@
 package com.ollanest.controller;
 
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -251,6 +252,12 @@ public class EmailController extends BaseController {
 		try {
 			emailService.sendEmail(accountId, user.id, body);
 			return ok(Map.of("ok", true));
+		} catch (NoSuchElementException e) {
+			// Unknown account is a 404, not a server fault (BUG-039).
+			return notFound(e.getMessage());
+		} catch (IllegalArgumentException e) {
+			// Invalid/missing send fields are a 400, not a 500.
+			return badRequest(e.getMessage());
 		} catch (Exception e) {
 			return serverError("Failed to send email: " + e.getMessage());
 		}
