@@ -223,8 +223,11 @@ public class AdminProvidersController extends BaseController {
 		if (rows.isEmpty())
 			return ResponseEntity.status(404).body(Map.of("error", "Provider not found"));
 		Map<String, Object> existing = rows.get(0);
-		String name = body.containsKey("name") ? (String) body.get("name") : (String) existing.get("name");
-		String type = body.containsKey("type") ? (String) body.get("type") : (String) existing.get("type");
+		// BUG-043: an explicit JSON null must fall back to the existing value, not
+		// overwrite a NOT-NULL column with null (containsKey alone would let null
+		// through → SQLITE_CONSTRAINT_NOTNULL → 500). BUG-019 class on the PUT path.
+		String name = body.get("name") != null ? (String) body.get("name") : (String) existing.get("name");
+		String type = body.get("type") != null ? (String) body.get("type") : (String) existing.get("type");
 		Object baseUrl = body.containsKey("base_url") ? body.get("base_url") : existing.get("base_url");
 		if (body.containsKey("base_url") && baseUrl != null && !baseUrl.toString().isBlank()
 				&& !UrlValidator.isSafeUrl(baseUrl.toString())) {

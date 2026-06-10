@@ -103,6 +103,13 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-043 — Admin provider update (PUT) 500 on explicit null fields — **MAJOR (product)** — FIXED
+- **Feature:** `PUT /api/admin/providers/{id}` (`AdminProvidersController.updateProvider`).
+- **Discovery:** connectors/providers/governance admin sweep (2026-06-10). `PUT {"name":null,"type":null,"base_url":null}` → **500**. BUG-019 class on an update path.
+- **Root cause:** the merge logic used `body.containsKey("name") ? body.get("name") : existing` — an explicit JSON `null` makes `containsKey` true, so `null` (not the existing value) was written to the NOT-NULL `name`/`type` columns → `SQLITE_CONSTRAINT_NOTNULL` → 500.
+- **Fix:** fall back to the existing value when the supplied value is `null` (`body.get(k) != null ? … : existing`), not merely when the key is absent.
+- **Verification (live):** explicit-null PUT now → **200** and the existing `name` is preserved (not nulled). Connectors (create/test/sync/logs), provider test/sync/models, model governance, and enterprise analytics/audit/jobs/team-memory/skills all returned 200 in the same sweep — no other bugs.
+
 ## BUG-041 — Admin MCP server create 500 on explicit null fields — **MAJOR (product)** — FIXED
 - **Feature:** `POST /api/admin/mcp/servers` (`McpServerService.create`).
 - **Discovery:** admin write sweep (2026-06-09). `{"name":null,"url":null,"transport":null}` → **500** (empty `{}` → 201). BUG-019 class in the admin surface.
