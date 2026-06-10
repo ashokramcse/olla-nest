@@ -120,9 +120,24 @@ One new MAJOR fixed: **BUG-029** (slash-id models un-governable → body-based r
 
 Two fixes this round: **BUG-030** (provider-not-configured 500→503, new `ProviderUnavailableException`+503 handler) and **BUG-031** (feedback string rating 500→400). Both verified live. Full suite: **2154 testcases, 0 failures**.
 
+## Phase 10 — Workspace / Terminal / Code Sandbox (live on :8081)
+
+| Check | Result |
+|---|---|
+| RBAC gate (negative) | QA (no rights) → sandbox/run, workspace/browse **403** |
+| **RBAC override (BUG-032)** | grant `sandbox:run`/`workspace:build` via override → **now grants at runtime** (was ignored); `/me` shows effective set; sandbox→200, workspace→200 |
+| **Deny override** | deny `sandbox:run` → **403** (deny now enforced — security improvement) |
+| Sandbox timeout | infinite loop → "Execution timed out after 10 seconds" |
+| Sandbox network | egress **blocked** (urllib Traceback) |
+| Sandbox output cap | 200KB print → truncated at ~64KB |
+| **Sandbox filesystem (SEC-001)** | `open("/…/.env")` and host files **readable** → secrets/DB exfiltration; HIGH, needs OS sandboxing (documented, admin-gated mitigation) |
+| Unsupported language | graceful body but HTTP 200 (OBS-009, should be 400) |
+
+One MAJOR fixed and live-verified (**BUG-032** — overrides/department/role now authoritative at runtime, deny enforced) via new `UserService.effectivePermissions` applied at session establishment. One HIGH security finding documented (**SEC-001** — sandbox arbitrary file read; proper fix = OS-level sandboxing, not a bypassable preamble). Test grants + stray test users cleaned up afterward (QA back to baseline). Full suite: **2157 testcases, 0 failures**.
+
 ## Verdict
 
-**PASS WITH MINOR ISSUES.**
+**PASS WITH MINOR ISSUES** for the local/single-tenant profile. **For any multi-tenant deployment, SEC-001 is a release blocker** until the sandbox runs under OS-level isolation — keep `sandbox:run` disabled there.
 All core flows are now **proven green live**: auth/session, RBAC (no escalation path),
 DB integrity, security headers, MDC log tracing, backup/restore validity, chat/LLM
 routing+persistence, and prompt-injection refusal. Both new MAJOR bugs (BUG-025, BUG-026)

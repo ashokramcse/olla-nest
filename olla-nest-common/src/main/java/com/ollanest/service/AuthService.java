@@ -278,6 +278,18 @@ public class AuthService {
 			if (user == null)
 				return null;
 
+			// Resolve the authoritative effective permission set (own rights +
+			// department defaults + role permissions + allow/deny overrides) so runtime
+			// permission gates honor the same governance model the admin UI shows. Done
+			// once here and cached for the session lifetime (BUG-032). Sessions are
+			// invalidated on any rights/override change, so the cache stays correct.
+			try {
+				user.rights = userService.effectivePermissions(user);
+			} catch (Exception e) {
+				log.warn("[auth] effective-permission resolution failed for {}, using raw rights: {}", userId,
+						e.getMessage());
+			}
+
 			// Re-cache for subsequent requests in this JVM instance
 			long expiresMs = System.currentTimeMillis() + SESSION_DURATION_SECONDS * 1000;
 			sessions.put(token, new CachedSession(user, expiresMs));
@@ -346,6 +358,16 @@ public class AuthService {
 				}
 			}
 		}
+		// Resolve effective permissions (rights + department + role + overrides, minus
+		// denies) before caching, so the session — including the login fast-path — gates
+		// features on the same governance model the admin view shows (BUG-032).
+		try {
+			user.rights = userService.effectivePermissions(user);
+		} catch (Exception e) {
+			log.warn("[auth] effective-permission resolution failed for {} at login, using raw rights: {}", user.id,
+					e.getMessage());
+		}
+
 		db.update("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)", token, user.id, expiresAt);
 		sessions.put(token, new CachedSession(user, expiresMs));
 

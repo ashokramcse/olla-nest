@@ -398,7 +398,23 @@ public class UserService {
 	 *         with all quota fields)
 	 * @since v2026.1.0
 	 */
-	public Map<String, Object> effectiveAccess(User user) {
+	/**
+	 * Computes the authoritative effective permission set for a user — the same
+	 * grant logic surfaced by {@link #effectiveAccess} — folding together the
+	 * user's own rights, department-default rights, role-catalog permissions, and
+	 * per-user allow/deny overrides (expired overrides ignored, deny wins).
+	 *
+	 * <p>
+	 * This is the set that runtime permission gates must consult. Resolving it at
+	 * session-establishment time (see {@code AuthService.getSessionUser}) ensures
+	 * an admin grant via override/department/role actually authorizes the feature
+	 * at runtime — previously gates only honored the raw {@code rights_json}, so
+	 * an override shown as granted in the admin view did nothing (BUG-032).
+	 *
+	 * @param user the user to resolve permissions for
+	 * @return a sorted, mutable list of effective permission keys
+	 */
+	public List<String> effectivePermissions(User user) {
 		List<String> rolePerms = new ArrayList<>();
 		List<Map<String, Object>> roleCatalogRow = db.queryForList("SELECT permissions FROM role_catalog WHERE id = ?",
 				user.role);
@@ -432,13 +448,38 @@ public class UserService {
 			if ("allow".equals(effect))
 				permissions.add(key);
 		}
+		// Deny always wins over allow, regardless of override creation order.
 		denied.forEach(permissions::remove);
+
+		List<String> sortedPerms = new ArrayList<>(permissions);
+		Collections.sort(sortedPerms);
+		return sortedPerms;
+	}
+
+	public Map<String, Object> effectiveAccess(User user) {
+		List<String> sortedPerms = effectivePermissions(user);
+
+		// Recompute the denied set for display (which keys were actively denied).
+		Set<String> denied = new LinkedHashSet<>();
+		List<Map<String, Object>> overrides = db
+				.queryForList("SELECT permission_key, effect, expires_at FROM user_overrides "
+						+ "WHERE user_id = ? ORDER BY created_at DESC", user.id);
+		for (Map<String, Object> ov : overrides) {
+			String expiresAt = (String) ov.get("expires_at");
+			if (expiresAt != null && !expiresAt.isBlank()) {
+				try {
+					if (System.currentTimeMillis() > Instant.parse(expiresAt).toEpochMilli())
+						continue;
+				} catch (Exception ignored) {
+				}
+			}
+			if ("deny".equals(ov.get("effect")))
+				denied.add((String) ov.get("permission_key"));
+		}
 
 		List<String> groups = db.queryForList("SELECT group_id FROM user_groups WHERE user_id = ?", String.class,
 				user.id);
 
-		List<String> sortedPerms = new ArrayList<>(permissions);
-		Collections.sort(sortedPerms);
 		List<String> sortedDenied = new ArrayList<>(denied);
 		Collections.sort(sortedDenied);
 

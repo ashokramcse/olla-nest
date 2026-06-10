@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -308,6 +309,59 @@ class UserServiceTest {
 			// Null departmentId: new users not yet assigned to a department
 			List<String> defaults = userService.departmentDefaults(null);
 			assertThat(defaults).containsExactlyInAnyOrder("chat:use", "models:local:use");
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// effectivePermissions() — runtime authorization set (BUG-032)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	@Nested
+	@DisplayName("effectivePermissions() — runtime grant resolution")
+	class EffectivePermissions {
+
+		private User userWith(String dept, String... rights) {
+			User u = new User();
+			u.id = "u-eff-1";
+			u.role = "no-such-role"; // role_catalog lookup returns empty
+			u.departmentId = dept;
+			u.rights = new java.util.ArrayList<>(List.of(rights));
+			return u;
+		}
+
+		@Test
+		@DisplayName("an allow-override grants a right that is not in rights_json")
+		void allowOverrideGrantsRight() {
+			User u = userWith("dept-unknown", "chat:use");
+			when(db.queryForList(contains("role_catalog"), eq("no-such-role"))).thenReturn(Collections.emptyList());
+			when(db.queryForList(contains("user_overrides"), eq("u-eff-1")))
+					.thenReturn(List.of(Map.of("permission_key", "sandbox:run", "effect", "allow", "expires_at", "")));
+			List<String> perms = userService.effectivePermissions(u);
+			// The override must actually grant the right at runtime — not just in the admin view.
+			assertThat(perms).contains("sandbox:run", "chat:use");
+		}
+
+		@Test
+		@DisplayName("a deny-override removes a right even if otherwise granted (deny wins)")
+		void denyOverrideWins() {
+			User u = userWith("dept-unknown", "chat:use");
+			when(db.queryForList(contains("role_catalog"), eq("no-such-role"))).thenReturn(Collections.emptyList());
+			// dept-unknown grants models:local:use; an explicit deny must strip it.
+			when(db.queryForList(contains("user_overrides"), eq("u-eff-1"))).thenReturn(
+					List.of(Map.of("permission_key", "models:local:use", "effect", "deny", "expires_at", "")));
+			List<String> perms = userService.effectivePermissions(u);
+			assertThat(perms).contains("chat:use").doesNotContain("models:local:use");
+		}
+
+		@Test
+		@DisplayName("expired allow-override does not grant the right")
+		void expiredOverrideIgnored() {
+			User u = userWith("dept-unknown", "chat:use");
+			when(db.queryForList(contains("role_catalog"), eq("no-such-role"))).thenReturn(Collections.emptyList());
+			when(db.queryForList(contains("user_overrides"), eq("u-eff-1"))).thenReturn(List.of(
+					Map.of("permission_key", "sandbox:run", "effect", "allow", "expires_at", "2000-01-01T00:00:00Z")));
+			List<String> perms = userService.effectivePermissions(u);
+			assertThat(perms).doesNotContain("sandbox:run");
 		}
 	}
 

@@ -5,6 +5,10 @@
 ## Summary
 **No security blockers found in the tested surface.** All 16 probes passed. Core auth, RBAC, session isolation, CSRF, brute-force protection, security headers, cookie hardening, and secret non-leakage are proven.
 
+> **2026-06-09 update — two findings from the live RBAC/sandbox sweep:**
+> - **BUG-032 (MAJOR, FIXED):** runtime permission gates ignored per-user overrides, department defaults, and role perms (only `users.rights_json` counted) — and **deny-overrides were not enforced**. Now resolved to the effective permission set at session establishment; verified live (allow grants access, deny blocks). See `BUG_REPORT.md`.
+> - **SEC-001 (HIGH, DOCUMENTED — needs OS-level sandboxing):** the code sandbox reads arbitrary host files via absolute path, including the server `.env` (admin password, `SECRET_KEY`/`SESSION_SECRET`) and the shared SQLite DB (all users' data, BCrypt hashes, AES-encrypted secrets). Network egress is blocked and timeout/ulimit/output-cap apply, but there is **no filesystem isolation** — the service documents Docker/OS sandboxing as the intended control. `sandbox:run` is admin-gated and non-default (compensating control). **Do not enable `sandbox:run` on multi-tenant deployments** until interpreters run under `sandbox-exec`/`bwrap`/container isolation. A preamble-based `open()` block was deliberately **not** added (trivially bypassable = security theater).
+
 ---
 
 ## 1. Authentication
