@@ -242,6 +242,25 @@ public class AgentLoopService {
 
 	// ── Tool execution ────────────────────────────────────────────────────────
 
+	/**
+	 * Dispatches a single agent tool invocation to its handler by tool {@code type}.
+	 *
+	 * <p>
+	 * Supported tools: {@code bash} (gated on {@code canBash}), {@code python}
+	 * (disabled in this build), {@code web_search}, {@code web_fetch}, and the
+	 * {@code manage_*} productivity tools. Unknown types return a descriptive
+	 * string. All handlers return a plain-text result that is fed back to the model.
+	 *
+	 * @param type      the tool identifier
+	 * @param input     the raw tool input (command, query, URL, or JSON)
+	 * @param owner     the user id on whose behalf the tool runs (scopes data tools)
+	 * @param sessionId the chat session id (for memory/web-search context)
+	 * @param canBash   whether the caller is permitted to run the {@code bash} tool
+	 * @return the tool's plain-text output (or an error string)
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String executeTool(String type, String input, String owner, String sessionId, boolean canBash) {
 		return switch (type) {
 		case "bash" -> canBash ? runBash(input) : "Error: bash tool access not granted";
@@ -256,6 +275,17 @@ public class AgentLoopService {
 		};
 	}
 
+	/**
+	 * Runs a shell command via {@code /bin/sh -c}, merging stderr into stdout,
+	 * enforcing a {@link #SHELL_TIMEOUT_S}-second wall-clock timeout
+	 * (force-killing on breach), and truncating the captured output.
+	 *
+	 * @param cmd the shell command line to execute
+	 * @return the (truncated) combined output, or an error/timeout string
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String runBash(String cmd) {
 		try {
 			ProcessBuilder pb = new ProcessBuilder("/bin/sh", "-c", cmd);
@@ -273,6 +303,19 @@ public class AgentLoopService {
 		}
 	}
 
+	/**
+	 * Runs the {@code web_search} tool: queries the configured web-search provider
+	 * for up to five results and formats them as a bulleted title/URL/snippet list
+	 * for the model to read.
+	 *
+	 * @param query     the search query
+	 * @param owner     the requesting user id (provider/quota scope)
+	 * @param sessionId the chat session id (logging/context)
+	 * @return a formatted result list, a "no results" message, or an error string
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String runWebSearch(String query, String owner, String sessionId) {
 		try {
 			List<WebSearchService.SearchResult> results = webSearchService.search(query.trim(), 5);
@@ -289,6 +332,17 @@ public class AgentLoopService {
 		}
 	}
 
+	/**
+	 * Runs the {@code web_fetch} tool: GETs an {@code http(s)} URL with a short
+	 * timeout, strips HTML tags from the body for LLM consumption, and truncates the
+	 * result. Rejects non-http URLs.
+	 *
+	 * @param url the URL to fetch (must start with {@code http})
+	 * @return the (truncated, tag-stripped) page text, or an error string
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String runWebFetch(String url) {
 		try {
 			url = url.trim();
@@ -305,6 +359,20 @@ public class AgentLoopService {
 		}
 	}
 
+	/**
+	 * Runs the {@code manage_memory} tool: parses a JSON command and performs the
+	 * requested {@code action} ({@code remember} / {@code recall} / {@code list})
+	 * against {@link MemoryService}, scoped to the owner.
+	 *
+	 * @param input     a JSON object with an {@code action} and action-specific
+	 *                  fields ({@code text} or {@code query})
+	 * @param owner     the user id whose memories are read/written
+	 * @param sessionId the chat session id recorded with new memories
+	 * @return the action result serialised to text, or an error string
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String runManageMemory(String input, String owner, String sessionId) {
 		try {
 			Map<String, Object> cmd = mapper.readValue(input, new TypeReference<>() {
@@ -327,6 +395,18 @@ public class AgentLoopService {
 		}
 	}
 
+	/**
+	 * Runs the {@code manage_notes} tool: parses a JSON command and performs the
+	 * requested {@code action} ({@code create} / {@code list}) against
+	 * {@link NotesService}, scoped to the owner.
+	 *
+	 * @param input a JSON object with an {@code action} and note fields
+	 * @param owner the user id whose notes are read/written
+	 * @return the action result serialised to text, or an error string
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String runManageNotes(String input, String owner) {
 		try {
 			Map<String, Object> cmd = mapper.readValue(input, new TypeReference<>() {
@@ -342,6 +422,19 @@ public class AgentLoopService {
 		}
 	}
 
+	/**
+	 * Runs the {@code manage_calendar} tool: parses a JSON command and performs the
+	 * requested {@code action} ({@code list} over an optional {@code from}/{@code to}
+	 * range) against {@link CalendarService}, scoped to the owner.
+	 *
+	 * @param input a JSON object with an {@code action} and optional
+	 *              {@code from}/{@code to} ISO timestamps
+	 * @param owner the user id whose calendar is queried
+	 * @return the events serialised to text, or an error string
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String runManageCalendar(String input, String owner) {
 		try {
 			Map<String, Object> cmd = mapper.readValue(input, new TypeReference<>() {
@@ -358,6 +451,18 @@ public class AgentLoopService {
 		}
 	}
 
+	/**
+	 * Runs the {@code manage_tasks} tool: parses a JSON command and performs the
+	 * requested {@code action} ({@code create} / {@code list}) against
+	 * {@link TaskSchedulerService}, scoped to the owner.
+	 *
+	 * @param input a JSON object with an {@code action} and task fields
+	 * @param owner the user id whose scheduled tasks are read/written
+	 * @return the action result serialised to text, or an error string
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String runManageTasks(String input, String owner) {
 		try {
 			Map<String, Object> cmd = mapper.readValue(input, new TypeReference<>() {
@@ -375,6 +480,20 @@ public class AgentLoopService {
 
 	// ── LLM call ─────────────────────────────────────────────────────────────
 
+	/**
+	 * Invokes the Ollama chat completion endpoint for one agent reasoning step with
+	 * a large output budget and a 120-second timeout, returning the assistant
+	 * message content. Returns {@code null} on any failure so the loop can stop
+	 * gracefully.
+	 *
+	 * @param ollamaUrl the Ollama base URL
+	 * @param model     the model id to invoke
+	 * @param messages  the conversation messages (system + history) to send
+	 * @return the assistant's text response, or {@code null} on failure
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String callLlm(String ollamaUrl, String model, List<Map<String, Object>> messages) {
 		try {
 			Map<String, Object> request = Map.of("model", model, "messages", messages, "stream", false, "options",
@@ -393,6 +512,17 @@ public class AgentLoopService {
 
 	// ── Tool parsing ──────────────────────────────────────────────────────────
 
+	/**
+	 * Extracts tool invocations from the model's response by matching the
+	 * {@link #TOOL_BLOCK} pattern, returning each as a {@code {type, input}} map in
+	 * the order they appear.
+	 *
+	 * @param text the raw model response text
+	 * @return the parsed tool calls (possibly empty), never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private List<Map<String, Object>> parseToolCalls(String text) {
 		List<Map<String, Object>> calls = new ArrayList<>();
 		Matcher m = TOOL_BLOCK.matcher(text);
@@ -404,6 +534,18 @@ public class AgentLoopService {
 
 	// ── SSE helpers ───────────────────────────────────────────────────────────
 
+	/**
+	 * Sends one named Server-Sent Event with a JSON-serialised payload to the
+	 * streaming client, swallowing send failures (e.g. client disconnect) so the
+	 * agent loop is not interrupted.
+	 *
+	 * @param emitter the active SSE emitter
+	 * @param event   the event name (e.g. {@code agent_round}, {@code agent_done})
+	 * @param data    the payload to serialise and send
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void sendSseEvent(SseEmitter emitter, String event, Object data) {
 		try {
 			emitter.send(SseEmitter.event().name(event).data(mapper.writeValueAsString(data)));
@@ -412,6 +554,17 @@ public class AgentLoopService {
 		}
 	}
 
+	/**
+	 * Null-safe string truncation: returns {@code ""} for null, otherwise caps the
+	 * string at {@code max} characters appending an ellipsis when shortened.
+	 *
+	 * @param s   the input string (may be null)
+	 * @param max the maximum length before truncation
+	 * @return the truncated string, never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String truncate(String s, int max) {
 		if (s == null)
 			return "";
