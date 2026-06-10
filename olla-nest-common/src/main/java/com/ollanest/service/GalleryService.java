@@ -168,6 +168,12 @@ public class GalleryService {
 	 */
 	public Map<String, Object> uploadImage(String owner, byte[] bytes, String filename, String albumId)
 			throws IOException {
+		// Content-type defence: an image gallery must only accept real raster images.
+		// Validating the magic bytes (not the extension) rejects text/script/php files
+		// renamed to .png and keeps non-image content out of the store. Aligns with
+		// PersonalDocumentService's magic-byte check. (OBS-010)
+		validateImageMagic(bytes);
+
 		// SHA-256 dedup per owner
 		String hash = sha256Hex(bytes);
 		var existing = db.queryForList(
@@ -329,6 +335,40 @@ public class GalleryService {
 			log.debug("[gallery] EXIF extraction failed: {}", e.getMessage());
 		}
 		return exif;
+	}
+
+	/**
+	 * Validates that the uploaded bytes are a real raster image by inspecting the
+	 * leading "magic" bytes — independent of the (spoofable) file extension.
+	 *
+	 * <p>
+	 * Accepts PNG, JPEG, GIF, WEBP, and BMP. Rejects everything else (e.g. a text
+	 * or PHP payload renamed {@code .png}) with an {@link IllegalArgumentException}
+	 * so the controller can surface a 400. This is a defence-in-depth measure that
+	 * mirrors the document-ingest magic-byte check; the gallery does not serve raw
+	 * bytes back, but keeping non-image content out of the store is correct
+	 * regardless. (OBS-010)
+	 *
+	 * @param bytes the raw uploaded file content
+	 * @throws IllegalArgumentException if the content is empty or not a supported
+	 *                                  image format
+	 * @since v2026.1.10
+	 */
+	private void validateImageMagic(byte[] bytes) {
+		if (bytes == null || bytes.length < 4) {
+			throw new IllegalArgumentException("Empty or truncated file — not a valid image");
+		}
+		int b0 = bytes[0] & 0xFF, b1 = bytes[1] & 0xFF, b2 = bytes[2] & 0xFF, b3 = bytes[3] & 0xFF;
+		boolean png = b0 == 0x89 && b1 == 0x50 && b2 == 0x4E && b3 == 0x47;
+		boolean jpeg = b0 == 0xFF && b1 == 0xD8 && b2 == 0xFF;
+		boolean gif = b0 == 0x47 && b1 == 0x49 && b2 == 0x46 && b3 == 0x38;
+		boolean bmp = b0 == 0x42 && b1 == 0x4D;
+		// WEBP: "RIFF"...."WEBP"
+		boolean webp = b0 == 0x52 && b1 == 0x49 && b2 == 0x46 && b3 == 0x46 && bytes.length >= 12 && (bytes[8] & 0xFF) == 0x57
+				&& (bytes[9] & 0xFF) == 0x45 && (bytes[10] & 0xFF) == 0x42 && (bytes[11] & 0xFF) == 0x50;
+		if (!(png || jpeg || gif || bmp || webp)) {
+			throw new IllegalArgumentException("Unsupported file type — only PNG, JPEG, GIF, WEBP, BMP images are allowed");
+		}
 	}
 
 	private String guessMime(String filename) {

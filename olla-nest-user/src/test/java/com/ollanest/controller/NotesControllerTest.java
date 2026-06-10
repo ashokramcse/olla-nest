@@ -29,10 +29,24 @@ import jakarta.servlet.http.HttpServletRequest;
  * Unit tests for {@link NotesController} — the user notes CRUD surface over
  * {@link NotesService}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Verifies caller authentication and that create/update/delete/pin operations
- * delegate to the service scoped to the authenticated owner (no cross-user
- * access).
+ * Pins caller authentication and that create/update/delete/pin all delegate to
+ * the service scoped to the authenticated owner, so one user can never read or
+ * mutate another user's notes.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The {@link NotesService} is mocked; verifications assert the owner id is
+ * threaded through every delegation.</li>
+ * <li>Pin is modelled as an owner-scoped update that sets the {@code pinned}
+ * flag.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.10 — created for the controller test-coverage pass.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.10
@@ -51,7 +65,15 @@ class NotesControllerTest {
 	/** Controller under test, constructed with the mocked service. */
 	private NotesController controller;
 
-	/** Arms the request as an authenticated user so {@code requireAuth} passes. */
+	/**
+	 * Constructs the controller and arms the request as an authenticated user so
+	 * {@code requireAuth} resolves successfully for each test unless it overrides
+	 * the user.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@BeforeEach
 	void setUp() {
 		controller = new NotesController(notesService);
@@ -61,7 +83,14 @@ class NotesControllerTest {
 		when(req.getAttribute("authenticatedUser")).thenReturn(user);
 	}
 
-	/** Create delegates to the service for the owner and returns 201. */
+	/**
+	 * Create delegates to the service scoped to the authenticated owner and returns
+	 * 201 Created, threading the owner id so the note is filed under the caller.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("create → delegates for owner, 201")
 	void createDelegates() {
@@ -71,7 +100,14 @@ class NotesControllerTest {
 		verify(notesService).create(eq("u-user-001"), any());
 	}
 
-	/** Update delegates to the service scoped to the owning user, returns 200. */
+	/**
+	 * Update delegates to the service scoped to the owning user and returns 200, so
+	 * a user cannot update a note they do not own.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("update → delegates for owner, 200")
 	void updateDelegates() {
@@ -81,7 +117,14 @@ class NotesControllerTest {
 		verify(notesService).update(eq("note-1"), eq("u-user-001"), any());
 	}
 
-	/** Delete delegates to the service scoped to the owner (no cross-user delete). */
+	/**
+	 * Delete delegates to the service scoped to the owner, so a user can only delete
+	 * their own notes (no cross-user delete).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("delete → delegates for owner")
 	void deleteDelegates() {
@@ -90,7 +133,14 @@ class NotesControllerTest {
 		verify(notesService).delete("note-1", "u-user-001");
 	}
 
-	/** Pin maps to an owner-scoped update setting the {@code pinned} flag. */
+	/**
+	 * Pin maps to an owner-scoped update that sets the {@code pinned} flag, returning
+	 * 200 — proving pinning is also constrained to the caller's own notes.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("pin → delegates to update for owner with pinned flag")
 	void pinDelegatesToUpdate() {
@@ -100,7 +150,14 @@ class NotesControllerTest {
 		verify(notesService).update(eq("note-1"), eq("u-user-001"), any());
 	}
 
-	/** An unauthenticated caller trips {@code requireAuth}, which throws. */
+	/**
+	 * An unauthenticated caller trips {@code requireAuth}, which throws
+	 * {@link BaseController.AuthException} (mapped to 401 at runtime).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("unauthenticated create throws AuthException")
 	void unauthenticatedThrows() {

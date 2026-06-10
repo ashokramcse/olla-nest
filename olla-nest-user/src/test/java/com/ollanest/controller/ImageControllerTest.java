@@ -27,10 +27,25 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Unit tests for {@link ImageController#generate}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Focus: input validation and BUG-030 — a not-configured/unreachable image
- * provider ({@link ProviderUnavailableException}) maps to 503, not 500; every
- * attempt (success or failure) writes an {@code image_generation_log} row.
+ * Guards input validation and BUG-030: a not-configured/unreachable image
+ * provider ({@link ProviderUnavailableException}) must map to 503 while genuine
+ * faults stay 500. Also pins the blank-prompt 400 and the unauthenticated 401.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The {@link ImageGenerationService} is mocked and stubbed per-test; the
+ * {@link JdbcTemplate} is the generation-log sink.</li>
+ * <li>The request is armed as an authenticated user with the CSRF header and
+ * POST method.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.10 — created for the BUG-030 fix and the controller test-coverage
+ * pass.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.10
@@ -52,9 +67,13 @@ class ImageControllerTest {
 	private ImageController controller;
 
 	/**
-	 * Builds the controller and arms the request as an authenticated user with the
-	 * CSRF header and POST method so each test starts past the auth guard unless it
-	 * overrides the user.
+	 * Constructs the controller and arms the request as an authenticated user
+	 * carrying the CSRF header with a POST method, so each test reaches the generate
+	 * logic past the auth guard unless it overrides the user.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@BeforeEach
 	void setUp() {
@@ -67,7 +86,14 @@ class ImageControllerTest {
 		when(req.getMethod()).thenReturn("POST");
 	}
 
-	/** A blank prompt is rejected with 400 before the provider is invoked. */
+	/**
+	 * A blank prompt is caller error and must be rejected with a 400 before the
+	 * provider is ever invoked.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("blank prompt → 400")
 	void blankPromptRejected() {
@@ -76,9 +102,14 @@ class ImageControllerTest {
 	}
 
 	/**
-	 * A missing/unreachable provider is environmental: the controller maps
-	 * {@link ProviderUnavailableException} to 503 (not 500) and still records the
-	 * attempt (BUG-030).
+	 * A missing or unreachable image provider is environmental: when the service
+	 * throws {@link ProviderUnavailableException} the controller must map it to 503
+	 * (not 500) and still record the failed attempt in the generation log. Core
+	 * BUG-030 guard.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@Test
 	@DisplayName("provider not configured → 503, error logged")
@@ -90,7 +121,14 @@ class ImageControllerTest {
 		assertThat(r.getBody()).containsEntry("ok", false);
 	}
 
-	/** Any other (genuine) failure remains a 500 so real faults are not masked. */
+	/**
+	 * Any other (genuine) provider failure must remain a 500 so real faults are not
+	 * masked behind the environmental 503.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("other failure → 500")
 	void otherErrorMaps500() throws Exception {
@@ -99,7 +137,14 @@ class ImageControllerTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 
-	/** On success the controller returns 200 with the provider and image URL. */
+	/**
+	 * On success the controller returns 200 carrying the provider name and the
+	 * remote image URL.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("success → 200 with provider + url")
 	void successReturnsImage() throws Exception {
@@ -110,7 +155,14 @@ class ImageControllerTest {
 		assertThat(r.getBody()).containsEntry("ok", true).containsEntry("imageUrl", "https://cdn/x.png");
 	}
 
-	/** With no authenticated user the auth guard short-circuits to 401. */
+	/**
+	 * With no authenticated user the auth guard short-circuits to 401 before any
+	 * provider call.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("unauthenticated → 401")
 	void unauthenticatedRejected() {

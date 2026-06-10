@@ -29,9 +29,22 @@ import jakarta.servlet.http.HttpServletRequest;
  * Unit tests for {@link TasksController} — the scheduled-task CRUD surface over
  * {@link TaskSchedulerService}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Verifies caller authentication and that create/update/delete delegate to the
- * scheduler service scoped to the authenticated owner.
+ * Pins caller authentication and that create/update/delete delegate to the
+ * scheduler service scoped to the authenticated owner, so a user's scheduled
+ * tasks remain private to them.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The {@link TaskSchedulerService} is mocked; verifications assert the owner
+ * id is threaded through every delegation.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.10 — created for the controller test-coverage pass.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.10
@@ -50,7 +63,15 @@ class TasksControllerTest {
 	/** Controller under test, constructed with the mocked service. */
 	private TasksController controller;
 
-	/** Arms the request as an authenticated user so {@code requireAuth} passes. */
+	/**
+	 * Constructs the controller and arms the request as an authenticated user so
+	 * {@code requireAuth} resolves successfully for each test unless it overrides
+	 * the user.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@BeforeEach
 	void setUp() {
 		controller = new TasksController(taskService);
@@ -60,7 +81,14 @@ class TasksControllerTest {
 		when(req.getAttribute("authenticatedUser")).thenReturn(user);
 	}
 
-	/** Create delegates to the scheduler for the owner and returns 201. */
+	/**
+	 * Create delegates to the scheduler scoped to the authenticated owner and
+	 * returns 201 Created, filing the task under the caller.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("create → delegates for owner, 201")
 	void createDelegates() {
@@ -70,7 +98,14 @@ class TasksControllerTest {
 		verify(taskService).create(eq("u-user-001"), any());
 	}
 
-	/** Update delegates to the scheduler scoped to the owning user, returns 200. */
+	/**
+	 * Update delegates to the scheduler scoped to the owning user and returns 200,
+	 * so a user cannot modify a task they do not own.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("update → delegates for owner, 200")
 	void updateDelegates() {
@@ -80,7 +115,14 @@ class TasksControllerTest {
 		verify(taskService).update(eq("task-1"), eq("u-user-001"), any());
 	}
 
-	/** Delete delegates to the scheduler scoped to the owner (no cross-user delete). */
+	/**
+	 * Delete delegates to the scheduler scoped to the owner, so a user can only
+	 * delete their own scheduled tasks (no cross-user delete).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("delete → delegates for owner")
 	void deleteDelegates() {
@@ -89,7 +131,14 @@ class TasksControllerTest {
 		verify(taskService).delete("task-1", "u-user-001");
 	}
 
-	/** An unauthenticated caller trips {@code requireAuth}, which throws. */
+	/**
+	 * An unauthenticated caller trips {@code requireAuth}, which throws
+	 * {@link BaseController.AuthException} (mapped to 401 at runtime).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("unauthenticated create throws AuthException")
 	void unauthenticatedThrows() {

@@ -64,6 +64,10 @@ class AdminModelsGovernanceTest {
 	 * for the transaction template) and arms the request as an authenticated admin
 	 * with the CSRF header so each test starts past the auth guard unless it
 	 * overrides.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@BeforeEach
 	void setUp() {
@@ -79,7 +83,12 @@ class AdminModelsGovernanceTest {
 	}
 
 	/**
-	 * The body route requires {@code id}; omitting it is a 400 (no model touched).
+	 * The body-based governance route requires an {@code id} field; omitting it is
+	 * caller error and must return a 400 without touching any model row.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@Test
 	@DisplayName("missing id in body → 400")
@@ -92,9 +101,14 @@ class AdminModelsGovernanceTest {
 	}
 
 	/**
-	 * Core BUG-029 guard: a slash-containing id reaches the {@code WHERE id = ?}
-	 * lookup intact (proving it is not truncated/rejected by path routing); absent
-	 * model → 404.
+	 * Core BUG-029 guard: a slash-containing model id (e.g. the Ollama namespaced
+	 * {@code ollama:user/model:tag}) reaches the {@code WHERE id = ?} lookup fully
+	 * intact, proving the body route does not truncate or reject it the way a
+	 * path-variable would. With no matching model the controller returns 404.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@Test
 	@DisplayName("slash-containing id is passed through intact to the model lookup (404 when absent)")
@@ -109,7 +123,14 @@ class AdminModelsGovernanceTest {
 		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("not found");
 	}
 
-	/** A state-changing PATCH without the CSRF header is forbidden (403). */
+	/**
+	 * A state-changing PATCH without the {@code x-requested-with} CSRF header must be
+	 * forbidden with a 403, even for an authenticated admin.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("PATCH without CSRF header is forbidden (403)")
 	void missingCsrfHeaderForbidden() {
@@ -119,7 +140,14 @@ class AdminModelsGovernanceTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
 	}
 
-	/** With no authenticated user the auth guard rejects the request (401/403). */
+	/**
+	 * With no authenticated user the {@code requireAdmin} guard rejects the request
+	 * (401/403) and no governance change is applied.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("unauthenticated request is rejected (no governance applied)")
 	void unauthenticatedRejected() {

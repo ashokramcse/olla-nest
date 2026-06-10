@@ -30,12 +30,26 @@ import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Unit tests for {@link MemoryController} — the user-facing surface over
- * {@link MemoryService} (create / search / forget).
+ * {@link MemoryService} (remember / search / forget).
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Verifies caller authentication, the {@code text}-required validation on
- * create, and that read/delete operations delegate to the service scoped to the
- * authenticated owner.
+ * Pins the {@code text}-required validation on create, owner-scoped delegation
+ * for remember/recall/forget (so users cannot touch each other's memories), and
+ * that {@code requireAuth} throws for an unauthenticated caller.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The {@link MemoryService} is mocked; verifications assert the owner id is
+ * threaded through every delegation.</li>
+ * <li>The request is armed as an authenticated user (no CSRF header needed —
+ * these endpoints use {@code requireAuth}, not the CSRF guard).</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.10 — created for the controller test-coverage pass.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.10
@@ -43,7 +57,7 @@ import jakarta.servlet.http.HttpServletRequest;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("MemoryController — create/search/forget")
+@DisplayName("MemoryController — remember/search/forget")
 class MemoryControllerTest {
 
 	/** Mocked memory service; verified/stubbed per test. */
@@ -54,7 +68,15 @@ class MemoryControllerTest {
 	/** Controller under test, constructed with the mocked service. */
 	private MemoryController controller;
 
-	/** Arms the request as an authenticated user so {@code requireAuth} passes. */
+	/**
+	 * Constructs the controller and arms the request as an authenticated user so
+	 * {@code requireAuth} resolves successfully for each test unless it overrides
+	 * the user.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@BeforeEach
 	void setUp() {
 		controller = new MemoryController(memoryService);
@@ -64,18 +86,32 @@ class MemoryControllerTest {
 		when(req.getAttribute("authenticatedUser")).thenReturn(user);
 	}
 
-	/** Creating a memory with blank {@code text} is a 400 and persists nothing. */
+	/**
+	 * Creating a memory with blank {@code text} is caller error: the controller must
+	 * return a 400 and must not call {@code remember}, so no empty memory is stored.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
-	@DisplayName("create with blank text → 400, nothing remembered")
+	@DisplayName("remember with blank text → 400, nothing remembered")
 	void blankTextRejected() {
 		ResponseEntity<?> r = controller.remember(req, Map.of("text", "  "));
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 		verify(memoryService, never()).remember(anyString(), anyString(), any(), anyString(), any());
 	}
 
-	/** A valid create trims the text and delegates to {@code remember} for the owner. */
+	/**
+	 * A valid create trims the surrounding whitespace from the text and delegates to
+	 * {@code remember} scoped to the authenticated owner, returning 201 Created.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
-	@DisplayName("create with text → remembers for the owner, 200")
+	@DisplayName("remember with text → remembers for the owner, 201")
 	void validCreateRemembers() {
 		when(memoryService.remember(eq("u-user-001"), eq("likes pizza"), any(), eq("user"), any()))
 				.thenReturn(Map.of("id", "mem-1"));
@@ -84,7 +120,14 @@ class MemoryControllerTest {
 		verify(memoryService).remember(eq("u-user-001"), eq("likes pizza"), any(), eq("user"), any());
 	}
 
-	/** Search delegates to {@code recall} scoped to the authenticated owner. */
+	/**
+	 * Search delegates to {@code recall} scoped to the authenticated owner, so one
+	 * user can never recall another user's memories.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("search delegates to recall for the owner")
 	void searchDelegates() {
@@ -94,7 +137,14 @@ class MemoryControllerTest {
 		verify(memoryService).recall("u-user-001", "pizza", 10);
 	}
 
-	/** Forget delegates to the service scoped to the owner (no cross-user delete). */
+	/**
+	 * Forget delegates to the service scoped to the owner, so a user can only delete
+	 * their own memory rows (no cross-user delete).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("forget delegates to service for the owner")
 	void forgetDelegates() {
@@ -103,9 +153,17 @@ class MemoryControllerTest {
 		verify(memoryService).forget("mem-1", "u-user-001");
 	}
 
-	/** An unauthenticated caller trips {@code requireAuth}, which throws. */
+	/**
+	 * An unauthenticated caller trips {@code requireAuth}, which throws
+	 * {@link BaseController.AuthException} (mapped to 401 by the global handler at
+	 * runtime).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
-	@DisplayName("unauthenticated create throws AuthException")
+	@DisplayName("unauthenticated remember throws AuthException")
 	void unauthenticatedThrows() {
 		when(req.getAttribute("authenticatedUser")).thenReturn(null);
 		assertThatThrownBy(() -> controller.remember(req, Map.of("text", "x")))

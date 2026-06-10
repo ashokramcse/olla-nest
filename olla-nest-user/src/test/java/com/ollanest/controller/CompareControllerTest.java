@@ -28,9 +28,22 @@ import jakarta.servlet.http.HttpServletRequest;
  * Unit tests for {@link CompareController} — the A/B model comparison surface
  * over {@link CompareService} (start / vote).
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Verifies the {@code winner}-required validation on vote and that start/vote
- * delegate to the service scoped to the authenticated owner.
+ * Pins the {@code winner}-required validation on vote and confirms that start
+ * and vote delegate to the service scoped to the authenticated owner.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The {@link CompareService} is mocked; verifications assert the owner id is
+ * threaded through every delegation.</li>
+ * <li>The request is armed as an authenticated user.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.10 — created for the controller test-coverage pass.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.10
@@ -49,7 +62,14 @@ class CompareControllerTest {
 	/** Controller under test, constructed with the mocked service. */
 	private CompareController controller;
 
-	/** Arms the request as an authenticated user so {@code requireAuth} passes. */
+	/**
+	 * Constructs the controller and arms the request as an authenticated user so
+	 * {@code requireAuth} resolves successfully for each test.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@BeforeEach
 	void setUp() {
 		controller = new CompareController(compareService);
@@ -59,7 +79,14 @@ class CompareControllerTest {
 		when(req.getAttribute("authenticatedUser")).thenReturn(user);
 	}
 
-	/** Voting without a {@code winner} is a 400 and records no vote. */
+	/**
+	 * Voting without a {@code winner} field is caller error: the controller must
+	 * return a 400 and must not record a vote.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("vote without winner → 400, no vote recorded")
 	void voteWithoutWinnerRejected() {
@@ -68,7 +95,14 @@ class CompareControllerTest {
 		verify(compareService, never()).vote(anyString(), anyString(), anyString());
 	}
 
-	/** A vote with a winner delegates to the service scoped to the owner. */
+	/**
+	 * A vote carrying a {@code winner} delegates to {@code vote} scoped to the
+	 * authenticated owner and returns 200.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("vote with winner → delegates to service for the owner")
 	void voteDelegates() {
@@ -78,7 +112,14 @@ class CompareControllerTest {
 		verify(compareService).vote("cmp-1", "u-user-001", "a");
 	}
 
-	/** Starting a comparison delegates to {@code create} for the owner (201). */
+	/**
+	 * Starting a comparison delegates to {@code create} scoped to the authenticated
+	 * owner and returns 201 Created.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("start delegates to service for the owner")
 	void startDelegates() {

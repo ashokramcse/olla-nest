@@ -153,6 +153,9 @@ public class GalleryController extends BaseController {
 				return ok(Map.of("ok", false, "duplicate", true, "id", result.get("id")));
 			}
 			return created(result);
+		} catch (IllegalArgumentException e) {
+			// Caller-supplied content was rejected (e.g. non-image bytes) — a 400, not a 500.
+			return badRequest(e.getMessage());
 		} catch (Exception e) {
 			return serverError("Upload failed: " + e.getMessage());
 		}

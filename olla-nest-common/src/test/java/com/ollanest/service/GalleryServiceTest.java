@@ -191,4 +191,75 @@ class GalleryServiceTest {
 			verify(db, never()).update(anyString(), eq("other-owner"), any());
 		}
 	}
+
+	// ── uploadImage() magic-byte validation (OBS-010) ─────────────────────────
+
+	/**
+	 * Verifies that {@link GalleryService#uploadImage} accepts only real raster
+	 * images by inspecting the leading magic bytes, rejecting spoofed content
+	 * (e.g. a text/PHP payload renamed {@code .png}) with an
+	 * {@link IllegalArgumentException} before any persistence.
+	 */
+	@Nested
+	@DisplayName("uploadImage() — magic-byte validation (OBS-010)")
+	class UploadImageValidation {
+
+		/**
+		 * A text/script payload (here a PHP snippet) renamed to {@code .png} has no
+		 * valid image magic bytes; {@code uploadImage} must reject it with an
+		 * {@link IllegalArgumentException} and must not issue any INSERT, proving the
+		 * guard runs before persistence (BUG-037 / OBS-010).
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.10
+		 * @version v2026.1.10
+		 */
+		@Test
+		@DisplayName("non-image bytes (text renamed .png) → IllegalArgumentException, no INSERT")
+		void rejectsNonImage() throws Exception {
+			byte[] notImage = "<?php system($_GET[c]); ?>".getBytes();
+			org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.uploadImage(OWNER, notImage, "shell.png", null))
+					.isInstanceOf(IllegalArgumentException.class);
+			verify(db, never()).update(contains("INSERT INTO gallery_images"), any(Object[].class));
+		}
+
+		/**
+		 * An empty (zero-byte) upload has no magic bytes to validate and must be
+		 * rejected with an {@link IllegalArgumentException} rather than stored as a
+		 * zero-byte "image".
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.10
+		 * @version v2026.1.10
+		 */
+		@Test
+		@DisplayName("empty file → IllegalArgumentException")
+		void rejectsEmpty() {
+			org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.uploadImage(OWNER, new byte[0], "x.png", null))
+					.isInstanceOf(IllegalArgumentException.class);
+		}
+
+		/**
+		 * A genuine PNG signature ({@code 89 50 4E 47 …}) passes the magic-byte guard:
+		 * {@code uploadImage} proceeds past validation and issues the INSERT, proving
+		 * the hardening does not reject legitimate images.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.10
+		 * @version v2026.1.10
+		 */
+		@Test
+		@DisplayName("valid PNG header passes the magic-byte guard")
+		void acceptsPngHeader() throws Exception {
+			// PNG magic + minimal padding. Dedup lookup returns empty so it proceeds to store.
+			byte[] png = new byte[] { (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+			when(db.queryForList(contains("file_hash"), anyString(), eq(OWNER))).thenReturn(List.of());
+			when(db.queryForList(contains("FROM gallery_images WHERE id"), anyString())).thenReturn(List.of());
+			// Must not throw the validation exception; any later read-back returning empty is fine.
+			org.assertj.core.api.Assertions
+					.assertThatCode(() -> svc.uploadImage(OWNER, png, "ok.png", null))
+					.doesNotThrowAnyException();
+			verify(db).update(contains("INSERT INTO gallery_images"), any(Object[].class));
+		}
+	}
 }

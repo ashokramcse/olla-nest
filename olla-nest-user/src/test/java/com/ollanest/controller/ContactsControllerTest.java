@@ -30,9 +30,22 @@ import jakarta.servlet.http.HttpServletRequest;
  * Unit tests for {@link ContactsController} — the contacts CRUD + search surface
  * over {@link ContactsService}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Verifies caller authentication and that search/create/update/delete delegate
- * to the service scoped to the authenticated owner.
+ * Pins caller authentication and that search/create/update/delete all delegate
+ * to the service scoped to the authenticated owner, so contacts are never shared
+ * or mutated across users.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>The {@link ContactsService} is mocked; verifications assert the owner id is
+ * threaded through every delegation.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.10 — created for the controller test-coverage pass.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.10
@@ -51,7 +64,15 @@ class ContactsControllerTest {
 	/** Controller under test, constructed with the mocked service. */
 	private ContactsController controller;
 
-	/** Arms the request as an authenticated user so {@code requireAuth} passes. */
+	/**
+	 * Constructs the controller and arms the request as an authenticated user so
+	 * {@code requireAuth} resolves successfully for each test unless it overrides
+	 * the user.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@BeforeEach
 	void setUp() {
 		controller = new ContactsController(contactsService);
@@ -61,7 +82,14 @@ class ContactsControllerTest {
 		when(req.getAttribute("authenticatedUser")).thenReturn(user);
 	}
 
-	/** Search delegates to the service scoped to the owner. */
+	/**
+	 * Search delegates to the service scoped to the authenticated owner, so a user
+	 * only ever searches their own contacts.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("search → delegates for owner")
 	void searchDelegates() {
@@ -71,7 +99,14 @@ class ContactsControllerTest {
 		verify(contactsService).search("u-user-001", "jane");
 	}
 
-	/** Create delegates to the service for the owner and returns 201. */
+	/**
+	 * Create delegates to the service scoped to the owner and returns 201 Created,
+	 * filing the contact under the caller.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("create → delegates for owner, 201")
 	void createDelegates() {
@@ -81,7 +116,14 @@ class ContactsControllerTest {
 		verify(contactsService).create(eq("u-user-001"), any());
 	}
 
-	/** Update delegates to the service scoped to the owning user, returns 200. */
+	/**
+	 * Update delegates to the service scoped to the owning user and returns 200, so
+	 * a user cannot update a contact they do not own.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("update → delegates for owner, 200")
 	void updateDelegates() {
@@ -91,7 +133,14 @@ class ContactsControllerTest {
 		verify(contactsService).update(eq("cnt-1"), eq("u-user-001"), any());
 	}
 
-	/** Delete delegates to the service scoped to the owner (no cross-user delete). */
+	/**
+	 * Delete delegates to the service scoped to the owner, so a user can only delete
+	 * their own contacts (no cross-user delete).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("delete → delegates for owner")
 	void deleteDelegates() {
@@ -100,7 +149,14 @@ class ContactsControllerTest {
 		verify(contactsService).delete("cnt-1", "u-user-001");
 	}
 
-	/** An unauthenticated caller trips {@code requireAuth}, which throws. */
+	/**
+	 * An unauthenticated caller trips {@code requireAuth}, which throws
+	 * {@link BaseController.AuthException} (mapped to 401 at runtime).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("unauthenticated create throws AuthException")
 	void unauthenticatedThrows() {

@@ -32,10 +32,27 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Unit tests for {@link AdminConnectorController#create}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Focus: BUG-036 — an admin connector create with a missing {@code name}/
- * {@code type} must be a 400 (the columns are NOT-NULL) rather than a 500
- * SQLITE_CONSTRAINT_NOTNULL; a valid create persists exactly once.
+ * Guards BUG-036: an admin connector create whose body omits the NOT-NULL
+ * {@code name}/{@code type} columns must fail fast with a 400 instead of letting
+ * a null reach the INSERT and surface as a misleading 500
+ * SQLITE_CONSTRAINT_NOTNULL. It also pins the auth guard and the
+ * exactly-once-persist behaviour for valid input.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Collaborators are Mockito mocks; the {@link JdbcTemplate} is verified to
+ * confirm whether (and how often) an INSERT was issued.</li>
+ * <li>The request is armed as an authenticated admin with the CSRF header so the
+ * tests exercise the create logic past the {@code requireAdmin} guard.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.10 — created for the BUG-036 fix and the controller test-coverage
+ * pass.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.10
@@ -47,30 +64,29 @@ import jakarta.servlet.http.HttpServletRequest;
 class AdminConnectorControllerTest {
 
 	/** Mocked JDBC template; verified to ensure rows are/aren't persisted. */
-	@Mock
-	JdbcTemplate db;
-	/**
-	 * Connector type registry dependency (unused by the create path under test).
-	 */
-	@Mock
-	ConnectorRegistry registry;
+	@Mock JdbcTemplate db;
+	/** Connector type registry dependency (unused by the create path under test). */
+	@Mock ConnectorRegistry registry;
 	/** Crypto service used to encrypt connector credentials at rest. */
-	@Mock
-	CryptoService cryptoService;
+	@Mock CryptoService cryptoService;
 	/** JSON mapper used to serialise the credentials/config bags. */
-	@Mock
-	ObjectMapper mapper;
+	@Mock ObjectMapper mapper;
 	/** Mocked request carrying the authenticated user + CSRF header. */
-	@Mock
-	HttpServletRequest req;
+	@Mock HttpServletRequest req;
 
 	/** Controller under test, constructed with the mocked collaborators. */
 	private AdminConnectorController controller;
 
 	/**
-	 * Builds the controller and arms the request as an authenticated admin with the
-	 * CSRF header (required by {@code requireAdmin} on non-GET requests) so each
-	 * test starts past the auth guard unless it overrides the user.
+	 * Constructs the controller with the mocked collaborators and arms the request
+	 * as an authenticated admin carrying the {@code x-requested-with} CSRF header
+	 * (required by {@code requireAdmin} on non-GET requests). This lets each test
+	 * reach the create logic past the auth guard unless it deliberately overrides
+	 * the authenticated user.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@BeforeEach
 	void setUp() {
@@ -85,9 +101,14 @@ class AdminConnectorControllerTest {
 	}
 
 	/**
-	 * An empty body omits the NOT-NULL {@code name}/{@code type}; the controller
-	 * must return 400 with a clear message and must not attempt an INSERT
-	 * (BUG-036).
+	 * An empty request body omits both NOT-NULL columns ({@code name} and
+	 * {@code type}). The controller must short-circuit with a 400 carrying a clear
+	 * "name and type are required" message and must not attempt any INSERT — proving
+	 * the BUG-036 guard runs before persistence.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@Test
 	@DisplayName("empty body → 400, nothing persisted")
@@ -99,7 +120,14 @@ class AdminConnectorControllerTest {
 		verify(db, never()).update(contains("INSERT INTO connector_configs"), any(Object[].class));
 	}
 
-	/** A name without a type is still incomplete → 400, no INSERT. */
+	/**
+	 * A body with a {@code name} but no {@code type} is still incomplete. The
+	 * controller must reject it with a 400 and issue no INSERT.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("missing type → 400")
 	void missingTypeRejected() {
@@ -108,7 +136,14 @@ class AdminConnectorControllerTest {
 		verify(db, never()).update(contains("INSERT INTO connector_configs"), any(Object[].class));
 	}
 
-	/** A type without a name is still incomplete → 400, no INSERT. */
+	/**
+	 * A body with a {@code type} but no {@code name} is still incomplete. The
+	 * controller must reject it with a 400 and issue no INSERT.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("missing name → 400")
 	void missingNameRejected() {
@@ -118,8 +153,13 @@ class AdminConnectorControllerTest {
 	}
 
 	/**
-	 * With both required fields present the connector is persisted exactly once →
-	 * 200.
+	 * With both required fields present the create path persists the connector
+	 * exactly once and returns 200 with {@code ok=true}. This confirms the happy
+	 * path is unaffected by the added validation.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@Test
 	@DisplayName("valid name+type → 200 and persists once")
@@ -130,7 +170,15 @@ class AdminConnectorControllerTest {
 		verify(db).update(contains("INSERT INTO connector_configs"), any(Object[].class));
 	}
 
-	/** A non-admin caller is blocked by the auth guard before any persistence. */
+	/**
+	 * A non-admin caller (role {@code user}) must be blocked by the
+	 * {@code requireAdmin} guard before any persistence occurs, returning 401 or
+	 * 403 and issuing no INSERT.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("non-admin is forbidden (no persist)")
 	void nonAdminForbidden() {

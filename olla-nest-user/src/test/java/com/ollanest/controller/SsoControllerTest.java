@@ -32,10 +32,25 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Unit tests for {@link SsoController#adminCreateProvider}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Focus: BUG-035 — creating an SSO provider with a missing {@code type}/
- * {@code name} must be a 400 (the columns are NOT-NULL) rather than a 500;
- * a valid create encrypts the client secret and persists once.
+ * Guards BUG-035: creating an SSO provider whose body omits the NOT-NULL
+ * {@code type}/{@code name} columns must be a 400 rather than a 500, and a valid
+ * create must route the client secret through {@link CryptoService} so it is
+ * never persisted in plaintext.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Collaborators are Mockito mocks; the {@link JdbcTemplate} and
+ * {@link CryptoService} are verified to confirm persistence and encryption.</li>
+ * <li>The request is armed as an authenticated admin with the CSRF header.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.10 — created for the BUG-035 fix and the controller test-coverage
+ * pass.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.1.10
@@ -63,9 +78,14 @@ class SsoControllerTest {
 	private SsoController controller;
 
 	/**
-	 * Builds the controller and arms the request as an authenticated admin with the
-	 * CSRF header so each test starts past the auth guard unless it overrides the
-	 * user.
+	 * Constructs the controller with the mocked collaborators and arms the request
+	 * as an authenticated admin carrying the CSRF header, so each test reaches the
+	 * provider-create logic past the {@code requireAdmin} guard unless it overrides
+	 * the authenticated user.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@BeforeEach
 	void setUp() {
@@ -79,8 +99,13 @@ class SsoControllerTest {
 	}
 
 	/**
-	 * An empty body omits the NOT-NULL {@code type}/{@code name}; the controller must
-	 * return 400 with a clear message and must not attempt an INSERT (BUG-035).
+	 * An empty body omits the NOT-NULL {@code type}/{@code name} columns. The
+	 * controller must return a 400 with a clear "type and name are required" message
+	 * and issue no INSERT, proving the BUG-035 guard runs before persistence.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@Test
 	@DisplayName("empty body → 400, nothing persisted")
@@ -92,7 +117,14 @@ class SsoControllerTest {
 		verify(db, never()).update(contains("INSERT INTO sso_providers"), any(Object[].class));
 	}
 
-	/** A type without a name is still incomplete → 400, no INSERT. */
+	/**
+	 * A body with a {@code type} but no {@code name} is still incomplete and must be
+	 * rejected with a 400 and no INSERT.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("missing name → 400")
 	void missingNameRejected() {
@@ -102,8 +134,13 @@ class SsoControllerTest {
 	}
 
 	/**
-	 * With both required fields the provider persists once, and the plaintext client
-	 * secret is routed through {@code encryptKey} — never stored raw.
+	 * With both required fields present the provider is persisted exactly once and
+	 * the plaintext client secret is routed through {@code encryptKey} — proving it
+	 * is encrypted at rest and never stored raw.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
 	 */
 	@Test
 	@DisplayName("valid type+name → 200, secret encrypted, persists once")
@@ -118,7 +155,14 @@ class SsoControllerTest {
 		verify(db).update(contains("INSERT INTO sso_providers"), any(Object[].class));
 	}
 
-	/** A non-admin caller is blocked by the auth guard before any persistence. */
+	/**
+	 * A non-admin caller must be blocked by the {@code requireAdmin} guard before
+	 * any persistence, returning 401 or 403 and issuing no INSERT.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
 	@Test
 	@DisplayName("non-admin is forbidden (no persist)")
 	void nonAdminForbidden() {
