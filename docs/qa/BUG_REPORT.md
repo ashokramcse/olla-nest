@@ -103,6 +103,20 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-041 — Admin MCP server create 500 on explicit null fields — **MAJOR (product)** — FIXED
+- **Feature:** `POST /api/admin/mcp/servers` (`McpServerService.create`).
+- **Discovery:** admin write sweep (2026-06-09). `{"name":null,"url":null,"transport":null}` → **500** (empty `{}` → 201). BUG-019 class in the admin surface.
+- **Root cause:** `name`, `command`, `transport`, and the `*_json` columns are `NOT NULL`, but `getOrDefault` returns null for explicit-null keys → `SQLITE_CONSTRAINT_NOTNULL` → 500.
+- **Fix:** route the NOT-NULL columns through `MapDefaults.orDefault` (coerces absent **and** explicit-null).
+- **Verification (live):** explicit-null payload now → **201**. Regression test `McpServerServiceTest.explicitNullsCoercedToDefaults` asserts the INSERT args for name/command/transport are defaults. Full `mvn test` BUILD SUCCESS.
+
+## BUG-042 — Admin user create accepts a malformed email — **MINOR (validation)** — FIXED
+- **Feature:** `POST /api/admin/users` (`AdminUserController.createUser`).
+- **Discovery:** admin write sweep — `{"name":"X","email":"notanemail",...}` → **200**, persisting an account with an invalid email (silently breaks password-reset delivery and login).
+- **Root cause:** the controller checked name/email non-blank but not email **format**.
+- **Fix:** added an `EMAIL_PATTERN` (`local@domain.tld`) check → **400** on malformed input.
+- **Verification (live):** `notanemail` → **400** ("A valid email address is required"); a valid address → 200.
+
 ## BUG-040 — Delete of missing/other-user contact or task returned 200 (inconsistent) — **MINOR (correctness)** — FIXED
 - **Feature:** `DELETE /api/contacts/{id}`, `DELETE /api/tasks/{id}`.
 - **Discovery:** cross-user IDOR sweep (2026-06-09). user-2 `DELETE` on user-1's contact/task returned **200** even though nothing was deleted (the DELETE is owner-scoped, so no data was actually touched — user-1's objects stayed intact, i.e. **no security impact**). Skills/compare/research correctly return **404** in the same situation, so the behaviour was inconsistent and the 200 was misleading.

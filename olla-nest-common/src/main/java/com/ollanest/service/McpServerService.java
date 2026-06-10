@@ -1,5 +1,7 @@
 package com.ollanest.service;
 
+import static com.ollanest.util.MapDefaults.orDefault;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -101,10 +103,12 @@ public class McpServerService {
 		db.update("""
 				INSERT INTO mcp_servers (id, name, command, args_json, env_json, transport,
 				  url, disabled_tools_json, enabled, team_id, created_at, updated_at)
-				VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", id, req.getOrDefault("name", "MCP Server"),
-				req.getOrDefault("command", ""), toJson(req.getOrDefault("args", List.of())),
-				toJson(req.getOrDefault("env", Map.of())), req.getOrDefault("transport", "stdio"), req.get("url"),
-				toJson(req.getOrDefault("disabled_tools", List.of())), 1, req.get("team_id"), now, now);
+				VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", id,
+				// BUG-041: coerce explicit JSON nulls for NOT-NULL columns (BUG-019 class).
+				orDefault(req.get("name"), "MCP Server"),
+				orDefault(req.get("command"), ""), toJson(orDefault(req.get("args"), List.of())),
+				toJson(orDefault(req.get("env"), Map.of())), orDefault(req.get("transport"), "stdio"), req.get("url"),
+				toJson(orDefault(req.get("disabled_tools"), List.of())), 1, req.get("team_id"), now, now);
 
 		return getById(id);
 	}

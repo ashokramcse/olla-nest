@@ -78,6 +78,10 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequestMapping("/api/admin")
 public class AdminUserController extends BaseController {
 
+	/** Pragmatic email-format guard for new accounts (local-part@domain.tld). */
+	private static final java.util.regex.Pattern EMAIL_PATTERN =
+			java.util.regex.Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+
 	/** JDBC template for all user, session, and override DB queries. */
 	private final JdbcTemplate db;
 
@@ -260,6 +264,12 @@ public class AdminUserController extends BaseController {
 		String email = sanitizeText((String) body.get("email"));
 		if (name == null || email == null || name.isBlank() || email.isBlank()) {
 			return ResponseEntity.status(400).body(Map.of("error", "Name and email are required"));
+		}
+		// BUG-042: reject malformed emails up front. An invalid address silently
+		// breaks password-reset delivery and login, so fail with a 400 rather than
+		// persisting an unusable account.
+		if (!EMAIL_PATTERN.matcher(email).matches()) {
+			return ResponseEntity.status(400).body(Map.of("error", "A valid email address is required"));
 		}
 
 		String id = uid("u");

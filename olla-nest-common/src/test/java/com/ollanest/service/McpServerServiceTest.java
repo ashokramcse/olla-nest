@@ -83,6 +83,29 @@ class McpServerServiceTest {
 		}
 
 		@Test
+		@DisplayName("explicit JSON nulls for NOT-NULL columns are coerced to defaults (BUG-041)")
+		void explicitNullsCoercedToDefaults() throws Exception {
+			when(mapper.writeValueAsString(any())).thenReturn("[]");
+			when(db.queryForList(anyString(), anyString())).thenReturn(List.of(serverRow("mcp-n", "MCP Server")));
+			java.util.Map<String, Object> req = new java.util.HashMap<>();
+			req.put("name", null);
+			req.put("command", null);
+			req.put("transport", null);
+			req.put("args", null);
+			req.put("env", null);
+			req.put("disabled_tools", null);
+			// Must not throw / hit a NOT NULL violation.
+			mcpServerService.create(req);
+			org.mockito.ArgumentCaptor<Object[]> cap = org.mockito.ArgumentCaptor.forClass(Object[].class);
+			verify(db).update(contains("INSERT INTO mcp_servers"), cap.capture());
+			Object[] a = cap.getValue();
+			// name=1, command=2, transport=5 are NOT NULL — must be the defaults, not null.
+			assertThat(a[1]).isEqualTo("MCP Server");
+			assertThat(a[2]).isEqualTo("");
+			assertThat(a[5]).isEqualTo("stdio");
+		}
+
+		@Test
 		@DisplayName("id starts with 'mcp-'")
 		void idPrefix() throws Exception {
 			// Stub mapper + DB read-back
