@@ -179,7 +179,14 @@ public class AdminConnectorController extends BaseController {
 		if (err != null)
 			return err;
 
-		String id = "conn-" + body.get("type") + "-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
+		// name and type are NOT-NULL columns; validate up front so an omitted field is
+		// a 400 instead of a 500 SQLITE_CONSTRAINT_NOTNULL (BUG-036 / BUG-019 class).
+		String type = body.get("type") == null ? "" : body.get("type").toString().trim();
+		String name = body.get("name") == null ? "" : body.get("name").toString().trim();
+		if (type.isBlank() || name.isBlank())
+			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "name and type are required"));
+
+		String id = "conn-" + type + "-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
 		String credEnc = "";
 		if (body.containsKey("credentials") && body.get("credentials") != null) {
 			try {
@@ -203,7 +210,7 @@ public class AdminConnectorController extends BaseController {
 		String now = Instant.now().toString();
 		db.update(
 				"INSERT INTO connector_configs (id, name, type, enabled, auth_type, credentials_enc, config_json, sync_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-				id, body.get("name"), body.get("type"), 1, body.getOrDefault("authType", "api_key"), credEnc, cfgJson,
+				id, name, type, 1, body.getOrDefault("authType", "api_key"), credEnc, cfgJson,
 				"idle", now, now);
 
 		return ResponseEntity.ok(Map.of("ok", true, "id", id));

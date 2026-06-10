@@ -146,7 +146,7 @@ public class ImageController extends BaseController {
 					logId, user.id, prompt, provider != null ? provider : "dalle", null, "error", e.getMessage(),
 					Instant.now().toString());
 			// A not-configured/unreachable provider is an environmental 503, not a 500.
-			int status = e instanceof com.ollanest.controller.ProviderUnavailableException ? 503 : 500;
+			int status = e instanceof ProviderUnavailableException ? 503 : 500;
 			return ResponseEntity.status(status).body(Map.of("ok", false, "error", e.getMessage()));
 		}
 	}

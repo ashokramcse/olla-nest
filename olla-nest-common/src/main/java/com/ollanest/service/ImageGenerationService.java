@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.controller.ProviderUnavailableException;
 
 /**
  * AI image generation service supporting DALL-E 3 and self-hosted Stable
@@ -165,7 +166,7 @@ public class ImageGenerationService {
 	private ImageResult generateDalle(String prompt) throws Exception {
 		String apiKey = resolveOpenAiKey();
 		if (apiKey.isBlank())
-			throw new com.ollanest.controller.ProviderUnavailableException("OpenAI API key not configured");
+			throw new ProviderUnavailableException("OpenAI API key not configured");
 		String model = dbService.getSetting("imageModel", "dall-e-3");
 		String size = dbService.getSetting("imageSize", "1024x1024");
 		String body = mapper.writeValueAsString(

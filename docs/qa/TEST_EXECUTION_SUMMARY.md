@@ -20,6 +20,22 @@
 | Live security probes run | **16** (all passed) |
 | DB/migration integrity checks | **5** (all passed) |
 
+### Update 2026-06-09: Full live re-validation — Phases 3–17 (this session)
+Live, evidence-backed sweep against both running services (admin 8080 + user 8081, Ollama reachable) with redeploy-and-verify for every fix.
+
+| Area | Result |
+|---|---|
+| Backend suite | **2158 testcases, 0 failures** (`mvn clean package`) |
+| Migrations / DB | V0–V12 applied; `integrity_check=ok`; **BUG-033 FK enforcement fixed** (was globally off → cascades dead); `foreign_key_check` clean |
+| E2E (Playwright) | 164 green incl. a11y (BUG-026 fixed) |
+| Load (k6, 100 VUs) | **86,662 reqs, 0 failures, p95 3.54ms, p99 6.38ms**, no corruption |
+| Auth/session/RBAC | login, cookie HttpOnly/isolation, CSRF, brute-force 429; **BUG-032 fixed** (overrides/dept/role enforced at runtime incl. deny) |
+| Security | headers, no secret leak, provider/SSO/connector/email/vault secrets **encrypted at rest**, SQLi/path-traversal/XSS safe, prompt-injection refused, **SEC-001 sandbox file-read fixed** (macOS sandbox-exec) |
+| Chat/RAG/tools | live Ollama chat + persistence, RAG retrieval cited uploaded doc, calculator tool correct |
+| Observability/backup | Loki MDC request tracing live, backup created + integrity-valid |
+
+**Genuine product/security bugs this session (all FIXED, each verified live and/or with a regression test; no existing test weakened):** BUG-025, 026, 027, 028, 029, 030, 031, 032, 033, 035, 036 + SEC-001. Plus by-design notes OBS-005…009.
+
 ### Update 2026-06-08 (run 3): Deep-journey E2E across all admin tabs + workspace panels
 - **Playwright E2E expanded to 37/37 green** (12 login + 11 admin tabs + 14 workspace panels). Reusable login fixtures in `e2e/helpers.js`.
 - **BUG-009 (Major, product) found & fixed:** Personal Assistant panel → HTTP 500 on first load for every new user (task-id collision in `seedCheckIns` → `SQLITE_CONSTRAINT_PRIMARYKEY`). Fixed with UUID-suffixed IDs + regression test (`rapidCreatesProduceUniqueIds`). Verified: fresh-user `/api/assistant` → 200, `scheduled_tasks` 6/6 distinct.

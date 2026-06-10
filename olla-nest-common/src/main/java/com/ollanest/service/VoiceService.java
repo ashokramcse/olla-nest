@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ollanest.controller.ProviderUnavailableException;
 
 /**
  * Voice I/O service providing speech-to-text transcription and text-to-speech
@@ -207,7 +208,7 @@ public class VoiceService {
 	private String transcribeWithOpenAI(byte[] audioData, String filename) throws Exception {
 		String apiKey = dbService.getSetting("openaiApiKey", "");
 		if (apiKey.isBlank()) {
-			throw new com.ollanest.controller.ProviderUnavailableException("OpenAI API key not configured for transcription");
+			throw new ProviderUnavailableException("OpenAI API key not configured for transcription");
 		}
 		return sendWhisperMultipart(WHISPER_ENDPOINT, apiKey, audioData, filename);
 	}
@@ -292,7 +293,7 @@ public class VoiceService {
 	public byte[] speak(String text, String voice) throws Exception {
 		String apiKey = dbService.getSetting("openaiApiKey", "");
 		if (apiKey.isBlank()) {
-			throw new com.ollanest.controller.ProviderUnavailableException("OpenAI API key not configured for TTS");
+			throw new ProviderUnavailableException("OpenAI API key not configured for TTS");
 		}
 		String safeVoice = (voice != null && !voice.isBlank()) ? voice : "alloy";
 		String body = mapper.writeValueAsString(Map.of("model", "tts-1", "input", text, "voice", safeVoice));
