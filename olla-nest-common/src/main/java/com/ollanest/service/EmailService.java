@@ -148,6 +148,30 @@ public class EmailService {
 		return o == null ? null : (o instanceof String s ? s : o.toString());
 	}
 
+	/**
+	 * Creates and persists an IMAP/SMTP email account for the owner.
+	 *
+	 * <p>
+	 * The required NOT-NULL columns ({@code imap_host}, {@code smtp_host},
+	 * {@code username}) are validated up front so a malformed request yields a clean
+	 * 400 ({@link IllegalArgumentException} → BAD_REQUEST) rather than leaking a
+	 * {@code SQLITE_CONSTRAINT_NOTNULL} as a 500 (BUG-012 class). The account
+	 * password is encrypted at rest via {@link CryptoService#encryptKey} and the id
+	 * carries a random suffix so rapid creates in the same millisecond cannot
+	 * collide (BUG-013 class).
+	 *
+	 * @param owner the user id who will own the account
+	 * @param req   request map; requires {@code imap_host}, {@code smtp_host},
+	 *              {@code username}; optional {@code password}, {@code name},
+	 *              {@code imap_port}/{@code smtp_port}, security modes,
+	 *              {@code display_name}, {@code signature}, {@code poll_interval_s},
+	 *              {@code team_id}
+	 * @return the created account row (password stripped)
+	 * @throws IllegalArgumentException if a required field is missing or blank
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	public Map<String, Object> createAccount(String owner, Map<String, Object> req) {
 		// Validate the NOT NULL columns that have no DB default, so a malformed
 		// request returns a clean 400 (IllegalArgumentException -> BAD_REQUEST)
@@ -344,6 +368,15 @@ public class EmailService {
 		String password = cryptoService.decryptKey((String) account.get("password_enc"));
 		Properties props = buildSmtpProps(account);
 		Session session = Session.getInstance(props, new Authenticator() {
+			/**
+			 * Supplies the SMTP username/password (decrypted from the account row) to
+			 * the JavaMail transport when the server requests authentication.
+			 *
+			 * @return the account's SMTP {@link PasswordAuthentication}
+			 * @author Ashok Ram
+			 * @since v2026.2.1
+			 * @version v2026.2.1
+			 */
 			@Override
 			protected PasswordAuthentication getPasswordAuthentication() {
 				return new PasswordAuthentication((String) account.get("username"), password);
@@ -539,6 +572,20 @@ public class EmailService {
 		}
 	}
 
+	/**
+	 * Polls a single account's IMAP INBOX for new mail: connects read-only, fetches
+	 * the most recent {@link #FETCH_BATCH} messages, imports any not already stored,
+	 * fires an {@code email.received} event when new mail arrives, and records
+	 * {@code last_polled_at}. Per-message import failures are logged and skipped so
+	 * one bad message does not abort the poll.
+	 *
+	 * @param accountId the email-account id to poll
+	 * @param owner     the account owner (used for scope and event routing)
+	 * @throws Exception if the IMAP store connection fails
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void pollAccount(String accountId, String owner) throws Exception {
 		Map<String, Object> account = getAccountWithPassword(accountId, owner);
 		if (account == null)
@@ -577,6 +624,23 @@ public class EmailService {
 		}
 	}
 
+	/**
+	 * Imports one IMAP message into {@code email_messages} if not already present.
+	 *
+	 * <p>
+	 * De-duplicates on {@code (account_id, message_id)}, decodes the subject,
+	 * extracts a plain-text body, resolves the conversation thread from the
+	 * {@code In-Reply-To} header, persists the row, and kicks off async AI triage.
+	 *
+	 * @param accountId the owning email-account id
+	 * @param msg       the JavaMail message to import
+	 * @return {@code 1} if a new row was inserted, {@code 0} if it was already
+	 *         present
+	 * @throws Exception if reading the message content fails
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private int importMessage(String accountId, Message msg) throws Exception {
 		String messageId = getHeader(msg, "Message-ID");
 		if (messageId == null)
@@ -618,6 +682,18 @@ public class EmailService {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
+	/**
+	 * Builds the JavaMail {@link Properties} for an IMAP store connection from the
+	 * stored account row, selecting {@code imaps} (implicit SSL) or plain
+	 * {@code imap} based on the account's {@code imap_security} setting and applying
+	 * fixed connect/read timeouts.
+	 *
+	 * @param account the persisted email-account row (uses {@code imap_security})
+	 * @return JavaMail properties ready to pass to {@code Session.getInstance}
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Properties buildImapProps(Map<String, Object> account) {
 		Properties props = new Properties();
 		String security = (String) account.getOrDefault("imap_security", "SSL");
@@ -632,6 +708,19 @@ public class EmailService {
 		return props;
 	}
 
+	/**
+	 * Builds the JavaMail {@link Properties} for an SMTP transport connection from
+	 * the stored account row, enabling auth and selecting STARTTLS or implicit SSL
+	 * based on the account's {@code smtp_security} setting, with fixed
+	 * connect/read timeouts.
+	 *
+	 * @param account the persisted email-account row (uses {@code smtp_host},
+	 *                {@code smtp_port}, {@code smtp_security})
+	 * @return JavaMail properties ready to pass to {@code Session.getInstance}
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Properties buildSmtpProps(Map<String, Object> account) {
 		Properties props = new Properties();
 		String security = (String) account.getOrDefault("smtp_security", "STARTTLS");
@@ -648,12 +737,34 @@ public class EmailService {
 		return props;
 	}
 
+	/**
+	 * Loads the full email-account row (including the encrypted password column)
+	 * for the given account, scoped to the owner or any team-shared account.
+	 *
+	 * @param accountId the email-account id
+	 * @param owner     the requesting user id (ownership/team scope)
+	 * @return the account row including {@code password_enc}, or {@code null} if not
+	 *         visible to the caller
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> getAccountWithPassword(String accountId, String owner) {
 		List<Map<String, Object>> rows = db.queryForList(
 				"SELECT * FROM email_accounts WHERE id = ? AND (owner = ? OR team_id IS NOT NULL)", accountId, owner);
 		return rows.isEmpty() ? null : rows.get(0);
 	}
 
+	/**
+	 * Returns the configured IMAP poll interval (seconds) for an account, falling
+	 * back to {@link #DEFAULT_POLL_INTERVAL_S} when unset or the account is missing.
+	 *
+	 * @param accountId the email-account id
+	 * @return the poll interval in seconds
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private long getPollInterval(String accountId) {
 		List<Map<String, Object>> rows = db.queryForList("SELECT poll_interval_s FROM email_accounts WHERE id=?",
 				accountId);
@@ -663,6 +774,19 @@ public class EmailService {
 		return val != null ? ((Number) val).longValue() : DEFAULT_POLL_INTERVAL_S;
 	}
 
+	/**
+	 * Resolves the conversation thread id for an incoming reply by looking up the
+	 * referenced ({@code In-Reply-To}) message; if that message is known its
+	 * {@code thread_id} is reused, otherwise the referenced message id becomes the
+	 * thread root.
+	 *
+	 * @param accountId the email-account id
+	 * @param inReplyTo the {@code In-Reply-To} Message-ID header value
+	 * @return the resolved thread id
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String resolveThreadId(String accountId, String inReplyTo) {
 		List<Map<String, Object>> rows = db.queryForList(
 				"SELECT thread_id FROM email_messages WHERE account_id=? AND message_id=?", accountId, inReplyTo);
@@ -672,6 +796,18 @@ public class EmailService {
 		return inReplyTo; // Use the referenced message ID as thread root
 	}
 
+	/**
+	 * Recursively extracts a plain-text body from a MIME part: returns text/plain
+	 * as-is, strips tags from text/html, and walks {@code multipart/*} containers
+	 * returning the first text part found. Output is truncated to 10 000 chars.
+	 *
+	 * @param part the MIME part (message or body part)
+	 * @return the extracted plain text, or {@code null} if no textual part exists
+	 * @throws Exception if reading the part content fails
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String extractText(Part part) throws Exception {
 		if (part.isMimeType("text/plain")) {
 			return truncate(part.getContent().toString(), 10000);
@@ -690,6 +826,17 @@ public class EmailService {
 		return null;
 	}
 
+	/**
+	 * Null-safe read of a single mail header value, returning {@code null} on a
+	 * missing header or any messaging error rather than propagating.
+	 *
+	 * @param msg  the message to read from
+	 * @param name the header name (e.g. {@code "Message-ID"})
+	 * @return the first header value, or {@code null}
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String getHeader(Message msg, String name) {
 		try {
 			String[] values = msg.getHeader(name);
@@ -699,6 +846,18 @@ public class EmailService {
 		}
 	}
 
+	/**
+	 * Maps a raw {@code email_messages} row to the API shape: deserialises the
+	 * {@code ai_tags_json} column into an {@code ai_tags} list (empty on
+	 * missing/invalid JSON) and removes the raw JSON column.
+	 *
+	 * @param row the raw DB row
+	 * @return a copy of the row with {@code ai_tags} populated and
+	 *         {@code ai_tags_json} removed
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> mapMessageRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		try {
@@ -711,6 +870,20 @@ public class EmailService {
 		return r;
 	}
 
+	/**
+	 * Calls a local Ollama chat model for the AI triage features (summary, tags,
+	 * urgency), using a low temperature and a 512-token cap, and returns the raw
+	 * assistant content. Returns {@code null} on any error so triage degrades
+	 * gracefully without failing message import.
+	 *
+	 * @param ollamaUrl the Ollama base URL
+	 * @param model     the model id to invoke
+	 * @param prompt    the triage prompt
+	 * @return the model's text response, or {@code null} on failure
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String callLlm(String ollamaUrl, String model, String prompt) {
 		try {
 			Map<String, Object> request = Map.of("model", model, "messages",
@@ -726,6 +899,17 @@ public class EmailService {
 		}
 	}
 
+	/**
+	 * Null-safe string truncation: returns {@code ""} for null, otherwise caps the
+	 * string at {@code max} characters appending an ellipsis when shortened.
+	 *
+	 * @param s   the input string (may be null)
+	 * @param max the maximum length before truncation
+	 * @return the truncated string, never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String truncate(String s, int max) {
 		if (s == null)
 			return "";
