@@ -84,6 +84,17 @@ Re-ran the same staged scenario after the BUG-013 fix had been in place for a re
 
 All thresholds green. The systemic ID-collision class (BUG-013) remains fixed — **zero `SQLITE_CONSTRAINT_PRIMARYKEY` failures** across 5,663 concurrent create/delete cycles.
 
+### Re-verification run — 2026-06-10 (after admin/user bug-fix batches)
+Re-ran the staged write-path k6 scenario plus a mixed concurrent-create burst to confirm the BUG-019/040/041/043 fixes introduced no regression.
+
+| Metric | Result |
+|---|---|
+| k6 staged (10→30 VUs, notes create/list/delete) | **17,077 / 17,077 checks (100%)**, `http_req_failed` **0.00%**, p95 **3.63ms**, p99 **6ms**, 5,692 iterations. Evidence: `docs/qa/evidence/k6-write-path-2026-06-10.json` |
+| Mixed concurrent burst (120 parallel notes+contacts+tasks creates) | **120/120 → 2xx, 0 non-2xx** |
+| DB after burst | `integrity_check` **ok**, journal_mode **wal**, 0 lock errors |
+
+No ID-collision, constraint, or lock errors under concurrency; the `orDefault` NOT-NULL coercions hold under load.
+
 ## NOT executed (recommended next)
 - **k6/Gatling** with staged ramp (10 → 50 → 100 → 500 VUs), think-time, and proper percentile aggregation.
 - **Chat streaming under load** (requires Ollama) — latency + cancellation storms.
