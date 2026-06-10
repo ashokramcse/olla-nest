@@ -179,6 +179,20 @@ public class WebhookService {
 
 	// ── Dispatch ──────────────────────────────────────────────────────────────
 
+	/**
+	 * Dispatches an internal event to every enabled webhook subscribed to it.
+	 *
+	 * <p>
+	 * Loads the owner's (and global) enabled webhooks, filters to those whose event
+	 * list contains the event name or the wildcard {@code "*"}, and fires each on its
+	 * own virtual thread (with retry) so a slow endpoint cannot block the others.
+	 *
+	 * @param owner   the user id the event belongs to (or {@code null} for global)
+	 * @param payload the event payload; must carry {@code event_name}
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void dispatch(String owner, Map<String, Object> payload) {
 		String eventName = (String) payload.getOrDefault("event_name", "");
 		if (eventName.isBlank())
@@ -207,6 +221,25 @@ public class WebhookService {
 		}
 	}
 
+	/**
+	 * POSTs the JSON body to a webhook URL with bounded exponential-backoff retries.
+	 *
+	 * <p>
+	 * Sends {@code X-Olla-Event}/{@code X-Olla-Timestamp} headers and, when a secret
+	 * is configured, an {@code X-Olla-Signature: sha256=…} HMAC so receivers can
+	 * verify authenticity. Records {@code last_fired_at}/{@code last_status} after
+	 * each attempt and stops on the first 2xx; otherwise backs off
+	 * ({@code 2^attempt} seconds) up to {@code maxAttempts}.
+	 *
+	 * @param url         the destination URL (already SSRF-validated at create time)
+	 * @param secret      the optional signing secret; HMAC is added when non-blank
+	 * @param body        the event payload to serialise and send
+	 * @param webhookId   the webhook id, used for status bookkeeping
+	 * @param maxAttempts the maximum number of delivery attempts
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void fireWithRetry(String url, String secret, Map<String, Object> body, String webhookId, int maxAttempts) {
 		int attempt = 0;
 		while (attempt < maxAttempts) {
@@ -267,6 +300,22 @@ public class WebhookService {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
+	/**
+	 * Validates a webhook URL for shape and SSRF safety.
+	 *
+	 * <p>
+	 * Requires a non-blank {@code http(s)} URL and delegates to
+	 * {@link UrlValidator#isSafeUrl} which resolves every A/AAAA record and rejects
+	 * loopback/link-local/site-local targets (IPv4 and IPv6) — closing the SSRF hole
+	 * fixed in BUG-020.
+	 *
+	 * @param url the candidate webhook URL
+	 * @throws IllegalArgumentException if the URL is blank, non-http(s), or resolves
+	 *                                  to a private/internal/unresolvable address
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void validateUrl(String url) {
 		if (url == null || url.isBlank())
 			throw new IllegalArgumentException("Webhook URL is required");
@@ -283,6 +332,18 @@ public class WebhookService {
 		}
 	}
 
+	/**
+	 * Computes the lowercase hex HMAC-SHA256 of the payload using the webhook secret,
+	 * used to populate the {@code X-Olla-Signature} header. Returns an empty string
+	 * on any cryptographic error rather than throwing.
+	 *
+	 * @param secret the webhook signing secret
+	 * @param data   the exact request body that was sent
+	 * @return the hex-encoded HMAC, or {@code ""} on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String hmacSha256(String secret, String data) {
 		try {
 			Mac mac = Mac.getInstance("HmacSHA256");
@@ -294,6 +355,16 @@ public class WebhookService {
 		}
 	}
 
+	/**
+	 * Deserialises the webhook's {@code events_json} column into a list of subscribed
+	 * event names, returning an empty list on missing or invalid JSON.
+	 *
+	 * @param webhook the webhook row
+	 * @return the subscribed event names; never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@SuppressWarnings("unchecked")
 	private List<String> getEventsList(Map<String, Object> webhook) {
 		try {
@@ -304,6 +375,16 @@ public class WebhookService {
 		}
 	}
 
+	/**
+	 * Maps a raw {@code webhooks} row to the API shape: replaces the raw
+	 * {@code events_json} column with a deserialised {@code events} list.
+	 *
+	 * @param row the raw DB row
+	 * @return a copy with {@code events} populated and {@code events_json} removed
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		r.put("events", getEventsList(row));
@@ -311,6 +392,16 @@ public class WebhookService {
 		return r;
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper, returning {@code "[]"} on any
+	 * serialisation error so a bad value never aborts a webhook write.
+	 *
+	 * @param obj the value to serialise
+	 * @return the JSON string, or {@code "[]"} on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toJson(Object obj) {
 		try {
 			return mapper.writeValueAsString(obj);

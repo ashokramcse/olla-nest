@@ -256,6 +256,22 @@ public class McpServerService {
 
 	// ── MCP Protocol ─────────────────────────────────────────────────────────
 
+	/**
+	 * Connects to a stdio-transport MCP server by preparing the subprocess command.
+	 *
+	 * <p>
+	 * <b>Note:</b> this is currently a scaffold — it builds the {@link ProcessBuilder}
+	 * and registers the server as connected with an empty tool list, but does not yet
+	 * start the process or speak the MCP JSON-RPC protocol (see SEC-001/OBS-008: a
+	 * full implementation must allowlist/sandbox the command).
+	 *
+	 * @param serverId the MCP server id
+	 * @param server   the server config row (uses {@code command} and {@code args})
+	 * @throws Exception if subprocess preparation fails
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void connectStdio(String serverId, Map<String, Object> server) throws Exception {
 		String command = (String) server.get("command");
 		if (command == null || command.isBlank())
@@ -279,6 +295,21 @@ public class McpServerService {
 		serverTools.put(serverId, List.of());
 	}
 
+	/**
+	 * Connects to an HTTP/SSE-transport MCP server.
+	 *
+	 * <p>
+	 * <b>Note:</b> this is currently a scaffold — it logs the target URL and
+	 * registers an empty tool list without actually fetching the URL (see
+	 * SEC-001/OBS-008: a full implementation must validate the URL via
+	 * {@code UrlValidator} to prevent SSRF).
+	 *
+	 * @param serverId the MCP server id
+	 * @param server   the server config row (uses {@code url})
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void connectHttp(String serverId, Map<String, Object> server) {
 		String url = (String) server.get("url");
 		log.info("[mcp] Connecting to HTTP MCP server: {}", url);
@@ -287,6 +318,17 @@ public class McpServerService {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
+	/**
+	 * Enriches a server config row with live, in-memory connection state: the current
+	 * {@code connection_status} (default {@code "disconnected"}) and the discovered
+	 * {@code tool_count}.
+	 *
+	 * @param server the server config row, or {@code null}
+	 * @return the enriched row, or {@code null} if the input was null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> enrichWithStatus(Map<String, Object> server) {
 		if (server == null)
 			return null;
@@ -298,6 +340,18 @@ public class McpServerService {
 		return result;
 	}
 
+	/**
+	 * Maps a raw {@code mcp_servers} row to the API shape, deserialising the
+	 * {@code args_json}/{@code env_json}/{@code disabled_tools_json} columns into
+	 * their {@code args}/{@code env}/{@code disabled_tools} equivalents (empty
+	 * list/map on invalid JSON) and removing the raw columns.
+	 *
+	 * @param row the raw DB row
+	 * @return the mapped API row
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		for (String field : List.of("args_json", "env_json", "disabled_tools_json")) {
@@ -314,6 +368,17 @@ public class McpServerService {
 		return r;
 	}
 
+	/**
+	 * Resolves the server's launch arguments from either an already-deserialised
+	 * {@code args} list or the raw {@code args_json} column, returning an empty list
+	 * on missing/invalid data.
+	 *
+	 * @param server the server config row
+	 * @return the argument list; never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@SuppressWarnings("unchecked")
 	private List<String> getArgsList(Map<String, Object> server) {
 		try {
@@ -327,6 +392,16 @@ public class McpServerService {
 		}
 	}
 
+	/**
+	 * Resolves the server's disabled-tool names from the {@code disabled_tools_json}
+	 * column, returning an empty list on missing/invalid data.
+	 *
+	 * @param server the server config row
+	 * @return the disabled-tool names; never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@SuppressWarnings("unchecked")
 	private List<String> getDisabledList(Map<String, Object> server) {
 		try {
@@ -337,6 +412,16 @@ public class McpServerService {
 		}
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper, returning {@code "[]"} on any
+	 * serialisation error so a bad value never aborts an MCP-server write.
+	 *
+	 * @param obj the value to serialise
+	 * @return the JSON string, or {@code "[]"} on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toJson(Object obj) {
 		try {
 			return mapper.writeValueAsString(obj);

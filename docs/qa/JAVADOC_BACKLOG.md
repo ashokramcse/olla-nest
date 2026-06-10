@@ -6,9 +6,9 @@ Updated: 2026-06-09. Entry points + EmailService done.
 
 Total files with undocumented methods: 31  (sum 102 methods)
 - [x] com/ollanest/service/AgentLoopService.java (DONE) — 12
-- [ ] com/ollanest/service/WebhookService.java — 7
-- [ ] com/ollanest/service/McpServerService.java — 7
-- [ ] com/ollanest/service/MemoryService.java — 6
+- [x] com/ollanest/service/WebhookService.java (DONE) — 7
+- [x] com/ollanest/service/McpServerService.java (DONE) — 7
+- [x] com/ollanest/service/MemoryService.java (DONE) — 6
 - [ ] com/ollanest/service/PersonalDocumentService.java — 5
 - [ ] com/ollanest/service/FunctionCallService.java — 5
 - [ ] com/ollanest/service/CalendarService.java — 5

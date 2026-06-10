@@ -255,6 +255,20 @@ public class MemoryService {
 
 	// ── Private helpers ───────────────────────────────────────────────────────
 
+	/**
+	 * Ranks candidate memory rows by cosine similarity of their stored embeddings to
+	 * the query vector, keeping only matches above a 0.25 threshold and returning the
+	 * top-K highest-scoring rows in descending order. Rows without an embedding (or
+	 * with unparseable JSON) are skipped.
+	 *
+	 * @param rows     the candidate memory rows (must include {@code embedding_json})
+	 * @param queryVec the embedded query vector
+	 * @param topK     the maximum number of results to return
+	 * @return the top-K semantically similar rows (API-mapped), never null
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	private List<Map<String, Object>> semanticSearch(List<Map<String, Object>> rows, List<Double> queryVec, int topK) {
 		record Scored(Map<String, Object> row, double score) {
 		}
@@ -278,6 +292,19 @@ public class MemoryService {
 		return scored.stream().limit(topK).map(Scored::row).toList();
 	}
 
+	/**
+	 * Fallback ranking used when embeddings are unavailable: scores each row by the
+	 * number of query terms its text contains and returns the top-K highest-scoring
+	 * rows in descending order. Rows with zero hits are dropped.
+	 *
+	 * @param rows  the candidate memory rows (must include {@code text})
+	 * @param query the raw search query
+	 * @param topK  the maximum number of results to return
+	 * @return the top-K keyword-matched rows (API-mapped), never null
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	private List<Map<String, Object>> keywordSearch(List<Map<String, Object>> rows, String query, int topK) {
 		String[] terms = query.toLowerCase().split("\\s+");
 		record Scored(Map<String, Object> row, int score) {
@@ -299,6 +326,17 @@ public class MemoryService {
 		return scored.stream().limit(topK).map(Scored::row).toList();
 	}
 
+	/**
+	 * Computes the cosine similarity between two equal-length vectors, returning 0
+	 * for mismatched lengths or a (near-)zero magnitude to avoid division by zero.
+	 *
+	 * @param a the first vector
+	 * @param b the second vector
+	 * @return the cosine similarity in [-1, 1], or 0 when not computable
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	private double cosine(List<Double> a, List<Double> b) {
 		if (a.size() != b.size())
 			return 0;
@@ -312,6 +350,16 @@ public class MemoryService {
 		return denom < 1e-10 ? 0 : dot / denom;
 	}
 
+	/**
+	 * Enforces the per-user memory cap: when the owner reaches
+	 * {@link #MAX_MEMORIES_PER_USER}, evicts the oldest, least-important ~10% so new
+	 * memories can be stored without unbounded growth.
+	 *
+	 * @param owner the user id whose memory count is being bounded
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	private void enforceCapLimit(String owner) {
 		int count = db.queryForObject("SELECT COUNT(*) FROM memories WHERE owner = ?", Integer.class, owner);
 		if (count >= MAX_MEMORIES_PER_USER) {
@@ -324,6 +372,17 @@ public class MemoryService {
 		}
 	}
 
+	/**
+	 * Maps a raw {@code memories} row to the API shape: copies the scalar columns and
+	 * deserialises {@code tags_json} into a {@code tags} list (empty on missing or
+	 * invalid JSON). The raw embedding column is intentionally not exposed.
+	 *
+	 * @param row the raw DB row
+	 * @return the API-mapped memory record
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("id", row.get("id"));
@@ -348,6 +407,17 @@ public class MemoryService {
 				sessionId != null ? sessionId : "", "tags", tags != null ? tags : List.of(), "created_at", createdAt);
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper (used for the {@code tags_json} column),
+	 * returning {@code "[]"} on any serialisation error so a bad value never aborts a
+	 * memory write.
+	 *
+	 * @param obj the value to serialise
+	 * @return the JSON string, or {@code "[]"} on error
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	private String toJson(Object obj) {
 		try {
 			return mapper.writeValueAsString(obj);
