@@ -94,13 +94,13 @@ public class DeepResearchService {
 	 * Constructs a {@code DeepResearchService} with all required infrastructure
 	 * dependencies.
 	 *
-	 * @param providerService     resolves LLM provider configuration maps
-	 * @param routerService       routes queries to the appropriate model
-	 * @param webSearchService    executes live web searches
-	 * @param ragService          retrieves relevant document chunks from the vector
-	 *                            store
-	 * @param mapper              Jackson mapper for SSE event serialisation
-	 * @param db                  JDBC template for research_tasks persistence
+	 * @param providerService  resolves LLM provider configuration maps
+	 * @param routerService    routes queries to the appropriate model
+	 * @param webSearchService executes live web searches
+	 * @param ragService       retrieves relevant document chunks from the vector
+	 *                         store
+	 * @param mapper           Jackson mapper for SSE event serialisation
+	 * @param db               JDBC template for research_tasks persistence
 	 * @since v2026.1.4
 	 */
 	public DeepResearchService(ProviderService providerService, RouterService routerService,

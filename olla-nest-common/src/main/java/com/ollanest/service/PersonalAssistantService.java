@@ -51,7 +51,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class PersonalAssistantService {
 
-
 	/** Owner values that must never trigger assistant creation. */
 	private static final Set<String> SYNTHETIC_OWNERS = Set.of("internal-tool", "api", "demo", "system", "");
 

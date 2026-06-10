@@ -10,7 +10,6 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-
 /**
  * Blind model A/B comparison service that allocates side-by-side ephemeral chat
  * sessions and records user preference votes.
@@ -49,7 +48,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CompareService {
-
 
 	/** JDBC template for comparison persistence. */
 	private final JdbcTemplate db;
@@ -102,12 +100,11 @@ public class CompareService {
 		db.update("""
 				INSERT INTO comparisons (id, owner, prompt, model_a, model_b, endpoint_a, endpoint_b,
 				  session_id_a, session_id_b, is_blind, created_at)
-				VALUES (?,?,?,?,?,?,?,?,?,?,?)""", id, owner, prompt, modelA, modelB,
-				endpointA, endpointB, sessionIdA, sessionIdB, isBlind ? 1 : 0, now);
+				VALUES (?,?,?,?,?,?,?,?,?,?,?)""", id, owner, prompt, modelA, modelB, endpointA, endpointB, sessionIdA,
+				sessionIdB, isBlind ? 1 : 0, now);
 
 		return Map.of("id", id, "session_id_a", sessionIdA, "session_id_b", sessionIdB, "is_blind", isBlind, "label_a",
-				isBlind ? "Model A" : modelA, "label_b", isBlind ? "Model B" : modelB,
-				"created_at", now);
+				isBlind ? "Model A" : modelA, "label_b", isBlind ? "Model B" : modelB, "created_at", now);
 	}
 
 	/** Null-safe string coercion: null → "" so NOT-NULL inserts never see null. */

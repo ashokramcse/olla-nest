@@ -337,7 +337,8 @@ class UserServiceTest {
 			when(db.queryForList(contains("user_overrides"), eq("u-eff-1")))
 					.thenReturn(List.of(Map.of("permission_key", "sandbox:run", "effect", "allow", "expires_at", "")));
 			List<String> perms = userService.effectivePermissions(u);
-			// The override must actually grant the right at runtime — not just in the admin view.
+			// The override must actually grant the right at runtime — not just in the admin
+			// view.
 			assertThat(perms).contains("sandbox:run", "chat:use");
 		}
 

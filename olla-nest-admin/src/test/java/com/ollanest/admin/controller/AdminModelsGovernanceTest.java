@@ -44,19 +44,26 @@ import jakarta.servlet.http.HttpServletRequest;
 @DisplayName("AdminModelsController — body-based governance (BUG-029)")
 class AdminModelsGovernanceTest {
 
-	@Mock JdbcTemplate db;
-	@Mock ModelService modelService;
-	@Mock OllamaService ollamaService;
-	@Mock ChatService chatService;
-	@Mock DataSource dataSource;
-	@Mock HttpServletRequest req;
+	@Mock
+	JdbcTemplate db;
+	@Mock
+	ModelService modelService;
+	@Mock
+	OllamaService ollamaService;
+	@Mock
+	ChatService chatService;
+	@Mock
+	DataSource dataSource;
+	@Mock
+	HttpServletRequest req;
 
 	private AdminModelsController controller;
 
 	/**
-	 * Builds the controller (its constructor needs a non-null {@code DataSource} for
-	 * the transaction template) and arms the request as an authenticated admin with
-	 * the CSRF header so each test starts past the auth guard unless it overrides.
+	 * Builds the controller (its constructor needs a non-null {@code DataSource}
+	 * for the transaction template) and arms the request as an authenticated admin
+	 * with the CSRF header so each test starts past the auth guard unless it
+	 * overrides.
 	 */
 	@BeforeEach
 	void setUp() {
@@ -71,7 +78,9 @@ class AdminModelsGovernanceTest {
 		lenient().when(req.getHeader("x-requested-with")).thenReturn("XMLHttpRequest");
 	}
 
-	/** The body route requires {@code id}; omitting it is a 400 (no model touched). */
+	/**
+	 * The body route requires {@code id}; omitting it is a 400 (no model touched).
+	 */
 	@Test
 	@DisplayName("missing id in body → 400")
 	void missingIdRejected() {

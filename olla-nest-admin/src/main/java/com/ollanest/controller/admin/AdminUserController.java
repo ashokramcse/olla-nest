@@ -71,7 +71,8 @@ import jakarta.servlet.http.HttpServletRequest;
  *
  * @author Ashok Ram
  * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.10 — MED-12 enum+bounds validation on user update; security hardening (LOW-7, LOW-8)
+ * @version v2026.1.10 — MED-12 enum+bounds validation on user update; security
+ *          hardening (LOW-7, LOW-8)
  */
 @RestController
 @RequestMapping("/api/admin")
@@ -115,8 +116,7 @@ public class AdminUserController extends BaseController {
 	public AdminUserController(JdbcTemplate db, UserService userService, ChatService chatService,
 			AuthService authService, ObjectMapper mapper, AppConfig appConfig) {
 		this.db = db;
-		this.txTemplate = new TransactionTemplate(
-				new JdbcTransactionManager(db.getDataSource()));
+		this.txTemplate = new TransactionTemplate(new JdbcTransactionManager(db.getDataSource()));
 		this.userService = userService;
 		this.chatService = chatService;
 		this.authService = authService;
@@ -263,7 +263,8 @@ public class AdminUserController extends BaseController {
 		}
 
 		String id = uid("u");
-		String password = body.get("password") != null ? body.get("password").toString() : appConfig.getDefaultUserPassword();
+		String password = body.get("password") != null ? body.get("password").toString()
+				: appConfig.getDefaultUserPassword();
 		String hash = BCrypt.hashpw(password, BCrypt.gensalt(12));
 		String role = (String) body.getOrDefault("role", "user");
 		String deptId = (String) body.getOrDefault("departmentId", "dept-general");
@@ -373,16 +374,20 @@ public class AdminUserController extends BaseController {
 			}
 		}
 		// Numeric bounds validation
-		for (String numField : List.of("dailyTokenLimit", "monthlyTokenLimit", "gpuQuotaMinutes",
-				"vramLimitMb", "concurrentModelLimit", "apiRateLimitPerMinute", "maxContextSize")) {
+		for (String numField : List.of("dailyTokenLimit", "monthlyTokenLimit", "gpuQuotaMinutes", "vramLimitMb",
+				"concurrentModelLimit", "apiRateLimitPerMinute", "maxContextSize")) {
 			if (body.containsKey(numField)) {
 				Object val = body.get(numField);
 				if (val != null) {
 					long num;
-					try { num = Long.parseLong(val.toString()); }
-					catch (NumberFormatException e) { return ResponseEntity.status(400).body(Map.of("error", "Invalid number for " + numField)); }
+					try {
+						num = Long.parseLong(val.toString());
+					} catch (NumberFormatException e) {
+						return ResponseEntity.status(400).body(Map.of("error", "Invalid number for " + numField));
+					}
 					if (num < 0 || num > 10_000_000) {
-						return ResponseEntity.status(400).body(Map.of("error", numField + " out of range (0–10,000,000)"));
+						return ResponseEntity.status(400)
+								.body(Map.of("error", numField + " out of range (0–10,000,000)"));
 					}
 				}
 			}
@@ -434,8 +439,7 @@ public class AdminUserController extends BaseController {
 			for (Map.Entry<String, String> e : fieldMap.entrySet()) {
 				if (!body.containsKey(e.getKey()))
 					continue;
-				Object val = "mfaEnabled".equals(e.getKey())
-						? (Boolean.TRUE.equals(body.get(e.getKey())) ? 1 : 0)
+				Object val = "mfaEnabled".equals(e.getKey()) ? (Boolean.TRUE.equals(body.get(e.getKey())) ? 1 : 0)
 						: body.get(e.getKey());
 				db.update("UPDATE users SET " + e.getValue() + " = ? WHERE id = ?", val, id);
 			}
@@ -495,7 +499,8 @@ public class AdminUserController extends BaseController {
 		if (err != null)
 			return err;
 		User admin = getUser(req);
-		String newPassword = body.get("password") != null ? body.get("password").toString() : appConfig.getDefaultUserPassword();
+		String newPassword = body.get("password") != null ? body.get("password").toString()
+				: appConfig.getDefaultUserPassword();
 		if (newPassword.length() < 12) {
 			return ResponseEntity.status(400).body(Map.of("error", "Password must be at least 12 characters"));
 		}

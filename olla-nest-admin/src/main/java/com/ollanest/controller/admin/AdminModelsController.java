@@ -83,11 +83,11 @@ public class AdminModelsController extends BaseController {
 	private final TransactionTemplate txTemplate;
 
 	/**
-	 * Allowed values for the {@code status} column.
-	 * Any other value is rejected with 400 to prevent garbage data entering the DB.
+	 * Allowed values for the {@code status} column. Any other value is rejected
+	 * with 400 to prevent garbage data entering the DB.
 	 */
-	private static final Set<String> ALLOWED_STATUSES =
-			Set.of("available", "disabled", "configured", "offline", "missing");
+	private static final Set<String> ALLOWED_STATUSES = Set.of("available", "disabled", "configured", "offline",
+			"missing");
 
 	/**
 	 * Constructor-injects all required dependencies.
@@ -104,8 +104,7 @@ public class AdminModelsController extends BaseController {
 		this.modelService = modelService;
 		this.ollamaService = ollamaService;
 		this.chatService = chatService;
-		this.txTemplate = new TransactionTemplate(
-				new DataSourceTransactionManager(db.getDataSource()));
+		this.txTemplate = new TransactionTemplate(new DataSourceTransactionManager(db.getDataSource()));
 	}
 
 	/**
@@ -187,7 +186,8 @@ public class AdminModelsController extends BaseController {
 	 * every model — slash or not — is governable (BUG-029).
 	 *
 	 * <p>
-	 * HTTP: {@code PATCH /api/admin/models/governance} with {@code {"id": "...", ...}}.
+	 * HTTP: {@code PATCH /api/admin/models/governance} with
+	 * {@code {"id": "...", ...}}.
 	 */
 	@PatchMapping("/models/governance")
 	public ResponseEntity<Map<String, Object>> updateGovernanceByBody(@RequestBody Map<String, Object> body,
@@ -214,8 +214,8 @@ public class AdminModelsController extends BaseController {
 		if (body.containsKey("status")) {
 			String newStatus = String.valueOf(body.get("status"));
 			if (!ALLOWED_STATUSES.contains(newStatus)) {
-				return ResponseEntity.status(400).body(Map.of("error",
-						"Invalid status '" + newStatus + "'. Allowed: " + ALLOWED_STATUSES));
+				return ResponseEntity.status(400)
+						.body(Map.of("error", "Invalid status '" + newStatus + "'. Allowed: " + ALLOWED_STATUSES));
 			}
 		}
 
@@ -224,20 +224,21 @@ public class AdminModelsController extends BaseController {
 		// failed mid-way the model row would be left in a partially-updated state.
 		// A single SQL statement is both atomic and a single DB round-trip.
 		Map<String, String> fieldMap = new LinkedHashMap<>();
-		fieldMap.put("status",           "status");
-		fieldMap.put("governanceTier",   "governance_tier");
-		fieldMap.put("resourceTier",     "resource_tier");
-		fieldMap.put("gpuRequired",      "gpu_required");
-		fieldMap.put("maxConcurrency",   "max_concurrency");
-		fieldMap.put("maxContextSize",   "max_context_size");
+		fieldMap.put("status", "status");
+		fieldMap.put("governanceTier", "governance_tier");
+		fieldMap.put("resourceTier", "resource_tier");
+		fieldMap.put("gpuRequired", "gpu_required");
+		fieldMap.put("maxConcurrency", "max_concurrency");
+		fieldMap.put("maxContextSize", "max_context_size");
 		fieldMap.put("externalCostTier", "external_cost_tier");
 		fieldMap.put("sensitiveAllowed", "sensitive_allowed");
 
 		List<String> setClauses = new ArrayList<>();
-		List<Object> params     = new ArrayList<>();
+		List<Object> params = new ArrayList<>();
 
 		for (Map.Entry<String, String> e : fieldMap.entrySet()) {
-			if (!body.containsKey(e.getKey())) continue;
+			if (!body.containsKey(e.getKey()))
+				continue;
 			Object val;
 			if ("gpuRequired".equals(e.getKey()) || "sensitiveAllowed".equals(e.getKey())) {
 				val = Boolean.TRUE.equals(body.get(e.getKey())) ? 1 : 0;

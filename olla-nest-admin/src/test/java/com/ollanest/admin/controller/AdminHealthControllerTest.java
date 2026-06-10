@@ -32,7 +32,8 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Unit tests for {@link AdminHealthController}.
  *
- * <p>Verifies: 401 for unauthenticated, 403 for non-admin, 200 with correct
+ * <p>
+ * Verifies: 401 for unauthenticated, 403 for non-admin, 200 with correct
  * response shape for admin, and that DB stats use the correct SQL queries
  * (models uses {@code IN ('available','configured')}, sessions uses
  * {@code datetime('now')}).
@@ -45,9 +46,12 @@ import jakarta.servlet.http.HttpServletRequest;
 @DisplayName("AdminHealthController — unit tests")
 class AdminHealthControllerTest {
 
-	@Mock JdbcTemplate    db;
-	@Mock MonitorService  monitorService;
-	@Mock HttpServletRequest req;
+	@Mock
+	JdbcTemplate db;
+	@Mock
+	MonitorService monitorService;
+	@Mock
+	HttpServletRequest req;
 
 	private AdminHealthController controller;
 
@@ -62,7 +66,7 @@ class AdminHealthControllerTest {
 
 	private User admin() {
 		User u = new User();
-		u.id   = "u-admin-001";
+		u.id = "u-admin-001";
 		u.role = "admin";
 		u.email = "admin@example.com";
 		return u;
@@ -70,7 +74,7 @@ class AdminHealthControllerTest {
 
 	private User regularUser() {
 		User u = new User();
-		u.id   = "u-user-001";
+		u.id = "u-user-001";
 		u.role = "user";
 		u.email = "user@example.com";
 		return u;
@@ -86,7 +90,8 @@ class AdminHealthControllerTest {
 		@DisplayName("returns 401 when no authenticated user")
 		void returns401WhenNoUser() {
 			setAuthenticatedUser(null);
-			// CSRF header is not needed for GET (BaseController requireAdmin doesn't check CSRF)
+			// CSRF header is not needed for GET (BaseController requireAdmin doesn't check
+			// CSRF)
 			ResponseEntity<Map<String, Object>> r = controller.health(req);
 			assertThat(r.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 			assertThat(r.getBody()).containsEntry("ok", false);
@@ -123,8 +128,8 @@ class AdminHealthControllerTest {
 
 			// Stub all five COUNT queries — order matters: more specific matchers first
 			when(db.queryForObject(contains("chat_sessions"), eq(Integer.class))).thenReturn(42);
-			when(db.queryForObject(argThat(s -> s.contains("sessions") && !s.contains("chat_")),
-					eq(Integer.class))).thenReturn(7);
+			when(db.queryForObject(argThat(s -> s.contains("sessions") && !s.contains("chat_")), eq(Integer.class)))
+					.thenReturn(7);
 			when(db.queryForObject(contains("users"), eq(Integer.class))).thenReturn(5);
 			when(db.queryForObject(contains("models"), eq(Integer.class))).thenReturn(3);
 			when(db.queryForObject(contains("api_providers"), eq(Integer.class))).thenReturn(2);
@@ -153,8 +158,8 @@ class AdminHealthControllerTest {
 			ResponseEntity<Map<String, Object>> r = controller.health(req);
 			@SuppressWarnings("unchecked")
 			Map<String, Object> dbStats = (Map<String, Object>) r.getBody().get("db");
-			assertThat(dbStats).containsKeys(
-					"activeUsers", "activeModels", "activeSessions", "totalChats", "enabledProviders");
+			assertThat(dbStats).containsKeys("activeUsers", "activeModels", "activeSessions", "totalChats",
+					"enabledProviders");
 		}
 
 		@Test
@@ -171,8 +176,7 @@ class AdminHealthControllerTest {
 		void modelsQueryUsesCorrectStatusValues() {
 			controller.health(req);
 			// Verify the SQL passed to db contains the correct status predicate
-			verify(db).queryForObject(
-					argThat(sql -> sql.contains("'available'") && sql.contains("'configured'")),
+			verify(db).queryForObject(argThat(sql -> sql.contains("'available'") && sql.contains("'configured'")),
 					eq(Integer.class));
 		}
 
@@ -180,9 +184,7 @@ class AdminHealthControllerTest {
 		@DisplayName("sessions query uses datetime('now') — not Instant.now().toString()")
 		void sessionsQueryUsesDatetimeNow() {
 			controller.health(req);
-			verify(db).queryForObject(
-					argThat(sql -> sql.contains("datetime('now')")),
-					eq(Integer.class));
+			verify(db).queryForObject(argThat(sql -> sql.contains("datetime('now')")), eq(Integer.class));
 		}
 
 		@Test

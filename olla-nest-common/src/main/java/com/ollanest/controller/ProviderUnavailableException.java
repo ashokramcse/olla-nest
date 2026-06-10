@@ -15,6 +15,8 @@ package com.ollanest.controller;
  */
 public class ProviderUnavailableException extends RuntimeException {
 
+	private static final long serialVersionUID = 1L;
+
 	public ProviderUnavailableException(String message) {
 		super(message);
 	}

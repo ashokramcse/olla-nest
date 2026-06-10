@@ -142,7 +142,8 @@ public class AdminSettingsController extends BaseController {
 	 *
 	 * @param body request body with any combination of settings keys
 	 * @param req  the current HTTP request (for admin auth check)
-	 * @return 200 OK with the updated settings state, or 400 on URL validation error
+	 * @return 200 OK with the updated settings state, or 400 on URL validation
+	 *         error
 	 * @since v2026.1.0 — initial Java Spring Boot migration
 	 */
 	@PostMapping("/settings")
@@ -162,9 +163,10 @@ public class AdminSettingsController extends BaseController {
 				// ── Image generation ────────────────────────────────────────
 				"imageProvider", "imageModel", "imageSize", "sdBaseUrl",
 				// ── Voice (STT/TTS) ─────────────────────────────────────────
-			// sttProvider: "local" (default, free/local faster-whisper) or "openai" (paid/cloud)
-			// sttLocalUrl: URL of the local faster-whisper server endpoint
-			"voiceEnabled", "ttsVoice", "sttProvider", "sttLocalUrl");
+				// sttProvider: "local" (default, free/local faster-whisper) or "openai"
+				// (paid/cloud)
+				// sttLocalUrl: URL of the local faster-whisper server endpoint
+				"voiceEnabled", "ttsVoice", "sttProvider", "sttLocalUrl");
 		for (String key : simpleKeys) {
 			if (body.containsKey(key))
 				databaseService.setSetting(key, body.get(key).toString());
@@ -189,23 +191,23 @@ public class AdminSettingsController extends BaseController {
 			}
 		}
 		if (body.containsKey("workspaceRoot")) {
-			String nextRoot = Paths.get(body.get("workspaceRoot").toString())
-					.toAbsolutePath().normalize().toString();
-			// SOC 2 path safety: block system directories from being used as workspace root.
+			String nextRoot = Paths.get(body.get("workspaceRoot").toString()).toAbsolutePath().normalize().toString();
+			// SOC 2 path safety: block system directories from being used as workspace
+			// root.
 			// This prevents an admin from inadvertently exposing /etc, /root, or OS paths
 			// to the model's system prompt (which lists workspace files).
-			for (String blocked : new String[]{"/etc", "/bin", "/sbin", "/usr/bin", "/usr/sbin",
-					"/boot", "/proc", "/sys", "/dev", "/root",
-					"C:\\Windows", "C:\\System32"}) {
+			for (String blocked : new String[] { "/etc", "/bin", "/sbin", "/usr/bin", "/usr/sbin", "/boot", "/proc",
+					"/sys", "/dev", "/root", "C:\\Windows", "C:\\System32" }) {
 				if (nextRoot.startsWith(blocked)) {
-					return ResponseEntity.status(400).body(Map.of("ok", false, "error",
-							"workspaceRoot must not point to a system directory"));
+					return ResponseEntity.status(400)
+							.body(Map.of("ok", false, "error", "workspaceRoot must not point to a system directory"));
 				}
 			}
 			databaseService.setSetting("workspaceRoot", nextRoot);
 			try {
 				new File(nextRoot).mkdirs();
-			} catch (Exception ignored) { /* permission denied is non-fatal */ }
+			} catch (Exception ignored) {
+				/* permission denied is non-fatal */ }
 		}
 		if (body.containsKey("ollamaUrl")) {
 			String nextUrl = ollamaService.cleanBaseUrl(body.get("ollamaUrl").toString());
@@ -366,8 +368,8 @@ public class AdminSettingsController extends BaseController {
 		s.put("routerWeights", safeJson(databaseService.getSetting("routerWeights", null)));
 		// Voice STT provider settings
 		s.put("sttProvider", databaseService.getSetting("sttProvider", "local"));
-		s.put("sttLocalUrl", databaseService.getSetting("sttLocalUrl",
-				"http://localhost:8765/v1/audio/transcriptions"));
+		s.put("sttLocalUrl",
+				databaseService.getSetting("sttLocalUrl", "http://localhost:8765/v1/audio/transcriptions"));
 		return s;
 	}
 

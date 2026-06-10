@@ -118,7 +118,8 @@ class GlobalExceptionHandlerTest {
 		ResponseEntity<Map<String, Object>> r = handler.handleProviderUnavailable(ex);
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
 		assertThat(r.getBody()).containsEntry("ok", false);
-		// The actionable message is preserved (it names the missing config, not internal detail).
+		// The actionable message is preserved (it names the missing config, not
+		// internal detail).
 		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("not configured");
 	}
 

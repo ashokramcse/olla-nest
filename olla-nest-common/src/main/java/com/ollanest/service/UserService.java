@@ -408,8 +408,8 @@ public class UserService {
 	 * This is the set that runtime permission gates must consult. Resolving it at
 	 * session-establishment time (see {@code AuthService.getSessionUser}) ensures
 	 * an admin grant via override/department/role actually authorizes the feature
-	 * at runtime — previously gates only honored the raw {@code rights_json}, so
-	 * an override shown as granted in the admin view did nothing (BUG-032).
+	 * at runtime — previously gates only honored the raw {@code rights_json}, so an
+	 * override shown as granted in the admin view did nothing (BUG-032).
 	 *
 	 * @param user the user to resolve permissions for
 	 * @return a sorted, mutable list of effective permission keys

@@ -47,15 +47,22 @@ import jakarta.servlet.http.HttpServletRequest;
 class AdminConnectorControllerTest {
 
 	/** Mocked JDBC template; verified to ensure rows are/aren't persisted. */
-	@Mock JdbcTemplate db;
-	/** Connector type registry dependency (unused by the create path under test). */
-	@Mock ConnectorRegistry registry;
+	@Mock
+	JdbcTemplate db;
+	/**
+	 * Connector type registry dependency (unused by the create path under test).
+	 */
+	@Mock
+	ConnectorRegistry registry;
 	/** Crypto service used to encrypt connector credentials at rest. */
-	@Mock CryptoService cryptoService;
+	@Mock
+	CryptoService cryptoService;
 	/** JSON mapper used to serialise the credentials/config bags. */
-	@Mock ObjectMapper mapper;
+	@Mock
+	ObjectMapper mapper;
 	/** Mocked request carrying the authenticated user + CSRF header. */
-	@Mock HttpServletRequest req;
+	@Mock
+	HttpServletRequest req;
 
 	/** Controller under test, constructed with the mocked collaborators. */
 	private AdminConnectorController controller;
@@ -78,8 +85,9 @@ class AdminConnectorControllerTest {
 	}
 
 	/**
-	 * An empty body omits the NOT-NULL {@code name}/{@code type}; the controller must
-	 * return 400 with a clear message and must not attempt an INSERT (BUG-036).
+	 * An empty body omits the NOT-NULL {@code name}/{@code type}; the controller
+	 * must return 400 with a clear message and must not attempt an INSERT
+	 * (BUG-036).
 	 */
 	@Test
 	@DisplayName("empty body → 400, nothing persisted")
@@ -109,7 +117,10 @@ class AdminConnectorControllerTest {
 		verify(db, never()).update(contains("INSERT INTO connector_configs"), any(Object[].class));
 	}
 
-	/** With both required fields present the connector is persisted exactly once → 200. */
+	/**
+	 * With both required fields present the connector is persisted exactly once →
+	 * 200.
+	 */
 	@Test
 	@DisplayName("valid name+type → 200 and persists once")
 	void validCreatePersists() {

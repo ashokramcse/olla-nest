@@ -91,10 +91,10 @@ public class AdminHealthController extends BaseController {
 		Map<String, Object> snapshot = monitorService.getSnapshot();
 
 		Integer userCount = db.queryForObject("SELECT COUNT(*) FROM users WHERE active = 1", Integer.class);
-		Integer modelCount = db.queryForObject(
-				"SELECT COUNT(*) FROM models WHERE status IN ('available','configured')", Integer.class);
-		Integer sessionCount = db.queryForObject(
-				"SELECT COUNT(*) FROM sessions WHERE expires_at > datetime('now')", Integer.class);
+		Integer modelCount = db.queryForObject("SELECT COUNT(*) FROM models WHERE status IN ('available','configured')",
+				Integer.class);
+		Integer sessionCount = db.queryForObject("SELECT COUNT(*) FROM sessions WHERE expires_at > datetime('now')",
+				Integer.class);
 		Integer chatCount = db.queryForObject("SELECT COUNT(*) FROM chat_sessions", Integer.class);
 		Integer providerCount = db.queryForObject("SELECT COUNT(*) FROM api_providers WHERE enabled = 1",
 				Integer.class);

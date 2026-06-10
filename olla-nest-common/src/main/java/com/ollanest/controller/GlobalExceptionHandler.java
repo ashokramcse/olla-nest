@@ -181,7 +181,8 @@ public class GlobalExceptionHandler {
 	 * though the fault is caller-supplied (an omitted required query/form param).
 	 *
 	 * @param ex the missing-parameter exception
-	 * @return 400 with {@code {ok: false, error: "Missing required parameter: name"}}
+	 * @return 400 with
+	 *         {@code {ok: false, error: "Missing required parameter: name"}}
 	 */
 	@ExceptionHandler(MissingServletRequestParameterException.class)
 	public ResponseEntity<Map<String, Object>> handleMissingParam(MissingServletRequestParameterException ex) {

@@ -55,7 +55,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class NotesService {
 
-
 	/** JDBC template for all note persistence operations. */
 	private final JdbcTemplate db;
 

@@ -90,7 +90,7 @@ public class AdminReportsController extends BaseController {
 	 * @return 200 OK with the full report map, or 401/403 if not an admin
 	 * @since v2026.1.0 — initial Java Spring Boot migration
 	 */
-	@GetMapping({"/reports", "/reports/usage"})
+	@GetMapping({ "/reports", "/reports/usage" })
 	public ResponseEntity<Map<String, Object>> reports(@RequestParam(defaultValue = "30") int days,
 			HttpServletRequest req) {
 		ResponseEntity<Map<String, Object>> err = requireAdmin(req);

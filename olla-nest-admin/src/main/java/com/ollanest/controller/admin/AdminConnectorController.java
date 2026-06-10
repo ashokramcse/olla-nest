@@ -95,8 +95,8 @@ public class AdminConnectorController extends BaseController {
 	 * @param mapper        the shared JSON object mapper
 	 * @since v2026.1.0
 	 */
-	public AdminConnectorController(JdbcTemplate db, ConnectorRegistry registry,
-			CryptoService cryptoService, ObjectMapper mapper) {
+	public AdminConnectorController(JdbcTemplate db, ConnectorRegistry registry, CryptoService cryptoService,
+			ObjectMapper mapper) {
 		this.db = db;
 		this.registry = registry;
 		this.cryptoService = cryptoService;
@@ -186,7 +186,8 @@ public class AdminConnectorController extends BaseController {
 		if (type.isBlank() || name.isBlank())
 			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "name and type are required"));
 
-		String id = "conn-" + type + "-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
+		String id = "conn-" + type + "-" + Long.toString(System.currentTimeMillis(), 36) + "-"
+				+ UUID.randomUUID().toString().substring(0, 6);
 		String credEnc = "";
 		if (body.containsKey("credentials") && body.get("credentials") != null) {
 			try {
@@ -210,8 +211,7 @@ public class AdminConnectorController extends BaseController {
 		String now = Instant.now().toString();
 		db.update(
 				"INSERT INTO connector_configs (id, name, type, enabled, auth_type, credentials_enc, config_json, sync_status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-				id, name, type, 1, body.getOrDefault("authType", "api_key"), credEnc, cfgJson,
-				"idle", now, now);
+				id, name, type, 1, body.getOrDefault("authType", "api_key"), credEnc, cfgJson, "idle", now, now);
 
 		return ResponseEntity.ok(Map.of("ok", true, "id", id));
 	}
@@ -325,7 +325,8 @@ public class AdminConnectorController extends BaseController {
 
 		// Run sync in background thread
 		Thread.ofVirtual().start(() -> {
-			String logId = "csl-" + Long.toString(System.currentTimeMillis(), 36) + "-" + UUID.randomUUID().toString().substring(0, 6);
+			String logId = "csl-" + Long.toString(System.currentTimeMillis(), 36) + "-"
+					+ UUID.randomUUID().toString().substring(0, 6);
 			db.update("INSERT INTO connector_sync_log (id, connector_id, started_at, status) VALUES (?,?,?,?)", logId,
 					id, Instant.now().toString(), "running");
 			db.update("UPDATE connector_configs SET sync_status='syncing', updated_at=? WHERE id=?",

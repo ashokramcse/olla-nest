@@ -387,7 +387,8 @@ public class SsoController {
 		if (err != null)
 			return err;
 		// type and name are NOT-NULL columns; validate up front so an omitted field
-		// is a 400 instead of a 500 SQLITE_CONSTRAINT_NOTNULL (BUG-035 / BUG-019 class).
+		// is a 400 instead of a 500 SQLITE_CONSTRAINT_NOTNULL (BUG-035 / BUG-019
+		// class).
 		String type = body.get("type") == null ? "" : body.get("type").toString().trim();
 		String name = body.get("name") == null ? "" : body.get("name").toString().trim();
 		if (type.isBlank() || name.isBlank())
@@ -399,8 +400,8 @@ public class SsoController {
 			secretEnc = cryptoService.encryptKey(body.get("clientSecret").toString());
 		db.update(
 				"INSERT INTO sso_providers (id, type, name, enabled, client_id, client_secret_enc, config_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
-				id, type, name, 1, body.get("clientId"), secretEnc,
-				body.getOrDefault("configJson", "{}").toString(), Instant.now().toString(), Instant.now().toString());
+				id, type, name, 1, body.get("clientId"), secretEnc, body.getOrDefault("configJson", "{}").toString(),
+				Instant.now().toString(), Instant.now().toString());
 		return ResponseEntity.ok(Map.of("ok", true, "id", id));
 	}
 

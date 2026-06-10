@@ -27,14 +27,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @SpringBootApplication
 @EnableScheduling
-@ComponentScan(
-	basePackages = "com.ollanest",
-	excludeFilters = @ComponentScan.Filter(
-		type = FilterType.REGEX,
-		// Exclude all user-workspace controllers (chat/thread live on user service only).
-		pattern = "com\\.ollanest\\.controller\\.(Chat|Thread|Document|Workspace|Voice|CodeSandbox|Image|Account|Sso|Bootstrap|User).*Controller.*"
-	)
-)
+@ComponentScan(basePackages = "com.ollanest", excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX,
+		// Exclude all user-workspace controllers (chat/thread live on user service
+		// only).
+		pattern = "com\\.ollanest\\.controller\\.(Chat|Thread|Document|Workspace|Voice|CodeSandbox|Image|Account|Sso|Bootstrap|User).*Controller.*"))
 public class OllaNestAdminApplication {
 
 	public static void main(String[] args) {

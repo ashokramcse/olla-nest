@@ -52,7 +52,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class ContactsService {
 
-
 	/** JDBC template for contact persistence. */
 	private final JdbcTemplate db;
 

@@ -359,7 +359,8 @@ public class AuthService {
 			}
 		}
 		// Resolve effective permissions (rights + department + role + overrides, minus
-		// denies) before caching, so the session — including the login fast-path — gates
+		// denies) before caching, so the session — including the login fast-path —
+		// gates
 		// features on the same governance model the admin view shows (BUG-032).
 		try {
 			user.rights = userService.effectivePermissions(user);

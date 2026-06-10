@@ -55,7 +55,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class AtomicWriteService {
 
-
 	/** Shared Jackson mapper used for pretty-printing JSON output. */
 	private final ObjectMapper mapper;
 

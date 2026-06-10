@@ -12,7 +12,6 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-
 /**
  * Manages system-defined presets and user-editable prompt templates.
  *
@@ -49,7 +48,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class PresetService {
-
 
 	/**
 	 * Built-in read-only presets available to all users regardless of database

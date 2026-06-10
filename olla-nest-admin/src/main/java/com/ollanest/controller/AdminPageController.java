@@ -11,9 +11,10 @@ import jakarta.servlet.http.HttpServletRequest;
  * Serves the admin-only HTML pages for the Admin Control Panel (port 8080).
  *
  * <ul>
- *   <li>{@code GET /admin-login} — admin sign-in page</li>
- *   <li>{@code GET /admin}       — admin dashboard (requires admin role)</li>
- *   <li>{@code GET /login}       — legacy/alias path, redirects to {@code /admin-login}</li>
+ * <li>{@code GET /admin-login} — admin sign-in page</li>
+ * <li>{@code GET /admin} — admin dashboard (requires admin role)</li>
+ * <li>{@code GET /login} — legacy/alias path, redirects to
+ * {@code /admin-login}</li>
  * </ul>
  *
  * @author Ashok Ram
@@ -25,7 +26,8 @@ public class AdminPageController extends BaseController {
 	/**
 	 * Redirects the user-app login path ({@code /login}) to the admin sign-in page.
 	 *
-	 * <p>The admin app's sign-in route is {@code /admin-login}; {@code /login} only
+	 * <p>
+	 * The admin app's sign-in route is {@code /admin-login}; {@code /login} only
 	 * exists on the user service. Older or browser-cached admin frontend code may
 	 * still navigate here (e.g. after logout). Redirecting server-side makes the
 	 * behaviour correct regardless of which JavaScript version the browser is
@@ -38,8 +40,8 @@ public class AdminPageController extends BaseController {
 
 	/**
 	 * Serves the admin login page. Redirects authenticated admins straight to
-	 * {@code /admin}, and non-admin authenticated users to {@code /app} on the
-	 * user service.
+	 * {@code /admin}, and non-admin authenticated users to {@code /app} on the user
+	 * service.
 	 */
 	@GetMapping("/admin-login")
 	public String adminLogin(HttpServletRequest req) {

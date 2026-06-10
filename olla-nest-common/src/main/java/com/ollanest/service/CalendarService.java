@@ -59,7 +59,6 @@ public class CalendarService {
 
 	private static final Logger log = LoggerFactory.getLogger(CalendarService.class);
 
-
 	/** JDBC template for calendar and event persistence. */
 	private final JdbcTemplate db;
 
@@ -69,8 +68,8 @@ public class CalendarService {
 	/**
 	 * Constructor-injects persistence and serialisation dependencies.
 	 *
-	 * @param db     JDBC template for {@code calendars} and
-	 *               {@code calendar_events} tables
+	 * @param db     JDBC template for {@code calendars} and {@code calendar_events}
+	 *               tables
 	 * @param mapper shared Jackson mapper
 	 * @since v2026.2.1
 	 */
