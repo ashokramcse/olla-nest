@@ -276,10 +276,29 @@ public class FunctionCallService {
 			return x;
 		}
 
+		/**
+		 * Advances the parser cursor to the next character of the input expression,
+		 * setting {@code ch} to {@code -1} at end-of-input.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.10
+		 * @version v2026.1.10
+		 */
 		private void nextChar() {
 			ch = (++pos < s.length()) ? s.charAt(pos) : -1;
 		}
 
+		/**
+		 * Skips spaces and, if the current character matches {@code c}, consumes it and
+		 * returns {@code true}; otherwise leaves the cursor in place and returns
+		 * {@code false}. Used to test for operators/parentheses.
+		 *
+		 * @param c the character to match and consume
+		 * @return {@code true} if {@code c} was consumed
+		 * @author Ashok Ram
+		 * @since v2026.1.10
+		 * @version v2026.1.10
+		 */
 		private boolean eat(int c) {
 			while (ch == ' ')
 				nextChar();
@@ -290,7 +309,15 @@ public class FunctionCallService {
 			return false;
 		}
 
-		// expression = term | expression '+' term | expression '-' term
+		/**
+		 * Parses an additive expression — the lowest-precedence grammar rule:
+		 * {@code expression = term (('+' | '-') term)*} — combining terms left to right.
+		 *
+		 * @return the evaluated value of the expression
+		 * @author Ashok Ram
+		 * @since v2026.1.10
+		 * @version v2026.1.10
+		 */
 		private double parseExpression() {
 			double x = parseTerm();
 			for (;;) {
@@ -303,7 +330,17 @@ public class FunctionCallService {
 			}
 		}
 
-		// term = factor | term '*' factor | term '/' factor | term '%' factor
+		/**
+		 * Parses a multiplicative term — the middle-precedence grammar rule:
+		 * {@code term = factor (('*' | '/' | '%') factor)*} — combining factors left to
+		 * right and guarding against division/modulo by zero.
+		 *
+		 * @return the evaluated value of the term
+		 * @throws ArithmeticException on division or modulo by zero
+		 * @author Ashok Ram
+		 * @since v2026.1.10
+		 * @version v2026.1.10
+		 */
 		private double parseTerm() {
 			double x = parseFactor();
 			for (;;) {
@@ -324,6 +361,18 @@ public class FunctionCallService {
 			}
 		}
 
+		/**
+		 * Parses a factor — the highest-precedence grammar rule: a unary
+		 * {@code +}/{@code -} sign, a parenthesised sub-expression, or a numeric
+		 * literal. This is the recursive base case of the arithmetic evaluator.
+		 *
+		 * @return the evaluated value of the factor
+		 * @throws ArithmeticException on a malformed expression (e.g. missing
+		 *                             {@code ')'} or an unexpected character)
+		 * @author Ashok Ram
+		 * @since v2026.1.10
+		 * @version v2026.1.10
+		 */
 		private double parseFactor() {
 			if (eat('+'))
 				return parseFactor();

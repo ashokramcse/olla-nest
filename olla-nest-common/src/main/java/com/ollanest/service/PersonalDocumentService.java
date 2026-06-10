@@ -183,12 +183,33 @@ public class PersonalDocumentService {
 		}
 	}
 
+	/**
+	 * Extracts plain text from a PDF byte array using Apache PDFBox.
+	 *
+	 * @param bytes the raw PDF file content
+	 * @return the extracted text
+	 * @throws Exception if the PDF cannot be parsed
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String extractPdf(byte[] bytes) throws Exception {
 		try (PDDocument doc = Loader.loadPDF(bytes)) {
 			return new PDFTextStripper().getText(doc);
 		}
 	}
 
+	/**
+	 * Extracts plain text from a Word {@code .docx} byte array using Apache POI's
+	 * XWPF word extractor.
+	 *
+	 * @param bytes the raw DOCX file content
+	 * @return the extracted text
+	 * @throws Exception if the document cannot be parsed
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String extractDocx(byte[] bytes) throws Exception {
 		try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes));
 				XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
@@ -196,6 +217,17 @@ public class PersonalDocumentService {
 		}
 	}
 
+	/**
+	 * Extracts text from a PowerPoint {@code .pptx} byte array using Apache POI's
+	 * slide-show extractor, including both slide bodies and speaker notes.
+	 *
+	 * @param bytes the raw PPTX file content
+	 * @return the extracted text (slides + notes)
+	 * @throws Exception if the presentation cannot be parsed
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String extractPptx(byte[] bytes) throws Exception {
 		try (XMLSlideShow ppt = new XMLSlideShow(new ByteArrayInputStream(bytes));
 				SlideShowExtractor<?, ?> extractor = new SlideShowExtractor<>(ppt)) {
@@ -205,6 +237,18 @@ public class PersonalDocumentService {
 		}
 	}
 
+	/**
+	 * Extracts text from an Excel {@code .xlsx} byte array using Apache POI: each
+	 * sheet is emitted with a Markdown-style heading followed by tab-separated cell
+	 * values per row.
+	 *
+	 * @param bytes the raw XLSX file content
+	 * @return the extracted, sheet-by-sheet tabular text
+	 * @throws Exception if the workbook cannot be parsed
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String extractXlsx(byte[] bytes) throws Exception {
 		StringBuilder sb = new StringBuilder();
 		try (var workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
@@ -223,6 +267,17 @@ public class PersonalDocumentService {
 		return sb.toString();
 	}
 
+	/**
+	 * Sanitises an owner id for safe use as a filesystem directory name by replacing
+	 * any non-alphanumeric/underscore/hyphen characters with {@code _} and capping
+	 * the length at 80 characters — preventing path traversal via the owner id.
+	 *
+	 * @param owner the raw owner id
+	 * @return a filesystem-safe directory-name fragment
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String sanitizeOwner(String owner) {
 		return owner.replaceAll("[^a-zA-Z0-9_-]", "_").substring(0, Math.min(owner.length(), 80));
 	}

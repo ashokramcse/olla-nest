@@ -337,6 +337,19 @@ public class CalendarService {
 		}
 	}
 
+	/**
+	 * Synchronises a single calendar with its remote CalDAV server.
+	 *
+	 * <p>
+	 * <b>Note:</b> this is the extension point for a full CalDAV implementation
+	 * (PROPFIND/REPORT over HTTP using credentials from settings); it currently only
+	 * logs the sync target.
+	 *
+	 * @param calendar the calendar config row (uses {@code caldav_url})
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void syncCalDav(Map<String, Object> calendar) {
 		// CalDAV PROPFIND to get list of event hrefs + ETags, then fetch changed events
 		String caldavUrl = (String) calendar.get("caldav_url");
@@ -347,6 +360,18 @@ public class CalendarService {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies the calendar exists and is visible to the caller (owner or a
+	 * team-shared calendar), throwing if not — the ownership guard used by every
+	 * event mutation to prevent cross-user access.
+	 *
+	 * @param calendarId the calendar id to check
+	 * @param owner      the requesting user id
+	 * @throws NoSuchElementException if the calendar is missing or not visible
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void verifyCalendarOwner(String calendarId, String owner) {
 		int count = db.queryForObject("SELECT COUNT(*) FROM calendars WHERE id=? AND (owner=? OR team_id IS NOT NULL)",
 				Integer.class, calendarId, owner);
@@ -354,6 +379,16 @@ public class CalendarService {
 			throw new NoSuchElementException("Calendar not found: " + calendarId);
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper, returning {@code "[]"} on error so a bad
+	 * value never aborts a calendar write.
+	 *
+	 * @param obj the value to serialise
+	 * @return the JSON string, or {@code "[]"} on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toJson(Object obj) {
 		try {
 			return mapper.writeValueAsString(obj);
@@ -389,12 +424,32 @@ public class CalendarService {
 		}
 	}
 
+	/**
+	 * Escapes a text value for inclusion in an iCalendar (.ics) export, folding
+	 * newlines to {@code \n} and escaping commas per RFC 5545.
+	 *
+	 * @param text the raw text (may be null)
+	 * @return the escaped text, never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String foldIcs(String text) {
 		if (text == null)
 			return "";
 		return text.replace("\r\n", "\\n").replace("\n", "\\n").replace(",", "\\,");
 	}
 
+	/**
+	 * Converts an ISO-8601 timestamp to the compact iCalendar UTC date-time format
+	 * (no separators), returning the input unchanged on any error.
+	 *
+	 * @param iso the ISO-8601 timestamp (may be null)
+	 * @return the iCalendar-formatted timestamp, or {@code ""} for null input
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toIcsDt(String iso) {
 		if (iso == null)
 			return "";

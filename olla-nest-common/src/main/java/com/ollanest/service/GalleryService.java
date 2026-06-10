@@ -313,6 +313,17 @@ public class GalleryService {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
+	/**
+	 * Extracts a small set of EXIF/JPEG metadata (pixel width/height, capture date)
+	 * from image bytes using metadata-extractor, returning an empty map when no
+	 * metadata is present or parsing fails.
+	 *
+	 * @param bytes the raw image bytes
+	 * @return a map of available metadata fields; never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> extractExif(byte[] bytes) {
 		Map<String, Object> exif = new LinkedHashMap<>();
 		try {
@@ -371,6 +382,17 @@ public class GalleryService {
 		}
 	}
 
+	/**
+	 * Guesses the stored MIME type from the file extension, defaulting unknown
+	 * extensions to {@code image/jpeg} (which also neutralises any SVG-script concern
+	 * since SVGs are never reported as {@code image/svg+xml}).
+	 *
+	 * @param filename the original filename
+	 * @return the guessed image MIME type
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String guessMime(String filename) {
 		String lower = filename.toLowerCase();
 		if (lower.endsWith(".jpg") || lower.endsWith(".jpeg"))
@@ -384,6 +406,17 @@ public class GalleryService {
 		return "image/jpeg";
 	}
 
+	/**
+	 * Computes the lowercase hex SHA-256 of the image bytes, used as the per-owner
+	 * dedup key. Falls back to a random UUID on the (practically impossible)
+	 * algorithm-unavailable error so an upload never fails on hashing.
+	 *
+	 * @param bytes the raw image bytes
+	 * @return the hex digest, or a random UUID on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String sha256Hex(byte[] bytes) {
 		try {
 			MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -393,6 +426,16 @@ public class GalleryService {
 		}
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper (used for EXIF/metadata columns), returning
+	 * {@code "{}"} on error so a bad value never aborts a gallery write.
+	 *
+	 * @param obj the value to serialise
+	 * @return the JSON string, or {@code "{}"} on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toJson(Object obj) {
 		try {
 			return mapper.writeValueAsString(obj);

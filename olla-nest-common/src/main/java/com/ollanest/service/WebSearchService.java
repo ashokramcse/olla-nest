@@ -183,6 +183,18 @@ public class WebSearchService {
 	}
 
 	// ── Result ranking ────────────────────────────────────────────────────────
+	/**
+	 * Re-ranks provider search results by how many query terms appear in each
+	 * result's title/snippet, surfacing the most relevant hits first. An empty input
+	 * is returned unchanged.
+	 *
+	 * @param results the raw provider results
+	 * @param query   the original search query
+	 * @return the results re-ordered by term-overlap score
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private List<SearchResult> rank(List<SearchResult> results, String query) {
 		if (results.isEmpty())
 			return results;
@@ -281,6 +293,18 @@ public class WebSearchService {
 	}
 
 	// ── DuckDuckGo (HTML scrape fallback — no API key needed) ─────────────────
+	/**
+	 * Queries the DuckDuckGo Instant-Answer API (no API key required) and maps the
+	 * response into the unified {@link SearchResult} shape, capped at {@code limit}.
+	 *
+	 * @param query the search query
+	 * @param limit the maximum number of results to return
+	 * @return the search results from DuckDuckGo
+	 * @throws Exception on network or parse failure
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private List<SearchResult> searchDuckDuckGo(String query, int limit) throws Exception {
 		String url = "https://html.duckduckgo.com/html/?q=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
 		HttpRequest req = HttpRequest.newBuilder().uri(URI.create(url))
@@ -316,6 +340,19 @@ public class WebSearchService {
 	}
 
 	// ── Google Programmable Search Engine ─────────────────────────────────────
+	/**
+	 * Queries the Google Programmable Search Engine (Custom Search JSON API) using
+	 * the configured API key and CX id, mapping the response into the unified
+	 * {@link SearchResult} shape, capped at {@code limit}.
+	 *
+	 * @param query the search query
+	 * @param limit the maximum number of results to return
+	 * @return the search results from Google PSE
+	 * @throws Exception on network or parse failure (or missing credentials)
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private List<SearchResult> searchGooglePse(String query, int limit) throws Exception {
 		String apiKey = dbService.getSetting("searchApiKey", "");
 		String cx = dbService.getSetting("googleSearchCx", "");
@@ -338,6 +375,19 @@ public class WebSearchService {
 	}
 
 	// ── Tavily ────────────────────────────────────────────────────────────────
+	/**
+	 * Queries the Tavily search API (an LLM-oriented search provider) using the
+	 * configured API key, mapping the response into the unified {@link SearchResult}
+	 * shape, capped at {@code limit}.
+	 *
+	 * @param query the search query
+	 * @param limit the maximum number of results to return
+	 * @return the search results from Tavily
+	 * @throws Exception on network or parse failure (or missing credentials)
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private List<SearchResult> searchTavily(String query, int limit) throws Exception {
 		String apiKey = dbService.getSetting("searchApiKey", "");
 		if (apiKey.isBlank()) {

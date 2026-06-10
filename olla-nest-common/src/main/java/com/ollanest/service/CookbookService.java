@@ -222,6 +222,17 @@ public class CookbookService {
 		return result;
 	}
 
+	/**
+	 * Estimates a GPU's memory bandwidth (GB/s) by longest-substring match of its
+	 * name against the {@code GPU_BANDWIDTH} table, defaulting to a CPU-fallback
+	 * value of 70 for unknown or null hardware. Used to predict model run speed.
+	 *
+	 * @param gpuName the detected GPU name (may be null)
+	 * @return the estimated bandwidth in GB/s
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private int getGpuBandwidth(String gpuName) {
 		if (gpuName == null)
 			return 70; // CPU fallback
@@ -260,6 +271,17 @@ public class CookbookService {
 		}).toList();
 	}
 
+	/**
+	 * Builds the in-memory catalogue of recommended Ollama models (name, size,
+	 * capabilities, and hardware suitability) that the Cookbook UI presents for
+	 * download. The catalogue is a curated static list enriched with per-entry
+	 * metadata.
+	 *
+	 * @return the list of catalogue model entries; never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private List<Map<String, Object>> buildCatalog() {
 		return List.of(
 				model("Llama 3.2 3B", "bartowski/Llama-3.2-3B-Instruct-GGUF", null, "Q4_K_M", 2.0, 3.0, "general"),
@@ -281,6 +303,17 @@ public class CookbookService {
 				quant, "size_gb", sizeGb, "params_b", paramsB, "use_case", useCase, "format", "gguf");
 	}
 
+	/**
+	 * Returns whether a catalogue model has already been downloaded, by checking the
+	 * {@code cookbook_models} table for a completed download of its
+	 * {@code hf_repo}.
+	 *
+	 * @param model the catalogue model entry (uses {@code hf_repo})
+	 * @return {@code true} if a completed download exists
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private boolean isDownloaded(Map<String, Object> model) {
 		String repo = (String) model.get("hf_repo");
 		List<Map<String, Object>> rows = db
@@ -392,6 +425,18 @@ public class CookbookService {
 		return new ArrayList<>(activeDownloads.values());
 	}
 
+	/**
+	 * Sends one named Server-Sent Event with a JSON-serialised payload to the model
+	 * pull-progress stream, swallowing send failures (e.g. client disconnect) so the
+	 * background download is not interrupted.
+	 *
+	 * @param emitter the active SSE emitter
+	 * @param event   the event name (e.g. {@code progress}, {@code done})
+	 * @param data    the payload to serialise and send
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void sendSse(SseEmitter emitter, String event, Object data) {
 		try {
 			emitter.send(SseEmitter.event().name(event).data(mapper.writeValueAsString(data)));
