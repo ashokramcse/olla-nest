@@ -133,6 +133,7 @@ class ContactsServiceTest {
 		@Test
 		@DisplayName("calls DELETE WHERE id=? AND owner=?")
 		void deleteScopedToIdAndOwner() {
+			when(db.update(contains("DELETE FROM contacts"), eq("cnt-999"), eq(OWNER))).thenReturn(1);
 			svc.delete("cnt-999", OWNER);
 			// Both id and owner in WHERE clause — prevents cross-user deletion
 			verify(db).update(contains("DELETE FROM contacts WHERE id"), eq("cnt-999"), eq(OWNER));
@@ -141,9 +142,18 @@ class ContactsServiceTest {
 		@Test
 		@DisplayName("does not delete contacts belonging to other owners")
 		void doesNotDeleteOtherOwners() {
+			when(db.update(anyString(), anyString(), anyString())).thenReturn(1);
 			svc.delete("cnt-999", OWNER);
 			// Confirm no other owner is ever passed to the DELETE statement
 			verify(db, never()).update(anyString(), eq("other-owner"), any());
+		}
+
+		@Test
+		@DisplayName("throws (→404) when nothing was deleted — missing or other-user contact (BUG-040)")
+		void throwsWhenNothingDeleted() {
+			when(db.update(contains("DELETE FROM contacts"), anyString(), anyString())).thenReturn(0);
+			org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.delete("cnt-missing", OWNER))
+					.isInstanceOf(java.util.NoSuchElementException.class);
 		}
 	}
 

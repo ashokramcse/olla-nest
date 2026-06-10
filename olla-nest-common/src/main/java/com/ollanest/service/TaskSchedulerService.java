@@ -166,10 +166,17 @@ public class TaskSchedulerService {
 	 *
 	 * @param id    the task ID
 	 * @param owner the user ID
+	 * @throws java.util.NoSuchElementException if no task with that id is owned by
+	 *                                          the user (→ 404), so deleting a missing
+	 *                                          or other-user task is not reported as
+	 *                                          success (BUG-040)
 	 * @since v2026.2.1
 	 */
 	public void delete(String id, String owner) {
-		db.update("DELETE FROM scheduled_tasks WHERE id=? AND owner=?", id, owner);
+		int deleted = db.update("DELETE FROM scheduled_tasks WHERE id=? AND owner=?", id, owner);
+		if (deleted == 0) {
+			throw new java.util.NoSuchElementException("Task not found: " + id);
+		}
 	}
 
 	/**

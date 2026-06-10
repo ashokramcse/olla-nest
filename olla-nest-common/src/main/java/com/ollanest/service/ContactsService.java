@@ -125,10 +125,17 @@ public class ContactsService {
 	 *
 	 * @param id    the contact ID
 	 * @param owner the user ID — only the owner may delete
+	 * @throws java.util.NoSuchElementException if no contact with that id is owned
+	 *                                          by the user (→ 404), so deleting a
+	 *                                          missing or other-user contact is not
+	 *                                          reported as success (BUG-040)
 	 * @since v2026.2.1
 	 */
 	public void delete(String id, String owner) {
-		db.update("DELETE FROM contacts WHERE id=? AND owner=?", id, owner);
+		int deleted = db.update("DELETE FROM contacts WHERE id=? AND owner=?", id, owner);
+		if (deleted == 0) {
+			throw new java.util.NoSuchElementException("Contact not found: " + id);
+		}
 	}
 
 	/**

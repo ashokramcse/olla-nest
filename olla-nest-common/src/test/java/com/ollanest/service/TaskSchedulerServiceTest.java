@@ -177,9 +177,18 @@ class TaskSchedulerServiceTest {
 		@Test
 		@DisplayName("calls DELETE WHERE id=? AND owner=?")
 		void deleteScopedToIdAndOwner() {
+			when(db.update(contains("DELETE FROM scheduled_tasks"), eq("task-123"), eq(OWNER))).thenReturn(1);
 			svc.delete("task-123", OWNER);
 			// DELETE must include both id AND owner to prevent cross-user deletion
 			verify(db).update(contains("DELETE FROM scheduled_tasks WHERE id"), eq("task-123"), eq(OWNER));
+		}
+
+		@Test
+		@DisplayName("throws (→404) when nothing was deleted — missing or other-user task (BUG-040)")
+		void throwsWhenNothingDeleted() {
+			when(db.update(contains("DELETE FROM scheduled_tasks"), anyString(), anyString())).thenReturn(0);
+			org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.delete("task-missing", OWNER))
+					.isInstanceOf(java.util.NoSuchElementException.class);
 		}
 	}
 
