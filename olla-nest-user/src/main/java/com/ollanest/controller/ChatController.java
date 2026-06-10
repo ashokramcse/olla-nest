@@ -789,7 +789,18 @@ public class ChatController extends BaseController {
 			return ResponseEntity.status(400)
 					.body(Map.of("ok", false, "error", "messageId, sessionId, and rating are required"));
 		}
-		int rating = ((Number) ratingObj).intValue();
+		// Coerce rating safely: a non-numeric value (e.g. the string "up") must be a
+		// 400, not a ClassCastException → 500 (BUG-031).
+		int rating;
+		if (ratingObj instanceof Number n) {
+			rating = n.intValue();
+		} else {
+			try {
+				rating = Integer.parseInt(ratingObj.toString().trim());
+			} catch (NumberFormatException nfe) {
+				return ResponseEntity.status(400).body(Map.of("ok", false, "error", "rating must be 1 or -1"));
+			}
+		}
 		if (rating != 1 && rating != -1) {
 			return ResponseEntity.status(400).body(Map.of("ok", false, "error", "rating must be 1 or -1"));
 		}

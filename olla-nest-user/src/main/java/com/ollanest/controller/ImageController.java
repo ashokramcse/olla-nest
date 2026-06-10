@@ -145,7 +145,9 @@ public class ImageController extends BaseController {
 					"INSERT INTO image_generation_log (id, user_id, prompt, provider, model, status, error, created_at) VALUES (?,?,?,?,?,?,?,?)",
 					logId, user.id, prompt, provider != null ? provider : "dalle", null, "error", e.getMessage(),
 					Instant.now().toString());
-			return ResponseEntity.status(500).body(Map.of("ok", false, "error", e.getMessage()));
+			// A not-configured/unreachable provider is an environmental 503, not a 500.
+			int status = e instanceof com.ollanest.controller.ProviderUnavailableException ? 503 : 500;
+			return ResponseEntity.status(status).body(Map.of("ok", false, "error", e.getMessage()));
 		}
 	}
 }

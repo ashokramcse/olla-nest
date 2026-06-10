@@ -102,6 +102,24 @@ Authenticated as admin. All admin reads 200. Mutations + negatives + RBAC + secu
 
 One new MAJOR fixed: **BUG-029** (slash-id models un-governable → body-based route). Two non-bug notes: OBS-007 (200 on nonexistent id), OBS-008 (MCP connect is a stub; add SSRF/command guards when wired). Full suite: **2153 testcases, 0 failures**.
 
+## Phase 7 + 8 — Chat/RAG/tools/threads sweep (live on :8081)
+
+| Area | Result |
+|---|---|
+| Chat core | real Ollama responses, persistence (`chat_messages`/`router_traces`), clear → 200 |
+| **RAG** | uploaded `.txt` → 1 chunk; chat correctly **cited FALCON-9 + Alice Zhang** from it (keyword fallback works with `embedded:0`) |
+| Tools | calculator tool → correct (`18473*29 = 535717`) — BUG-006 holds |
+| Threads (Phase 8) | rename/activate/fork → 200, delete-missing → 404, **IDOR: other-user PATCH/delete → 404** |
+| Sessions | fork → 201 (**new id, source preserved**), truncate removed 2 msgs (21→19), missing `from_message_id` → 400 |
+| Agent loop | run streams `agent_round`→`agent_done`, status/cancel → 200 |
+| Feedback | valid → 200; **non-numeric rating fixed (BUG-031)** |
+| Personal docs | upload/extract-text → 201/200 (stable), unsupported ext → 400 |
+| YouTube | transcript graceful (empty when none), invalid url → 400, missing param → 400 |
+| Voice / Image | **not-configured fixed to 503 (BUG-030)**, empty input → 400 |
+| Prompt injection | model refused, `prompt_security_log` flagged, no key leak |
+
+Two fixes this round: **BUG-030** (provider-not-configured 500→503, new `ProviderUnavailableException`+503 handler) and **BUG-031** (feedback string rating 500→400). Both verified live. Full suite: **2154 testcases, 0 failures**.
+
 ## Verdict
 
 **PASS WITH MINOR ISSUES.**

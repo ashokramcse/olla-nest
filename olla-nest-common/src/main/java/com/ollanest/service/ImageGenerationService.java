@@ -165,7 +165,7 @@ public class ImageGenerationService {
 	private ImageResult generateDalle(String prompt) throws Exception {
 		String apiKey = resolveOpenAiKey();
 		if (apiKey.isBlank())
-			throw new RuntimeException("OpenAI API key not configured");
+			throw new com.ollanest.controller.ProviderUnavailableException("OpenAI API key not configured");
 		String model = dbService.getSetting("imageModel", "dall-e-3");
 		String size = dbService.getSetting("imageSize", "1024x1024");
 		String body = mapper.writeValueAsString(

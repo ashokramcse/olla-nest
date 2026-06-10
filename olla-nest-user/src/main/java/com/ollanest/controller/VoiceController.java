@@ -180,6 +180,9 @@ public class VoiceController extends BaseController {
 			byte[] mp3 = voiceService.speak(text, voice);
 			return ResponseEntity.ok().header(HttpHeaders.CONTENT_TYPE, "audio/mpeg")
 					.header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"speech.mp3\"").body(mp3);
+		} catch (com.ollanest.controller.ProviderUnavailableException e) {
+			// TTS provider not configured/unreachable — an environmental 503, not a 500.
+			return ResponseEntity.status(503).body(Map.of("ok", false, "error", e.getMessage()));
 		} catch (Exception e) {
 			return ResponseEntity.status(500).body(Map.of("ok", false, "error", e.getMessage()));
 		}

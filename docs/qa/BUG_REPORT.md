@@ -223,6 +223,16 @@
 - **Tests:** `AdminModelsGovernanceTest` (4) — missing id → 400, slash id passes through intact to the lookup, missing-CSRF → 403, unauth → 401/403.
 - **Verified live:** body route on `ollama:dimavz/whisper-tiny:latest` → **200**, DB `governance_tier` changed `approved-local` → `approved`; missing id → 400; path route for slashless still 200.
 
+## BUG-030 — Unconfigured provider (TTS / image gen) returns 500 instead of 503 — **MINOR (resilience)** — FIXED (2026-06-09)
+- **Found:** Phase 7 sweep — `POST /api/voice/speak` and `POST /api/images/generate` with no provider API key returned **500** (`{"error":"OpenAI API key not configured…"}`). A clear message, but a 500 marks an expected environmental state as a server fault — it trips error-rate alerts and contradicts the "providers degrade safely" criterion.
+- **Fix:** added `ProviderUnavailableException` (common); `VoiceService`/`ImageGenerationService` throw it for not-configured/unreachable providers; `GlobalExceptionHandler` maps it to **503**; the two controllers return 503 for that type (image still logs to `image_generation_log`). Regression: `GlobalExceptionHandlerTest.handlesProviderUnavailable`.
+- **Verified live:** voice & image with no key → **503**; empty input still → 400.
+
+## BUG-031 — Feedback with a non-numeric rating crashes with 500 — **MAJOR (product/API)** — FIXED (2026-06-09)
+- **Found:** `POST /api/feedback` with `"rating":"up"` (a string) → **500** deterministically. Root cause: `((Number) ratingObj).intValue()` throws `ClassCastException` for a non-Number JSON value (BUG-019 class — bad input → 500).
+- **Fix:** coerce rating safely in `ChatController.feedback` — accept a `Number` or a numeric string, else **400 "rating must be 1 or -1"**.
+- **Verified live:** string `"up"` → **400**, numeric string `"1"` → 200, number `1` → 200, out-of-range `5` → 400. (User-module controller has no unit harness; proven by live matrix.)
+
 ## OBS-007 — Admin mutating endpoints return 200 on a nonexistent id — **INFO (minor)**
 - `DELETE /api/admin/users/{id}`, `POST /api/admin/skills/{id}/approve`, `.../archive` return **200** for ids that don't exist (the underlying UPDATE/DELETE affects 0 rows). Idempotent and harmless, but a 404 would be more correct. Reset-password and model-governance *do* return 404 (changed==0 guard). Noted, not a blocker.
 
@@ -241,11 +251,11 @@
 | Severity | Count | IDs | Status |
 |---|---|---|---|
 | Critical | 1 | BUG-001 | FIXED |
-| Major | 18 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt), BUG-025 (missing-param 500→400), BUG-026 (a11y scrollable region), BUG-027 (calendar missing-times 500→400), BUG-028 (compare start 500→400/201), BUG-029 (model governance slash-id) | FIXED |
-| Minor | 11 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), BUG-021 (calendar end<start), OBS-004 (font CDN) | FIXED |
+| Major | 19 | BUG-006, BUG-009, BUG-012, BUG-013, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-022 (research IDOR), BUG-023 (research NPE), BUG-024 (research report 404), BUG-003 (test-debt), BUG-025 (missing-param 500→400), BUG-026 (a11y scrollable region), BUG-027 (calendar missing-times 500→400), BUG-028 (compare start 500→400/201), BUG-029 (model governance slash-id), BUG-031 (feedback rating type 500→400) | FIXED |
+| Minor | 12 | BUG-002, BUG-004, BUG-005, BUG-007 (frontend 404), BUG-008 (responsive), BUG-010 (a11y contrast), BUG-011 (a11y nested-interactive), BUG-015 (eventbus test race), BUG-021 (calendar end<start), OBS-004 (font CDN) | FIXED |
 | Info | 1 | OBS-001 | Noted (FK enforcement is per-connection) |
 
-**2026-06-09 sessions added BUG-025, BUG-026, BUG-027, BUG-028 (all MAJOR, all FIXED + regression coverage, all verified live) plus OBS-005/OBS-006 (by-design notes). The three 500→400 fixes (025/027/028) are all the BUG-019 "null reaches NOT-NULL column" class in newly-swept endpoints. Phase 5 admin sweep added BUG-029 (MAJOR, FIXED+verified live) plus OBS-007/008. Cumulative: 33 findings — ALL FIXED. 13 genuine product/security bugs (BUG-001, 006, 009, 012, 013, 016, 017, 018, 019, 020, 022 research-IDOR, 023 research-NPE, 024 research-report) + BUG-021 calendar validation — each with a regression test.**
+**2026-06-09 sessions added BUG-025, BUG-026, BUG-027, BUG-028 (all MAJOR, all FIXED + regression coverage, all verified live) plus OBS-005/OBS-006 (by-design notes). The three 500→400 fixes (025/027/028) are all the BUG-019 "null reaches NOT-NULL column" class in newly-swept endpoints. Phase 5 admin sweep added BUG-029 (MAJOR, FIXED+verified live) plus OBS-007/008. Phase 7/8 sweep added BUG-030 (MINOR, 503), BUG-031 (MAJOR, feedback type). Cumulative: 35 findings — ALL FIXED. 13 genuine product/security bugs (BUG-001, 006, 009, 012, 013, 016, 017, 018, 019, 020, 022 research-IDOR, 023 research-NPE, 024 research-report) + BUG-021 calendar validation — each with a regression test.**
 UX observations (not bugs): OBS-002 (prompt()-based CRUD), OBS-003 (calendar grid has no event edit/delete).
 
 **All identified bugs are fixed. Full suite is green: 1981 tests (common module), 0 failures, 0 errors, 0 skipped (`mvn test` BUILD SUCCESS, verified 2026-06-09 after BUG-015 race fix).**

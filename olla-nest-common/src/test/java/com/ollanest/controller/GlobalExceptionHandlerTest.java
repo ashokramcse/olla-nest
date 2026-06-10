@@ -112,6 +112,17 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	@DisplayName("ProviderUnavailableException → 503 (provider not configured is environmental, not a 500) — BUG-030")
+	void handlesProviderUnavailable() {
+		ProviderUnavailableException ex = new ProviderUnavailableException("OpenAI API key not configured for TTS");
+		ResponseEntity<Map<String, Object>> r = handler.handleProviderUnavailable(ex);
+		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+		assertThat(r.getBody()).containsEntry("ok", false);
+		// The actionable message is preserved (it names the missing config, not internal detail).
+		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("not configured");
+	}
+
+	@Test
 	@DisplayName("generic RuntimeException → 500 with generic message (no stack trace leaked)")
 	void handlesGenericException() {
 		RuntimeException ex = new RuntimeException("DB connection pool exhausted");

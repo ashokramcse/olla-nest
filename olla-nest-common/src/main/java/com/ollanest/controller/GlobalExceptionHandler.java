@@ -190,6 +190,19 @@ public class GlobalExceptionHandler {
 	}
 
 	/**
+	 * Maps {@link ProviderUnavailableException} (an optional external provider is
+	 * not configured or unreachable) to HTTP 503 Service Unavailable.
+	 *
+	 * @param ex the provider-unavailable exception
+	 * @return 503 with {@code {ok: false, error: "message"}}
+	 */
+	@ExceptionHandler(ProviderUnavailableException.class)
+	public ResponseEntity<Map<String, Object>> handleProviderUnavailable(ProviderUnavailableException ex) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+				.body(Map.of("ok", false, "error", ex.getMessage()));
+	}
+
+	/**
 	 * Catch-all handler for any unhandled runtime exceptions.
 	 *
 	 * <p>
