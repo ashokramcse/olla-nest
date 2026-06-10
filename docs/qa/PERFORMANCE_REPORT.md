@@ -19,6 +19,23 @@
 ## Assessment
 Read-path latency is excellent (single-digit ms p99) and error-free under 50 concurrent clients; no DB corruption or lock contention. This validates the basic concurrency-safety acceptance criterion ("stress tests do not corrupt DB").
 
+## 2026-06-09 — 100-VU load run (`perf/k6-write-path.js`, `--stage 10s:50 --stage 30s:100 --stage 10s:0`)
+Ramp 50 → **100 concurrent VUs** for 50s; each iteration = notes create → list → delete against the live user service (Java 26, SQLite/WAL).
+
+| Metric | Result |
+|---|---|
+| Total requests | **86,662** |
+| Error rate (`http_req_failed`) | **0.00%** (0 / 86,662) |
+| Checks succeeded | **100%** (login/create/list/delete) |
+| Throughput | **1,723 req/s** (574 full CRUD iters/s) |
+| Latency p50 / p90 / p95 / p99 | **0.67ms / 2.54ms / 3.54ms / 6.38ms** |
+| Max | 211ms |
+| Thresholds (p95<500, p99<1000, err<1%) | **all PASS** |
+
+**Integrity under load:** `PRAGMA integrity_check=ok`, no note-row leakage (count identical before/after — concurrent create/delete clean), servers healthy post-run. **No DB corruption, no lock errors, no degradation at 100 VUs.**
+
+> **Note:** this run's post-load FK audit surfaced **BUG-033** (SQLite `foreign_keys` was never enforced at runtime → cascades silently no-op'd, orphans accumulated). Fixed via JDBC URL params; cascades verified live. See `BUG_REPORT.md`.
+
 ## k6 write-path load test (`perf/k6-write-path.js`) — EXECUTED
 **Tooling:** k6 v2.0.0. **Scenario:** ramping 10 → 30 VUs over 40s; each iteration does notes **create → list → delete** (with cleanup) against the user service. **Thresholds:** p95 < 500ms, error rate < 1%, checks > 99%.
 

@@ -135,6 +135,12 @@ Two fixes this round: **BUG-030** (provider-not-configured 500→503, new `Provi
 
 One MAJOR fixed and live-verified (**BUG-032** — overrides/department/role now authoritative at runtime, deny enforced) via new `UserService.effectivePermissions` applied at session establishment. One HIGH security finding documented (**SEC-001** — sandbox arbitrary file read; proper fix = OS-level sandboxing, not a bypassable preamble). Test grants + stray test users cleaned up afterward (QA back to baseline). Full suite: **2157 testcases, 0 failures**.
 
+## Phase 17 — Load / stress + the data-integrity find
+
+- **k6 100-VU run:** 86,662 requests, **0 failures**, p95 **3.54ms**, p99 **6.38ms**, 1,723 req/s, 100% checks. Post-load `integrity_check=ok`, no row leakage, servers healthy. **No corruption/locks/degradation at 100 VUs.**
+- **SEC-001 fixed** (macOS `sandbox-exec`) — sandbox can no longer read `.env`/DB/`~/.ssh`; subprocess + network bypasses blocked; normal code still runs. Verified live.
+- **BUG-033 (MAJOR, data integrity) found + fixed:** SQLite `foreign_keys` was **never enforced at runtime** — the multi-PRAGMA `connection-init-sql` only ran its first statement under the Xerial driver, so every `ON DELETE CASCADE` silently no-op'd and orphans accumulated (this was the real cause behind OBS-001). Fixed by moving PRAGMAs to JDBC URL params. **Verified live:** calendar→events and thread→messages now cascade; user-delete with children → 200; orphans cleaned; `foreign_key_check` clean. Guard: `SchemaIntegrationTest.foreignKeysEnabledByConfig`.
+
 ## Verdict
 
 **PASS WITH MINOR ISSUES** for the local/single-tenant profile. **For any multi-tenant deployment, SEC-001 is a release blocker** until the sandbox runs under OS-level isolation — keep `sandbox:run` disabled there.

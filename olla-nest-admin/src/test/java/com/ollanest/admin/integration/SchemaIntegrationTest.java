@@ -339,6 +339,21 @@ class SchemaIntegrationTest {
     class ForeignKeyEnforcement {
 
         @Test
+        @DisplayName("foreign_keys is ENABLED by the datasource config (no manual PRAGMA) — BUG-033 guard")
+        void foreignKeysEnabledByConfig() {
+            // BUG-033: the multi-statement connection-init-sql only ran its FIRST PRAGMA
+            // under the Xerial driver, so foreign_keys was silently OFF in production —
+            // cascades never fired and orphan rows accumulated. The fix sets
+            // foreign_keys=on as a JDBC URL parameter (applied per connection by the
+            // driver). This asserts FK is ON WITHOUT us enabling it here.
+            List<Map<String, Object>> rows = db.queryForList("PRAGMA foreign_keys");
+            assertThat(rows).isNotEmpty();
+            Object val = rows.get(0).get("foreign_keys");
+            int fkEnabled = val instanceof Number ? ((Number) val).intValue() : 0;
+            assertThat(fkEnabled).as("datasource must enable foreign_keys without a manual PRAGMA").isEqualTo(1);
+        }
+
+        @Test
         @DisplayName("foreign_keys PRAGMA can be enabled per-connection in SQLite")
         void foreignKeysEnabled() {
             // Verify that enabling PRAGMA foreign_keys=ON works correctly at the
