@@ -166,6 +166,28 @@ The account-scoped email endpoints (`/api/email/accounts/{accountId}/messages…
 - **Fix:** controller ownership guard `denyIfNotOwned(user, accountId)` (404 unless `getAccount(accountId, user.id)` resolves) on every account-scoped endpoint, plus an owner-scoped JOIN in `generateReplyDraft`.
 - **Verified live:** second user → **404** on list/get/reply-draft/delete of user-1's account; owner → 200. See BUG-044.
 
+## 7f. Codebase-wide IDOR sweep — EXECUTED 2026-06-10 (exhaustive)
+
+Grepped every service for mutating/reading statements scoped by `id` without an owner/account filter, then traced each to its controller. Results:
+
+| Resource | Ownership enforcement | Verdict |
+|---|---|---|
+| Email messages (list/get/thread/read/star/delete/reply-draft) | controller `denyIfNotOwned` + service JOIN | **FIXED (BUG-044)** |
+| Background jobs (get/cancel) | owner-scoped overloads + controller 404 | **FIXED (BUG-045)** |
+| Research tasks (cancel) | `WHERE id=? AND owner=?` | FIXED (BUG-022) |
+| Email send | `getAccountWithPassword(accountId, owner)` | SAFE |
+| Email triage | poller-only (owner=null), not user-reachable | SAFE |
+| Notes / contacts / tasks / gallery / drafts / webhooks / api-tokens | service `WHERE … owner=?` | SAFE |
+| Calendar events (update/delete) | `verifyCalendarOwner`; no GET-by-id endpoint | SAFE |
+| Threads (delete/rename/activate/fork) | `WHERE id=? AND user_id=?` | SAFE |
+| Session fork/truncate/analyze | ownership verified before mutation | SAFE |
+| Skills CRUD | `WHERE id=? AND (owner=? OR owner IS NULL)` (shared) | SAFE |
+| Skills approve/archive, MCP/provider/SSO/model delete | admin-only controllers | SAFE (admin) |
+| Emoji serving | hex-only codepoint regex (no traversal) | SAFE |
+| Workspace browse | canonical-path confinement to `dataDir` | SAFE |
+
+**Conclusion:** ownership is now enforced on every user-reachable resource. The two real holes (email BUG-044, jobs BUG-045) are fixed; everything else was already correctly scoped (in service or controller layer).
+
 ## 8. Outstanding security work (NOT executed)
 - Dynamic IDOR with a second user account (ownership scoping on every `/{id}` route).
 - Forbidden-role (authenticated non-admin → admin endpoint = 403) — needs a non-admin session.
