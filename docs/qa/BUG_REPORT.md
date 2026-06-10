@@ -103,6 +103,13 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-046 — Email send broken in packaged app (Jakarta Mail ServiceLoader conflict) — **MAJOR (product)** — FIXED
+- **Feature:** `POST /api/email/accounts/{id}/send` (`EmailService.sendEmail` → Jakarta Mail `Transport.send`).
+- **Discovery:** live SMTP test (2026-06-10) against a local sink. Every send returned **500**: `Cannot load interface jakarta.mail.util.StreamProvider as ServiceLoader`. Invisible to unit tests (which mock JavaMail) — only reproducible running the real packaged jar.
+- **Root cause:** **two conflicting Jakarta Mail implementations** on the classpath — `org.eclipse.angus:jakarta.mail:2.0.5` (pulled by `spring-boot-starter-mail`, paired with `jakarta.activation-api:2.1.4`) **and** an explicitly-declared `com.sun.mail:jakarta.mail:2.0.1` (paired with `com.sun.activation:2.0.1`). Both register `META-INF/services/jakarta.mail.util.StreamProvider`; the version mismatch made the `ServiceLoader` fail to load the provider, so `Session`/`Transport` could not initialise.
+- **Fix:** removed the redundant explicit `com.sun.mail:jakarta.mail` dependency from `olla-nest-common/pom.xml`. Spring Boot's managed Angus implementation is the single, version-consistent provider. Source uses only `jakarta.mail.*` (no `com.sun.mail.*`), so no code change needed.
+- **Verification (live):** rebuilt + restarted; `POST …/send` → **200**; a local SMTP sink captured the real transaction — `MAIL FROM:<qa@local.test>`, `RCPT TO:<boss@example.com>`, correct Subject + Body. Dep tree now shows only `org.eclipse.angus:jakarta.mail`. Full `mvn test` BUILD SUCCESS.
+
 ## BUG-045 — IDOR: cross-user read/cancel of background jobs — **MAJOR (security)** — FIXED
 - **Feature:** `GET /api/jobs/{id}`, `DELETE /api/jobs/{id}` (`BackgroundJobService.getById/cancel`).
 - **Discovery:** systematic IDOR audit following BUG-044. Both endpoints only called `requireAuth`, then `getById(id)` / `cancel(id)` with **no owner scoping** (`WHERE id=?`). Any authenticated user could **read another user's job record** (including `result_json`/`error` output, which may contain sensitive data) or **cancel another user's running job**.

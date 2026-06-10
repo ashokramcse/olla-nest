@@ -98,15 +98,18 @@
 			</exclusions>
 		</dependency>
 
-		<!-- ── Email (IMAP / SMTP via Jakarta Mail) -->
+		<!-- ── Email (IMAP / SMTP via Jakarta Mail).
+		     spring-boot-starter-mail already provides the Eclipse Angus
+		     implementation (org.eclipse.angus:jakarta.mail) + jakarta.activation.
+		     BUG-046: an explicit com.sun.mail:jakarta.mail:2.0.1 used to be declared
+		     here too — having BOTH impls on the classpath registered two conflicting
+		     META-INF/services/jakarta.mail.util.StreamProvider entries, breaking the
+		     ServiceLoader at runtime ("Cannot load interface ... StreamProvider as
+		     ServiceLoader") and making every email send fail with HTTP 500. Removed
+		     the redundant dependency so a single, version-consistent impl is used. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>com.sun.mail</groupId>
-			<artifactId>jakarta.mail</artifactId>
-			<version>2.0.1</version>
 		</dependency>
 
 		<!-- ── iCal4j (CalDAV / ics parsing) -->
