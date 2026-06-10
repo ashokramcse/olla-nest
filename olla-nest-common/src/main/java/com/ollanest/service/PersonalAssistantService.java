@@ -112,6 +112,17 @@ public class PersonalAssistantService {
 		return create(owner);
 	}
 
+	/**
+	 * Creates the default personal-assistant ("crew member") record for a user on
+	 * first access — a friendly default avatar, personality, greeting, UTC timezone,
+	 * and autonomous-email disabled — and seeds its initial check-ins.
+	 *
+	 * @param owner the user id the assistant belongs to
+	 * @return the newly created assistant record
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> create(String owner) {
 		String id = "crew-" + Long.toString(System.currentTimeMillis(), 36) + "-"
 				+ UUID.randomUUID().toString().substring(0, 6);
@@ -131,6 +142,16 @@ public class PersonalAssistantService {
 		return enrichWithCheckIns(rows.get(0), owner);
 	}
 
+	/**
+	 * Seeds the default set of scheduled assistant check-ins (e.g. morning briefing)
+	 * for a new user. Each check-in id carries a random suffix so rapid first-access
+	 * calls cannot collide on the primary key (BUG-009 / BUG-013 class).
+	 *
+	 * @param owner the user id to seed check-ins for
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void seedCheckIns(String owner) {
 		String[][] checkIns = { { "Morning check-in", "09:00",
 				"Good morning! What are your top priorities for today? Let me know if you need help with anything." },
@@ -191,6 +212,18 @@ public class PersonalAssistantService {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
+	/**
+	 * Enriches an assistant record with its list of scheduled check-ins and
+	 * deserialises the {@code enabled_tools_json} column into an {@code enabled_tools}
+	 * list, producing the API-ready assistant payload.
+	 *
+	 * @param row   the raw {@code crew_members} row
+	 * @param owner the user id (to load the owner's check-ins)
+	 * @return the enriched assistant record
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> enrichWithCheckIns(Map<String, Object> row, String owner) {
 		Map<String, Object> result = new LinkedHashMap<>(row);
 		try {
@@ -204,6 +237,17 @@ public class PersonalAssistantService {
 		return result;
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper (used for the {@code enabled_tools_json}
+	 * column), returning {@code "[]"} on error so a bad value never aborts an
+	 * assistant write.
+	 *
+	 * @param obj the value to serialise
+	 * @return the JSON string, or {@code "[]"} on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toJson(Object obj) {
 		try {
 			return mapper.writeValueAsString(obj);

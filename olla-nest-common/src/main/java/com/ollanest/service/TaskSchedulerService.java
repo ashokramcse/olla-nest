@@ -251,6 +251,16 @@ public class TaskSchedulerService {
 		}
 	}
 
+	/**
+	 * Executes one due scheduled task end-to-end: records a {@code running}
+	 * {@code task_runs} row, dispatches to the LLM or action runner by task type,
+	 * stores the result/error and duration, and advances {@code next_run_at}.
+	 *
+	 * @param task the scheduled-task row to execute
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void executeTask(Map<String, Object> task) {
 		String taskId = (String) task.get("id");
 		String runId = "run-" + Long.toString(System.currentTimeMillis(), 36) + "-"
@@ -303,6 +313,18 @@ public class TaskSchedulerService {
 		}
 	}
 
+	/**
+	 * Runs a scheduled LLM task by sending the task's prompt to the configured model
+	 * and returning the assistant's response text.
+	 *
+	 * @param task  the scheduled-task row (uses the prompt/model fields)
+	 * @param owner the task owner (for model access and context)
+	 * @return the model's response text
+	 * @throws Exception on model-call failure
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String runLlmTask(Map<String, Object> task, String owner) throws Exception {
 		String prompt = (String) task.get("prompt");
 		if (prompt == null || prompt.isBlank())
@@ -324,6 +346,17 @@ public class TaskSchedulerService {
 		return mapper.readTree(resp.body()).path("message").path("content").asText("(no response)");
 	}
 
+	/**
+	 * Runs a scheduled action task (a non-LLM built-in action such as a digest or
+	 * reminder) and returns a human-readable summary of what was done.
+	 *
+	 * @param task  the scheduled-task row (uses the action type/config fields)
+	 * @param owner the task owner (scopes any data the action touches)
+	 * @return a summary of the action result
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String runActionTask(Map<String, Object> task, String owner) {
 		String action = (String) task.get("action");
 		return "Action '" + action + "' executed for " + owner;
@@ -378,6 +411,17 @@ public class TaskSchedulerService {
 		return next.toInstant().toString();
 	}
 
+	/**
+	 * Computes the next run timestamp for a task from its schedule (daily / weekly /
+	 * once) and configured time, returning {@code null} for one-shot tasks that have
+	 * already fired.
+	 *
+	 * @param task the scheduled-task row (uses schedule type, time, weekday fields)
+	 * @return the ISO-8601 next-run timestamp, or {@code null} if there is no next run
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String computeNextRunFromTask(Map<String, Object> task) {
 		return computeNextRun(task);
 	}

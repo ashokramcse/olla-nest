@@ -186,6 +186,17 @@ public class SearchCacheService {
 		}
 	}
 
+	/**
+	 * Returns the cache time-to-live (minutes) for a query type: short for volatile
+	 * {@code news} (15), long for {@code research} (360), and a moderate default (60)
+	 * for everything else.
+	 *
+	 * @param queryType the query category (may be null → {@code "general"})
+	 * @return the TTL in minutes
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private long ttlMinutes(String queryType) {
 		return switch (queryType != null ? queryType : "general") {
 		case "news" -> 15;
@@ -194,6 +205,15 @@ public class SearchCacheService {
 		};
 	}
 
+	/**
+	 * Evicts one cache entry by removing both its on-disk cache file and its index
+	 * row, ignoring any I/O error so cleanup is best-effort.
+	 *
+	 * @param cacheKey the cache key to evict
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void evict(String cacheKey) {
 		try {
 			Files.deleteIfExists(cacheFile(cacheKey));
@@ -202,6 +222,15 @@ public class SearchCacheService {
 		}
 	}
 
+	/**
+	 * Evicts the {@code count} least-valuable cache entries (lowest hit count, then
+	 * oldest) to bound the cache size.
+	 *
+	 * @param count the number of entries to evict
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private void evictOldest(int count) {
 		var oldest = db.queryForList(
 				"SELECT cache_key FROM search_cache_index ORDER BY hit_count ASC, cached_at ASC LIMIT ?", count);
@@ -209,6 +238,16 @@ public class SearchCacheService {
 			evict((String) row.get("cache_key"));
 	}
 
+	/**
+	 * Resolves the on-disk cache file path for a cache key under
+	 * {@code <dataDir>/search_cache/}.
+	 *
+	 * @param key the cache key
+	 * @return the cache file path
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Path cacheFile(String key) {
 		return Path.of(dataDir, "search_cache", key + ".cache");
 	}

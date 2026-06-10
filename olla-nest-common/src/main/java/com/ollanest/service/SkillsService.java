@@ -289,6 +289,18 @@ public class SkillsService {
 
 	// ── Private helpers ───────────────────────────────────────────────────────
 
+	/**
+	 * Maps a raw {@code skills} row to the API shape, deserialising the
+	 * {@code tags_json}/{@code platforms_json}/{@code procedure_json}/
+	 * {@code pitfalls_json}/{@code verification_json} columns into their list
+	 * equivalents (empty list on invalid JSON) and removing the raw columns.
+	 *
+	 * @param row the raw DB row
+	 * @return the API-mapped skill record
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> mapRow(Map<String, Object> row) {
 		Map<String, Object> r = new LinkedHashMap<>(row);
 		for (String field : List.of("tags_json", "platforms_json", "procedure_json", "pitfalls_json",
@@ -305,6 +317,16 @@ public class SkillsService {
 		return r;
 	}
 
+	/**
+	 * Null-safe JSON serialisation helper (used for the skill's array columns),
+	 * returning {@code "[]"} on error so a bad value never aborts a skill write.
+	 *
+	 * @param obj the value to serialise
+	 * @return the JSON string, or {@code "[]"} on error
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String toJson(Object obj) {
 		try {
 			return mapper.writeValueAsString(obj);
@@ -313,6 +335,18 @@ public class SkillsService {
 		}
 	}
 
+	/**
+	 * Null-safe read of a string field from a request map, returning {@code def} when
+	 * the key is absent or null.
+	 *
+	 * @param map the source map
+	 * @param key the field key
+	 * @param def the default to return when missing
+	 * @return the string value or the default
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String getString(Map<String, Object> map, String key, String def) {
 		Object v = map.get(key);
 		return v != null ? v.toString() : def;

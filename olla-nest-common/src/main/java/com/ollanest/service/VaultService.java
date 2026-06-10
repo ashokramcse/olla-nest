@@ -215,16 +215,43 @@ public class VaultService {
 		}
 	}
 
+	/**
+	 * Returns the configured Bitwarden CLI executable path from the singleton vault
+	 * config, defaulting to {@code "bw"} (on PATH) when unset.
+	 *
+	 * @return the {@code bw} CLI path
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String getBwPath() {
 		var rows = db.queryForList("SELECT bw_path FROM vault_config WHERE id='singleton'");
 		return rows.isEmpty() ? "bw" : (String) rows.get(0).getOrDefault("bw_path", "bw");
 	}
 
+	/**
+	 * Returns the configured vault (self-hosted Bitwarden/Vaultwarden) server URL, or
+	 * {@code null} when not configured.
+	 *
+	 * @return the server URL, or {@code null}
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String getServerUrl() {
 		var rows = db.queryForList("SELECT server_url FROM vault_config WHERE id='singleton'");
 		return rows.isEmpty() ? null : (String) rows.get(0).get("server_url");
 	}
 
+	/**
+	 * Returns the decrypted Bitwarden unlock session token used to authenticate CLI
+	 * calls while the vault is unlocked, or {@code null} when locked/unset.
+	 *
+	 * @return the decrypted session token, or {@code null}
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String getSession() {
 		try {
 			var rows = db.queryForList("SELECT session_enc FROM vault_config WHERE id='singleton'");

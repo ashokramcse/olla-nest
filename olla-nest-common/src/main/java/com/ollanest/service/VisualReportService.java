@@ -187,6 +187,16 @@ public class VisualReportService {
 						bodyHtml, sources != null ? sources.size() : 0, sourcesHtml, LocalDate.now().toString());
 	}
 
+	/**
+	 * Builds an HTML table-of-contents from a Markdown report by turning each
+	 * {@code #}/{@code ##} heading into an anchor link to its slugified id.
+	 *
+	 * @param markdown the report Markdown (may be null → empty TOC)
+	 * @return the HTML TOC fragment
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String buildToc(String markdown) {
 		if (markdown == null)
 			return "";
@@ -206,6 +216,16 @@ public class VisualReportService {
 		return sb.toString();
 	}
 
+	/**
+	 * Renders the report's citation/source list as an HTML fragment (titles linked to
+	 * their URLs), used to append a "Sources" section to the visual report.
+	 *
+	 * @param sources the list of source maps (title/url)
+	 * @return the HTML sources fragment
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String buildSourcesHtml(List<Map<String, Object>> sources) {
 		if (sources == null || sources.isEmpty())
 			return "<p style=\"color:var(--muted)\">No sources recorded.</p>";
@@ -221,6 +241,17 @@ public class VisualReportService {
 		return sb.toString();
 	}
 
+	/**
+	 * HTML-escapes a string (ampersand, angle brackets, quotes) so report content
+	 * derived from untrusted research data cannot inject markup into the rendered
+	 * visual report.
+	 *
+	 * @param s the raw string (may be null)
+	 * @return the HTML-escaped string, never null
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private String escape(String s) {
 		if (s == null)
 			return "";
