@@ -97,8 +97,9 @@ public class BackgroundJobController extends BaseController {
 	 */
 	@GetMapping("/{id}")
 	public ResponseEntity<?> get(HttpServletRequest req, @PathVariable String id) {
-		requireAuth(req);
-		var job = jobService.getById(id);
+		User user = requireAuth(req);
+		// BUG-045: owner-scoped — a user may only read their own job (admins: all).
+		var job = jobService.getById(id, "admin".equals(user.role) ? null : user.id);
 		if (job == null)
 			return notFound("Job not found");
 		return ok(job);
@@ -115,8 +116,13 @@ public class BackgroundJobController extends BaseController {
 	 */
 	@DeleteMapping("/{id}")
 	public ResponseEntity<?> cancel(HttpServletRequest req, @PathVariable String id) {
-		requireAuth(req);
-		boolean cancelled = jobService.cancel(id);
+		User user = requireAuth(req);
+		// BUG-045: owner-scoped — a user may only cancel their own job (admins: all).
+		// 404 when the job isn't owned so a user can't probe/cancel others' jobs.
+		var job = jobService.getById(id, "admin".equals(user.role) ? null : user.id);
+		if (job == null)
+			return notFound("Job not found");
+		boolean cancelled = jobService.cancel(id, "admin".equals(user.role) ? null : user.id);
 		return ok(Map.of("ok", true, "cancelled", cancelled));
 	}
 }

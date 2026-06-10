@@ -279,5 +279,26 @@ class BackgroundJobServiceTest {
 			when(db.queryForList(anyString(), eq("job-1"))).thenReturn(List.of(row));
 			assertThat(svc.getById("job-1")).isEqualTo(row);
 		}
+
+		@Test
+		@DisplayName("getById(id, owner) scopes the query to the owner (BUG-045 IDOR)")
+		void getByIdOwnerScoped() {
+			var row = Map.<String, Object>of("id", "job-1", "owner", OWNER);
+			when(db.queryForList(contains("WHERE id=? AND owner=?"), eq("job-1"), eq(OWNER))).thenReturn(List.of(row));
+			assertThat(svc.getById("job-1", OWNER)).isEqualTo(row);
+			// A different owner must not match — the WHERE includes owner.
+			when(db.queryForList(contains("WHERE id=? AND owner=?"), eq("job-1"), eq("other"))).thenReturn(List.of());
+			assertThat(svc.getById("job-1", "other")).isNull();
+		}
+
+		@Test
+		@DisplayName("cancel(id, owner) only cancels an owned job (BUG-045 IDOR)")
+		void cancelOwnerScoped() {
+			when(db.update(contains("WHERE id=? AND owner=?"), any(), eq("job-1"), eq("other"))).thenReturn(0);
+			// Not owned → no cancel, no thread interruption.
+			assertThat(svc.cancel("job-1", "other")).isFalse();
+			when(db.update(contains("WHERE id=? AND owner=?"), any(), eq("job-1"), eq(OWNER))).thenReturn(1);
+			assertThat(svc.cancel("job-1", OWNER)).isTrue();
+		}
 	}
 }

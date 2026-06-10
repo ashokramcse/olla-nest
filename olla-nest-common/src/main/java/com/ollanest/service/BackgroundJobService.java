@@ -166,6 +166,33 @@ public class BackgroundJobService {
 	}
 
 	/**
+	 * Owner-scoped cancel (BUG-045). Only cancels the job if it belongs to
+	 * {@code owner}; the running thread is interrupted only when a row is actually
+	 * updated, so a non-owner cannot cancel or interrupt another user's job. Pass
+	 * {@code owner == null} for an admin/no-filter cancel.
+	 *
+	 * @param id    the job ID
+	 * @param owner the requesting user's ID, or {@code null} for admin/no-filter
+	 * @return {@code true} if a job owned by the caller was found and cancelled
+	 * @since v2026.2.2
+	 */
+	public boolean cancel(String id, String owner) {
+		int rows = owner == null
+				? db.update("UPDATE background_jobs SET status='cancelled', finished_at=? WHERE id=?",
+						Instant.now().toString(), id)
+				: db.update("UPDATE background_jobs SET status='cancelled', finished_at=? WHERE id=? AND owner=?",
+						Instant.now().toString(), id, owner);
+		if (rows > 0) {
+			Thread t = runningThreads.get(id);
+			if (t != null) {
+				t.interrupt();
+				runningThreads.remove(id);
+			}
+		}
+		return rows > 0;
+	}
+
+	/**
 	 * Registers the thread executing this job so it can be interrupted on cancel.
 	 *
 	 * @param id     the job ID
@@ -211,6 +238,22 @@ public class BackgroundJobService {
 	 */
 	public Map<String, Object> getById(String id) {
 		var rows = db.queryForList("SELECT * FROM background_jobs WHERE id=?", id);
+		return rows.isEmpty() ? null : rows.get(0);
+	}
+
+	/**
+	 * Owner-scoped job lookup (BUG-045). Returns the job only if it belongs to
+	 * {@code owner}, so a user cannot read another user's job (result/error output
+	 * may be sensitive). Pass {@code owner == null} for an admin/no-filter lookup.
+	 *
+	 * @param id    the job ID
+	 * @param owner the requesting user's ID, or {@code null} for admin/no-filter
+	 * @return the job record, or {@code null} if not found / not owned
+	 * @since v2026.2.2
+	 */
+	public Map<String, Object> getById(String id, String owner) {
+		var rows = owner == null ? db.queryForList("SELECT * FROM background_jobs WHERE id=?", id)
+				: db.queryForList("SELECT * FROM background_jobs WHERE id=? AND owner=?", id, owner);
 		return rows.isEmpty() ? null : rows.get(0);
 	}
 

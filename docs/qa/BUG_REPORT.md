@@ -103,6 +103,12 @@
 - **Fix (approved by owner):** root source is **`theme.js`** (sets CSS vars at runtime, overriding `styles.css`). Light-theme `hdrMuted`/`muted2` `#888888` → `#6b6b6b` (5.3:1); login `.login-brand-eyebrow`/`em` yellow `var(--ac)` `#f5c800` → dark gold `var(--ac-dark)` `#7a5c00` (keeps brand identity); `.badge-green`/`.status-pill.ok` green `#16a34a` → `#15803d`. Dark theme already AA-compliant.
 - **Verification:** axe-core WCAG 2.0/2.1 A+AA = **0 violations** on admin-login, user-login, admin dashboard, workspace shell + notes (was up to 10 serious nodes/page). a11y gate tightened to **zero serious/critical**.
 
+## BUG-045 — IDOR: cross-user read/cancel of background jobs — **MAJOR (security)** — FIXED
+- **Feature:** `GET /api/jobs/{id}`, `DELETE /api/jobs/{id}` (`BackgroundJobService.getById/cancel`).
+- **Discovery:** systematic IDOR audit following BUG-044. Both endpoints only called `requireAuth`, then `getById(id)` / `cancel(id)` with **no owner scoping** (`WHERE id=?`). Any authenticated user could **read another user's job record** (including `result_json`/`error` output, which may contain sensitive data) or **cancel another user's running job**.
+- **Fix:** added owner-scoped overloads `getById(id, owner)` / `cancel(id, owner)` (`WHERE id=? AND owner=?`; the running thread is interrupted only when a row is actually owned). Controller passes `user.id` for regular users and `null` (no filter) for admins, and returns **404** when the job isn't owned.
+- **Verification:** regression tests `getByIdOwnerScoped` / `cancelOwnerScoped` assert the owner-scoped WHERE clause and that a non-owner gets null/false. Full `mvn test` BUILD SUCCESS.
+
 ## BUG-044 — IDOR: cross-user access to another user's email messages — **CRITICAL (security)** — FIXED
 - **Feature:** All account-scoped email endpoints — `GET/POST/DELETE /api/email/accounts/{accountId}/messages…`, `/threads/{threadId}`, `/messages/{id}/read|star|reply-draft`.
 - **Discovery:** feature-completeness sweep (2026-06-10). `reply-draft` to an arbitrary account returned **200**; deeper audit showed the controller only called `requireAuth(req)` and **never verified account ownership**, while the `EmailService` message queries scope by `account_id` **only** (no `owner`). `getMessage/getThread/markRead/markStarred/deleteMessage` don't even take an owner; `listMessages`/`generateReplyDraft` take `owner` but never used it in the SQL.
