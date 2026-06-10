@@ -141,6 +141,23 @@ One MAJOR fixed and live-verified (**BUG-032** — overrides/department/role now
 - **SEC-001 fixed** (macOS `sandbox-exec`) — sandbox can no longer read `.env`/DB/`~/.ssh`; subprocess + network bypasses blocked; normal code still runs. Verified live.
 - **BUG-033 (MAJOR, data integrity) found + fixed:** SQLite `foreign_keys` was **never enforced at runtime** — the multi-PRAGMA `connection-init-sql` only ran its first statement under the Xerial driver, so every `ON DELETE CASCADE` silently no-op'd and orphans accumulated (this was the real cause behind OBS-001). Fixed by moving PRAGMAs to JDBC URL params. **Verified live:** calendar→events and thread→messages now cascade; user-delete with children → 200; orphans cleaned; `foreign_key_check` clean. Guard: `SchemaIntegrationTest.foreignKeysEnabledByConfig`.
 
+## Phase 12 + Phase 16 live sweep — clean (no new bugs)
+
+**API tokens (Phase 12):** mint returns the plaintext `oly_…` **once**; list exposes only `token_prefix` + `is_active` (never the full token); DB stores **only the BCrypt hash** (plaintext-as-hash match = 0); Bearer auth works; **`is_active` enforced** (DB-deactivate → 401, reactivate → 200); **revoke enforced** (→ 401); malformed/garbage Bearer → 401. *(Note: `/api/auth/me` is unauthenticated-safe and always 200 — not a valid auth probe; use `/api/account/profile`.)*
+
+**Companion / jobs:** companion info/ping 200, `pair` **admin-gated by design** (403 for non-admin, like Vault — OBS-005 class). Jobs: list 200, `/active` **admin-only by design** (403), get-missing 404, delete-missing 200 (OBS-007 class).
+
+**Injection sweep (Phase 16, live):**
+| Vector | Result |
+|---|---|
+| SQLi — `' OR 1=1`, `UNION SELECT token_hash`, `'; DROP TABLE notes;--` on contacts/skills/memory search | all **200, no 500, no leak**; `notes` table intact after DROP attempt → parameterized ✓ |
+| Path traversal — workspace `?path=../../etc/passwd` | **403** (rights-gated) |
+| Path traversal — gallery `?path=../../etc/passwd` | param ignored → `[]` (no file served) ✓ |
+| Stored XSS — note `<img onerror>`/`<script>` title+body | stored raw but **`esc()`-escaped at render** (`features.js:261-262`); IDs in handlers are server-generated → **no XSS** ✓ |
+| XSS — admin user name `<script>` | HTML-escaped at storage (`&lt;script&gt;`) ✓ |
+
+All clean — no fixes needed. Test tokens/users cleaned up afterward; `foreign_key_check` clean.
+
 ## Verdict
 
 **PASS WITH MINOR ISSUES** for the local/single-tenant profile. **For any multi-tenant deployment, SEC-001 is a release blocker** until the sandbox runs under OS-level isolation — keep `sandbox:run` disabled there.
