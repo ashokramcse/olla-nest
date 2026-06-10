@@ -41,12 +41,21 @@ import jakarta.servlet.http.HttpServletRequest;
 @DisplayName("ImageController.generate() — validation + provider 503 (BUG-030)")
 class ImageControllerTest {
 
+	/** Mocked image-generation service; stubbed per-test to return a result or throw. */
 	@Mock ImageGenerationService imageService;
+	/** Mocked JDBC template used for the generation-log INSERT. */
 	@Mock JdbcTemplate db;
+	/** Mocked request carrying the authenticated user + CSRF header. */
 	@Mock HttpServletRequest req;
 
+	/** Controller under test, constructed with the mocked collaborators. */
 	private ImageController controller;
 
+	/**
+	 * Builds the controller and arms the request as an authenticated user with the
+	 * CSRF header and POST method so each test starts past the auth guard unless it
+	 * overrides the user.
+	 */
 	@BeforeEach
 	void setUp() {
 		controller = new ImageController(imageService, db);
@@ -58,6 +67,7 @@ class ImageControllerTest {
 		when(req.getMethod()).thenReturn("POST");
 	}
 
+	/** A blank prompt is rejected with 400 before the provider is invoked. */
 	@Test
 	@DisplayName("blank prompt → 400")
 	void blankPromptRejected() {
@@ -65,6 +75,11 @@ class ImageControllerTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 	}
 
+	/**
+	 * A missing/unreachable provider is environmental: the controller maps
+	 * {@link ProviderUnavailableException} to 503 (not 500) and still records the
+	 * attempt (BUG-030).
+	 */
 	@Test
 	@DisplayName("provider not configured → 503, error logged")
 	void providerUnavailableMaps503() throws Exception {
@@ -75,6 +90,7 @@ class ImageControllerTest {
 		assertThat(r.getBody()).containsEntry("ok", false);
 	}
 
+	/** Any other (genuine) failure remains a 500 so real faults are not masked. */
 	@Test
 	@DisplayName("other failure → 500")
 	void otherErrorMaps500() throws Exception {
@@ -83,6 +99,7 @@ class ImageControllerTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 
+	/** On success the controller returns 200 with the provider and image URL. */
 	@Test
 	@DisplayName("success → 200 with provider + url")
 	void successReturnsImage() throws Exception {
@@ -93,6 +110,7 @@ class ImageControllerTest {
 		assertThat(r.getBody()).containsEntry("ok", true).containsEntry("imageUrl", "https://cdn/x.png");
 	}
 
+	/** With no authenticated user the auth guard short-circuits to 401. */
 	@Test
 	@DisplayName("unauthenticated → 401")
 	void unauthenticatedRejected() {

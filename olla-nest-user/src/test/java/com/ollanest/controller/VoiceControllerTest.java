@@ -39,11 +39,19 @@ import jakarta.servlet.http.HttpServletRequest;
 @DisplayName("VoiceController.speak() — validation + provider 503 (BUG-030)")
 class VoiceControllerTest {
 
+	/** Mocked TTS/STT service; stubbed per-test to return audio or throw. */
 	@Mock VoiceService voiceService;
+	/** Mocked request carrying the authenticated user + CSRF header. */
 	@Mock HttpServletRequest req;
 
+	/** Controller under test, constructed with the mocked service. */
 	private VoiceController controller;
 
+	/**
+	 * Builds the controller and arms the request as an authenticated user with the
+	 * CSRF header and POST method so each test starts past
+	 * {@code guardAuthWithCsrf} unless it overrides the user.
+	 */
 	@BeforeEach
 	void setUp() {
 		controller = new VoiceController(voiceService);
@@ -55,6 +63,7 @@ class VoiceControllerTest {
 		when(req.getMethod()).thenReturn("POST");
 	}
 
+	/** Blank synthesis text is rejected with 400 before the service is called. */
 	@Test
 	@DisplayName("blank text → 400")
 	void blankTextRejected() {
@@ -62,6 +71,10 @@ class VoiceControllerTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 	}
 
+	/**
+	 * A missing/unreachable provider is an environmental fault: the controller must
+	 * translate {@link ProviderUnavailableException} into 503, not 500 (BUG-030).
+	 */
 	@Test
 	@DisplayName("provider not configured → 503 (not 500)")
 	void providerUnavailableMaps503() throws Exception {
@@ -71,6 +84,7 @@ class VoiceControllerTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
 	}
 
+	/** Any other (genuine) failure remains a 500 so real faults are not masked. */
 	@Test
 	@DisplayName("other failure → 500")
 	void otherErrorMaps500() throws Exception {
@@ -79,6 +93,7 @@ class VoiceControllerTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 
+	/** On success the controller returns 200 with the raw MP3 byte body. */
 	@Test
 	@DisplayName("success → 200 with audio bytes")
 	void successReturnsAudio() throws Exception {
@@ -88,6 +103,7 @@ class VoiceControllerTest {
 		assertThat(r.getBody()).isInstanceOf(byte[].class);
 	}
 
+	/** With no authenticated user the auth guard short-circuits to 401. */
 	@Test
 	@DisplayName("unauthenticated → 401")
 	void unauthenticatedRejected() {

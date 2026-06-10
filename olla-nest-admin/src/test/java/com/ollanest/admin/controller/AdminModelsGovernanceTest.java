@@ -53,6 +53,11 @@ class AdminModelsGovernanceTest {
 
 	private AdminModelsController controller;
 
+	/**
+	 * Builds the controller (its constructor needs a non-null {@code DataSource} for
+	 * the transaction template) and arms the request as an authenticated admin with
+	 * the CSRF header so each test starts past the auth guard unless it overrides.
+	 */
 	@BeforeEach
 	void setUp() {
 		when(db.getDataSource()).thenReturn(dataSource);
@@ -66,6 +71,7 @@ class AdminModelsGovernanceTest {
 		lenient().when(req.getHeader("x-requested-with")).thenReturn("XMLHttpRequest");
 	}
 
+	/** The body route requires {@code id}; omitting it is a 400 (no model touched). */
 	@Test
 	@DisplayName("missing id in body → 400")
 	void missingIdRejected() {
@@ -76,6 +82,11 @@ class AdminModelsGovernanceTest {
 		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("id");
 	}
 
+	/**
+	 * Core BUG-029 guard: a slash-containing id reaches the {@code WHERE id = ?}
+	 * lookup intact (proving it is not truncated/rejected by path routing); absent
+	 * model → 404.
+	 */
 	@Test
 	@DisplayName("slash-containing id is passed through intact to the model lookup (404 when absent)")
 	void slashIdReachesLookup() {
@@ -89,6 +100,7 @@ class AdminModelsGovernanceTest {
 		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("not found");
 	}
 
+	/** A state-changing PATCH without the CSRF header is forbidden (403). */
 	@Test
 	@DisplayName("PATCH without CSRF header is forbidden (403)")
 	void missingCsrfHeaderForbidden() {
@@ -98,6 +110,7 @@ class AdminModelsGovernanceTest {
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
 	}
 
+	/** With no authenticated user the auth guard rejects the request (401/403). */
 	@Test
 	@DisplayName("unauthenticated request is rejected (no governance applied)")
 	void unauthenticatedRejected() {

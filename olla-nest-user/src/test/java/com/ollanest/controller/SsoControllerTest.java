@@ -21,7 +21,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ollanest.model.User;
 import com.ollanest.service.AuthService;
 import com.ollanest.service.CryptoService;
@@ -47,15 +46,27 @@ import jakarta.servlet.http.HttpServletRequest;
 @DisplayName("SsoController.adminCreateProvider() — validation (BUG-035)")
 class SsoControllerTest {
 
+	/** SSO service collaborator (not exercised by the create path under test). */
 	@Mock SsoService ssoService;
+	/** Auth service collaborator (not exercised by the create path under test). */
 	@Mock AuthService authService;
+	/** Crypto service used to encrypt the client secret at rest. */
 	@Mock CryptoService cryptoService;
+	/** User service collaborator (not exercised by the create path under test). */
 	@Mock UserService userService;
+	/** Mocked JDBC template; verified to ensure rows are/aren't persisted. */
 	@Mock JdbcTemplate db;
+	/** Mocked request carrying the authenticated user + CSRF header. */
 	@Mock HttpServletRequest req;
 
+	/** Controller under test, constructed with the mocked collaborators. */
 	private SsoController controller;
 
+	/**
+	 * Builds the controller and arms the request as an authenticated admin with the
+	 * CSRF header so each test starts past the auth guard unless it overrides the
+	 * user.
+	 */
 	@BeforeEach
 	void setUp() {
 		controller = new SsoController(ssoService, authService, cryptoService, userService, db);
@@ -67,6 +78,10 @@ class SsoControllerTest {
 		when(req.getHeader("x-requested-with")).thenReturn("XMLHttpRequest");
 	}
 
+	/**
+	 * An empty body omits the NOT-NULL {@code type}/{@code name}; the controller must
+	 * return 400 with a clear message and must not attempt an INSERT (BUG-035).
+	 */
 	@Test
 	@DisplayName("empty body → 400, nothing persisted")
 	void emptyBodyRejected() {
@@ -77,6 +92,7 @@ class SsoControllerTest {
 		verify(db, never()).update(contains("INSERT INTO sso_providers"), any(Object[].class));
 	}
 
+	/** A type without a name is still incomplete → 400, no INSERT. */
 	@Test
 	@DisplayName("missing name → 400")
 	void missingNameRejected() {
@@ -85,6 +101,10 @@ class SsoControllerTest {
 		verify(db, never()).update(contains("INSERT INTO sso_providers"), any(Object[].class));
 	}
 
+	/**
+	 * With both required fields the provider persists once, and the plaintext client
+	 * secret is routed through {@code encryptKey} — never stored raw.
+	 */
 	@Test
 	@DisplayName("valid type+name → 200, secret encrypted, persists once")
 	void validCreateEncryptsAndPersists() {
@@ -98,6 +118,7 @@ class SsoControllerTest {
 		verify(db).update(contains("INSERT INTO sso_providers"), any(Object[].class));
 	}
 
+	/** A non-admin caller is blocked by the auth guard before any persistence. */
 	@Test
 	@DisplayName("non-admin is forbidden (no persist)")
 	void nonAdminForbidden() {
