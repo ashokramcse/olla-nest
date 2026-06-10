@@ -8,6 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.assertj.core.data.Offset;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -70,7 +71,7 @@ class EmbeddingServiceTest {
 	@DisplayName("cosineSimilarity of identical vectors ≈ 1.0")
 	void identicalVectorsAreOne() {
 		List<Double> v = List.of(1.0, 2.0, 3.0);
-		assertThat(svc.cosineSimilarity(v, v)).isCloseTo(1.0, org.assertj.core.data.Offset.offset(1e-9));
+		assertThat(svc.cosineSimilarity(v, v)).isCloseTo(1.0, Offset.offset(1e-9));
 	}
 
 	/**

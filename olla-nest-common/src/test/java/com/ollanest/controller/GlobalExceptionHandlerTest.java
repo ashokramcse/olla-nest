@@ -17,6 +17,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -124,8 +125,7 @@ class GlobalExceptionHandlerTest {
 	@Test
 	@DisplayName("MissingServletRequestPartException → 400 (regression: upload with no file was 500) — BUG-038")
 	void handlesMissingMultipartPart() {
-		org.springframework.web.multipart.support.MissingServletRequestPartException ex = new org.springframework.web.multipart.support.MissingServletRequestPartException(
-				"file");
+		MissingServletRequestPartException ex = new MissingServletRequestPartException("file");
 		ResponseEntity<Map<String, Object>> r = handler.handleMissingPart(ex);
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 		assertThat(r.getBody()).containsEntry("ok", false);

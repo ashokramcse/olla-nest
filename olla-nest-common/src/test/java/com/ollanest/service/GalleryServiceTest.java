@@ -1,6 +1,8 @@
 package com.ollanest.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
@@ -218,7 +220,7 @@ class GalleryServiceTest {
 		@DisplayName("non-image bytes (text renamed .png) → IllegalArgumentException, no INSERT")
 		void rejectsNonImage() throws Exception {
 			byte[] notImage = "<?php system($_GET[c]); ?>".getBytes();
-			org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.uploadImage(OWNER, notImage, "shell.png", null))
+			assertThatThrownBy(() -> svc.uploadImage(OWNER, notImage, "shell.png", null))
 					.isInstanceOf(IllegalArgumentException.class);
 			verify(db, never()).update(contains("INSERT INTO gallery_images"), any(Object[].class));
 		}
@@ -235,7 +237,7 @@ class GalleryServiceTest {
 		@Test
 		@DisplayName("empty file → IllegalArgumentException")
 		void rejectsEmpty() {
-			org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.uploadImage(OWNER, new byte[0], "x.png", null))
+			assertThatThrownBy(() -> svc.uploadImage(OWNER, new byte[0], "x.png", null))
 					.isInstanceOf(IllegalArgumentException.class);
 		}
 
@@ -256,8 +258,7 @@ class GalleryServiceTest {
 			when(db.queryForList(contains("file_hash"), anyString(), eq(OWNER))).thenReturn(List.of());
 			when(db.queryForList(contains("FROM gallery_images WHERE id"), anyString())).thenReturn(List.of());
 			// Must not throw the validation exception; any later read-back returning empty is fine.
-			org.assertj.core.api.Assertions
-					.assertThatCode(() -> svc.uploadImage(OWNER, png, "ok.png", null))
+			assertThatCode(() -> svc.uploadImage(OWNER, png, "ok.png", null))
 					.doesNotThrowAnyException();
 			verify(db).update(contains("INSERT INTO gallery_images"), any(Object[].class));
 		}
