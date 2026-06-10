@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -332,7 +333,54 @@ public class CodeSandboxService {
 				shellCmd.append(' ');
 			shellCmd.append(shellEscape(cmd.get(i)));
 		}
-		return List.of("bash", "-c", shellCmd.toString());
+		List<String> shellWrapped = List.of("bash", "-c", shellCmd.toString());
+
+		// SEC-001 mitigation: on macOS wrap the whole invocation in `sandbox-exec`
+		// with a profile that denies network and denies reads/writes of the server's
+		// home and application directories — where the `.env` (ENCRYPTION_KEY, admin
+		// password) and the SQLite DB (all users' data + secrets) live. System paths
+		// (/usr, /System, /opt, the interpreter, the per-run temp workdir) stay
+		// readable so interpreters still start. If sandbox-exec is unavailable we fall
+		// back to the unwrapped invocation rather than fail closed and break the
+		// feature; Linux deployments should run this under bwrap/container isolation.
+		if (isMac() && Files.isExecutable(Path.of(SANDBOX_EXEC))) {
+			List<String> wrapped = new ArrayList<>();
+			wrapped.add(SANDBOX_EXEC);
+			wrapped.add("-p");
+			wrapped.add(macSandboxProfile());
+			wrapped.addAll(shellWrapped);
+			return wrapped;
+		}
+		return shellWrapped;
+	}
+
+	/** Absolute path to the macOS seatbelt sandbox launcher. */
+	private static final String SANDBOX_EXEC = "/usr/bin/sandbox-exec";
+
+	/**
+	 * Builds a macOS seatbelt profile that allows normal execution but blocks
+	 * network access and denies read/write of the operator's home directory and the
+	 * application's working directory (which contains {@code .env} and the SQLite
+	 * database). "Last matching rule wins", so the broad {@code (allow default)} is
+	 * narrowed by the trailing deny rules.
+	 */
+	private static String macSandboxProfile() {
+		String home = System.getProperty("user.home", "");
+		String appDir = System.getProperty("user.dir", "");
+		StringBuilder denied = new StringBuilder();
+		for (String p : new String[] { home, appDir }) {
+			if (p != null && !p.isBlank())
+				denied.append("(subpath \"").append(p.replace("\"", "\\\"")).append("\")");
+		}
+		// If we somehow have no paths to protect, still deny network.
+		String denyRules = denied.length() == 0 ? ""
+				: "(deny file-read* " + denied + ")(deny file-write* " + denied + ")";
+		return "(version 1)(allow default)(deny network*)" + denyRules;
+	}
+
+	/** @return {@code true} if running on macOS (os.name contains "mac"). */
+	private static boolean isMac() {
+		return System.getProperty("os.name", "").toLowerCase().contains("mac");
 	}
 
 	/** Single-quotes a shell argument, escaping embedded single quotes. */
