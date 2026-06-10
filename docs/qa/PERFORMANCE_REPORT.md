@@ -19,6 +19,21 @@
 ## Assessment
 Read-path latency is excellent (single-digit ms p99) and error-free under 50 concurrent clients; no DB corruption or lock contention. This validates the basic concurrency-safety acceptance criterion ("stress tests do not corrupt DB").
 
+## 2026-06-09 — 15-min soak (`--stage 30s:20 --stage 14m:20 --stage 30s:0`)
+Sustained **20 VUs for 15 minutes** against the live user service.
+
+| Metric | Result |
+|---|---|
+| Total requests | **499,843** |
+| Error rate | **0.00%** (0 failures) |
+| Checks | **0 failed** / 499,843 |
+| Throughput | **555 req/s** (185 CRUD iters/s, 166,614 iterations) |
+| Latency p50 / p90 / p95 | **1.08ms / 2.71ms / 3.47ms** (max 217ms) |
+| Data transferred | 1.4 GB received / 136 MB sent |
+| **User-JVM RSS** | **444 MB → 455 MB** (flat across 15 min) |
+
+**Leak/drift verdict:** RSS flat (GC reclaimed transient growth that peaked ~543MB mid-run), latency stable, zero errors — **no memory leak, no latency drift, no degradation under sustained load.**
+
 ## 2026-06-09 — 100-VU load run (`perf/k6-write-path.js`, `--stage 10s:50 --stage 30s:100 --stage 10s:0`)
 Ramp 50 → **100 concurrent VUs** for 50s; each iteration = notes create → list → delete against the live user service (Java 26, SQLite/WAL).
 

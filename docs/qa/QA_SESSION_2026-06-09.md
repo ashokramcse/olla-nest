@@ -158,6 +158,18 @@ One MAJOR fixed and live-verified (**BUG-032** — overrides/department/role now
 
 All clean — no fixes needed. Test tokens/users cleaned up afterward; `foreign_key_check` clean.
 
+## Phase 13/17 close-out — connectors, SSO, soak, test coverage
+
+- **BUG-035 / BUG-036 (MAJOR, BUG-019 class) fixed + verified live:** SSO admin provider create and admin connector create returned **500** on missing `type`/`name` (NOT-NULL); now **400** with a clear message. Valid creates work and **encrypt secrets/credentials at rest** (verified no plaintext in DB or API).
+- **Soak (15 min @ 20 VUs):** **499,843 requests, 0 failures**, p95 **3.47ms**, 555 req/s, **166,614 iterations, 0 checks failed**. User-JVM RSS **flat (444→455MB)** across the run → **no memory leak, no latency drift, no degradation**.
+- **Credential-adjacent paths verified clean:** email account validation (→400) + **password encrypted at rest**; SSO/connector **secret encryption**; SSO callback bad-state → safe **302**; empty-body probe across 18 create endpoints (only 035/036 were 500s, both fixed).
+
+### Test-coverage audit + remediation (per coding standard)
+- **Unit (Mockito):** services are well-covered (only `RagService`, `EmbeddingService`, `OllamaService`, `BackupService` lack a `*Test`). **Controllers were largely untested — 46 had no unit test, and the `olla-nest-user` module had no test source set or test dependency at all.**
+- **Fixed:** added the `spring-boot-starter-test` dependency + test tree to `olla-nest-user`, and wrote Mockito unit tests guarding every controller fix from this engagement: `AdminConnectorControllerTest` (5, BUG-036), `SsoControllerTest` (4, BUG-035), `VoiceControllerTest` (5, BUG-030), `ImageControllerTest` (5, BUG-030), plus the earlier `AdminModelsGovernanceTest` (4, BUG-029). **Full suite: 2177 testcases, 0 failures.**
+- **Remaining unit debt (tracked, not hidden):** ~42 controllers still lack unit tests and 4 services (`RagService`/`EmbeddingService`/`OllamaService`/`BackupService`). The user-module infra now exists, so these are straightforward to add incrementally.
+- **UI (Playwright):** 13 specs cover login, CRUD (notes/tasks/contacts/calendar/more), admin tabs, negative paths, a11y (axe — BUG-026 guarded), visual regression, workspace — **164 green**. API-only fixes (035/036/030) are guarded by the new unit tests rather than UI (no provider/UI surface to exercise without external creds).
+
 ## Verdict
 
 **PASS WITH MINOR ISSUES** for the local/single-tenant profile. **For any multi-tenant deployment, SEC-001 is a release blocker** until the sandbox runs under OS-level isolation — keep `sandbox:run` disabled there.
