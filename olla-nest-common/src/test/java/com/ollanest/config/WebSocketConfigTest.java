@@ -34,6 +34,15 @@ class WebSocketConfigTest {
 	@Mock
 	WebSocketAuthInterceptor authInterceptor;
 
+	/**
+	 * The WebSocket configuration must construct cleanly with its mocked terminal
+	 * handler and auth interceptor — a smoke test that the WebSocket wiring has no
+	 * constructor-time defects.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("WebSocketConfig instantiates without throwing")
 	void constructionSucceeds() {
@@ -42,6 +51,13 @@ class WebSocketConfigTest {
 		assertThatCode(() -> new WebSocketConfig(terminalService, authInterceptor)).doesNotThrowAnyException();
 	}
 
+	/**
+	 * The constructor must return a usable, non-null config instance.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("WebSocketConfig instance is non-null")
 	void instanceIsNotNull() {

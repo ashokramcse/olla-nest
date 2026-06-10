@@ -35,6 +35,15 @@ class SecurityConfigTest {
 	@Mock
 	SecurityHeadersFilter securityHeadersFilter;
 
+	/**
+	 * The security configuration must construct cleanly with its mocked filter
+	 * collaborators — a smoke test that the Spring Security wiring has no
+	 * constructor-time defects.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("SecurityConfig instantiates without throwing")
 	void constructionSucceeds() {
@@ -43,6 +52,13 @@ class SecurityConfigTest {
 		assertThatCode(() -> new SecurityConfig(sessionAuthFilter, securityHeadersFilter)).doesNotThrowAnyException();
 	}
 
+	/**
+	 * The constructor must return a usable, non-null instance (not a swallowed null).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("SecurityConfig instance is non-null")
 	void instanceIsNotNull() {

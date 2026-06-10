@@ -26,6 +26,15 @@ import org.mockito.quality.Strictness;
 @DisplayName("WebConfig — unit tests")
 class WebConfigTest {
 
+	/**
+	 * The web (static-resource) configuration must construct cleanly without a Spring
+	 * context — a smoke test that the resource-handler wiring has no constructor-time
+	 * defects.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("WebConfig instantiates without throwing")
 	void constructionSucceeds() {
@@ -33,6 +42,13 @@ class WebConfigTest {
 		assertThatCode(WebConfig::new).doesNotThrowAnyException();
 	}
 
+	/**
+	 * The constructor must return a usable, non-null instance.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("WebConfig instance is non-null")
 	void instanceIsNotNull() {
