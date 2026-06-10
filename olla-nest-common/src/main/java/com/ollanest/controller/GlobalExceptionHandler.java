@@ -12,6 +12,8 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -201,6 +203,29 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<Map<String, Object>> handleProviderUnavailable(ProviderUnavailableException ex) {
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
 				.body(Map.of("ok", false, "error", ex.getMessage()));
+	}
+
+	/**
+	 * Maps a missing or unreadable multipart file part
+	 * ({@link MissingServletRequestPartException} / {@link MultipartException}) to
+	 * HTTP 400.
+	 *
+	 * <p>
+	 * A file-upload endpoint invoked with no file part (or a malformed multipart
+	 * body) is a caller error, not a server fault; without this handler it falls
+	 * through to the generic catch-all and is reported as a misleading 500 (the
+	 * BUG-025 / BUG-038 class).
+	 *
+	 * @param ex the multipart exception
+	 * @return 400 with {@code {ok: false, error: "..."}}
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
+	@ExceptionHandler({ MissingServletRequestPartException.class, MultipartException.class })
+	public ResponseEntity<Map<String, Object>> handleMissingPart(Exception ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(Map.of("ok", false, "error", "A required file upload is missing or the form is malformed"));
 	}
 
 	/**

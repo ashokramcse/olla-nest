@@ -111,6 +111,27 @@ class GlobalExceptionHandlerTest {
 		assertThat(r.getBody().get("error").toString()).contains("q");
 	}
 
+	/**
+	 * A file-upload endpoint invoked with no file part must surface as a 400 (caller
+	 * error), not the misleading 500 that the framework's
+	 * {@link org.springframework.web.multipart.support.MissingServletRequestPartException}
+	 * would otherwise produce via the generic catch-all (BUG-038 / BUG-025 class).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.10
+	 * @version v2026.1.10
+	 */
+	@Test
+	@DisplayName("MissingServletRequestPartException → 400 (regression: upload with no file was 500) — BUG-038")
+	void handlesMissingMultipartPart() {
+		org.springframework.web.multipart.support.MissingServletRequestPartException ex = new org.springframework.web.multipart.support.MissingServletRequestPartException(
+				"file");
+		ResponseEntity<Map<String, Object>> r = handler.handleMissingPart(ex);
+		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(r.getBody()).containsEntry("ok", false);
+		assertThat(r.getBody().get("error").toString()).containsIgnoringCase("file upload");
+	}
+
 	@Test
 	@DisplayName("ProviderUnavailableException → 503 (provider not configured is environmental, not a 500) — BUG-030")
 	void handlesProviderUnavailable() {
