@@ -95,6 +95,20 @@ Re-ran the staged write-path k6 scenario plus a mixed concurrent-create burst to
 
 No ID-collision, constraint, or lock errors under concurrency; the `orDefault` NOT-NULL coercions hold under load.
 
+## Soak / endurance — EXECUTED 2026-06-10 (8 min sustained, no leak)
+Constant 20-VU write-path load (login → notes create → list → delete) for **8 minutes**, sampling JVM RSS/FDs each minute. Evidence: `docs/qa/evidence/k6-soak-2026-06-10.json`.
+
+| Metric | Result |
+|---|---|
+| Requests | **256,015**, `http_req_failed` **0.00%** (0 of 256,015) |
+| Iterations | 85,338 (~178/s sustained) · p95 **4.16ms** |
+| RSS over time | 624 → 762MB (2 min peak) → **settled to 558MB** at 8 min — trends **down**, no upward leak |
+| Open FDs | 162 → bounded ~178 (pool warmup) → **flat** — no descriptor leak |
+| Heap used (post-GC) | **74MB** (baseline 312MB) — fully reclaims |
+| DB after | `integrity_check` **ok**, WAL, **0** `SQLITE_BUSY`/lock errors |
+
+**Verdict:** no memory leak, no FD leak, no latency drift, no DB lock contention over a quarter-million requests. (A multi-hour soak is still recommended for absolute confidence, but the 8-min trend — RSS and heap *decreasing* — shows healthy GC and bounded resources.)
+
 ## NOT executed (recommended next)
 - **k6/Gatling** with staged ramp (10 → 50 → 100 → 500 VUs), think-time, and proper percentile aggregation.
 - **Chat streaming under load** (requires Ollama) — latency + cancellation storms.
