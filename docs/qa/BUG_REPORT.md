@@ -108,7 +108,10 @@
 - **Discovery:** live SMTP test (2026-06-10) against a local sink. Every send returned **500**: `Cannot load interface jakarta.mail.util.StreamProvider as ServiceLoader`. Invisible to unit tests (which mock JavaMail) — only reproducible running the real packaged jar.
 - **Root cause:** **two conflicting Jakarta Mail implementations** on the classpath — `org.eclipse.angus:jakarta.mail:2.0.5` (pulled by `spring-boot-starter-mail`, paired with `jakarta.activation-api:2.1.4`) **and** an explicitly-declared `com.sun.mail:jakarta.mail:2.0.1` (paired with `com.sun.activation:2.0.1`). Both register `META-INF/services/jakarta.mail.util.StreamProvider`; the version mismatch made the `ServiceLoader` fail to load the provider, so `Session`/`Transport` could not initialise.
 - **Fix:** removed the redundant explicit `com.sun.mail:jakarta.mail` dependency from `olla-nest-common/pom.xml`. Spring Boot's managed Angus implementation is the single, version-consistent provider. Source uses only `jakarta.mail.*` (no `com.sun.mail.*`), so no code change needed.
-- **Verification (live):** rebuilt + restarted; `POST …/send` → **200**; a local SMTP sink captured the real transaction — `MAIL FROM:<qa@local.test>`, `RCPT TO:<boss@example.com>`, correct Subject + Body. Dep tree now shows only `org.eclipse.angus:jakarta.mail`. Full `mvn test` BUILD SUCCESS.
+- **Verification (live) — both send AND receive:**
+  - **SMTP send:** `POST …/send` → **200**; a local SMTP sink captured the real transaction — `MAIL FROM:<qa@local.test>`, `RCPT TO:<boss@example.com>`, correct Subject + Body.
+  - **IMAP poll:** stood up a real **GreenMail** IMAP server with a seeded inbox message; the `@Scheduled` poller connected, fetched, and imported it into `email_messages` (`Inbound IMAP Probe` / `boss@example.com` / body), with log `[email-poll] Fetched 1 new messages`. The same ServiceLoader fix covers both paths (both go through `Session.getInstance`).
+  - Dep tree now shows only `org.eclipse.angus:jakarta.mail`. Full `mvn test` BUILD SUCCESS.
 
 ## BUG-045 — IDOR: cross-user read/cancel of background jobs — **MAJOR (security)** — FIXED
 - **Feature:** `GET /api/jobs/{id}`, `DELETE /api/jobs/{id}` (`BackgroundJobService.getById/cancel`).
