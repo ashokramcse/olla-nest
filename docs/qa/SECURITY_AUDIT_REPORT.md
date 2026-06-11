@@ -188,6 +188,16 @@ Grepped every service for mutating/reading statements scoped by `id` without an 
 
 **Conclusion:** ownership is now enforced on every user-reachable resource. The two real holes (email BUG-044, jobs BUG-045) are fixed; everything else was already correctly scoped (in service or controller layer).
 
+## 7g. Leaked test-credential remediation — COMPLETED 2026-06-11
+
+The two GitGuardian incidents (#33811977/#33812278) flagged disposable test passwords committed in e2e/perf fixtures. Full remediation (owner-authorized):
+
+1. **Removed from HEAD** (earlier): all hardcoded creds replaced with env/gitignored-file resolution; live cred files gitignored.
+2. **Purged from git history:** `git filter-repo --replace-text` redacted `QaUserPass!234`, `ChangeMe!CreateARealPassword123`, `DupPass!234`, `BoomPass!234`, `CreatePass!234` → `REDACTED_TEST_CRED` across **all 399 commits**; force-pushed `main`. A full-repo backup bundle was taken first. Verified: `git log --all -S '<secret>'` → **0 commits** for every secret.
+3. **Rotated the live values:** QA + admin account passwords reset to fresh random values via the admin reset-password endpoint; gitignored `.e2e-creds.js` updated. Verified live — **new passwords → 200, old leaked passwords → 401**.
+
+The leaked literals are now dead three ways: purged from history, invalid in the DB, and absent from the working tree. **The two GitGuardian incidents can be marked Resolved.**
+
 ## 8. Outstanding security work (NOT executed)
 - Dynamic IDOR with a second user account (ownership scoping on every `/{id}` route).
 - Forbidden-role (authenticated non-admin → admin endpoint = 403) — needs a non-admin session.
