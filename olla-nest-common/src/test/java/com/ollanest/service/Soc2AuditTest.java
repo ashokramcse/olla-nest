@@ -87,22 +87,55 @@ import jakarta.servlet.http.HttpServletResponse;
  * force-logout completeness</li>
  * </ol>
  *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * SOC 2 attestation requires demonstrable, repeatable evidence that the platform
+ * upholds the five trust principles. This suite encodes that evidence as
+ * executable specifications: each nested group maps to a trust criterion and each
+ * test pins a concrete control (token format guard, RBAC short-circuit, audit IP
+ * capture, backup mutual exclusion) so a regression surfaces as a failing build
+ * rather than an audit finding.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>All collaborators ({@link JdbcTemplate}, services, servlet request/response)
+ * are Mockito mocks — no Spring context, real database, or network is involved.</li>
+ * <li>Tests are grouped into {@link Nested} classes labelled by trust-criterion
+ * code (SEC-*, AVAIL-*, PROC-*, CONF-*, PRIV-*, CONCUR-*).</li>
+ * <li>Internal session state is exercised via reflection (the {@code sessions}
+ * cache, {@code backupInProgress} flag) to assert invariants without exposing
+ * production APIs.</li>
+ * <li>Reflection helper {@link #setField} injects {@code @Value} fields that
+ * Spring would otherwise populate.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.0 — SOC 2 hardening validation suite introduced</li>
+ * </ul>
+ *
  * @author Ashok Ram
- * @since v2026.2.0 — SOC 2 hardening validation
+ * @since v2026.2.0
+ * @version v2026.2.0
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("SOC 2 Trust Service Criteria — Enterprise Audit Validation")
 class Soc2AuditTest {
 
+	/** Mocked JDBC template standing in for the application database. */
 	@Mock
 	JdbcTemplate db;
+	/** Mocked user service for user lookup and public-view projection. */
 	@Mock
 	UserService userService;
+	/** Mocked chat service used to capture audit-trail writes. */
 	@Mock
 	ChatService chatService;
+	/** Mocked inbound HTTP request (cookies, headers, remote address). */
 	@Mock
 	HttpServletRequest req;
+	/** Mocked HTTP response used to capture Set-Cookie headers. */
 	@Mock
 	HttpServletResponse res;
 
@@ -110,17 +143,44 @@ class Soc2AuditTest {
 	// 1. SECURITY — Authentication, Authorization, Injection, CSRF, Timing
 	// ════════════════════════════════════════════════════════════════════════
 
+	/**
+	 * SEC-1 — verifies authentication cannot be bypassed: missing/malformed
+	 * cookies resolve to no user, expired sessions are evicted, and login rotates
+	 * the session token.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("SEC-1: Authentication enforcement — no bypass possible")
 	class AuthenticationEnforcement {
 
+		/** Service under test, rebuilt fresh for each authentication case. */
 		private AuthService authService;
 
+		/**
+		 * Builds a fresh {@link AuthService} backed by the mocked DB and user
+		 * service before each test so cache state never leaks between cases.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@BeforeEach
 		void setUp() {
 			authService = new AuthService(db, userService);
 		}
 
+		/**
+		 * Asserts that a request carrying no cookies at all resolves to a
+		 * {@code null} user, proving an unauthenticated caller cannot be silently
+		 * treated as logged in.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("null cookie → returns null (unauthenticated)")
 		void nullCookie_returnsNull() {
@@ -128,6 +188,15 @@ class Soc2AuditTest {
 			assertThat(authService.getSessionUser(req)).isNull();
 		}
 
+		/**
+		 * Asserts that an empty cookie array (cookies present but none ours)
+		 * resolves to a {@code null} user, covering the boundary distinct from a
+		 * {@code null} cookie array.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("empty cookie array → returns null")
 		void emptyCookieArray_returnsNull() {
@@ -135,6 +204,15 @@ class Soc2AuditTest {
 			assertThat(authService.getSessionUser(req)).isNull();
 		}
 
+		/**
+		 * Asserts that a well-formed token delivered under the wrong cookie name
+		 * is ignored, proving session resolution keys strictly on the
+		 * {@code olla_nest_session} cookie.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("wrong cookie name → returns null")
 		void wrongCookieName_returnsNull() {
@@ -150,6 +228,18 @@ class Soc2AuditTest {
 				"\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // newline prefix
 				"a;baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // semicolon
 		})
+		/**
+		 * Drives a catalogue of malformed/attack token strings (SQLi, XSS,
+		 * wrong length, control characters) through session resolution and proves
+		 * each returns {@code null} <em>and</em> never reaches the database — the
+		 * format guard must short-circuit before any query runs.
+		 *
+		 * @param badToken a malformed or hostile token value supplied by the
+		 *                 parameterized source
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@DisplayName("malformed tokens are rejected before DB query")
 		void malformedTokensRejectedBeforeDb(String badToken) {
 			when(req.getCookies()).thenReturn(new Cookie[] { new Cookie("olla_nest_session", badToken) });
@@ -159,6 +249,17 @@ class Soc2AuditTest {
 			verify(db, never()).queryForList(anyString(), anyString());
 		}
 
+		/**
+		 * Injects an already-expired session into the in-memory cache via
+		 * reflection, then asserts that resolution returns {@code null} and the
+		 * stale entry is evicted from the cache rather than served.
+		 *
+		 * @throws Exception if reflective access to the {@code sessions} cache
+		 *                  field fails
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("expired session is evicted from cache and returns null")
 		void expiredCachedSession_returnsNull() throws Exception {
@@ -183,6 +284,15 @@ class Soc2AuditTest {
 			assertThat(cache).doesNotContainKey(token);
 		}
 
+		/**
+		 * Proves session rotation on login: the previously presented token is
+		 * deleted from the database and a brand-new session row is inserted, so a
+		 * captured old token cannot be replayed after re-authentication.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("session rotation: old token invalidated before new one issued")
 		void sessionRotation_oldTokenInvalidated() {
@@ -203,10 +313,28 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * SEC-2 — verifies the password-login path only authenticates locally
+	 * provisioned accounts, blocking SSO-provisioned users from logging in with a
+	 * password.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("SEC-2: SSO bypass prevention — local-auth-only password login")
 	class SsoBypassPrevention {
 
+		/**
+		 * Drives a login and captures the executed user-lookup SQL, asserting it
+		 * filters on {@code auth_provider = 'local'} so SSO-only accounts cannot
+		 * be authenticated through the password endpoint.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("login query contains auth_provider = 'local' filter")
 		void loginQueryFiltersLocalAuthOnly() {
@@ -243,10 +371,28 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * SEC-3 — verifies brute-force defences: the rate limiter returns HTTP 429
+	 * once the attempt threshold is hit, resets after the window expires, and
+	 * yields a uniform error to prevent user enumeration.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("SEC-3: Brute-force protection — rate limiting")
 	class BruteForceProtection {
 
+		/**
+		 * Stubs the attempt counter at the threshold and asserts the login
+		 * returns HTTP 429 with an error body, proving the rate limiter blocks
+		 * further attempts within the window.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("10 attempts returns 429 with retry-after message")
 		void tenAttempts_returns429() {
@@ -265,6 +411,15 @@ class Soc2AuditTest {
 			assertThat(resp.getBody()).containsKey("error");
 		}
 
+		/**
+		 * Stubs an expired rate-limit window with a high count and asserts the
+		 * login is <em>not</em> blocked with 429, proving the counter is treated
+		 * as stale once its reset timestamp has passed.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("rate limit window resets after expiry")
 		void rateLimitWindow_resetsAfterExpiry() {
@@ -287,6 +442,15 @@ class Soc2AuditTest {
 			assertThat(resp.getStatusCode().value()).isNotEqualTo(429);
 		}
 
+		/**
+		 * Logs in once with an unknown email and once with a known email but
+		 * wrong password, asserting both return HTTP 401 with byte-identical error
+		 * messages so an attacker cannot distinguish valid accounts.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("same 401 message for unknown email and wrong password (prevents enumeration)")
 		void uniformErrorMessage_preventsUserEnumeration() {
@@ -321,10 +485,27 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * SEC-4 — verifies input-validation hardening on the login endpoint: missing,
+	 * oversized, and blank credentials are rejected with HTTP 400 before any
+	 * expensive BCrypt work or database lookup occurs.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("SEC-4: Input validation hardening")
 	class InputValidationHardening {
 
+		/**
+		 * Asserts a login request with no email field is rejected with HTTP 400,
+		 * proving the required-field check runs before authentication.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("null email rejected with 400")
 		void nullEmail_rejected400() {
@@ -339,6 +520,15 @@ class Soc2AuditTest {
 			assertThat(resp.getStatusCode().value()).isEqualTo(400);
 		}
 
+		/**
+		 * Submits an email longer than the 320-char RFC ceiling and asserts it is
+		 * rejected with HTTP 400 without reaching the user query, preventing a
+		 * BCrypt-amplified denial-of-service.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("email > 320 chars rejected with 400 (BCrypt DoS prevention)")
 		void emailTooLong_rejected400() {
@@ -356,6 +546,15 @@ class Soc2AuditTest {
 			verify(db, never()).queryForList(contains("FROM users"), anyString());
 		}
 
+		/**
+		 * Submits a password exceeding the 1024-char limit and asserts it is
+		 * rejected with HTTP 400 without invoking BCrypt or the user query,
+		 * preventing a hashing-cost denial-of-service.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("password > 1024 chars rejected (BCrypt DoS prevention)")
 		void passwordTooLong_rejected400() {
@@ -373,6 +572,14 @@ class Soc2AuditTest {
 			verify(db, never()).queryForList(contains("FROM users"), anyString());
 		}
 
+		/**
+		 * Asserts a whitespace-only password is rejected with HTTP 400, proving
+		 * blank credentials never reach the authentication comparison.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("blank password rejected with 400")
 		void blankPassword_rejected400() {
@@ -388,10 +595,26 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * SEC-5 — verifies CSRF protection: state-changing requests require the
+	 * {@code X-Requested-With} header, while safe GET requests are exempt.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("SEC-5: CSRF protection — X-Requested-With enforcement")
 	class CsrfProtection {
 
+		/**
+		 * Asserts a logout request lacking the {@code X-Requested-With} header is
+		 * rejected with HTTP 403, proving CSRF enforcement on the logout endpoint.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("logout without CSRF header returns 403")
 		void logout_missingCsrfHeader_returns403() {
@@ -402,6 +625,14 @@ class Soc2AuditTest {
 			assertThat(resp.getStatusCode().value()).isEqualTo(403);
 		}
 
+		/**
+		 * Asserts that a logout carrying the CSRF header proceeds to session
+		 * invalidation and returns HTTP 200 with {@code ok=true}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("logout with CSRF header proceeds to session invalidation")
 		void logout_withCsrfHeader_clearsSession() {
@@ -414,6 +645,14 @@ class Soc2AuditTest {
 			assertThat(resp.getBody()).containsEntry("ok", true);
 		}
 
+		/**
+		 * Asserts that {@code isCsrfOk} always passes for safe GET requests even
+		 * without the header, since GETs must not mutate state.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("BaseController.isCsrfOk: GET always passes")
 		void csrfOk_getAlwaysPasses() {
@@ -422,6 +661,14 @@ class Soc2AuditTest {
 			assertThat(testBaseController().isCsrfOkPublic(req)).isTrue();
 		}
 
+		/**
+		 * Asserts that {@code isCsrfOk} fails for a POST request that omits the
+		 * {@code X-Requested-With} header.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("BaseController.isCsrfOk: POST without header fails")
 		void csrfOk_postWithoutHeaderFails() {
@@ -430,6 +677,14 @@ class Soc2AuditTest {
 			assertThat(testBaseController().isCsrfOkPublic(req)).isFalse();
 		}
 
+		/**
+		 * Asserts that {@code isCsrfOk} fails for a PUT request that omits the
+		 * {@code X-Requested-With} header.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("BaseController.isCsrfOk: PUT without header fails")
 		void csrfOk_putWithoutHeaderFails() {
@@ -438,6 +693,14 @@ class Soc2AuditTest {
 			assertThat(testBaseController().isCsrfOkPublic(req)).isFalse();
 		}
 
+		/**
+		 * Asserts that {@code isCsrfOk} passes for a DELETE request that does
+		 * carry the {@code X-Requested-With} header.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("BaseController.isCsrfOk: DELETE with header passes")
 		void csrfOk_deleteWithHeaderPasses() {
@@ -447,10 +710,26 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * SEC-6 — verifies role-based access control on admin endpoints: regular
+	 * users are forbidden, unauthenticated callers are challenged, and admins pass.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("SEC-6: RBAC enforcement — admin-only access")
 	class RbacEnforcement {
 
+		/**
+		 * Asserts an authenticated non-admin user is rejected with HTTP 403 and an
+		 * error body when hitting an admin-gated endpoint.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("non-admin user gets 403 on admin endpoint")
 		void nonAdmin_gets403() {
@@ -465,6 +744,15 @@ class Soc2AuditTest {
 			assertThat(resp.getBody()).containsKey("error");
 		}
 
+		/**
+		 * Asserts an unauthenticated request to an admin endpoint returns HTTP 401
+		 * (not 403), so the response never confirms the endpoint's existence to an
+		 * anonymous caller.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("unauthenticated request gets 401 (not 403) on admin endpoint")
 		void unauthenticated_gets401_notForbidden() {
@@ -475,6 +763,14 @@ class Soc2AuditTest {
 			assertThat(resp.getStatusCode().value()).isEqualTo(401);
 		}
 
+		/**
+		 * Asserts that an admin user passes {@code requireAdmin}, signalled by a
+		 * {@code null} (no-error) response.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("admin user passes requireAdmin check")
 		void adminUser_passesCheck() {
@@ -489,10 +785,29 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * SEC-7 — verifies the {@link UrlValidator} blocks SSRF vectors (loopback,
+	 * private ranges, cloud metadata, non-HTTP schemes) while allowing legitimate
+	 * public API hosts.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("SEC-7: SSRF protection — URL validation")
 	class SsrfProtection {
 
+		/**
+		 * Drives a catalogue of SSRF vectors (loopback, RFC-1918, link-local cloud
+		 * metadata, {@code file://}, {@code ftp://}, empty) through the validator
+		 * and asserts each is reported as unsafe.
+		 *
+		 * @param url an SSRF attack URL supplied by the parameterized source
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@ParameterizedTest(name = "SSRF vector rejected: ''{0}''")
 		@ValueSource(strings = { "http://localhost:8080/internal", "http://127.0.0.1/admin", "http://10.0.0.1/metadata",
 				"http://172.16.0.1/secret", "http://192.168.1.1/router", "http://169.254.169.254/latest/meta-data/", // AWS
@@ -503,6 +818,16 @@ class Soc2AuditTest {
 			assertThat(UrlValidator.isSafeUrl(url)).isFalse();
 		}
 
+		/**
+		 * Verifies a set of legitimate public cloud API URLs are well-formed HTTPS
+		 * hosts with no loopback markers; DNS resolution is intentionally avoided so
+		 * the check stays deterministic in CI.
+		 *
+		 * @param url a safe external API URL supplied by the parameterized source
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@ParameterizedTest(name = "safe external URL accepted: ''{0}''")
 		@ValueSource(strings = { "https://api.anthropic.com", "https://api.openai.com/v1", "https://api.groq.com", })
 		@DisplayName("safe external URLs accepted by UrlValidator")
@@ -515,10 +840,29 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * SEC-8 — verifies {@code BaseController.sanitizeText} HTML-escapes XSS
+	 * payloads, returns {@code null} for {@code null}, and trims surrounding
+	 * whitespace.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("SEC-8: XSS protection — sanitizeText()")
 	class XssProtection {
 
+		/**
+		 * Runs a catalogue of XSS payloads through {@code sanitizeText} and asserts
+		 * no live {@code <script>}, {@code <img>}, or {@code <iframe>} tag survives,
+		 * making the output safe to embed in HTML.
+		 *
+		 * @param payload an XSS attack string supplied by the parameterized source
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@ParameterizedTest(name = "XSS payload escaped: ''{0}''")
 		@ValueSource(strings = { "<script>alert(1)</script>", "<img src=x onerror=alert(1)>", "javascript:alert(1)",
 				"<iframe src=evil.com>", "\"><script>evil()</script>", "' OR 1=1 --", })
@@ -530,12 +874,28 @@ class Soc2AuditTest {
 			assertThat(sanitized).doesNotContain("<script").doesNotContain("<img").doesNotContain("<iframe");
 		}
 
+		/**
+		 * Asserts {@code sanitizeText(null)} returns {@code null} rather than
+		 * throwing, keeping the helper null-safe for optional fields.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("sanitizeText null input returns null")
 		void sanitizeText_nullReturnsNull() {
 			assertThat(BaseController.sanitizeText(null)).isNull();
 		}
 
+		/**
+		 * Asserts {@code sanitizeText} trims leading and trailing whitespace from
+		 * its input.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("sanitizeText trims whitespace")
 		void sanitizeText_trimsWhitespace() {
@@ -543,10 +903,27 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * SEC-9 — verifies the security response headers (Content-Security-Policy,
+	 * X-Frame-Options) carry the strict values SOC 2 expects.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("SEC-9: Security headers — SOC 2 compliance")
 	class SecurityHeaders {
 
+		/**
+		 * Asserts the Content-Security-Policy string includes the anti-clickjacking
+		 * and injection-limiting directives ({@code frame-ancestors 'none'},
+		 * {@code base-uri 'self'}, {@code form-action 'self'}).
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("security header constants satisfy SOC 2 requirements")
 		void securityHeaderValues_satisfySoc2() {
@@ -566,6 +943,14 @@ class Soc2AuditTest {
 			assertThat(csp).contains("form-action 'self'");
 		}
 
+		/**
+		 * Asserts the X-Frame-Options header value is {@code DENY} rather than the
+		 * looser {@code SAMEORIGIN}, since the app never frames itself.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("X-Frame-Options: DENY prevents clickjacking")
 		void xFrameOptions_deny() {
@@ -581,10 +966,29 @@ class Soc2AuditTest {
 	// 2. AVAILABILITY — Rate limiting, Concurrent protection, Cleanup
 	// ════════════════════════════════════════════════════════════════════════
 
+	/**
+	 * AVAIL-1 — verifies the backup service serialises concurrent runs: a second
+	 * backup is rejected while one is in progress, and the in-progress flag is
+	 * always released (even on exception) to avoid a permanent lockout.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("AVAIL-1: Concurrent backup protection")
 	class ConcurrentBackupProtection {
 
+		/**
+		 * Forces the {@code backupInProgress} flag via reflection and asserts a new
+		 * {@code runBackup} call is rejected with a clear "already in progress"
+		 * error rather than running a second concurrent backup.
+		 *
+		 * @throws Exception if reflective access to the backup flag field fails
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("concurrent backup rejected with clear error message")
 		void concurrentBackup_rejected() throws Exception {
@@ -601,6 +1005,15 @@ class Soc2AuditTest {
 			assertThat(result.get("error").toString()).containsIgnoringCase("already in progress");
 		}
 
+		/**
+		 * Runs a backup to a temp directory and asserts the in-progress flag is
+		 * cleared afterward so a subsequent backup can proceed.
+		 *
+		 * @throws Exception if the temporary backup directory cannot be created
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("backup flag is reset to false after successful run")
 		void backupFlag_resetAfterRun() throws Exception {
@@ -619,6 +1032,16 @@ class Soc2AuditTest {
 			assertThat(svc.isBackupInProgress()).isFalse();
 		}
 
+		/**
+		 * Forces the VACUUM step to throw and asserts the backup fails gracefully
+		 * while still releasing the in-progress flag, proving the flag is cleared
+		 * in a {@code finally} block to avoid a permanent lockout.
+		 *
+		 * @throws Exception if the temporary backup directory cannot be created
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("backup flag is reset to false even after exception")
 		void backupFlag_resetAfterException() throws Exception {
@@ -635,6 +1058,16 @@ class Soc2AuditTest {
 			assertThat(svc.isBackupInProgress()).isFalse();
 		}
 
+		/**
+		 * Launches three concurrent backup requests against a deliberately slow
+		 * VACUUM and asserts at most one succeeds, proving the mutual-exclusion
+		 * guard holds under real thread contention.
+		 *
+		 * @throws Exception if thread coordination or temp-directory setup fails
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("concurrent requests: only one backup succeeds, others get 409-equivalent")
 		void concurrentRequests_onlyOneSucceeds() throws Exception {
@@ -675,10 +1108,29 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * AVAIL-2 — verifies the background sweepers that keep the rate-limit map and
+	 * session table bounded are annotated {@code @Scheduled}, so they actually run
+	 * and prevent unbounded memory/table growth.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("AVAIL-2: Rate limit map stability — bounded growth")
 	class RateLimitMapStability {
 
+		/**
+		 * Reflects over {@code ChatService.cleanStaleRateLimitEntries} and asserts
+		 * it carries a {@code @Scheduled} annotation with a positive initial delay,
+		 * proving stale rate-limit entries are swept automatically.
+		 *
+		 * @throws Exception if the scheduled method cannot be resolved reflectively
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("cleanStaleRateLimitEntries() has @Scheduled annotation")
 		void staleEntryCleaner_hasScheduledAnnotation() throws Exception {
@@ -691,6 +1143,16 @@ class Soc2AuditTest {
 			assertThat(scheduled.initialDelay()).isGreaterThan(0);
 		}
 
+		/**
+		 * Reflects over {@code AuthService.cleanExpiredSessions} and asserts it is
+		 * annotated {@code @Scheduled}, proving expired session rows are swept
+		 * automatically to prevent table bloat.
+		 *
+		 * @throws Exception if the scheduled method cannot be resolved reflectively
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("session cleanup has @Scheduled annotation")
 		void sessionCleanup_hasScheduledAnnotation() throws Exception {
@@ -702,10 +1164,28 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * AVAIL-3 — verifies failed-login throttling state is persisted to the
+	 * database rather than held only in memory, so the rate limit survives an
+	 * application restart.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("AVAIL-3: Session store — DB-backed rate limit survives restarts")
 	class SessionStorePersistence {
 
+		/**
+		 * Drives a failed login and asserts the attempt counter is written via an
+		 * {@code INSERT OR REPLACE INTO login_attempts} statement keyed by client
+		 * IP, proving the counter is durable across restarts.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("failed login increments DB counter (not just in-memory)")
 		void failedLogin_incrementsDbCounter() {
@@ -730,10 +1210,28 @@ class Soc2AuditTest {
 	// 3. PROCESSING INTEGRITY — Audit events, Idempotency, SQL safety
 	// ════════════════════════════════════════════════════════════════════════
 
+	/**
+	 * PROC-1 — verifies audit events are complete and tamper-resistant: logins
+	 * (success and failure) are recorded with the client IP, and audit writes use
+	 * parameterized SQL.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("PROC-1: Audit event completeness")
 	class AuditEventCompleteness {
 
+		/**
+		 * Drives a successful login with a fully populated user row and asserts an
+		 * {@code auth.login} audit event is written carrying the client IP in both
+		 * the detail text and the extra metadata map, satisfying SOC 2 traceability.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("successful login writes audit event with IP")
 		void successfulLogin_writesAuditWithIp() {
@@ -796,6 +1294,15 @@ class Soc2AuditTest {
 			assertThat(detailCaptor.getValue()).contains("203.0.113.1");
 		}
 
+		/**
+		 * Drives a failed login and asserts an {@code auth.login.failed} security
+		 * audit event is recorded with the client IP, ensuring failed attempts are
+		 * traceable.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("failed login writes security audit event")
 		void failedLogin_writesSecurityAuditEvent() {
@@ -814,6 +1321,15 @@ class Soc2AuditTest {
 					argThat(m -> m != null && m.containsKey("ip")));
 		}
 
+		/**
+		 * Captures the SQL emitted by a settings write and asserts it uses
+		 * {@code ?} placeholders rather than embedding the key/value literals,
+		 * proving audit-adjacent writes are injection-safe.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("audit events use parameterized INSERT (no SQL injection)")
 		void auditEvents_useParameterizedInsert() {
@@ -828,10 +1344,28 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * PROC-2 — verifies session rotation prevents replay: the old token is deleted
+	 * before the new one is inserted, new tokens carry 256-bit entropy, and
+	 * repeated rotations never reuse a token.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("PROC-2: Session rotation — replay attack prevention")
 	class SessionRotation {
 
+		/**
+		 * Uses an {@link InOrder} verifier to assert the old session DELETE happens
+		 * strictly before the new session INSERT, proving the ordering that closes
+		 * the replay window during rotation.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("setSession() deletes old session before creating new one")
 		void setSession_deletesOldBeforeNew() {
@@ -849,6 +1383,14 @@ class Soc2AuditTest {
 			inOrder.verify(db).update(contains("INSERT INTO sessions"), anyString(), eq("u1"), anyString());
 		}
 
+		/**
+		 * Captures the token written on session creation and asserts it matches the
+		 * 64-lowercase-hex format, confirming 256 bits of entropy.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("new session token is 64 hex chars (256-bit entropy)")
 		void newToken_is64HexChars() {
@@ -865,6 +1407,14 @@ class Soc2AuditTest {
 			assertThat(token).matches("^[0-9a-f]{64}$").hasSize(64);
 		}
 
+		/**
+		 * Performs two consecutive session creations and asserts the two issued
+		 * tokens differ, proving tokens are never reused across rotations.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("two calls produce different tokens (no reuse)")
 		void twoSetSessions_differentTokens() {
@@ -887,10 +1437,28 @@ class Soc2AuditTest {
 	// 4. CONFIDENTIALITY — Secret masking, token truncation, no leakage
 	// ════════════════════════════════════════════════════════════════════════
 
+	/**
+	 * CONF-1 — verifies session-token confidentiality and immutability: cached
+	 * session fields are {@code final} and generated tokens never collide.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("CONF-1: Token confidentiality")
 	class TokenConfidentiality {
 
+		/**
+		 * Asserts the {@code CachedSession.user} field is {@code final}, preventing
+		 * an in-flight reference swap that could associate a token with a different
+		 * user.
+		 *
+		 * @throws Exception if the field cannot be resolved reflectively
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("CachedSession.user is final — prevents ref-swap attack")
 		void cachedSession_userIsFinal() throws Exception {
@@ -899,6 +1467,15 @@ class Soc2AuditTest {
 					.as("CachedSession.user must be final to prevent in-flight user replacement").isTrue();
 		}
 
+		/**
+		 * Asserts the {@code CachedSession.expiresAtMs} field is {@code final}, so a
+		 * cached session's expiry cannot be extended after creation.
+		 *
+		 * @throws Exception if the field cannot be resolved reflectively
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("CachedSession.expiresAtMs is final — immutable after creation")
 		void cachedSession_expiresAtMsIsFinal() throws Exception {
@@ -907,6 +1484,14 @@ class Soc2AuditTest {
 					.isTrue();
 		}
 
+		/**
+		 * Generates a batch of session tokens and asserts they are all unique,
+		 * confirming the RNG produces collision-free tokens at scale.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("session token entropy: 1000 tokens have no duplicates")
 		void sessionTokens_noCollisions() {
@@ -928,10 +1513,28 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * CONF-2 — verifies security-sensitive services share a single static
+	 * {@link SecureRandom}, avoiding per-call instantiation that wastes entropy
+	 * seeding.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("CONF-2: Static SecureRandom — no entropy pool exhaustion")
 	class StaticSecureRandom {
 
+		/**
+		 * Asserts {@code AuthService} declares a static {@code SECURE_RANDOM} field
+		 * of a {@link SecureRandom} type.
+		 *
+		 * @throws Exception if the field cannot be resolved reflectively
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("AuthService has static SECURE_RANDOM field")
 		void authService_hasStaticSecureRandom() throws Exception {
@@ -940,6 +1543,15 @@ class Soc2AuditTest {
 			assertThat(SecureRandom.class).isAssignableFrom(f.getType());
 		}
 
+		/**
+		 * Asserts {@code CryptoService} declares a static {@code SECURE_RANDOM}
+		 * field.
+		 *
+		 * @throws Exception if the field cannot be resolved reflectively
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("CryptoService has static SECURE_RANDOM field")
 		void cryptoService_hasStaticSecureRandom() throws Exception {
@@ -948,10 +1560,28 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * CONF-3 — verifies the backup workspace cannot be rooted at a sensitive
+	 * system directory, preventing accidental exposure or overwrite of OS paths.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("CONF-3: Backup system path rejection")
 	class BackupSystemPathRejection {
 
+		/**
+		 * Asserts each sensitive system path is matched by the workspace-root block
+		 * list, proving directories like {@code /etc} and {@code /root} cannot be
+		 * chosen as the backup root.
+		 *
+		 * @param path a system directory supplied by the parameterized source
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@ParameterizedTest(name = "system path blocked: ''{0}''")
 		@ValueSource(strings = { "/etc", "/bin", "/sbin", "/root", "/proc", "/sys", "/dev", "/boot" })
 		@DisplayName("system directories blocked as workspace root")
@@ -967,10 +1597,29 @@ class Soc2AuditTest {
 	// 5. PRIVACY — IP in audit trail, user isolation, force-logout
 	// ════════════════════════════════════════════════════════════════════════
 
+	/**
+	 * PRIV-1 — verifies force-logout isolation: invalidating one user's sessions
+	 * removes only that user's entries (cache and DB) and the alias method behaves
+	 * identically.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("PRIV-1: User session isolation — force logout")
 	class UserSessionIsolation {
 
+		/**
+		 * Seeds the cache with sessions for two users, force-logs-out one, and
+		 * asserts only that user's entries are evicted while the other user's
+		 * session survives, proving cross-user isolation.
+		 *
+		 * @throws Exception if reflective access to the session cache fails
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("forceLogoutUser removes only the target user's sessions from cache")
 		void forceLogoutUser_removesOnlyTargetUser() throws Exception {
@@ -999,6 +1648,15 @@ class Soc2AuditTest {
 			assertThat(cache).containsKey("token-u2");
 		}
 
+		/**
+		 * Asserts force-logout issues a parameterized
+		 * {@code DELETE FROM sessions WHERE user_id = ?} bound to the target user
+		 * id, so persisted sessions are also revoked.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("forceLogoutUser deletes from DB with user_id parameter")
 		void forceLogoutUser_deletesFromDb() {
@@ -1007,6 +1665,15 @@ class Soc2AuditTest {
 			verify(db).update("DELETE FROM sessions WHERE user_id = ?", "target-user-id");
 		}
 
+		/**
+		 * Asserts {@code invalidateUserSessions} delegates to the same parameterized
+		 * per-user DELETE as {@code forceLogoutUser}, confirming the alias shares the
+		 * revocation behaviour.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("invalidateUserSessions is an alias for forceLogoutUser")
 		void invalidateUserSessions_delegatesToForceLogout() {
@@ -1016,10 +1683,28 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * PRIV-2 — verifies the scheduled session sweep removes expired sessions from
+	 * both the in-memory cache and the database while retaining fresh ones.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("PRIV-2: Clean session sweep — prevents unbounded session accumulation")
 	class SessionSweep {
 
+		/**
+		 * Seeds the cache with one expired and one fresh session, runs the sweep,
+		 * and asserts only the expired entry is evicted while a DB-side
+		 * {@code DELETE ... WHERE expires_at} also runs.
+		 *
+		 * @throws Exception if reflective access to the session cache fails
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("cleanExpiredSessions removes expired entries from DB and cache")
 		void cleanExpiredSessions_removesFromBothStores() throws Exception {
@@ -1046,10 +1731,28 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * PRIV-3 — verifies the audit-trail writer records all required fields and is
+	 * resilient: a database failure during an audit write never propagates to
+	 * break the originating request.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("PRIV-3: Audit trail — security events are traceable")
 	class AuditTrail {
 
+		/**
+		 * Calls {@code appendAudit} and captures the INSERT, asserting it targets
+		 * {@code audit_events} and binds actor, action, detail, extra JSON, and
+		 * timestamp so every event is fully traceable.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("appendAudit inserts all required fields")
 		void appendAudit_insertsAllRequiredFields() {
@@ -1068,6 +1771,15 @@ class Soc2AuditTest {
 			assertThat(sqlCaptor.getValue()).contains("INSERT INTO audit_events").contains("actor").contains("action");
 		}
 
+		/**
+		 * Forces the audit INSERT to throw and asserts {@code appendAudit} swallows
+		 * the failure without propagating, so a logging outage never breaks the
+		 * request being audited.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("appendAudit is resilient: DB failure does not throw exception")
 		void appendAudit_dbFailure_doesNotThrow() {
@@ -1083,10 +1795,29 @@ class Soc2AuditTest {
 	// 6. CONCURRENCY & JVM SAFETY
 	// ════════════════════════════════════════════════════════════════════════
 
+	/**
+	 * CONCUR-1 — verifies the session cache is thread-safe under concurrent
+	 * mutation: parallel removals never throw and mixed read/write traffic never
+	 * deadlocks.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("CONCUR-1: Session cache thread safety")
 	class SessionCacheThreadSafety {
 
+		/**
+		 * Fires many concurrent {@code removeSession} calls across a thread pool and
+		 * asserts none throw {@code ConcurrentModificationException}, confirming the
+		 * cache backing store is concurrency-safe.
+		 *
+		 * @throws Exception if thread coordination or reflective cache access fails
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("concurrent removeSession calls do not throw ConcurrentModificationException")
 		void concurrentRemoveSessions_noException() throws Exception {
@@ -1120,6 +1851,16 @@ class Soc2AuditTest {
 			}
 		}
 
+		/**
+		 * Runs a writer (repeated force-logout) and a reader (repeated session
+		 * resolution) in parallel and asserts the executor terminates within the
+		 * timeout, proving no deadlock between cache mutation and reads.
+		 *
+		 * @throws Exception if thread coordination or reflective cache access fails
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("concurrent forceLogoutUser + getSessionUser do not deadlock")
 		void concurrentForceLogout_getUser_noDeadlock() throws Exception {
@@ -1163,10 +1904,27 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * CONCUR-2 — verifies the UID generator yields collision-free identifiers even
+	 * when invoked from many threads simultaneously.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("CONCUR-2: UID generation uniqueness under load")
 	class UidGenerationUniqueness {
 
+		/**
+		 * Generates many UIDs concurrently and asserts every value is unique,
+		 * proving the generator is safe under parallel load.
+		 *
+		 * @throws Exception if thread coordination fails
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("100 concurrent uid() calls produce unique IDs")
 		void concurrentUidCalls_produceUniqueIds() throws Exception {
@@ -1198,10 +1956,29 @@ class Soc2AuditTest {
 	// 7. PROCESSING INTEGRITY — SQL safety under attack
 	// ════════════════════════════════════════════════════════════════════════
 
+	/**
+	 * PROC-3 — verifies SQL-injection resistance on the login and settings paths:
+	 * hostile input is bound as a parameter and never embedded into the SQL text.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("PROC-3: SQL injection resistance")
 	class SqlInjectionResistance {
 
+		/**
+		 * Submits a catalogue of SQL-injection email payloads to login and asserts
+		 * no exception is raised and the payload appears only as a bound parameter,
+		 * never inside the executed SQL string.
+		 *
+		 * @param injectionEmail a SQL-injection email payload from the parameterized
+		 *                      source
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@ParameterizedTest(name = "injection in email: ''{0}''")
 		@ValueSource(strings = { "' OR '1'='1", "'; DROP TABLE users; --", "' UNION SELECT * FROM sessions --",
 				"admin'--", "' OR 1=1 LIMIT 1 --", "\"; DELETE FROM users; --", })
@@ -1225,6 +2002,15 @@ class Soc2AuditTest {
 			verify(db, atLeastOnce()).queryForList(argThat(sql -> !sql.contains(injectionEmail)), eq(injectionEmail));
 		}
 
+		/**
+		 * Calls {@code getSetting} with an injection key and asserts the captured
+		 * SQL does not contain the {@code DROP} payload, proving the key is bound
+		 * rather than concatenated.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("DatabaseService.getSetting uses parameterized query")
 		void getSetting_usesParameterizedQuery() {
@@ -1239,10 +2025,28 @@ class Soc2AuditTest {
 		}
 	}
 
+	/**
+	 * PROC-4 — verifies dynamic table names are constrained by an identifier
+	 * allow-list, blocking injection through database-introspection code paths.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("PROC-4: Table name allow-list — no injection via DB introspection")
 	class TableNameAllowList {
 
+		/**
+		 * Asserts each hostile table-name candidate fails the strict identifier
+		 * regex, confirming the allow-list rejects injection attempts.
+		 *
+		 * @param badName an invalid/injected table name from the parameterized
+		 *               source
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@ParameterizedTest(name = "injection table name rejected: ''{0}''")
 		@ValueSource(strings = { "'; DROP TABLE users; --", "1table", "table name", "table;DROP", "", })
 		@DisplayName("invalid table names are rejected by allow-list regex")
@@ -1256,25 +2060,70 @@ class Soc2AuditTest {
 	// ════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Creates a testable subclass of BaseController that exposes protected methods.
+	 * Builds a fresh {@link TestBaseController} that exposes the protected RBAC and
+	 * CSRF helpers of {@link BaseController} so the security tests can invoke them
+	 * directly.
+	 *
+	 * @return a new test-only subclass instance of {@code BaseController}
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
 	 */
 	private TestBaseController testBaseController() {
 		return new TestBaseController();
 	}
 
+	/**
+	 * Test-only subclass of {@link BaseController} that widens its
+	 * {@code protected} security guards to {@code public} so individual tests can
+	 * exercise the RBAC and CSRF logic in isolation.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	static class TestBaseController extends BaseController {
+		/**
+		 * Exposes the protected {@code requireAdmin} guard for direct testing.
+		 *
+		 * @param req the inbound request whose authenticated user is inspected
+		 * @return {@code null} when the caller is an admin, otherwise an error
+		 *         response (HTTP 401/403)
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		public ResponseEntity<Map<String, Object>> requireAdminPublic(HttpServletRequest req) {
 			return requireAdmin(req);
 		}
 
+		/**
+		 * Exposes the protected {@code isCsrfOk} guard for direct testing.
+		 *
+		 * @param req the inbound request whose method and CSRF header are inspected
+		 * @return {@code true} when the request satisfies the CSRF policy,
+		 *         {@code false} otherwise
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		public boolean isCsrfOkPublic(HttpServletRequest req) {
 			return isCsrfOk(req);
 		}
 	}
 
 	/**
-	 * Sets a private/protected field on an object via reflection (for @Value
-	 * fields).
+	 * Sets a private or protected field (walking up the superclass chain) on a
+	 * target object via reflection, used to populate Spring {@code @Value} fields
+	 * that no container injects in these unit tests.
+	 *
+	 * @param target    the object whose field is being set
+	 * @param fieldName the name of the field to locate and assign
+	 * @param value     the value to assign to the field
+	 * @throws RuntimeException if the field cannot be found or assigned
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
 	 */
 	private static void setField(Object target, String fieldName, Object value) {
 		try {

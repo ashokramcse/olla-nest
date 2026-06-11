@@ -51,6 +51,34 @@ import jakarta.servlet.http.HttpServletResponse;
  * (cache hit / miss / expired), session creation (rotation, DB write, cookie),
  * clearSession, removeSession, forceLogoutUser, scheduled cleanup.
  *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * {@link AuthService} is the single chokepoint through which every
+ * authenticated request resolves its session, so a subtle regression here would
+ * be a platform-wide security incident. This suite exhaustively pins each
+ * behaviour — token extraction, cache hit/miss/expiry, rotation, cookie
+ * attributes, the strict token-format guard, cached-session immutability, and
+ * graceful DB-failure handling — so any deviation fails fast in CI.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>All collaborators are Mockito mocks injected via {@code @InjectMocks};
+ * there is no Spring context, real database, or network.</li>
+ * <li>{@code @Value} fields such as {@code cookieSecure} are populated with
+ * {@link ReflectionTestUtils} to mimic the dev configuration.</li>
+ * <li>Tests are grouped into {@link Nested} classes by service method, and
+ * security-hardening invariants are asserted reflectively against private
+ * fields.</li>
+ * <li>Test users come from the shared {@link UserFactory} so identity
+ * constants stay consistent across the suite.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — AuthService unit suite documented in the project-wide Javadoc
+ * pass</li>
+ * </ul>
+ *
  * @author Ashok Ram
  * @since v2026.2.1
  * @version v2026.2.1
@@ -59,21 +87,37 @@ import jakarta.servlet.http.HttpServletResponse;
 @DisplayName("AuthService — unit tests")
 class AuthServiceTest {
 
+	/** Name of the session cookie the service reads and writes. */
 	private static final String COOKIE_NAME = "olla_nest_session";
+	/** Canonical valid 64-char lowercase-hex session token used across tests. */
 	private static final String TOKEN = "a".repeat(64); // 64-char hex token
 
+	/** Mocked JDBC template standing in for the session/user database. */
 	@Mock
 	JdbcTemplate db;
+	/** Mocked user service used to resolve users by id. */
 	@Mock
 	UserService userService;
+	/** Mocked inbound HTTP request supplying cookies. */
 	@Mock
 	HttpServletRequest req;
+	/** Mocked HTTP response capturing Set-Cookie headers. */
 	@Mock
 	HttpServletResponse res;
 
+	/** Service under test with the mocked collaborators injected. */
 	@InjectMocks
 	AuthService authService;
 
+	/**
+	 * Sets the {@code cookieSecure} flag to {@code false} before each test to mimic
+	 * the local/dev configuration where the {@code Secure} cookie attribute is
+	 * omitted.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@BeforeEach
 	void setup() {
 		ReflectionTestUtils.setField(authService, "cookieSecure", false);
@@ -83,10 +127,25 @@ class AuthServiceTest {
 	// getToken()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies {@code getToken} extracts the session token from the request cookies
+	 * across the present, absent, wrong-name, and many-cookies cases.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("getToken()")
 	class GetToken {
 
+		/**
+		 * Asserts the token value is returned when the session cookie is present.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns token when cookie present")
 		void returnsTokenWhenPresent() {
@@ -95,6 +154,13 @@ class AuthServiceTest {
 			assertThat(authService.getToken(req)).isEqualTo(TOKEN);
 		}
 
+		/**
+		 * Asserts {@code null} is returned when the request carries no cookies.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when no cookies at all")
 		void returnsNullNoCookies() {
@@ -102,6 +168,14 @@ class AuthServiceTest {
 			assertThat(authService.getToken(req)).isNull();
 		}
 
+		/**
+		 * Asserts {@code null} is returned when cookies exist but none is the session
+		 * cookie.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when cookies present but session cookie missing")
 		void returnsNullWrongCookieName() {
@@ -110,6 +184,14 @@ class AuthServiceTest {
 			assertThat(authService.getToken(req)).isNull();
 		}
 
+		/**
+		 * Asserts the session token is selected correctly when interleaved among
+		 * several unrelated cookies.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns token from among multiple cookies")
 		void returnsCorrectCookieAmongMany() {
@@ -125,10 +207,26 @@ class AuthServiceTest {
 	// getSessionUser()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies {@code getSessionUser} resolves a request to a user across the full
+	 * matrix: no cookie, blank token, DB miss, user-missing, valid hit with
+	 * caching, and DB exception.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("getSessionUser()")
 	class GetSessionUser {
 
+		/**
+		 * Asserts resolution yields {@code null} when the request carries no cookie.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when no cookie present")
 		void nullWhenNoCookie() {
@@ -136,6 +234,13 @@ class AuthServiceTest {
 			assertThat(authService.getSessionUser(req)).isNull();
 		}
 
+		/**
+		 * Asserts resolution yields {@code null} when the cookie value is blank.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when token is blank")
 		void nullWhenBlankToken() {
@@ -144,6 +249,14 @@ class AuthServiceTest {
 			assertThat(authService.getSessionUser(req)).isNull();
 		}
 
+		/**
+		 * Asserts resolution yields {@code null} when no session row matches the
+		 * token in the database.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DB miss returns null (no matching session row)")
 		void dbMissReturnsNull() {
@@ -153,6 +266,14 @@ class AuthServiceTest {
 			assertThat(authService.getSessionUser(req)).isNull();
 		}
 
+		/**
+		 * Asserts resolution yields {@code null} when a session row exists but the
+		 * referenced user can no longer be found.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DB hit but user not found returns null")
 		void dbHitButUserMissingReturnsNull() {
@@ -164,6 +285,14 @@ class AuthServiceTest {
 			assertThat(authService.getSessionUser(req)).isNull();
 		}
 
+		/**
+		 * Asserts a valid session resolves to the expected user and that a second
+		 * resolution is served from cache — the DB is queried exactly once.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DB hit with valid user returns user and caches it")
 		void dbHitCachesUser() {
@@ -184,6 +313,15 @@ class AuthServiceTest {
 			verify(db, times(1)).queryForList(anyString(), eq(TOKEN));
 		}
 
+		/**
+		 * Asserts a database failure during lookup is swallowed and resolution
+		 * returns {@code null}, so an unavailable DB denies access rather than
+		 * crashing the request.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DB exception returns null gracefully")
 		void dbExceptionReturnsNull() {
@@ -198,10 +336,28 @@ class AuthServiceTest {
 	// setSession()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies {@code setSession} persists the new session, sets a hardened
+	 * {@code HttpOnly} cookie via a single {@code Set-Cookie} header, rotates any
+	 * existing session, and omits the {@code Secure} flag in dev config.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("setSession()")
 	class SetSession {
 
+		/**
+		 * Asserts session creation issues an {@code INSERT INTO sessions} bound to a
+		 * 64-hex token, the user id, and an expiry, capturing and checking each
+		 * parameter.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("inserts session row into DB with correct parameters")
 		void insertsSessionRowIntoDb() {
@@ -220,6 +376,16 @@ class AuthServiceTest {
 			assertThat(args[1]).isEqualTo(admin.id);
 		}
 
+		/**
+		 * Asserts the session cookie is written via {@code setHeader} (not
+		 * {@code addHeader}) so only one {@code Set-Cookie} is emitted, and that it
+		 * carries the {@code HttpOnly}, {@code SameSite=Lax}, and {@code Path=/}
+		 * attributes (HIGH-1 fix).
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("sets HttpOnly session cookie on response (HIGH-1 fix: single Set-Cookie header via setHeader)")
 		void setsCookieOnResponse() {
@@ -233,6 +399,15 @@ class AuthServiceTest {
 					&& v.contains("HttpOnly") && v.contains("SameSite=Lax") && v.contains("Path=/")));
 		}
 
+		/**
+		 * Asserts that when an old session cookie is present, its token is deleted
+		 * from the DB and a fresh session is inserted, proving rotation on
+		 * re-authentication.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("rotates existing session — old token deleted before new one issued")
 		void rotatesOldSession() {
@@ -249,6 +424,15 @@ class AuthServiceTest {
 			verify(db).update(contains("INSERT INTO sessions"), any(), any(), any());
 		}
 
+		/**
+		 * Captures the written {@code Set-Cookie} header and asserts it does not
+		 * contain {@code ; Secure} when {@code cookieSecure=false}, matching the dev
+		 * configuration.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("Secure flag NOT present when cookieSecure=false (default test config)")
 		void noSecureFlagInDev() {
@@ -270,10 +454,26 @@ class AuthServiceTest {
 	// clearSession()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies {@code clearSession} revokes the session in the DB and writes an
+	 * expiring cookie, while safely skipping the DB delete for a {@code null} token.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("clearSession()")
 	class ClearSession {
 
+		/**
+		 * Asserts clearing a session deletes the token from the DB and writes a
+		 * {@code Max-Age=0} cookie to expire it in the browser.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("removes token from cache+DB and writes Max-Age=0 cookie")
 		void clearsSessionAndWritesCookie() {
@@ -284,6 +484,14 @@ class AuthServiceTest {
 					argThat(v -> v.contains("olla_nest_session=;") && v.contains("Max-Age=0")));
 		}
 
+		/**
+		 * Asserts that clearing with a {@code null} token skips the DB delete yet
+		 * still writes the expiring {@code Max-Age=0} cookie.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null token skips DB delete but still writes Max-Age=0 cookie")
 		void nullTokenSkipsDbDelete() {
@@ -298,10 +506,26 @@ class AuthServiceTest {
 	// removeSession()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies {@code removeSession} deletes the token from the DB and never lets a
+	 * database failure propagate.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("removeSession()")
 	class RemoveSession {
 
+		/**
+		 * Asserts {@code removeSession} issues a parameterized
+		 * {@code DELETE FROM sessions WHERE token} bound to the token.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("deletes token from DB")
 		void deletesFromDb() {
@@ -309,6 +533,14 @@ class AuthServiceTest {
 			verify(db).update(contains("DELETE FROM sessions WHERE token"), eq(TOKEN));
 		}
 
+		/**
+		 * Asserts a DB failure during deletion is swallowed so logout cleanup never
+		 * propagates an exception to the caller.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DB exception is swallowed — no exception propagated")
 		void swallowsDbException() {
@@ -321,10 +553,26 @@ class AuthServiceTest {
 	// forceLogoutUser()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies {@code forceLogoutUser} revokes all of a user's sessions and that
+	 * the {@code invalidateUserSessions} alias delegates to the same behaviour.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("forceLogoutUser()")
 	class ForceLogoutUser {
 
+		/**
+		 * Asserts {@code forceLogoutUser} issues a parameterized
+		 * {@code DELETE FROM sessions WHERE user_id} bound to the user id.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("deletes all sessions for user from DB")
 		void deletesUserSessionsFromDb() {
@@ -332,6 +580,14 @@ class AuthServiceTest {
 			verify(db).update(contains("DELETE FROM sessions WHERE user_id"), eq(UserFactory.ADMIN_ID));
 		}
 
+		/**
+		 * Asserts {@code invalidateUserSessions} performs the same per-user session
+		 * DELETE as {@code forceLogoutUser}, confirming it is a true alias.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("invalidateUserSessions delegates to forceLogoutUser (alias)")
 		void invalidateSessionsAlias() {
@@ -344,10 +600,26 @@ class AuthServiceTest {
 	// cleanExpiredSessions()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies the scheduled {@code cleanExpiredSessions} sweep runs the DB
+	 * deletion and never lets a DB failure kill the scheduler thread.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("cleanExpiredSessions()")
 	class CleanExpiredSessions {
 
+		/**
+		 * Asserts the sweep runs without throwing and issues a
+		 * {@code DELETE FROM sessions WHERE expires_at} statement.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("runs DB sweep without throwing")
 		void sweepsExpiredSessions() {
@@ -355,6 +627,14 @@ class AuthServiceTest {
 			verify(db).update(contains("DELETE FROM sessions WHERE expires_at"));
 		}
 
+		/**
+		 * Asserts a DB failure during the sweep is swallowed so the scheduled
+		 * executor thread keeps running for future sweeps.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DB exception is swallowed — scheduler thread not killed")
 		void swallowsDbException() {
@@ -367,15 +647,41 @@ class AuthServiceTest {
 	// Token format guard (security hardening v2026.1.9)
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies the strict 64-lowercase-hex token-format guard in
+	 * {@code getSessionUser} rejects malformed/hostile tokens before any DB query,
+	 * while a well-formed token does reach the database.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@MockitoSettings(strictness = Strictness.LENIENT)
 	@DisplayName("getSessionUser() — token format guard")
 	class TokenFormatGuard {
 
+		/**
+		 * Stubs the request to carry a single session cookie with the supplied value,
+		 * a shared setup step for the format-guard cases.
+		 *
+		 * @param value the raw token string to place in the session cookie
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		private void stubCookie(String value) {
 			when(req.getCookies()).thenReturn(new Cookie[] { new Cookie(COOKIE_NAME, value) });
 		}
 
+		/**
+		 * Asserts a token shorter than 64 chars resolves to {@code null} and never
+		 * touches the database.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("token shorter than 64 hex chars rejected before DB hit")
 		void shortTokenRejectedWithoutDbHit() {
@@ -384,6 +690,14 @@ class AuthServiceTest {
 			verifyNoInteractions(db);
 		}
 
+		/**
+		 * Asserts a token longer than 64 chars resolves to {@code null} and never
+		 * touches the database.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("token longer than 64 hex chars rejected before DB hit")
 		void longTokenRejectedWithoutDbHit() {
@@ -392,6 +706,14 @@ class AuthServiceTest {
 			verifyNoInteractions(db);
 		}
 
+		/**
+		 * Asserts an all-uppercase-hex token resolves to {@code null} and never
+		 * touches the database, since the guard requires lowercase hex.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("uppercase hex token rejected (must be lowercase) without DB hit")
 		void uppercaseTokenRejected() {
@@ -400,6 +722,14 @@ class AuthServiceTest {
 			verifyNoInteractions(db);
 		}
 
+		/**
+		 * Asserts a SQL-injection cookie value resolves to {@code null} and never
+		 * touches the database, proving injection cannot reach the query.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("SQL injection payload in cookie rejected before DB hit")
 		void sqlInjectionRejectedBeforeDb() {
@@ -408,6 +738,14 @@ class AuthServiceTest {
 			verifyNoInteractions(db);
 		}
 
+		/**
+		 * Asserts a CRLF-injection token value resolves to {@code null} and never
+		 * touches the database.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("CRLF injection in token rejected before DB hit")
 		void crlfInjectionRejected() {
@@ -416,6 +754,14 @@ class AuthServiceTest {
 			verifyNoInteractions(db);
 		}
 
+		/**
+		 * Asserts a token ending in a semicolon resolves to {@code null} and never
+		 * touches the database, blocking a header-injection suffix.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("token with semicolon (potential header injection) rejected before DB hit")
 		void semicolonInjectionRejected() {
@@ -424,6 +770,14 @@ class AuthServiceTest {
 			verifyNoInteractions(db);
 		}
 
+		/**
+		 * Asserts a well-formed 64-lowercase-hex token passes the format guard and
+		 * does reach the database, confirming the guard does not reject valid tokens.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("exactly 64 lowercase hex chars passes format check and hits DB")
 		void validTokenHitsDb() {
@@ -439,10 +793,27 @@ class AuthServiceTest {
 	// CachedSession immutability (security hardening v2026.1.9)
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies the {@code CachedSession} value holder is immutable by asserting its
+	 * fields are {@code final}, so a cached entry cannot be mutated after creation.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("CachedSession immutability")
 	class CachedSessionImmutability {
 
+		/**
+		 * Asserts the {@code CachedSession.user} field is {@code final}, preventing
+		 * external replacement of the cached user.
+		 *
+		 * @throws Exception if the field cannot be resolved reflectively
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("user field is final — prevents external mutation of cached session")
 		void userFieldIsFinal() throws Exception {
@@ -451,6 +822,15 @@ class AuthServiceTest {
 					.as("CachedSession.user must be final to prevent external mutation").isTrue();
 		}
 
+		/**
+		 * Asserts the {@code CachedSession.expiresAtMs} field is {@code final}, so a
+		 * cached session's expiry cannot be extended after creation.
+		 *
+		 * @throws Exception if the field cannot be resolved reflectively
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("expiresAtMs field is final")
 		void expiresAtMsFieldIsFinal() throws Exception {
@@ -463,11 +843,28 @@ class AuthServiceTest {
 	// SecureRandom reuse (performance + security hardening v2026.1.9)
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies session-token generation reuses a single static {@code SecureRandom}
+	 * and still produces collision-free tokens across many calls.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@MockitoSettings(strictness = Strictness.LENIENT)
 	@DisplayName("setSession() — SecureRandom reuse")
 	class SecureRandomReuse {
 
+		/**
+		 * Asserts {@code AuthService.SECURE_RANDOM} is a static field, confirming the
+		 * RNG is shared rather than re-instantiated on every session creation.
+		 *
+		 * @throws Exception if the field cannot be resolved reflectively
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("SECURE_RANDOM static field exists — no per-call SecureRandom instantiation")
 		void staticSecureRandomFieldExists() throws Exception {
@@ -475,6 +872,15 @@ class AuthServiceTest {
 			assertThat(Modifier.isStatic(f.getModifiers())).as("SECURE_RANDOM must be a static field").isTrue();
 		}
 
+		/**
+		 * Performs many consecutive session creations, captures every inserted token,
+		 * and asserts they are all unique — proving the shared RNG still yields
+		 * collision-free 64-hex tokens.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("100 consecutive setSession calls produce 100 unique 64-hex tokens")
 		void hundredSessionsProduceUniqueTokens() {
