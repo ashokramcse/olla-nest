@@ -203,6 +203,17 @@ Drove the feature as a real user via `POST /api/chat/stream` `{deepResearch:true
 
 All three fixed with regression tests; verified against the live rebuilt stack.
 
+## 4f. Image generation + STT — EXECUTED 2026-06-10 (local-provider paths, live)
+
+The DALL-E and OpenAI-TTS paths hardcode `api.openai.com` and need a real key — already verified to **degrade gracefully** (503 "not configured"). The **local-provider** paths are configurable and were tested live with mock backends:
+
+| Path | Test | Result |
+|---|---|---|
+| Image gen — Stable Diffusion (`sdBaseUrl` → mock Automatic1111 `/sdapi/v1/txt2img`) | `POST /api/images/generate {"prompt":"a red square"}` | **PASS** — 200, `provider=stable-diffusion`, `base64` payload returned, `image_generation_log` row `status=ok` |
+| STT — local Whisper (`sttProvider=local`, `sttLocalUrl` → mock `/v1/audio/transcriptions`) | `POST /api/voice/transcribe` (multipart WAV) | **PASS** — 200, `text="hello from the local whisper mock"` |
+
+Confirms the app's request-building, response-parsing, and audit-logging for the self-hosted media providers. Mocks + test settings reverted afterward. (DALL-E/OpenAI-TTS live still need a real key; not executed.)
+
 ## 5. Recommendation
 1. **Remediate BUG-003/004/005** (test-debt) to restore a green `mvn test` gate — these are false negatives masking real coverage signal. Do **not** delete or weaken; fix the verifications/stubs.
 2. Stand up the **Playwright** and **k6** harnesses (see test plan) and execute Phases 6–18.
