@@ -28,10 +28,31 @@ import com.ollanest.model.User;
 /**
  * Unit tests for {@link RouterService}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Covers: sensitive-content detection, request classification, model routing
- * (privacy blocking, scoring, router-disabled path, empty candidate list), and
- * the null-safety fix in {@code detectSensitiveContent}.
+ * {@link RouterService} decides which model handles a request and is therefore
+ * a privacy-critical component: it must detect sensitive content (SSNs, cards,
+ * API keys, PHI), keep sensitive or "local-only" requests on local models, and
+ * fall back gracefully when misconfigured. These tests pin the detection
+ * patterns, the request classification tags, and the routing/scoring rules —
+ * including the security invariant that an external model is never selected for
+ * sensitive content.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>{@link ModelService} and {@link DatabaseService} are Mockito mocks; a
+ * real {@link ObjectMapper} is used since JSON parsing needs no stubbing.</li>
+ * <li>Nested groups that share settings stubs use {@link Strictness#LENIENT} so
+ * unused stubs on some paths do not fail.</li>
+ * <li>{@link #model(String, String, String, String, int, int, String...)} and
+ * {@link #adminUser()} build fixtures shared across the routing tests.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — sensitive-content detection, classification and routing
+ * coverage, including the {@code detectSensitiveContent} null-safety fix.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -41,16 +62,27 @@ import com.ollanest.model.User;
 @DisplayName("RouterService — unit tests")
 class RouterServiceTest {
 
+	/** Mocked model service supplying the per-user allowed model list. */
 	@Mock
 	ModelService modelService;
+	/** Mocked database service supplying router settings and custom patterns. */
 	@Mock
 	DatabaseService databaseService;
 
 	/** Real ObjectMapper — no stubs needed for JSON parsing. */
 	private final ObjectMapper mapper = new ObjectMapper();
 
+	/** Service under test, rebuilt fresh before each test. */
 	private RouterService router;
 
+	/**
+	 * Builds a fresh {@link RouterService} before each test so settings stubs do
+	 * not leak between cases.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@BeforeEach
 	void setUp() {
 		router = new RouterService(modelService, databaseService, mapper);
@@ -58,6 +90,21 @@ class RouterServiceTest {
 
 	// ── Helper ───────────────────────────────────────────────────────────────
 
+	/**
+	 * Builds a {@link ModelRecord} fixture.
+	 *
+	 * @param id       the model id
+	 * @param name     the display name
+	 * @param privacy  the privacy class ({@code local}/{@code external})
+	 * @param provider the provider name
+	 * @param speed    the speed score
+	 * @param quality  the quality score
+	 * @param caps     the capability tags
+	 * @return a populated {@link ModelRecord}
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private ModelRecord model(String id, String name, String privacy, String provider, int speed, int quality,
 			String... caps) {
 		ModelRecord m = new ModelRecord();
@@ -71,6 +118,14 @@ class RouterServiceTest {
 		return m;
 	}
 
+	/**
+	 * Builds an admin {@link User} fixture used as the routing caller.
+	 *
+	 * @return an admin user
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private User adminUser() {
 		User u = new User();
 		u.id = "u-admin";
@@ -80,17 +135,38 @@ class RouterServiceTest {
 
 	// ── detectSensitiveContent ───────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code detectSensitiveContent()} — PII/secret detection.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@MockitoSettings(strictness = Strictness.LENIENT)
 	@DisplayName("detectSensitiveContent")
 	class DetectSensitiveContent {
 
+		/**
+		 * Disables admin-configured custom patterns for these tests.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@BeforeEach
 		void noCustomPatterns() {
 			// Stub: no admin-configured custom patterns for these tests
 			when(databaseService.getSetting(eq("sensitivePatterns"), any())).thenReturn(null);
 		}
 
+		/**
+		 * Verifies null input is treated as non-sensitive without an NPE.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null input returns non-sensitive result without NPE")
 		void nullInputIsNotSensitive() {
@@ -100,6 +176,13 @@ class RouterServiceTest {
 			assertThat(r.reasons).isEmpty();
 		}
 
+		/**
+		 * Verifies ordinary technical text is not flagged sensitive.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("clean text is not sensitive")
 		void cleanTextNotSensitive() {
@@ -109,6 +192,16 @@ class RouterServiceTest {
 			assertThat(r.reasons).isEmpty();
 		}
 
+		/**
+		 * Verifies an SSN pattern is detected.
+		 *
+		 * <p>
+		 * SECURITY: an SSN must be caught so the request stays on local models.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("SSN pattern detected")
 		void detectsSSN() {
@@ -119,6 +212,16 @@ class RouterServiceTest {
 			assertThat(r.reasons).contains("SSN");
 		}
 
+		/**
+		 * Verifies a credit-card pattern is detected.
+		 *
+		 * <p>
+		 * SECURITY (PCI-DSS): card numbers must trigger local-only routing.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("credit card pattern detected")
 		void detectsCreditCard() {
@@ -128,6 +231,17 @@ class RouterServiceTest {
 			assertThat(r.reasons).contains("credit card");
 		}
 
+		/**
+		 * Verifies an OpenAI-style API key is detected.
+		 *
+		 * <p>
+		 * SECURITY: a key in the prompt must be caught before it can leak to an
+		 * external provider.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("OpenAI-style API key pattern detected")
 		void detectsApiKey() {
@@ -138,6 +252,16 @@ class RouterServiceTest {
 			assertThat(r.reasons).contains("API key");
 		}
 
+		/**
+		 * Verifies medical/PHI terms are detected case-insensitively.
+		 *
+		 * <p>
+		 * SECURITY (HIPAA): PHI keywords must trigger local-only routing.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("medical/PHI terms detected (case-insensitive)")
 		void detectsMedical() {
@@ -148,6 +272,17 @@ class RouterServiceTest {
 			assertThat(r.reasons).containsAnyOf("medical/PHI");
 		}
 
+		/**
+		 * Verifies an admin-configured custom pattern is detected and surfaced.
+		 *
+		 * <p>
+		 * A custom regex match must flag the content and name an "admin pattern"
+		 * reason for audit.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("admin-configured custom pattern detected")
 		void detectsAdminPattern() {
@@ -159,6 +294,16 @@ class RouterServiceTest {
 			assertThat(r.reasons).anyMatch(s -> s.contains("admin pattern"));
 		}
 
+		/**
+		 * Verifies a broken admin regex is silently ignored.
+		 *
+		 * <p>
+		 * A misconfigured pattern must be skipped rather than crashing the router.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("invalid admin regex pattern is silently ignored")
 		void invalidAdminPatternIgnored() {
@@ -169,6 +314,16 @@ class RouterServiceTest {
 			assertThat(r.isSensitive).isFalse();
 		}
 
+		/**
+		 * Verifies multiple patterns in one message report all reasons.
+		 *
+		 * <p>
+		 * An SSN and a card in the same text must both appear in the reasons.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("multiple patterns in same text — all reasons reported")
 		void multiplePatternsSameText() {
@@ -182,10 +337,24 @@ class RouterServiceTest {
 
 	// ── classifyRequest ──────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code classifyRequest()} — intent tagging by keyword and mode.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("classifyRequest")
 	class ClassifyRequest {
 
+		/**
+		 * Verifies a null mode defaults to "ask" without an NPE.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null mode defaults to 'ask' without NPE")
 		void nullModeDefaultsToAsk() {
@@ -194,6 +363,13 @@ class RouterServiceTest {
 			assertThat(tags).isNotEmpty();
 		}
 
+		/**
+		 * Verifies an unmatched message falls back to {@code [general, ask]}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("unmatched message returns [general, ask]")
 		void unmatchedMessageReturnsGeneralAsk() {
@@ -202,6 +378,13 @@ class RouterServiceTest {
 			assertThat(tags).containsExactlyInAnyOrder("general", "ask");
 		}
 
+		/**
+		 * Verifies the "bug" keyword maps to fix/debugging/coding tags.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("'bug' keyword maps to fix/debugging/coding")
 		void bugKeywordMapsToCoding() {
@@ -211,6 +394,13 @@ class RouterServiceTest {
 			assertThat(tags).contains("fix", "debugging", "coding");
 		}
 
+		/**
+		 * Verifies "build" mode always adds coding/build/project tags.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("'build' mode always adds coding/build/project")
 		void buildModeAddsCodingTags() {
@@ -219,6 +409,13 @@ class RouterServiceTest {
 			assertThat(tags).contains("coding", "build", "project");
 		}
 
+		/**
+		 * Verifies a medical keyword maps to medical/analysis tags.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("medical keyword maps to medical/analysis")
 		void medicalKeyword() {
@@ -228,6 +425,13 @@ class RouterServiceTest {
 			assertThat(tags).contains("medical", "analysis");
 		}
 
+		/**
+		 * Verifies "fix" mode always adds fix/debugging/coding tags.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("'fix' mode always adds fix/debugging/coding")
 		void fixModeAddsTags() {
@@ -237,6 +441,17 @@ class RouterServiceTest {
 			assertThat(tags).contains("fix", "debugging", "coding");
 		}
 
+		/**
+		 * Verifies tags are deduplicated when keyword and mode overlap.
+		 *
+		 * <p>
+		 * When both the keyword and the mode add the same tag, the result must
+		 * contain no duplicates.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("tags are deduplicated when keyword and mode both match")
 		void tagsAreDeduplicated() {
@@ -250,11 +465,28 @@ class RouterServiceTest {
 
 	// ── routeModel ────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code routeModel()} — scoring, privacy blocking and fallbacks.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@MockitoSettings(strictness = Strictness.LENIENT)
 	@DisplayName("routeModel")
 	class RouteModel {
 
+		/**
+		 * Establishes the common router settings used by most routing tests.
+		 *
+		 * <p>
+		 * Router enabled, API models disallowed, and no custom weights/patterns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@BeforeEach
 		void commonStubs() {
 			// Stub common settings used by most routing tests
@@ -265,6 +497,17 @@ class RouterServiceTest {
 			when(databaseService.getSettingBool(eq("allowApiModels"), anyBoolean())).thenReturn(false);
 		}
 
+		/**
+		 * Verifies the highest-scoring local model is selected for clean text.
+		 *
+		 * <p>
+		 * With two local candidates and a non-sensitive "ask" request, a model is
+		 * selected, both candidates appear, and no privacy block applies.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("selects highest-scoring local model for clean message")
 		void selectsHighestScoringModel() {
@@ -281,6 +524,18 @@ class RouterServiceTest {
 			assertThat(r.privacyBlocked).isFalse();
 		}
 
+		/**
+		 * Verifies sensitive content eliminates external models.
+		 *
+		 * <p>
+		 * SECURITY: with an SSN present, the API model must be excluded from the
+		 * candidates and only the local model selected, with {@code privacyBlocked}
+		 * true.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("privacy blocking eliminates non-local models when SSN present")
 		void privacyBlockingEliminatesApiModels() {
@@ -299,6 +554,17 @@ class RouterServiceTest {
 			assertThat(r.candidates).noneMatch(c -> "m-api".equals(c.get("id")));
 		}
 
+		/**
+		 * Verifies "fix" mode enforces local-only routing by default.
+		 *
+		 * <p>
+		 * Even though the API model scores higher, "fix" mode keeps code local, so
+		 * the local model wins and {@code privacyBlocked} is true.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("'fix' mode triggers local-only enforcement by default")
 		void fixModeTriggerLocalOnly() {
@@ -314,6 +580,17 @@ class RouterServiceTest {
 			assertThat(r.selected.id).isEqualTo("m-local");
 		}
 
+		/**
+		 * Verifies an empty allowed-models list yields {@code selected=null}.
+		 *
+		 * <p>
+		 * With no allowed models the router must not throw; {@code selected} is
+		 * null and candidates empty.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("empty allowed models list returns selected=null")
 		void emptyAllowedModelsReturnsNull() {
@@ -326,6 +603,17 @@ class RouterServiceTest {
 			assertThat(r.candidates).isEmpty();
 		}
 
+		/**
+		 * Verifies a disabled router returns the first model with score 0.
+		 *
+		 * <p>
+		 * With the intelligent router off, the first model wins regardless of score
+		 * and every candidate reports a score of 0.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("router disabled — returns first model, score=0")
 		void routerDisabledReturnsFirstModel() {
@@ -342,6 +630,17 @@ class RouterServiceTest {
 			assertThat(r.candidates).allMatch(c -> Integer.valueOf(0).equals(c.get("score")));
 		}
 
+		/**
+		 * Verifies a null message does not throw and still returns a result.
+		 *
+		 * <p>
+		 * A null message must be treated as an empty/general request rather than
+		 * crashing the router.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null message does not throw NPE — returns result gracefully")
 		void nullMessageDoesNotThrow() {
@@ -354,6 +653,18 @@ class RouterServiceTest {
 			assertThat(r).isNotNull();
 		}
 
+		/**
+		 * Verifies the candidate breakdown exposes all scoring dimensions.
+		 *
+		 * <p>
+		 * The breakdown map must contain capabilityMatch, speedScore, qualityScore,
+		 * privacyScore and weightedTotal so an admin can see why a model was
+		 * chosen.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("candidate breakdown map contains all expected keys")
 		void candidateBreakdownContainsExpectedKeys() {
