@@ -34,25 +34,35 @@ import com.ollanest.testinfra.UserFactory;
 /**
  * OCD-level unit tests for {@link ApiTokenService}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Covers: {@code mint()} — token format, prefix storage, bcrypt hashing, DB
- * write, scope persistence, token uniqueness; {@code validate()} — prefix
- * mismatch rejection, invalid/null tokens, full-token validation path;
- * {@code list()} — owner scoping; {@code revoke()} / {@code revokeAll()} —
- * correct SQL and ownership.
+ * Personal API tokens are bearer credentials, so their lifecycle must never
+ * regress on the security-sensitive details: tokens are shown exactly once,
+ * stored only as bcrypt hashes, prefixed for O(1) lookup, owner-scoped on every
+ * mutation, and high-entropy (no collisions). This class locks down minting,
+ * validation, listing, and revocation, with every collaborator stubbed so no
+ * real DB or randomness leaks into the assertions.
  *
- * <p>
- * Security invariants tested:
+ * <h3>Design notes</h3>
  * <ul>
- * <li>Raw token is returned exactly once (on mint) and never stored in
- * plaintext.</li>
- * <li>token_hash is never present in the list/validate response maps.</li>
- * <li>All tokens start with the {@code oly_} prefix.</li>
- * <li>100 minted tokens produce 100 unique tokens (SecureRandom).</li>
+ * <li>Mints exercise the real {@code SecureRandom} token generator; only the DB
+ * and JSON mapper are mocked.</li>
+ * <li>Security invariants under test: the raw token is returned only on mint and
+ * never persisted in plaintext; {@code token_hash} is never present in
+ * list/validate responses; all tokens carry the {@code oly_} prefix; and 100
+ * mints yield 100 distinct tokens.</li>
+ * <li>Lenient strictness covers the shared {@link #stubMapper()} stub that not
+ * every test exercises.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.0 — initial creation; documented in the project-wide Javadoc
+ * pass</li>
  * </ul>
  *
  * @author Ashok Ram
- * @since v2026.2.0 — initial creation
+ * @since v2026.2.0
  * @version v2026.2.0
  */
 @ExtendWith(MockitoExtension.class)
@@ -60,17 +70,34 @@ import com.ollanest.testinfra.UserFactory;
 @DisplayName("ApiTokenService — unit tests")
 class ApiTokenServiceTest {
 
+	/** Stable test owner id used across all token operations. */
 	private static final String OWNER = UserFactory.USER_ID;
+	/** The mandatory prefix every minted token must carry. */
 	private static final String TOKEN_PREFIX = "oly_";
 
+	/** Mocked database template backing token persistence. */
 	@Mock
 	JdbcTemplate db;
+	/** Mocked JSON mapper used for scope serialisation/deserialisation. */
 	@Mock
 	ObjectMapper mapper;
 
+	/** System under test with the mocks injected. */
 	@InjectMocks
 	ApiTokenService tokenService;
 
+	/**
+	 * Stubs the JSON mapper to serialise scope lists to a fixed payload.
+	 *
+	 * <p>
+	 * Minting serialises the scopes list; this stub returns a constant
+	 * {@code ["chat"]} payload so mint tests do not depend on real Jackson output.
+	 *
+	 * @throws Exception if the mocked serialisation declares a checked exception
+	 * @since v2026.2.0
+	 * @author Ashok Ram
+	 * @version v2026.2.0
+	 */
 	@BeforeEach
 	void stubMapper() throws Exception {
 		when(mapper.writeValueAsString(any())).thenReturn("[\"chat\"]");
@@ -78,10 +105,29 @@ class ApiTokenServiceTest {
 
 	// ── mint() ────────────────────────────────────────────────────────────────
 
+	/**
+	 * Groups tests for {@link ApiTokenService#mint(String, String, List)} — token
+	 * creation, format, hashing, and uniqueness.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("mint()")
 	class Mint {
 
+		/**
+		 * Verifies the mint result exposes the one-time raw {@code token} value.
+		 *
+		 * <p>
+		 * Security: the raw token is shown only on mint and is never stored in
+		 * plaintext, so it must appear in the returned map.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("returned map contains 'token' key (shown once)")
 		void returnedMapContainsToken() {
@@ -90,6 +136,17 @@ class ApiTokenServiceTest {
 			assertThat(result).containsKey("token");
 		}
 
+		/**
+		 * Verifies the minted raw token starts with the {@code oly_} prefix.
+		 *
+		 * <p>
+		 * The prefix enables prefix-based candidate lookup without exposing the bcrypt
+		 * hash.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("minted token starts with 'oly_' prefix")
 		void tokenStartsWithOlyPrefix() {
@@ -98,6 +155,17 @@ class ApiTokenServiceTest {
 			assertThat(result.get("token").toString()).startsWith(TOKEN_PREFIX);
 		}
 
+		/**
+		 * Verifies the stored {@code token_prefix} is the first 12 chars of the token.
+		 *
+		 * <p>
+		 * The 12-char prefix is the DB lookup key that lets validation fetch candidate
+		 * rows in O(1) before bcrypt comparison.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("token_prefix stored is first 12 chars of the raw token")
 		void tokenPrefixIsFirst12Chars() {
@@ -108,6 +176,17 @@ class ApiTokenServiceTest {
 			assertThat(result.get("token_prefix")).isEqualTo(expectedPrefix);
 		}
 
+		/**
+		 * Verifies mint issues an INSERT into {@code api_tokens}.
+		 *
+		 * <p>
+		 * Proves persistence happens; the raw token is never stored, only its bcrypt
+		 * hash.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("DB INSERT called with owner, name, hashed token (not raw)")
 		void dbInsertCallsWithOwnerAndName() {
@@ -116,6 +195,16 @@ class ApiTokenServiceTest {
 			verify(db).update(contains("INSERT INTO api_tokens"), any(Object[].class));
 		}
 
+		/**
+		 * Verifies the returned record carries the owning user id.
+		 *
+		 * <p>
+		 * Proves the owner is propagated into the mint response for the caller's UI.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("owner is present in returned record")
 		void ownerInReturnedRecord() {
@@ -123,6 +212,17 @@ class ApiTokenServiceTest {
 			assertThat(result.get("owner")).isEqualTo(OWNER);
 		}
 
+		/**
+		 * Verifies a {@code null} token name defaults to {@code "API Token"}.
+		 *
+		 * <p>
+		 * Null name must produce a sensible default label rather than an NPE or the
+		 * literal string "null".
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("null name defaults to 'API Token'")
 		void nullNameDefaults() {
@@ -131,6 +231,17 @@ class ApiTokenServiceTest {
 			assertThat(result.get("name")).isEqualTo("API Token");
 		}
 
+		/**
+		 * Verifies {@code null} scopes default to a non-null scope set.
+		 *
+		 * <p>
+		 * Proves a missing scopes list is coerced to the default ({@code ["chat"]})
+		 * rather than left null.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("null scopes default to [\"chat\"]")
 		void nullScopesDefault() {
@@ -139,6 +250,17 @@ class ApiTokenServiceTest {
 			assertThat(result.get("scopes")).isNotNull();
 		}
 
+		/**
+		 * Verifies 100 mints produce 100 distinct tokens.
+		 *
+		 * <p>
+		 * Security: the {@code SecureRandom}-backed generator must guarantee no token
+		 * reuse, even in a tight loop, to prevent credential collisions.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@RepeatedTest(1)
 		@DisplayName("100 minted tokens are all unique (SecureRandom entropy)")
 		void hundredTokensAreUnique() {
@@ -155,10 +277,28 @@ class ApiTokenServiceTest {
 
 	// ── validate() ────────────────────────────────────────────────────────────
 
+	/**
+	 * Groups tests for {@link ApiTokenService#validate(String)} — bearer-token
+	 * verification and rejection paths.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("validate()")
 	class Validate {
 
+		/**
+		 * Verifies a {@code null} token returns {@code null} (unauthenticated).
+		 *
+		 * <p>
+		 * Null token must short-circuit before any DB lookup is attempted.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("null token returns null (not authenticated)")
 		void nullTokenReturnsNull() {
@@ -166,6 +306,18 @@ class ApiTokenServiceTest {
 			assertThat(tokenService.validate(null)).isNull();
 		}
 
+		/**
+		 * Verifies any token lacking the {@code oly_} prefix is rejected.
+		 *
+		 * <p>
+		 * Security: null, empty, blank, and foreign-provider tokens must be rejected
+		 * immediately without a DB round-trip.
+		 *
+		 * @param token a malformed or foreign-provider token value
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@ParameterizedTest
 		@NullAndEmptySource
 		@ValueSource(strings = { "   ", "Bearer abc", "api_key_123", "sk-abc123" })
@@ -176,6 +328,17 @@ class ApiTokenServiceTest {
 			assertThat(tokenService.validate(token)).isNull();
 		}
 
+		/**
+		 * Verifies a well-formed token with no matching DB row returns {@code null}.
+		 *
+		 * <p>
+		 * When the prefix matches no candidate (revoked or never existed) the token is
+		 * invalid.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("oly_ token with no DB candidate returns null")
 		void noDbCandidateReturnsNull() {
@@ -185,6 +348,18 @@ class ApiTokenServiceTest {
 			assertThat(tokenService.validate("oly_" + "a".repeat(64))).isNull();
 		}
 
+		/**
+		 * Verifies {@code token_hash} is never present in a validate response.
+		 *
+		 * <p>
+		 * Security: even if a candidate row is found and (theoretically) returned, the
+		 * bcrypt {@code token_hash} must never be exposed to the caller.
+		 *
+		 * @throws Exception if the mocked deserialisation declares a checked exception
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("token_hash is absent from validate() response (never exposed)")
 		void hashNotExposedInValidateResponse() throws Exception {
@@ -210,10 +385,30 @@ class ApiTokenServiceTest {
 
 	// ── list() ────────────────────────────────────────────────────────────────
 
+	/**
+	 * Groups tests for {@link ApiTokenService#list(String)} — owner-scoped token
+	 * enumeration with hash stripping.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("list()")
 	class ListTokens {
 
+		/**
+		 * Verifies listing queries the DB filtered by owner.
+		 *
+		 * <p>
+		 * Proves the SELECT against {@code api_tokens} is bound to the calling owner so
+		 * users only see their own tokens.
+		 *
+		 * @throws Exception if the mocked deserialisation declares a checked exception
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("queries DB with owner filter")
 		void queriesWithOwner() throws Exception {
@@ -226,6 +421,17 @@ class ApiTokenServiceTest {
 			assertThat(result).isNotEmpty();
 		}
 
+		/**
+		 * Verifies {@code token_hash} is stripped from every list entry.
+		 *
+		 * <p>
+		 * Security: the bcrypt hash must never reach the client in any list response.
+		 *
+		 * @throws Exception if the mocked deserialisation declares a checked exception
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("token_hash is stripped from list response")
 		void hashStrippedFromList() throws Exception {
@@ -244,10 +450,29 @@ class ApiTokenServiceTest {
 
 	// ── revoke() / revokeAll() ────────────────────────────────────────────────
 
+	/**
+	 * Groups tests for {@link ApiTokenService#revoke(String, String)} and
+	 * {@link ApiTokenService#revokeAll(String)} — owner-scoped deactivation.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("revoke() / revokeAll()")
 	class Revoke {
 
+		/**
+		 * Verifies single-token revoke flips {@code is_active=0} for that token+owner.
+		 *
+		 * <p>
+		 * Proves the UPDATE binds both the token id and owner to prevent cross-user
+		 * revocation.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("revoke sets is_active=0 for the specific token and owner")
 		void revokeSetsFlagZero() {
@@ -256,6 +481,16 @@ class ApiTokenServiceTest {
 			verify(db).update(contains("UPDATE api_tokens SET is_active=0"), eq("tok-123"), eq(OWNER));
 		}
 
+		/**
+		 * Verifies bulk revoke flips {@code is_active=0} for all of the owner's tokens.
+		 *
+		 * <p>
+		 * Proves a bulk revoke only affects the specified owner's tokens.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("revokeAll sets is_active=0 for all tokens of the owner")
 		void revokeAllSetsFlagZero() {
@@ -264,6 +499,17 @@ class ApiTokenServiceTest {
 			verify(db).update(contains("UPDATE api_tokens SET is_active=0"), eq(OWNER));
 		}
 
+		/**
+		 * Verifies single-token revoke is owner-scoped.
+		 *
+		 * <p>
+		 * Proves the owner parameter participates in the WHERE clause so a user cannot
+		 * revoke another user's token.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("revoke targets only the given owner — not other owners")
 		void revokeOwnerScoped() {

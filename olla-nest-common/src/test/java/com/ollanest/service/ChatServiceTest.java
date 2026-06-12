@@ -45,6 +45,29 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * regression), UID uniqueness + entropy, context-window budgeting, message
  * parsing, and audit/trace persistence.
  *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * {@link ChatService} owns the request-time invariants of the chat pipeline:
+ * token budgeting, per-user rate limiting, collision-free id generation, DB-row
+ * to API-shape mapping, and fire-and-forget auditing. Several of these were the
+ * site of production incidents (notably the rate-limit race fixed in v2026.1.9),
+ * so the tests double as executable regression guards.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>{@link JdbcTemplate} and collaborator services are Mockito mocks so the
+ * pure logic can be exercised without a database.</li>
+ * <li>A real {@link ObjectMapper} is used because JSON (de)serialisation is part
+ * of the behaviour under test, not an external dependency to fake.</li>
+ * <li>Concurrency-sensitive tests use {@link CountDownLatch} gates to release
+ * all threads simultaneously and maximise contention.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — documented as part of the project-wide Javadoc pass</li>
+ * </ul>
+ *
  * @author Ashok Ram
  * @since v2026.2.1
  * @version v2026.2.1
@@ -53,16 +76,29 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @DisplayName("ChatService — unit tests")
 class ChatServiceTest {
 
+	/** Mocked JDBC template backing all persistence interactions. */
 	@Mock
 	JdbcTemplate db;
+	/** Mocked workspace service collaborator injected into the service. */
 	@Mock
 	WorkspaceService workspaceService;
+	/** Mocked prompt-template service collaborator injected into the service. */
 	@Mock
 	PromptTemplateService promptTemplateService;
 
+	/** Real Jackson mapper — JSON handling is part of the behaviour under test. */
 	private final ObjectMapper mapper = new ObjectMapper();
+	/** System under test, rebuilt fresh before each test. */
 	private ChatService service;
 
+	/**
+	 * Builds a fresh {@link ChatService} before each test so no rate-limit counter
+	 * or other in-memory state leaks between cases.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@BeforeEach
 	void setUp() {
 		service = new ChatService(db, workspaceService, mapper, promptTemplateService);
@@ -70,10 +106,26 @@ class ChatServiceTest {
 
 	// ── estimateTokens ────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@link ChatService#estimateTokens(String)}, the 4-chars-per-token
+	 * heuristic used for context budgeting.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("estimateTokens")
 	class EstimateTokens {
 
+		/**
+		 * Proves a {@code null} argument estimates to zero tokens, guarding against the
+		 * null content chunks that streaming responses can emit.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null returns 0")
 		void nullReturnsZero() {
@@ -81,6 +133,14 @@ class ChatServiceTest {
 			assertThat(service.estimateTokens(null)).isEqualTo(0);
 		}
 
+		/**
+		 * Proves the empty string estimates to zero tokens rather than one, ensuring the
+		 * ceiling logic does not round an empty input up.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("empty string returns 0")
 		void emptyReturnsZero() {
@@ -88,6 +148,14 @@ class ChatServiceTest {
 			assertThat(service.estimateTokens("")).isEqualTo(0);
 		}
 
+		/**
+		 * Proves a 4-character string maps to exactly one token, the base unit of the
+		 * 4-chars-per-token approximation.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("4-character string estimates 1 token")
 		void fourCharsIsOneToken() {
@@ -95,6 +163,14 @@ class ChatServiceTest {
 			assertThat(service.estimateTokens("abcd")).isEqualTo(1);
 		}
 
+		/**
+		 * Proves an 8-character string maps to exactly two tokens, confirming the
+		 * heuristic scales linearly with length.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("8-character string estimates 2 tokens")
 		void eightCharsIsTwoTokens() {
@@ -102,6 +178,14 @@ class ChatServiceTest {
 			assertThat(service.estimateTokens("abcdefgh")).isEqualTo(2);
 		}
 
+		/**
+		 * Proves a 5-character string rounds up to two tokens, confirming the ceiling is
+		 * applied so partial tokens are never undercounted in the budget.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("ceiling applied: 5 chars → 2 tokens (⌈5/4⌉)")
 		void ceilingApplied() {
@@ -112,10 +196,26 @@ class ChatServiceTest {
 
 	// ── checkChatRateLimit ────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@link ChatService#checkChatRateLimit(String, int)}, including the
+	 * concurrency regression guard for the v2026.1.9 race-condition fix.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("checkChatRateLimit")
 	class CheckChatRateLimit {
 
+		/**
+		 * Proves that a limit of zero disables rate limiting entirely, allowing an
+		 * unbounded number of requests (the sentinel used by admin accounts).
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("limitPerMinute=0 always allows (rate limiting disabled)")
 		void zeroLimitAlwaysAllows() {
@@ -124,6 +224,14 @@ class ChatServiceTest {
 				assertThat(service.checkChatRateLimit("user-1", 0)).isTrue();
 		}
 
+		/**
+		 * Proves a negative limit is also treated as unlimited, a defensive guard against
+		 * mis-configured or corrupted limit values.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("negative limit always allows")
 		void negativeLimitAlwaysAllows() {
@@ -131,6 +239,14 @@ class ChatServiceTest {
 			assertThat(service.checkChatRateLimit("user-2", -1)).isTrue();
 		}
 
+		/**
+		 * Proves all requests up to and including the configured limit are allowed within
+		 * the window, confirming the boundary is inclusive.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("allows exactly limitPerMinute requests within window")
 		void allowsUpToLimit() {
@@ -139,6 +255,14 @@ class ChatServiceTest {
 				assertThat(service.checkChatRateLimit("user-3", 5)).isTrue();
 		}
 
+		/**
+		 * Proves the first request beyond the limit is denied within the same window,
+		 * using a unique per-run user id to isolate the counter from other tests.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("denies the (limit+1)-th request within window")
 		void deniesOnceOverLimit() {
@@ -151,6 +275,14 @@ class ChatServiceTest {
 			assertThat(service.checkChatRateLimit(uid, 3)).isFalse();
 		}
 
+		/**
+		 * Proves each user has an independent rate-limit counter, so exhausting one
+		 * user's quota does not affect another user.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("different users have independent counters")
 		void differentUsersAreIndependent() {
@@ -174,6 +306,12 @@ class ChatServiceTest {
 		 * contention two threads could both read count &lt; limit and both increment,
 		 * allowing up to 20 requests through. This test would have been flaky (passing
 		 * sometimes, failing sometimes) before the fix.
+		 *
+		 * @throws InterruptedException if the awaiting thread is interrupted while
+		 *                              waiting on the completion latch
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
 		 */
 		@Test
 		@DisplayName("race condition fix: exactly 10 of 20 concurrent requests allowed (limit=10)")
@@ -213,10 +351,26 @@ class ChatServiceTest {
 
 	// ── uid ───────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@link ChatService#uid(String)}, the prefixed, collision-resistant
+	 * identifier generator.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("uid")
 	class Uid {
 
+		/**
+		 * Proves a generated id begins with the supplied prefix, making ids
+		 * self-describing in logs and APIs.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("uid starts with the given prefix")
 		void hasPrefix() {
@@ -226,6 +380,14 @@ class ChatServiceTest {
 			assertThat(service.uid("audit")).startsWith("audit-");
 		}
 
+		/**
+		 * Proves the id has exactly two hyphens, confirming the
+		 * {@code prefix-<base36ms>-<base36rand>} structure is preserved.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("uid contains exactly two hyphens (prefix-ms-rand)")
 		void hasTwoHyphens() {
@@ -234,6 +396,15 @@ class ChatServiceTest {
 			assertThat(id.chars().filter(c -> c == '-').count()).isEqualTo(2);
 		}
 
+		/**
+		 * Generates 1000 ids per repetition and asserts they are all unique, proving the
+		 * SecureRandom suffix plus millisecond timestamp provide sufficient collision
+		 * resistance under tight-loop generation.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@RepeatedTest(1000)
 		@DisplayName("1000 uid() calls produce no collisions (SecureRandom entropy sufficient)")
 		void noDuplicates() {
@@ -248,10 +419,26 @@ class ChatServiceTest {
 
 	// ── parseMessage ─────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@link ChatService#parseMessage(Map)}, which maps a snake_case DB
+	 * row to the camelCase API message shape.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("parseMessage")
 	class ParseMessage {
 
+		/**
+		 * Proves every core column is mapped to its camelCase API field, including the
+		 * {@code live=1} to boolean-true coercion.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("maps all core fields correctly")
 		void mapsAllFields() {
@@ -283,6 +470,14 @@ class ChatServiceTest {
 			assertThat(msg.get("live")).isEqualTo(true);
 		}
 
+		/**
+		 * Proves a {@code live=0} column maps to boolean {@code false} for historical or
+		 * non-streaming messages.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("live=0 maps to false")
 		void liveZeroIsFalse() {
@@ -295,6 +490,14 @@ class ChatServiceTest {
 			assertThat(service.parseMessage(row).get("live")).isEqualTo(false);
 		}
 
+		/**
+		 * Proves a {@code null} live column (absent in older rows) defaults to boolean
+		 * {@code true}, treating the message as live.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null live defaults to true")
 		void nullLiveIsTrue() {
@@ -308,6 +511,14 @@ class ChatServiceTest {
 			assertThat(service.parseMessage(row).get("live")).isEqualTo(true);
 		}
 
+		/**
+		 * Proves a {@code null} {@code artifacts_json} column yields an empty list rather
+		 * than {@code null}, so the UI can iterate safely.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("artifacts_json null → empty list")
 		void nullArtifactsIsEmptyList() {
@@ -323,6 +534,14 @@ class ChatServiceTest {
 			assertThat(service.parseMessage(row).get("artifacts")).isEqualTo(List.of());
 		}
 
+		/**
+		 * Proves a populated {@code artifacts_json} array is deserialised into an
+		 * order-preserving list for the API response.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("valid artifacts_json is deserialised to a list")
 		void validArtifactsJsonDeserialised() {
@@ -343,11 +562,27 @@ class ChatServiceTest {
 
 	// ── appendAudit ───────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@link ChatService#appendAudit(String, String, String, String)},
+	 * the fire-and-forget audit writer.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@MockitoSettings(strictness = Strictness.LENIENT)
 	@DisplayName("appendAudit")
 	class AppendAudit {
 
+		/**
+		 * Proves an audit call issues a parameterised INSERT into {@code audit_events}
+		 * with the expected positional columns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("writes to audit_events with correct columns")
 		void writesAuditRow() {
@@ -358,6 +593,14 @@ class ChatServiceTest {
 					any(), eq("alice"), eq("user.login"), eq("Signed in"), anyString(), anyString());
 		}
 
+		/**
+		 * Proves a {@code null} detail is coerced to an empty string before insert,
+		 * avoiding a NOT NULL constraint violation.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null detail is written as empty string (not null)")
 		void nullDetailBecomesEmptyString() {
@@ -367,6 +610,14 @@ class ChatServiceTest {
 					anyString(), anyString());
 		}
 
+		/**
+		 * Proves a database failure during the audit insert is swallowed, so an audit
+		 * write can never crash the chat flow it is recording.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DB exception during audit is silently swallowed (fire-and-forget)")
 		void dbExceptionSwallowed() {
@@ -380,11 +631,29 @@ class ChatServiceTest {
 
 	// ── buildContextMessages ─────────────────────────────────────────────────
 
+	/**
+	 * Tests for
+	 * {@link ChatService#buildContextMessages(String, String, String, String, List)},
+	 * which assembles the system/history/user message array within the context
+	 * budget.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@MockitoSettings(strictness = Strictness.LENIENT)
 	@DisplayName("buildContextMessages")
 	class BuildContextMessages {
 
+		/**
+		 * Stubs the model-lookup queries to return no rows before each test, forcing the
+		 * fallback 8192-token context window.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@BeforeEach
 		void stubModelAndHistory() {
 			// No model found → fallback context window = 8192
@@ -392,6 +661,14 @@ class ChatServiceTest {
 			when(db.queryForList(contains("FROM api_models"), anyString())).thenReturn(List.of());
 		}
 
+		/**
+		 * Proves that with no prior messages the result is the minimal
+		 * {@code [system, user]} pair, with the user turn carrying the new prompt.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("empty history produces [system, user] messages only")
 		void emptyHistoryProducesSystemAndUser() {
@@ -408,6 +685,14 @@ class ChatServiceTest {
 			assertThat(msgs.get(1).get("content")).isEqualTo("Hello!");
 		}
 
+		/**
+		 * Proves prior conversation turns are inserted in order between the system prompt
+		 * and the new user turn.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("history messages are included between system and user")
 		void historyMessagesIncluded() {
@@ -426,6 +711,14 @@ class ChatServiceTest {
 			assertThat(msgs.get(3).get("content")).isEqualTo("Follow-up?");
 		}
 
+		/**
+		 * Proves that, for a vision request, the images list is attached to the final
+		 * user message rather than the system message.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("images list is attached to the user message when provided")
 		void imagesAttachedToUserMessage() {
@@ -442,6 +735,15 @@ class ChatServiceTest {
 			assertThat(images).containsExactly("base64encodedImageData==");
 		}
 
+		/**
+		 * Proves that even with a large history the assembled array always begins with
+		 * the system message and ends with the user message, the structural invariant the
+		 * trimming logic must preserve.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("oversized history is trimmed to fit within context budget")
 		void oversizedHistoryIsTrimmed() {

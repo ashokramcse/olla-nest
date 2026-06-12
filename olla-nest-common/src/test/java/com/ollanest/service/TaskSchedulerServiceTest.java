@@ -44,6 +44,30 @@ import com.ollanest.testinfra.UserFactory;
  * <p>
  * All DB interactions are Mockito-stubbed — no Spring context, no real DB.
  *
+ * <h3>Why this class exists</h3>
+ * <p>
+ * The scheduler persists, mutates, and resolves the next-run time of user
+ * scheduled tasks. These tests pin down its contract — owner scoping, id
+ * generation, defaulting, and schedule arithmetic — so regressions in any of
+ * those areas (several of which were real production bugs) are caught long
+ * before they reach the database layer.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>{@link JdbcTemplate}, {@link ObjectMapper}, and {@link DatabaseService}
+ * are all Mockito mocks; no Spring context is started.</li>
+ * <li>{@link Strictness#LENIENT} is used because the shared {@code @BeforeEach}
+ * stub is not exercised by every test.</li>
+ * <li>{@link ArgumentCaptor} captures the {@code Object[]} INSERT bind array so
+ * assertions can inspect individual column values by index.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — initial creation; canonical Javadoc added in the project-wide
+ * documentation pass</li>
+ * </ul>
+ *
  * @author Ashok Ram
  * @since v2026.2.1 — initial creation
  * @version v2026.2.1
@@ -53,18 +77,33 @@ import com.ollanest.testinfra.UserFactory;
 @DisplayName("TaskSchedulerService — unit tests")
 class TaskSchedulerServiceTest {
 
+	/** Canonical owner id used as the user scope for every test. */
 	private static final String OWNER = UserFactory.USER_ID;
 
+	/** Mocked JDBC template — captures and stubs all SQL interactions. */
 	@Mock
 	JdbcTemplate db;
+	/** Mocked JSON mapper — stubbed for serialising task fields. */
 	@Mock
 	ObjectMapper mapper;
+	/** Mocked database service dependency injected into the scheduler. */
 	@Mock
 	DatabaseService databaseService;
 
+	/** Service under test, with its mocks injected by Mockito. */
 	@InjectMocks
 	TaskSchedulerService svc;
 
+	/**
+	 * Installs a default stub so {@link TaskSchedulerService#getById} resolves to
+	 * an empty list (and therefore {@code null}) unless a specific test overrides
+	 * the {@code SELECT}. This keeps the per-test stubbing focused on the behaviour
+	 * each test actually cares about.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@BeforeEach
 	void stubGetById() {
 		// Stub: default to empty list so getById returns null unless overridden in
@@ -78,6 +117,15 @@ class TaskSchedulerServiceTest {
 	@DisplayName("create()")
 	class Create {
 
+		/**
+		 * Proves {@code create()} issues an {@code INSERT INTO scheduled_tasks} and
+		 * binds the supplied owner as the second parameter. Owner scoping at write
+		 * time is what later lets RBAC checks confine each task to its creator.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DB INSERT called with owner")
 		void insertCalledWithOwner() {
@@ -89,6 +137,15 @@ class TaskSchedulerServiceTest {
 			assertThat(cap.getValue()[1]).isEqualTo(OWNER);
 		}
 
+		/**
+		 * Verifies the generated primary key carries the {@code "task-"} prefix so
+		 * scheduled-task ids stay in their own namespace and are visually
+		 * distinguishable from other entity ids across the system.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("generated id starts with 'task-'")
 		void idStartsWithTaskPrefix() {
@@ -99,6 +156,15 @@ class TaskSchedulerServiceTest {
 			assertThat(cap.getValue()[0].toString()).startsWith("task-");
 		}
 
+		/**
+		 * Confirms that when the caller omits {@code notifications_enabled}, the
+		 * service defaults the persisted value to {@code 1}. This default ensures
+		 * users receive completion notifications unless they explicitly opt out.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("notifications_enabled defaults to 1 when not specified")
 		void notificationsEnabledDefaultsToOne() {
@@ -111,6 +177,15 @@ class TaskSchedulerServiceTest {
 			assertThat(cap.getValue()[18]).isEqualTo(1);
 		}
 
+		/**
+		 * Verifies that an explicit {@code notifications_enabled=false} is honoured and
+		 * persisted as {@code 0}, proving the default-to-on behaviour never overrides a
+		 * deliberate opt-out by the caller.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("notifications_enabled is 0 when explicitly set to false")
 		void notificationsDisabledWhenFalse() {
@@ -122,6 +197,15 @@ class TaskSchedulerServiceTest {
 			assertThat(cap.getValue()[18]).isEqualTo(0);
 		}
 
+		/**
+		 * Asserts that a freshly created task is persisted with status
+		 * {@code "active"} so it is immediately eligible for scheduling without a
+		 * separate manual activation step.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("status is set to 'active' on create")
 		void statusIsActive() {
@@ -132,6 +216,17 @@ class TaskSchedulerServiceTest {
 			assertThat(cap.getValue()[19]).isEqualTo("active");
 		}
 
+		/**
+		 * Regression guard for BUG-009: creating 50 tasks in a tight loop (often within
+		 * the same millisecond) must yield 50 distinct ids. The original
+		 * timestamp-only id scheme collided on the primary key and produced a 500 in
+		 * {@code seedCheckIns}; this proves the id generator now mixes in additional
+		 * entropy.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("rapid creates in the same millisecond produce UNIQUE ids (BUG-009 regression)")
 		void rapidCreatesProduceUniqueIds() {
@@ -156,6 +251,16 @@ class TaskSchedulerServiceTest {
 	@DisplayName("update()")
 	class Update {
 
+		/**
+		 * Proves that updating a task which is absent (or owned by another user)
+		 * throws {@link NoSuchElementException} carrying the offending id, rather than
+		 * silently doing nothing. This is the security gate that stops one user from
+		 * mutating another user's task.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("throws NoSuchElementException when task not found")
 		void throwsWhenNotFound() {
@@ -174,6 +279,15 @@ class TaskSchedulerServiceTest {
 	@DisplayName("delete()")
 	class Delete {
 
+		/**
+		 * Verifies {@code delete()} issues a {@code DELETE} whose {@code WHERE} clause
+		 * binds both the task id and the owner. Requiring both prevents a user from
+		 * deleting a task that merely shares an id but belongs to someone else.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("calls DELETE WHERE id=? AND owner=?")
 		void deleteScopedToIdAndOwner() {
@@ -183,12 +297,22 @@ class TaskSchedulerServiceTest {
 			verify(db).update(contains("DELETE FROM scheduled_tasks WHERE id"), eq("task-123"), eq(OWNER));
 		}
 
+		/**
+		 * Regression guard for BUG-040: when the {@code DELETE} affects zero rows (the
+		 * task is missing or belongs to another user) the service must throw
+		 * {@link NoSuchElementException} so the controller can surface a 404 instead of
+		 * a misleading success.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("throws (→404) when nothing was deleted — missing or other-user task (BUG-040)")
 		void throwsWhenNothingDeleted() {
 			when(db.update(contains("DELETE FROM scheduled_tasks"), anyString(), anyString())).thenReturn(0);
-			org.assertj.core.api.Assertions.assertThatThrownBy(() -> svc.delete("task-missing", OWNER))
-					.isInstanceOf(java.util.NoSuchElementException.class);
+			assertThatThrownBy(() -> svc.delete("task-missing", OWNER))
+					.isInstanceOf(NoSuchElementException.class);
 		}
 	}
 
@@ -198,6 +322,14 @@ class TaskSchedulerServiceTest {
 	@DisplayName("getById()")
 	class GetById {
 
+		/**
+		 * Confirms {@code getById()} returns {@code null} (rather than throwing) when
+		 * the underlying query yields no row, giving callers a simple presence check.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when DB has no row")
 		void returnsNullWhenNotFound() {
@@ -214,6 +346,15 @@ class TaskSchedulerServiceTest {
 	@DisplayName("list()")
 	class ListTasks {
 
+		/**
+		 * Verifies that passing a {@code null} status produces a query bound only to
+		 * the owner — i.e. no {@code status=} predicate — so every task for the owner
+		 * is returned regardless of state.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("queries without status filter when status is null")
 		void noStatusFilter() {
@@ -224,6 +365,15 @@ class TaskSchedulerServiceTest {
 			verify(db).queryForList(anyString(), eq(OWNER));
 		}
 
+		/**
+		 * Verifies that supplying a concrete status (e.g. {@code "active"}) binds it as
+		 * an additional query parameter, so paused or cancelled tasks are excluded from
+		 * the result.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("queries with status filter when status provided")
 		void withStatusFilter() {
@@ -241,6 +391,15 @@ class TaskSchedulerServiceTest {
 	@DisplayName("computeNextRun()")
 	class ComputeNextRun {
 
+		/**
+		 * Proves a {@code daily} schedule resolves to a non-null ISO-8601 UTC instant.
+		 * A daily task must always have a computable next-run timestamp so the
+		 * scheduler poll loop can pick it up.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("daily schedule returns a non-null future ISO instant")
 		void dailyReturnsInstant() {
@@ -250,6 +409,15 @@ class TaskSchedulerServiceTest {
 			assertThat(next).isNotNull().matches("\\d{4}-\\d{2}-\\d{2}T.*Z");
 		}
 
+		/**
+		 * Proves a {@code weekly} schedule (with a target day-of-week) also resolves to
+		 * a non-null ISO-8601 UTC instant, confirming the weekly arithmetic branch
+		 * produces a valid future timestamp.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("weekly schedule returns a non-null future ISO instant")
 		void weeklyReturnsInstant() {
@@ -259,6 +427,15 @@ class TaskSchedulerServiceTest {
 			assertThat(next).isNotNull().matches("\\d{4}-\\d{2}-\\d{2}T.*Z");
 		}
 
+		/**
+		 * Verifies that an unrecognised schedule string does not return {@code null};
+		 * instead it falls back to a safe next-day instant so the task is never
+		 * orphaned without a next-run time.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("unknown schedule falls back to next-day instant")
 		void unknownScheduleFallback() {
