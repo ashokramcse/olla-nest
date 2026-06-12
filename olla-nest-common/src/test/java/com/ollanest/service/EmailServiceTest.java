@@ -32,9 +32,34 @@ import com.ollanest.testinfra.UserFactory;
 /**
  * OCD-level unit tests for {@link EmailService}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Covers account management and message operations; sendEmail/pollAllAccounts
- * are skipped (network I/O).
+ * {@link EmailService} owns IMAP/SMTP account records and the locally cached
+ * mail messages. These tests pin the behaviour that does not require network
+ * I/O — account CRUD, message listing/reads/flags/deletes — with particular
+ * attention to two security-sensitive invariants: encrypted passwords are
+ * never returned to callers, and every mutating query is scoped by owner so a
+ * user can never touch another user's mail. {@code sendEmail}/
+ * {@code pollAllAccounts} are intentionally out of scope because they perform
+ * real network I/O.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Runs under {@link MockitoExtension} with {@link Strictness#LENIENT} so
+ * shared stubs across nested groups do not trigger unnecessary-stubbing
+ * failures.</li>
+ * <li>Collaborators ({@link JdbcTemplate}, {@link ObjectMapper},
+ * {@link CryptoService}, {@link DatabaseService}, {@link EventBusService}) are
+ * mocked and injected into the service under test.</li>
+ * <li>{@link #acctRow(String)} and {@link #msgRow(String, String)} build
+ * representative DB rows so assertions read against realistic data.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — account CRUD, message operations, BUG-012 validation
+ * regression and password-stripping coverage.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -45,27 +70,53 @@ import com.ollanest.testinfra.UserFactory;
 @DisplayName("EmailService — unit tests")
 class EmailServiceTest {
 
+	/** Canonical owner id used across all account/message fixtures. */
 	private static final String OWNER = UserFactory.USER_ID;
 
+	/** Mocked JDBC template capturing the SQL the service issues. */
 	@Mock
 	JdbcTemplate db;
+	/** Mocked JSON mapper for AI-tag (de)serialisation paths. */
 	@Mock
 	ObjectMapper mapper;
+	/** Mocked crypto service so password encryption can be stubbed deterministically. */
 	@Mock
 	CryptoService cryptoService;
+	/** Mocked database service collaborator. */
 	@Mock
 	DatabaseService databaseService;
+	/** Mocked event bus used by message/account change notifications. */
 	@Mock
 	EventBusService eventBus;
 
+	/** Service under test with all mocks injected. */
 	@InjectMocks
 	EmailService emailService;
 
+	/**
+	 * Builds a representative email-account DB row for the given id.
+	 *
+	 * @param id the account id to embed in the row
+	 * @return an immutable map mirroring an {@code email_accounts} row
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> acctRow(String id) {
 		return Map.of("id", id, "owner", OWNER, "name", "Gmail", "imap_host", "imap.gmail.com", "smtp_host",
 				"smtp.gmail.com", "username", "test@gmail.com", "enabled", 1);
 	}
 
+	/**
+	 * Builds a representative email-message DB row.
+	 *
+	 * @param id        the message id to embed
+	 * @param accountId the owning account id
+	 * @return a mutable map mirroring an {@code email_messages} row
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> msgRow(String id, String accountId) {
 		Map<String, Object> row = new LinkedHashMap<>();
 		row.put("id", id);
@@ -87,10 +138,30 @@ class EmailServiceTest {
 
 	// ── createAccount() ───────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code createAccount()} — credential persistence and input
+	 * validation.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("createAccount()")
 	class CreateAccount {
 
+		/**
+		 * Verifies a valid account triggers an INSERT into {@code email_accounts}.
+		 *
+		 * <p>
+		 * With the password encryption stubbed and the created row returned, the
+		 * service must issue exactly one INSERT, confirming credentials are
+		 * persisted on the happy path.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("INSERT is called")
 		void insertsRow() {
@@ -103,6 +174,20 @@ class EmailServiceTest {
 			verify(db).update(contains("INSERT INTO email_accounts"), any(Object[].class));
 		}
 
+		/**
+		 * Verifies missing required fields raise {@link IllegalArgumentException}
+		 * rather than reaching the database (BUG-012 regression).
+		 *
+		 * <p>
+		 * Both an empty payload and one missing only {@code username} must throw a
+		 * 400-mapping {@code IllegalArgumentException} (the latter naming the
+		 * missing field), and no INSERT may be attempted — preventing a raw
+		 * NOT NULL 500 from leaking to the client.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("missing required fields throw IllegalArgumentException -> 400 (BUG-012 regression)")
 		void missingRequiredFieldsRejected() {
@@ -117,6 +202,17 @@ class EmailServiceTest {
 			verify(db, never()).update(contains("INSERT INTO email_accounts"), any(Object[].class));
 		}
 
+		/**
+		 * Verifies generated account ids carry the {@code email-} prefix.
+		 *
+		 * <p>
+		 * The prefix keeps account identifiers recognisable in logs and API
+		 * payloads; the returned row's id must start with {@code "email-"}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("id starts with 'email-'")
 		void idPrefix() {
@@ -128,6 +224,17 @@ class EmailServiceTest {
 			assertThat(result.get("id").toString()).startsWith("email-");
 		}
 
+		/**
+		 * Verifies the authenticated owner is recorded on the created account.
+		 *
+		 * <p>
+		 * The returned row's {@code owner} field must equal the caller, ensuring
+		 * the account is bound to the right user for later authorization checks.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("owner is in returned account")
 		void ownerStored() {
@@ -141,10 +248,28 @@ class EmailServiceTest {
 
 	// ── getAccount() ──────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code getAccount()} — lookup and credential redaction.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("getAccount()")
 	class GetAccount {
 
+		/**
+		 * Verifies {@code getAccount} returns null when no row matches.
+		 *
+		 * <p>
+		 * An empty result set (missing account, or one owned by another user)
+		 * must yield {@code null} rather than an empty map or exception.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when not found")
 		void nullWhenEmpty() {
@@ -153,6 +278,18 @@ class EmailServiceTest {
 			assertThat(emailService.getAccount("email-1", OWNER)).isNull();
 		}
 
+		/**
+		 * Verifies the encrypted password is stripped from the returned account.
+		 *
+		 * <p>
+		 * Even when the DB row carries {@code password_enc}, the returned map must
+		 * not contain that key — a hard security invariant so credentials never
+		 * reach the client.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("password_enc is stripped from returned account")
 		void stripsPassword() {
@@ -168,10 +305,28 @@ class EmailServiceTest {
 
 	// ── listAccounts() ────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code listAccounts()} — owner-scoped listing.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("listAccounts()")
 	class ListAccounts {
 
+		/**
+		 * Verifies listing queries by the owner parameter and never returns null.
+		 *
+		 * <p>
+		 * The owner is bound into the query and the result list is non-null even
+		 * when the user has accounts, guarding callers from NPEs.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("queries with owner parameter")
 		void queriesWithOwner() {
@@ -185,10 +340,28 @@ class EmailServiceTest {
 
 	// ── deleteAccount() ───────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code deleteAccount()} — owner-scoped deletion.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("deleteAccount()")
 	class DeleteAccount {
 
+		/**
+		 * Verifies deletion is scoped by both id and owner.
+		 *
+		 * <p>
+		 * The DELETE must include {@code WHERE id = ? AND owner = ?} so one user
+		 * can never delete another user's account.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DELETE WHERE id=? AND owner=? is called")
 		void deletesWithIdAndOwner() {
@@ -201,10 +374,29 @@ class EmailServiceTest {
 
 	// ── listMessages() ────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code listMessages()} — paged message retrieval.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("listMessages()")
 	class ListMessages {
 
+		/**
+		 * Verifies messages are queried by account with paging applied.
+		 *
+		 * <p>
+		 * Given a stubbed INBOX row, listing with page/pageSize returns exactly
+		 * the expected single message, confirming the account id and paging
+		 * arguments are wired through.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("queries with accountId and applies page/pageSize")
 		void queriesWithAccountId() {
@@ -218,10 +410,27 @@ class EmailServiceTest {
 
 	// ── getMessage() ──────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code getMessage()} — single-message lookup.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("getMessage()")
 	class GetMessage {
 
+		/**
+		 * Verifies {@code getMessage} returns null when the message is absent.
+		 *
+		 * <p>
+		 * An empty result set yields {@code null} rather than an empty map.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when not found")
 		void nullWhenEmpty() {
@@ -233,10 +442,28 @@ class EmailServiceTest {
 
 	// ── markRead() ────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code markRead()} — read-flag persistence.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("markRead()")
 	class MarkRead {
 
+		/**
+		 * Verifies marking read issues an UPDATE setting {@code is_read=1}.
+		 *
+		 * <p>
+		 * The UPDATE is scoped by message id and account id so the local cache
+		 * (and subsequent IMAP sync) reflect the read state.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("UPDATE SET is_read=1 is called")
 		void updatesIsRead() {
@@ -248,10 +475,28 @@ class EmailServiceTest {
 
 	// ── markStarred() ─────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code markStarred()} — star-flag toggling.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("markStarred()")
 	class MarkStarred {
 
+		/**
+		 * Verifies starring sets {@code is_starred=1}.
+		 *
+		 * <p>
+		 * Calling with {@code starred=true} must bind {@code 1} as the flag value
+		 * in the scoped UPDATE.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("UPDATE SET is_starred=1 when starred=true")
 		void setsStarredTrue() {
@@ -260,6 +505,17 @@ class EmailServiceTest {
 			verify(db).update(contains("UPDATE email_messages SET is_starred=?"), eq(1), eq("eml-1"), eq("email-1"));
 		}
 
+		/**
+		 * Verifies un-starring sets {@code is_starred=0}.
+		 *
+		 * <p>
+		 * Calling with {@code starred=false} must bind {@code 0} as the flag value
+		 * in the scoped UPDATE.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("UPDATE SET is_starred=0 when starred=false")
 		void setsStarredFalse() {
@@ -271,10 +527,28 @@ class EmailServiceTest {
 
 	// ── deleteMessage() ───────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code deleteMessage()} — id/account-scoped deletion.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("deleteMessage()")
 	class DeleteMessage {
 
+		/**
+		 * Verifies a message is deleted by both id and account id.
+		 *
+		 * <p>
+		 * Scoping the DELETE by message id and account id prevents deleting a
+		 * message that belongs to a different account.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DELETE called for id and accountId")
 		void deletesMessage() {
