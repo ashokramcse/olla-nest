@@ -31,12 +31,30 @@ import com.ollanest.testinfra.UserFactory;
 /**
  * OCD-level unit tests for {@link UserService}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Covers: publicUser hydration (all fields, edge cases), findUserById,
- * findUserByEmail, hasRight (admin bypass + explicit rights),
- * departmentDefaults, safeJsonList (null/blank/invalid/valid), allowedModelIds
- * (admin bypass, access_grants by user/department/group, implicit rights,
- * overrides).
+ * {@link UserService} hydrates DB rows into public {@link User} objects and is
+ * the authority for what a user is allowed to do. These tests pin two
+ * security-critical properties: the password hash is never mapped onto the
+ * public user, and the runtime permission set correctly composes role,
+ * department and per-user overrides (allow/deny/expiry, deny-wins — BUG-032).
+ * Quota defaulting, JSON safety, and the admin bypass are also covered.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Runs under {@link MockitoExtension}; {@link JdbcTemplate} and
+ * {@link ObjectMapper} are mocked and injected.</li>
+ * <li>{@link UserFactory} supplies canonical admin/regular rows and users so
+ * assertions read against realistic, shared fixtures.</li>
+ * <li>Nested groups map one-to-one onto the public method surface so a failing
+ * test name points straight at the operation under test.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — hydration, lookup, rights/permissions and allowed-model
+ * coverage, including the BUG-032 override-resolution cases.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -46,11 +64,14 @@ import com.ollanest.testinfra.UserFactory;
 @DisplayName("UserService — unit tests")
 class UserServiceTest {
 
+	/** Mocked JDBC template backing user lookups, grants and overrides. */
 	@Mock
 	JdbcTemplate db;
+	/** Mocked JSON mapper for rights/tags (de)serialisation. */
 	@Mock
 	ObjectMapper mapper;
 
+	/** Service under test with mocks injected. */
 	@InjectMocks
 	UserService userService;
 
@@ -58,10 +79,28 @@ class UserServiceTest {
 	// publicUser hydration
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code publicUser()} — row-to-{@link User} hydration.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("publicUser() — row-to-User hydration")
 	class PublicUser {
 
+		/**
+		 * Verifies a null row hydrates to a null user.
+		 *
+		 * <p>
+		 * The DB can return no rows; {@code publicUser(null)} must return null
+		 * rather than throw.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when row is null")
 		void returnsNullForNullRow() {
@@ -69,6 +108,17 @@ class UserServiceTest {
 			assertThat(userService.publicUser(null)).isNull();
 		}
 
+		/**
+		 * Verifies every scalar field maps correctly from a full admin row.
+		 *
+		 * <p>
+		 * Identity, role, department, quotas and the {@code isEnterprise=false}
+		 * derivation for a local provider are all asserted.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("maps all scalar fields correctly from admin row")
 		void mapsAllFieldsFromAdminRow() {
@@ -98,6 +148,17 @@ class UserServiceTest {
 			assertThat(u.isEnterprise).isFalse(); // local = not enterprise
 		}
 
+		/**
+		 * Verifies a non-local auth provider sets {@code isEnterprise=true}.
+		 *
+		 * <p>
+		 * An SSO provider (SAML/OIDC) must derive {@code isEnterprise=true}, used
+		 * by the UI to show the SSO badge.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("isEnterprise=true when authProvider is not 'local'")
 		void isEnterpriseForSsoUser() {
@@ -109,6 +170,16 @@ class UserServiceTest {
 			assertThat(u.isEnterprise).isTrue();
 		}
 
+		/**
+		 * Verifies an {@code active=0} column maps to {@code active=false}.
+		 *
+		 * <p>
+		 * Deactivated users must map to a boolean false, not null.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("active=false when active column is 0")
 		void inactiveUserMappedCorrectly() {
@@ -119,6 +190,17 @@ class UserServiceTest {
 			assertThat(u.active).isFalse();
 		}
 
+		/**
+		 * Verifies absent quota columns fall back to conservative defaults.
+		 *
+		 * <p>
+		 * A minimal row (only required fields) must yield the documented default
+		 * token/GPU/VRAM/context limits and organisation/provider values.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("applies all default quota values when columns are absent")
 		void appliesDefaultQuotaValues() {
@@ -138,6 +220,18 @@ class UserServiceTest {
 			assertThat(u.authProvider).isEqualTo("local");
 		}
 
+		/**
+		 * Verifies the password hash is never exposed on the public user.
+		 *
+		 * <p>
+		 * SECURITY: even though the source row carries {@code password_hash}, the
+		 * {@link User} type must expose no {@code password}/{@code passwordHash}
+		 * field, so it can never be serialised to an API response.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("password_hash column is NOT mapped to any User field")
 		void passwordHashNotExposed() {
@@ -166,10 +260,27 @@ class UserServiceTest {
 	// findUserById()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code findUserById()} — id lookup.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("findUserById()")
 	class FindUserById {
 
+		/**
+		 * Verifies a miss returns null.
+		 *
+		 * <p>
+		 * No row for the id (deleted or never existed) must yield null.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when DB returns empty list")
 		void returnsNullWhenNotFound() {
@@ -179,6 +290,16 @@ class UserServiceTest {
 			assertThat(userService.findUserById(UserFactory.ADMIN_ID)).isNull();
 		}
 
+		/**
+		 * Verifies a hit returns a hydrated user.
+		 *
+		 * <p>
+		 * A found row must hydrate identity and role fields correctly.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns hydrated user when DB row found")
 		void returnsHydratedUser() {
@@ -196,10 +317,28 @@ class UserServiceTest {
 	// findUserByEmail()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code findUserByEmail()} — active-email lookup.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("findUserByEmail()")
 	class FindUserByEmail {
 
+		/**
+		 * Verifies an unknown email returns null.
+		 *
+		 * <p>
+		 * No active user for the email (unregistered or deactivated) must yield
+		 * null.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when no active user matches the email")
 		void returnsNullForUnknownEmail() {
@@ -208,6 +347,17 @@ class UserServiceTest {
 			assertThat(userService.findUserByEmail("unknown@example.com")).isNull();
 		}
 
+		/**
+		 * Verifies a known active email returns a hydrated user.
+		 *
+		 * <p>
+		 * The email must be preserved exactly, as it is used for session and
+		 * notification targeting.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns hydrated user for a known active email")
 		void returnsHydratedUserForKnownEmail() {
@@ -225,10 +375,27 @@ class UserServiceTest {
 	// hasRight()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code hasRight()} — admin bypass and explicit rights.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("hasRight()")
 	class HasRight {
 
+		/**
+		 * Verifies an admin has every right via role bypass.
+		 *
+		 * <p>
+		 * Even with an empty rights list, an admin must be granted any right.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("admin always has every right — role bypass")
 		void adminBypassesRightCheck() {
@@ -242,6 +409,16 @@ class UserServiceTest {
 			assertThat(userService.hasRight(admin, "any:random:right")).isTrue();
 		}
 
+		/**
+		 * Verifies an explicitly granted right returns true.
+		 *
+		 * <p>
+		 * Rights present in a regular user's list must resolve to true.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("regular user granted explicit right returns true")
 		void userWithExplicitRightReturnsTrue() {
@@ -252,6 +429,17 @@ class UserServiceTest {
 			assertThat(userService.hasRight(u, "models:local:use")).isTrue();
 		}
 
+		/**
+		 * Verifies a missing right returns false.
+		 *
+		 * <p>
+		 * Rights not in the list (admin/workspace) must be denied for a regular
+		 * user.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("regular user lacking right returns false")
 		void userWithoutRightReturnsFalse() {
@@ -261,6 +449,16 @@ class UserServiceTest {
 			assertThat(userService.hasRight(u, "admin:full")).isFalse();
 		}
 
+		/**
+		 * Verifies a null rights list returns false without an NPE.
+		 *
+		 * <p>
+		 * A new user with no assigned rights must safely resolve to false.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null rights list returns false without NPE")
 		void nullRightsReturnsFalse() {
@@ -275,10 +473,28 @@ class UserServiceTest {
 	// departmentDefaults()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code departmentDefaults()} — per-department base rights.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("departmentDefaults()")
 	class DepartmentDefaults {
 
+		/**
+		 * Verifies the product department's default rights.
+		 *
+		 * <p>
+		 * {@code dept-product} must include workspace:build, files:upload and
+		 * chat:use.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("dept-product gets workspace:build and files:upload")
 		void productDeptDefaults() {
@@ -287,6 +503,17 @@ class UserServiceTest {
 			assertThat(defaults).contains("workspace:build", "files:upload", "chat:use");
 		}
 
+		/**
+		 * Verifies the support department's default rights.
+		 *
+		 * <p>
+		 * {@code dept-support} must include models:reasoning:use, files:upload and
+		 * chat:use.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("dept-support gets models:reasoning:use and files:upload")
 		void supportDeptDefaults() {
@@ -295,6 +522,17 @@ class UserServiceTest {
 			assertThat(defaults).contains("models:reasoning:use", "files:upload", "chat:use");
 		}
 
+		/**
+		 * Verifies an unknown department gets only minimal base rights.
+		 *
+		 * <p>
+		 * An unrecognised department must fall back to exactly chat:use and
+		 * models:local:use.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("unknown department gets only chat:use and models:local:use")
 		void unknownDeptDefaults() {
@@ -303,6 +541,16 @@ class UserServiceTest {
 			assertThat(defaults).containsExactlyInAnyOrder("chat:use", "models:local:use");
 		}
 
+		/**
+		 * Verifies a null department id gets base defaults without an NPE.
+		 *
+		 * <p>
+		 * A new, unassigned user must receive the minimal base rights.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null departmentId gets base defaults without NPE")
 		void nullDeptIdGetBaseDefaults() {
@@ -316,10 +564,28 @@ class UserServiceTest {
 	// effectivePermissions() — runtime authorization set (BUG-032)
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code effectivePermissions()} — runtime grant resolution
+	 * (BUG-032).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("effectivePermissions() — runtime grant resolution")
 	class EffectivePermissions {
 
+		/**
+		 * Builds a user with a non-cataloged role, a department and explicit rights.
+		 *
+		 * @param dept   the department id
+		 * @param rights the explicit rights to seed
+		 * @return a {@link User} configured for override-resolution tests
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		private User userWith(String dept, String... rights) {
 			User u = new User();
 			u.id = "u-eff-1";
@@ -329,6 +595,17 @@ class UserServiceTest {
 			return u;
 		}
 
+		/**
+		 * Verifies an allow-override grants a right not in rights_json.
+		 *
+		 * <p>
+		 * The override must take effect at runtime, adding {@code sandbox:run}
+		 * alongside the existing {@code chat:use}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("an allow-override grants a right that is not in rights_json")
 		void allowOverrideGrantsRight() {
@@ -342,6 +619,17 @@ class UserServiceTest {
 			assertThat(perms).contains("sandbox:run", "chat:use");
 		}
 
+		/**
+		 * Verifies a deny-override removes an otherwise-granted right (deny wins).
+		 *
+		 * <p>
+		 * The department grants {@code models:local:use}; an explicit deny must
+		 * strip it while leaving {@code chat:use}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("a deny-override removes a right even if otherwise granted (deny wins)")
 		void denyOverrideWins() {
@@ -354,6 +642,17 @@ class UserServiceTest {
 			assertThat(perms).contains("chat:use").doesNotContain("models:local:use");
 		}
 
+		/**
+		 * Verifies an expired allow-override does not grant the right.
+		 *
+		 * <p>
+		 * An override with a past expiry must be ignored, so {@code sandbox:run}
+		 * stays absent.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("expired allow-override does not grant the right")
 		void expiredOverrideIgnored() {
@@ -370,10 +669,28 @@ class UserServiceTest {
 	// safeJsonList()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code safeJsonList()} — defensive JSON-array parsing.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("safeJsonList()")
 	class SafeJsonList {
 
+		/**
+		 * Verifies null input returns an empty list.
+		 *
+		 * <p>
+		 * Rights/tags DB columns can be NULL; the parser must return an empty list
+		 * rather than NPE.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null input returns empty list")
 		void returnsEmptyListForNull() {
@@ -381,6 +698,16 @@ class UserServiceTest {
 			assertThat(userService.safeJsonList(null)).isNotNull().isEmpty();
 		}
 
+		/**
+		 * Verifies blank input short-circuits to an empty list.
+		 *
+		 * <p>
+		 * Whitespace input must skip the mapper entirely and return empty.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("blank input returns empty list (never reaches mapper)")
 		void returnsEmptyListForBlank() {
@@ -388,6 +715,18 @@ class UserServiceTest {
 			assertThat(userService.safeJsonList("   ")).isNotNull().isEmpty();
 		}
 
+		/**
+		 * Verifies invalid JSON is caught and returns an empty list.
+		 *
+		 * <p>
+		 * When the mapper throws on non-JSON input, the exception must be swallowed
+		 * and an empty list returned.
+		 *
+		 * @throws Exception if the mocked mapper signals a checked failure
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("non-JSON input causes mapper to throw — returns empty list")
 		@SuppressWarnings("unchecked")
@@ -399,6 +738,17 @@ class UserServiceTest {
 			assertThat(userService.safeJsonList("not-json")).isNotNull().isEmpty();
 		}
 
+		/**
+		 * Verifies a valid JSON array is parsed as-is.
+		 *
+		 * <p>
+		 * The mapper's deserialised list must be returned unchanged.
+		 *
+		 * @throws Exception if the mocked mapper signals a checked failure
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("valid JSON array is parsed correctly")
 		@SuppressWarnings("unchecked")
@@ -415,10 +765,28 @@ class UserServiceTest {
 	// allowedModelIds() — admin bypass
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code allowedModelIds()} — admin grant bypass.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("allowedModelIds() — admin bypass")
 	class AllowedModelIdsAdmin {
 
+		/**
+		 * Verifies an admin sees all models with no grant checks.
+		 *
+		 * <p>
+		 * An admin must receive every available model id from a single SELECT, with
+		 * no access_grants/user_groups/user_overrides queries.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("admin gets all available/configured model IDs without grant checks")
 		void adminGetsAllModels() {
