@@ -42,20 +42,35 @@ import com.ollanest.testinfra.UserFactory;
 /**
  * OCD-level unit tests for {@link MemoryService}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Covers: {@code remember()} — DB write, embedding attempt, cap enforcement;
- * {@code forget()} — ownership gate, missing memory; {@code forgetAll()} — bulk
- * delete; {@code list()} — result shape; {@code recall()} — keyword search
- * fallback (embedding service stubbed to fail), basic ranking;
- * {@code importMemories()} — bulk import; {@code exportAll()} — delegates to
- * list.
+ * {@link MemoryService} stores long-term user "memories" and recalls them by
+ * semantic or keyword search. These tests pin its resilience and isolation
+ * guarantees: embedding failures must degrade silently to keyword search,
+ * per-owner capacity caps must evict before inserting, and every read/delete
+ * must be owner-scoped so memories never cross users. The recall ranking and
+ * import/skip rules are also locked.
  *
- * <p>
- * All DB and {@link EmbeddingService} interactions are Mockito-stubbed — no
- * Spring context, no real DB, no network calls.
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Runs under {@link MockitoExtension} with {@link Strictness#LENIENT};
+ * {@link JdbcTemplate}, {@link ObjectMapper} and {@link EmbeddingService} are
+ * mocked and injected.</li>
+ * <li>{@code @BeforeEach} establishes the common defaults — no cap overflow, a
+ * failing embedder (to force the keyword fallback), and a JSON-writing
+ * mapper.</li>
+ * <li>{@link ArgumentCaptor} asserts on the positional INSERT arguments where
+ * column ordering encodes the contract.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.0 — initial creation covering remember/forget/forgetAll/list/
+ * recall/import with cap-eviction and keyword-fallback coverage.</li>
+ * </ul>
  *
  * @author Ashok Ram
- * @since v2026.2.0 — initial creation
+ * @since v2026.2.0
  * @version v2026.2.0
  */
 @ExtendWith(MockitoExtension.class)
@@ -63,18 +78,35 @@ import com.ollanest.testinfra.UserFactory;
 @DisplayName("MemoryService — unit tests")
 class MemoryServiceTest {
 
+	/** Canonical owner id used across all memory fixtures. */
 	private static final String OWNER = UserFactory.USER_ID;
 
+	/** Mocked JDBC template capturing SQL and positional args. */
 	@Mock
 	JdbcTemplate db;
+	/** Mocked JSON mapper for tag (de)serialisation. */
 	@Mock
 	ObjectMapper mapper;
+	/** Mocked embedding service, defaulted to fail so the keyword path is exercised. */
 	@Mock
 	EmbeddingService embeddingService;
 
+	/** Service under test with mocks injected. */
 	@InjectMocks
 	MemoryService memoryService;
 
+	/**
+	 * Establishes the common stub defaults before each test.
+	 *
+	 * <p>
+	 * No capacity overflow, an embedder that throws (forcing keyword fallback),
+	 * and a mapper that serialises tags to {@code "[]"}.
+	 *
+	 * @throws Exception if the mocked mapper signals a checked failure during setup
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@BeforeEach
 	void stubDefaults() throws Exception {
 		// Default: no cap overflow
@@ -87,10 +119,28 @@ class MemoryServiceTest {
 
 	// ── remember() ────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code remember()} — persistence, embedding and cap eviction.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("remember()")
 	class Remember {
 
+		/**
+		 * Verifies a remembered fact inserts a row with owner/text/source.
+		 *
+		 * <p>
+		 * The captured INSERT args must carry the owner at index 1, the text at 2
+		 * and the source at 3.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("inserts a row into the memories table with the correct owner and text")
 		void insertsRow() {
@@ -106,6 +156,16 @@ class MemoryServiceTest {
 			assertThat(args[3]).isEqualTo("user");
 		}
 
+		/**
+		 * Verifies generated memory ids carry the {@code mem-} prefix.
+		 *
+		 * <p>
+		 * The captured INSERT id argument (index 0) must start with {@code "mem-"}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("generated memory ID starts with 'mem-'")
 		void idStartsWithMemPrefix() {
@@ -116,6 +176,18 @@ class MemoryServiceTest {
 			assertThat(cap.getValue()[0].toString()).startsWith("mem-");
 		}
 
+		/**
+		 * Verifies an embedding failure is swallowed and a null embedding stored.
+		 *
+		 * <p>
+		 * When the embedder throws, {@code remember()} must not propagate and the
+		 * captured INSERT must store {@code null} at the embedding_json position
+		 * (index 5), leaving the row searchable by keyword.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("embedding failure is swallowed — null stored instead (keyword fallback)")
 		void embeddingFailureSwallowed() {
@@ -133,6 +205,18 @@ class MemoryServiceTest {
 			assertThat(cap.getValue()[5]).isNull(); // embeddingJson = null
 		}
 
+		/**
+		 * Verifies tags are serialised to JSON via the mapper.
+		 *
+		 * <p>
+		 * The mapper's {@code writeValueAsString} must be invoked at least once
+		 * during a remember with tags.
+		 *
+		 * @throws Exception if the mocked mapper signals a checked failure
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("tags are serialised to JSON via ObjectMapper")
 		void tagsSerialised() throws Exception {
@@ -141,6 +225,16 @@ class MemoryServiceTest {
 			verify(mapper, atLeastOnce()).writeValueAsString(any());
 		}
 
+		/**
+		 * Verifies the per-owner cap is checked before insert.
+		 *
+		 * <p>
+		 * A COUNT query scoped to the owner must run as part of remember.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("cap enforcement: queries COUNT before INSERT")
 		void capEnforcementQueriesCount() {
@@ -148,6 +242,17 @@ class MemoryServiceTest {
 			verify(db).queryForObject(contains("COUNT"), eq(Integer.class), eq(OWNER));
 		}
 
+		/**
+		 * Verifies that exceeding the cap evicts before inserting.
+		 *
+		 * <p>
+		 * With the count over the cap, a {@code DELETE FROM memories} eviction must
+		 * run alongside the new {@code INSERT}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("when cap exceeded, eviction DELETE runs before INSERT")
 		void evictionRunsBeforeInsert() {
@@ -160,6 +265,17 @@ class MemoryServiceTest {
 			verify(db).update(contains("INSERT INTO memories"), any(Object[].class));
 		}
 
+		/**
+		 * Verifies the returned record exposes the expected keys.
+		 *
+		 * <p>
+		 * The result must contain id/owner/text/source/created_at with owner and
+		 * text matching the inputs.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("returned record contains id, owner, text, source, created_at")
 		void returnedRecordShape() {
@@ -173,10 +289,28 @@ class MemoryServiceTest {
 
 	// ── forget() ──────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code forget()} — owner-scoped single deletion.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("forget()")
 	class Forget {
 
+		/**
+		 * Verifies forgetting an owned memory issues a scoped DELETE.
+		 *
+		 * <p>
+		 * The DELETE must bind both id and owner; a one-row result completes
+		 * without throwing.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("executes DELETE WHERE id=? AND owner=?")
 		void deletesOwnedMemory() {
@@ -187,6 +321,17 @@ class MemoryServiceTest {
 			verify(db).update(contains("DELETE FROM memories WHERE id"), eq("mem-abc"), eq(OWNER));
 		}
 
+		/**
+		 * Verifies a no-op delete raises {@link NoSuchElementException}.
+		 *
+		 * <p>
+		 * SECURITY: a 0-row DELETE (wrong owner or already gone) must throw with
+		 * the id in the message, so an attacker cannot probe other users' ids.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("throws NoSuchElementException when no row deleted (ownership check)")
 		void throwsWhenNotOwned() {
@@ -202,10 +347,28 @@ class MemoryServiceTest {
 
 	// ── forgetAll() ───────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code forgetAll()} — owner-scoped bulk deletion.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("forgetAll()")
 	class ForgetAll {
 
+		/**
+		 * Verifies bulk delete is scoped to the owner.
+		 *
+		 * <p>
+		 * The statement must be {@code DELETE FROM memories WHERE owner=?} bound to
+		 * the requesting owner.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("executes DELETE WHERE owner=?")
 		void deletesAllForOwner() {
@@ -214,6 +377,17 @@ class MemoryServiceTest {
 			verify(db).update(contains("DELETE FROM memories WHERE owner"), eq(OWNER));
 		}
 
+		/**
+		 * Verifies bulk delete never touches another owner.
+		 *
+		 * <p>
+		 * Only the requesting owner may appear as a bound parameter; a foreign
+		 * owner must never be passed.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("does not affect other owners")
 		void scopedToOwner() {
@@ -227,10 +401,27 @@ class MemoryServiceTest {
 
 	// ── list() ────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code list()} — owner/limit binding and defaults.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("list()")
 	class ListMemories {
 
+		/**
+		 * Verifies listing binds both owner and limit.
+		 *
+		 * <p>
+		 * The query must carry the owner (isolation) and the limit (bounded scan).
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("queries DB with owner and limit")
 		void queriesWithOwnerAndLimit() {
@@ -241,6 +432,17 @@ class MemoryServiceTest {
 			verify(db).queryForList(anyString(), eq(OWNER), eq(50));
 		}
 
+		/**
+		 * Verifies a non-positive limit defaults to 100.
+		 *
+		 * <p>
+		 * {@code limit<=0} means "use default", not "unlimited"; the query must
+		 * bind 100.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("defaults to limit 100 when limit <= 0")
 		void defaultLimitWhenZero() {
@@ -251,6 +453,16 @@ class MemoryServiceTest {
 			verify(db).queryForList(anyString(), eq(OWNER), eq(100));
 		}
 
+		/**
+		 * Verifies an empty DB yields an empty (non-null) list.
+		 *
+		 * <p>
+		 * With no rows, the result must be an empty list callers can iterate.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("returns empty list when DB returns no rows")
 		void emptyResultWhenNoRows() {
@@ -263,10 +475,28 @@ class MemoryServiceTest {
 
 	// ── recall() (keyword fallback) ───────────────────────────────────────────
 
+	/**
+	 * Tests for {@code recall()} — keyword-search fallback and topK limiting.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("recall() — keyword search fallback")
 	class Recall {
 
+		/**
+		 * Verifies recall returns empty when no memories are stored.
+		 *
+		 * <p>
+		 * With nothing in the DB, there is nothing to search and the result is
+		 * empty.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("returns empty list when no memories stored")
 		void emptyWhenNoMemories() {
@@ -275,7 +505,17 @@ class MemoryServiceTest {
 			assertThat(memoryService.recall(OWNER, "dark mode", 5)).isEmpty();
 		}
 
-		// Null-safe memory row (embedding_json is null, which Map.of forbids).
+		/**
+		 * Builds a null-safe memory DB row (embedding_json is null).
+		 *
+		 * @param id      the memory id
+		 * @param text    the memory text
+		 * @param created the created-at timestamp
+		 * @return a mutable map mirroring a {@code memories} row
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		private Map<String, Object> memRow(String id, String text, String created) {
 			Map<String, Object> r = new LinkedHashMap<>();
 			r.put("id", id);
@@ -290,6 +530,18 @@ class MemoryServiceTest {
 			return r;
 		}
 
+		/**
+		 * Verifies a keyword match on the text field returns a hit.
+		 *
+		 * <p>
+		 * A memory whose text contains the query words must be returned, with its
+		 * text preserved on the top result.
+		 *
+		 * @throws Exception if the mocked mapper signals a checked failure
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("keyword match on text field returns hit")
 		void keywordMatchReturnsHit() throws Exception {
@@ -305,6 +557,18 @@ class MemoryServiceTest {
 			assertThat(results.get(0).get("text")).isEqualTo("User prefers dark mode");
 		}
 
+		/**
+		 * Verifies a query with no keyword overlap returns empty.
+		 *
+		 * <p>
+		 * An unrelated query against a single off-topic memory must yield no
+		 * results.
+		 *
+		 * @throws Exception if the mocked mapper signals a checked failure
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("query with no keyword match returns empty list")
 		void noKeywordMatchReturnsEmpty() throws Exception {
@@ -318,6 +582,18 @@ class MemoryServiceTest {
 			assertThat(results).isEmpty();
 		}
 
+		/**
+		 * Verifies results are capped by the {@code topK} parameter.
+		 *
+		 * <p>
+		 * With 10 matching memories and {@code topK=3}, at most 3 results may be
+		 * returned.
+		 *
+		 * @throws Exception if the mocked mapper signals a checked failure
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("results are limited by topK parameter")
 		void topKLimitsResults() throws Exception {
@@ -336,10 +612,27 @@ class MemoryServiceTest {
 
 	// ── importMemories() ──────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code importMemories()} — bulk import and blank-skipping.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.0
+	 * @version v2026.2.0
+	 */
 	@Nested
 	@DisplayName("importMemories()")
 	class ImportMemories {
 
+		/**
+		 * Verifies each non-blank text becomes one row and the count is returned.
+		 *
+		 * <p>
+		 * Three valid facts must produce three INSERTs and a returned count of 3.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("inserts one row per non-blank text and returns count")
 		void insertsRowsForEachText() {
@@ -350,6 +643,17 @@ class MemoryServiceTest {
 			verify(db, times(3)).update(contains("INSERT INTO memories"), any(Object[].class));
 		}
 
+		/**
+		 * Verifies blank and null entries are skipped.
+		 *
+		 * <p>
+		 * Of four entries (one valid, the rest blank/null), only one INSERT must
+		 * run and the returned count is 1.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("skips blank and null entries")
 		void skipsBlankEntries() {
@@ -362,6 +666,16 @@ class MemoryServiceTest {
 			verify(db, times(1)).update(contains("INSERT INTO memories"), any(Object[].class));
 		}
 
+		/**
+		 * Verifies an empty input imports nothing.
+		 *
+		 * <p>
+		 * An empty list must produce a count of 0 and issue no INSERTs.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.0
+		 * @version v2026.2.0
+		 */
 		@Test
 		@DisplayName("empty list imports zero memories")
 		void emptyListImportsZero() {
