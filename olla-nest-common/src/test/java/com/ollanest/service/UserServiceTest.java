@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -591,7 +592,7 @@ class UserServiceTest {
 			u.id = "u-eff-1";
 			u.role = "no-such-role"; // role_catalog lookup returns empty
 			u.departmentId = dept;
-			u.rights = new java.util.ArrayList<>(List.of(rights));
+			u.rights = new ArrayList<>(List.of(rights));
 			return u;
 		}
 

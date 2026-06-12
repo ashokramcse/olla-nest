@@ -24,10 +24,30 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Unit tests for {@link BaseController} guards and helpers.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Uses a concrete anonymous subclass to access protected methods. Covers:
- * getUser, requireAuth, requireAdmin (auth/role/CSRF), requireAuthWithCsrf,
- * isCsrfOk, sanitizeText (XSS vectors, null, empty, whitespace).
+ * {@link BaseController} provides the shared authentication, authorization and
+ * CSRF guards plus the XSS sanitiser that every controller inherits. Because a
+ * regression here weakens every endpoint at once, these tests pin the exact
+ * status codes the guards return (401 vs 403), the CSRF requirement on mutating
+ * methods, and the escaping behaviour of {@code sanitizeText} against common
+ * XSS vectors.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>A concrete {@link TestableController} subclass exposes the protected
+ * guard/helper methods so they can be exercised directly.</li>
+ * <li>The servlet request is a Mockito mock; user fixtures come from
+ * {@link UserFactory}.</li>
+ * <li>Nested groups map onto each guard/helper so failures localise to the
+ * exact method under test.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — getUser/requireAuth/requireAdmin/requireAuthWithCsrf/
+ * isCsrfOk and sanitizeText coverage.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -37,38 +57,98 @@ import jakarta.servlet.http.HttpServletRequest;
 @DisplayName("BaseController — unit tests")
 class BaseControllerTest {
 
-	/** Minimal concrete subclass to exercise protected BaseController methods. */
+	/**
+	 * Minimal concrete subclass to exercise protected {@link BaseController}
+	 * methods from the test.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private static class TestableController extends BaseController {
+		/**
+		 * Exposes the protected {@code getUser} for testing.
+		 *
+		 * @param req the inbound request
+		 * @return the authenticated user, or null
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		public User publicGetUser(HttpServletRequest req) {
 			return getUser(req);
 		}
 
 		/**
 		 * Tests the legacy guard-style requireAuth (returns ResponseEntity or null).
+		 *
+		 * @param req the inbound request
+		 * @return a 401 response when unauthenticated, otherwise null
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
 		 */
 		public ResponseEntity<Map<String, Object>> publicRequireAuth(HttpServletRequest req) {
 			return guardAuth(req);
 		}
 
+		/**
+		 * Exposes the protected {@code requireAdmin} guard for testing.
+		 *
+		 * @param req the inbound request
+		 * @return a 401/403 response when blocked, otherwise null
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		public ResponseEntity<Map<String, Object>> publicRequireAdmin(HttpServletRequest req) {
 			return requireAdmin(req);
 		}
 
+		/**
+		 * Exposes the protected CSRF-aware auth guard for testing.
+		 *
+		 * @param req the inbound request
+		 * @return a 401/403 response when blocked, otherwise null
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		public ResponseEntity<Map<String, Object>> publicRequireAuthWithCsrf(HttpServletRequest req) {
 			return guardAuthWithCsrf(req);
 		}
 
+		/**
+		 * Exposes the protected {@code isCsrfOk} predicate for testing.
+		 *
+		 * @param req the inbound request
+		 * @return true when the request satisfies CSRF requirements
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		public boolean publicIsCsrfOk(HttpServletRequest req) {
 			return isCsrfOk(req);
 		}
 
+		/**
+		 * Exposes the protected static {@code sanitizeText} for testing.
+		 *
+		 * @param input the raw input to sanitise
+		 * @return the sanitised text
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		public static String publicSanitize(String input) {
 			return sanitizeText(input);
 		}
 	}
 
+	/** Controller under test (concrete testable subclass). */
 	private final TestableController controller = new TestableController();
 
+	/** Mocked inbound request supplying the auth attribute, method and headers. */
 	@Mock
 	HttpServletRequest req;
 
@@ -76,10 +156,24 @@ class BaseControllerTest {
 	// getUser()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code getUser()} — reading the authenticated user attribute.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("getUser()")
 	class GetUser {
 
+		/**
+		 * Verifies the user is returned when the attribute is present.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns User when authenticatedUser attribute is set")
 		void returnsUserWhenAttributePresent() {
@@ -89,6 +183,13 @@ class BaseControllerTest {
 			assertThat(controller.publicGetUser(req)).isSameAs(admin);
 		}
 
+		/**
+		 * Verifies null is returned when the attribute is absent.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when authenticatedUser attribute is absent")
 		void returnsNullWhenNoAttribute() {
@@ -102,10 +203,24 @@ class BaseControllerTest {
 	// requireAuth()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for the {@code requireAuth} guard — pass/401.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("requireAuth()")
 	class RequireAuth {
 
+		/**
+		 * Verifies the guard passes (returns null) for an authenticated user.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null (pass) when user is authenticated")
 		void passesForAuthenticatedUser() {
@@ -114,6 +229,16 @@ class BaseControllerTest {
 			assertThat(controller.publicRequireAuth(req)).isNull();
 		}
 
+		/**
+		 * Verifies the guard returns 401 for an unauthenticated request.
+		 *
+		 * <p>
+		 * The body must be {@code ok=false} with a login-related error message.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns 401 when user is null (unauthenticated)")
 		void returns401ForUnauthenticated() {
@@ -132,10 +257,24 @@ class BaseControllerTest {
 	// requireAdmin()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for the {@code requireAdmin} guard — role and CSRF enforcement.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("requireAdmin()")
 	class RequireAdmin {
 
+		/**
+		 * Verifies an admin GET passes with no CSRF header required.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null (pass) for admin GET request with no CSRF needed")
 		void passesForAdminGetRequest() {
@@ -145,6 +284,13 @@ class BaseControllerTest {
 			assertThat(controller.publicRequireAdmin(req)).isNull();
 		}
 
+		/**
+		 * Verifies an admin POST passes when the CSRF header is present.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null (pass) for admin POST with X-Requested-With header")
 		void passesForAdminPostWithCsrf() {
@@ -155,6 +301,13 @@ class BaseControllerTest {
 			assertThat(controller.publicRequireAdmin(req)).isNull();
 		}
 
+		/**
+		 * Verifies an unauthenticated request returns 401 (not 403).
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns 401 when user is not authenticated")
 		void returns401WhenNotAuthenticated() {
@@ -164,6 +317,17 @@ class BaseControllerTest {
 			assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 		}
 
+		/**
+		 * Verifies an authenticated non-admin returns 403.
+		 *
+		 * <p>
+		 * The error message must mention "admin" so the client understands the
+		 * access level required.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns 403 when user is authenticated but not admin")
 		void returns403WhenNotAdmin() {
@@ -178,6 +342,17 @@ class BaseControllerTest {
 			assertThat(result.getBody().get("error").toString()).containsIgnoringCase("admin");
 		}
 
+		/**
+		 * Verifies an admin POST without the CSRF header is blocked with 403.
+		 *
+		 * <p>
+		 * SECURITY: the error must reference CSRF so the client knows which header
+		 * is missing.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns 403 when admin POST is missing X-Requested-With (CSRF blocked)")
 		void returns403WhenAdminPostMissingCsrf() {
@@ -192,6 +367,17 @@ class BaseControllerTest {
 			assertThat(result.getBody().get("error").toString()).containsIgnoringCase("CSRF");
 		}
 
+		/**
+		 * Verifies the CSRF check also applies to DELETE.
+		 *
+		 * <p>
+		 * DELETE is a mutating method, so a missing CSRF header must yield 403 the
+		 * same as POST.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("CSRF check applies to DELETE method too")
 		void returns403ForDeleteWithoutCsrf() {
@@ -209,10 +395,24 @@ class BaseControllerTest {
 	// requireAuthWithCsrf()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for the {@code requireAuthWithCsrf} guard — auth + CSRF.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("requireAuthWithCsrf()")
 	class RequireAuthWithCsrf {
 
+		/**
+		 * Verifies any authenticated GET passes (safe method).
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("passes for any authenticated GET — no CSRF needed")
 		void passesForAuthenticatedGet() {
@@ -222,6 +422,13 @@ class BaseControllerTest {
 			assertThat(controller.publicRequireAuthWithCsrf(req)).isNull();
 		}
 
+		/**
+		 * Verifies an authenticated POST with the CSRF header passes.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("passes for authenticated POST with X-Requested-With")
 		void passesForAuthenticatedPostWithCsrf() {
@@ -232,6 +439,13 @@ class BaseControllerTest {
 			assertThat(controller.publicRequireAuthWithCsrf(req)).isNull();
 		}
 
+		/**
+		 * Verifies an unauthenticated request returns 401 before the CSRF check.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns 401 for unauthenticated request")
 		void returns401ForUnauthenticated() {
@@ -240,6 +454,13 @@ class BaseControllerTest {
 			assertThat(controller.publicRequireAuthWithCsrf(req).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 		}
 
+		/**
+		 * Verifies an authenticated POST without the CSRF header returns 403.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns 403 for authenticated POST without X-Requested-With (CSRF)")
 		void returns403ForMissingCsrf() {
@@ -255,10 +476,24 @@ class BaseControllerTest {
 	// isCsrfOk()
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code isCsrfOk()} — the CSRF predicate.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("isCsrfOk()")
 	class IsCsrfOk {
 
+		/**
+		 * Verifies GET always passes the CSRF check.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("GET always passes CSRF check")
 		void getAlwaysPasses() {
@@ -267,6 +502,13 @@ class BaseControllerTest {
 			assertThat(controller.publicIsCsrfOk(req)).isTrue();
 		}
 
+		/**
+		 * Verifies a POST with the X-Requested-With header passes.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("POST with X-Requested-With passes CSRF check")
 		void postWithHeaderPasses() {
@@ -277,6 +519,13 @@ class BaseControllerTest {
 			assertThat(controller.publicIsCsrfOk(req)).isTrue();
 		}
 
+		/**
+		 * Verifies a POST without the header fails the CSRF check.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("POST without X-Requested-With fails CSRF check")
 		void postWithoutHeaderFails() {
@@ -291,10 +540,28 @@ class BaseControllerTest {
 	// sanitizeText() — XSS protection
 	// ─────────────────────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code sanitizeText()} — HTML escaping and XSS defence.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("sanitizeText() — XSS protection")
 	class SanitizeText {
 
+		/**
+		 * Verifies null input passes through as null.
+		 *
+		 * <p>
+		 * Callers may use null to mean "not provided", so it must not throw or be
+		 * coerced.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("null input returns null without NPE")
 		void nullInputReturnsNull() {
@@ -303,6 +570,14 @@ class BaseControllerTest {
 			assertThat(TestableController.publicSanitize(null)).isNull();
 		}
 
+		/**
+		 * Verifies blank/whitespace input normalises to an empty string.
+		 *
+		 * @param input a blank or whitespace-only value from the value source
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@ParameterizedTest(name = "blank input ''{0}'' returns empty string")
 		@ValueSource(strings = { "", "   ", "\t", "\n" })
 		void blankInputReturnsEmpty(String input) {
@@ -310,6 +585,17 @@ class BaseControllerTest {
 			assertThat(TestableController.publicSanitize(input)).isEmpty();
 		}
 
+		/**
+		 * Verifies angle brackets are HTML-escaped.
+		 *
+		 * <p>
+		 * No literal {@code <}/{@code >} may remain; they become {@code &lt;}/
+		 * {@code &gt;}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("< and > are HTML-escaped to &lt; and &gt;")
 		void escapesAngleBrackets() {
@@ -319,6 +605,16 @@ class BaseControllerTest {
 			assertThat(result).contains("&lt;", "&gt;");
 		}
 
+		/**
+		 * Verifies ampersands are HTML-escaped.
+		 *
+		 * <p>
+		 * A raw {@code &} must become {@code &amp;} to prevent entity injection.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("& is HTML-escaped to &amp;")
 		void escapesAmpersand() {
@@ -328,6 +624,17 @@ class BaseControllerTest {
 			assertThat(result).doesNotContain("AT&T"); // raw & gone
 		}
 
+		/**
+		 * Verifies double quotes are HTML-escaped.
+		 *
+		 * <p>
+		 * Unescaped quotes could break out of an HTML attribute context, so they
+		 * become {@code &quot;}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("double quote is HTML-escaped to &quot;")
 		void escapesDoubleQuote() {
@@ -337,6 +644,17 @@ class BaseControllerTest {
 			assertThat(result).contains("&quot;");
 		}
 
+		/**
+		 * Verifies the {@code onerror} image vector is neutralised.
+		 *
+		 * <p>
+		 * The angle brackets must be escaped so no executable {@code <img>} tag
+		 * remains.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("onerror XSS vector: angle brackets escaped so no executable tag remains")
 		void sanitizesOnErrorVector() {
@@ -348,6 +666,16 @@ class BaseControllerTest {
 			assertThat(result).contains("&lt;img");
 		}
 
+		/**
+		 * Verifies the {@code javascript:} anchor vector is neutralised.
+		 *
+		 * <p>
+		 * The opening anchor tag must be escaped so no active {@code <a>} remains.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("javascript: in href: angle brackets escaped — no active anchor tag")
 		void sanitizesJavascriptProtocol() {
@@ -359,6 +687,16 @@ class BaseControllerTest {
 			assertThat(result).contains("&lt;a ");
 		}
 
+		/**
+		 * Verifies clean text passes through unchanged.
+		 *
+		 * <p>
+		 * The sanitiser must not corrupt input that needs no escaping.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("clean text passes through unchanged (no unnecessary escaping)")
 		void cleanTextPassesThrough() {
@@ -367,6 +705,13 @@ class BaseControllerTest {
 			assertThat(TestableController.publicSanitize(input)).isEqualTo(input);
 		}
 
+		/**
+		 * Verifies leading/trailing whitespace is stripped.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("leading/trailing whitespace is stripped")
 		void stripsLeadingTrailingWhitespace() {
