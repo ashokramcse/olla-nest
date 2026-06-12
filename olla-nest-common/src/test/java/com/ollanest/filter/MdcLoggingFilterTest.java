@@ -22,10 +22,31 @@ import jakarta.servlet.http.HttpServletResponse;
 /**
  * Unit tests for {@link MdcLoggingFilter}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Verifies MDC population for authenticated and anonymous requests, MDC cleanup
- * after the chain, IP resolution priority, and the {@code shouldNotFilter}
- * static-asset bypass.
+ * The {@link MdcLoggingFilter} stamps every request thread with SLF4J
+ * {@link MDC} context (user identity, HTTP method, path, request id, client IP)
+ * so that downstream log lines are automatically correlated to a single
+ * request and user. Getting this wrong leaks identity between pooled threads or
+ * floods the logs with MDC work for static assets, so the behaviour is pinned
+ * by these tests rather than left to manual inspection.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Uses {@link MockitoExtension} with mocked servlet objects so the filter
+ * can be exercised without a running container.</li>
+ * <li>MDC values written inside the chain are captured via {@code doAnswer}
+ * callbacks because the filter clears the MDC in its {@code finally} block
+ * before {@code doFilterInternal} returns.</li>
+ * <li>{@link #clearMdc()} runs after every test to guarantee no MDC state
+ * bleeds across test methods sharing the JUnit worker thread.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — initial MDC population, cleanup, IP-resolution and
+ * static-asset bypass coverage.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -35,15 +56,31 @@ import jakarta.servlet.http.HttpServletResponse;
 @DisplayName("MdcLoggingFilter — unit tests")
 class MdcLoggingFilterTest {
 
+	/** Filter under test; stateless, so a single shared instance is safe. */
 	private final MdcLoggingFilter filter = new MdcLoggingFilter();
 
+	/** Mocked inbound request supplying headers, URI and the authenticated-user attribute. */
 	@Mock
 	HttpServletRequest req;
+	/** Mocked response passed through the chain unmodified. */
 	@Mock
 	HttpServletResponse res;
+	/** Mocked downstream chain used to observe MDC state mid-request and to simulate failures. */
 	@Mock
 	FilterChain chain;
 
+	/**
+	 * Clears the SLF4J {@link MDC} after each test.
+	 *
+	 * <p>
+	 * JUnit reuses worker threads, and the filter only clears the keys it sets;
+	 * an explicit clear here prevents any residual context from one test
+	 * influencing assertions in the next.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@AfterEach
 	void clearMdc() {
 		MDC.clear();
@@ -51,6 +88,22 @@ class MdcLoggingFilterTest {
 
 	// ── MDC keys for authenticated user ──────────────────────────────────────
 
+	/**
+	 * Verifies that an authenticated request populates every identity and
+	 * request MDC key with the expected values while the chain executes.
+	 *
+	 * <p>
+	 * A {@link User} is placed in the {@code authenticatedUser} request
+	 * attribute (as {@code SessionAuthFilter} would) and the MDC is snapshotted
+	 * inside the chain callback. The test proves userId, userEmail, userRole,
+	 * method and path are exact, and that a non-blank request id (a UUID) is
+	 * present — confirming the filter binds full context before delegating.
+	 *
+	 * @throws Exception if {@code doFilterInternal} or the mocked chain throws
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("authenticated user populates userId, userEmail, userRole, method, path, requestId")
 	void authenticatedUserPopulatesMdc() throws Exception {
@@ -99,6 +152,20 @@ class MdcLoggingFilterTest {
 
 	// ── MDC keys for anonymous user ───────────────────────────────────────────
 
+	/**
+	 * Verifies that an unauthenticated request stamps the identity keys with the
+	 * {@code "anon"} sentinel rather than leaving them null.
+	 *
+	 * <p>
+	 * With no {@code authenticatedUser} attribute present, the captured userId,
+	 * userEmail and userRole must all equal {@code "anon"} so that log queries
+	 * can group anonymous traffic without tripping over null values.
+	 *
+	 * @throws Exception if {@code doFilterInternal} or the mocked chain throws
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("unauthenticated request sets userId/userEmail/userRole to 'anon'")
 	void anonymousRequestSetsAnonKeys() throws Exception {
@@ -129,6 +196,19 @@ class MdcLoggingFilterTest {
 
 	// ── MDC cleared after chain ───────────────────────────────────────────────
 
+	/**
+	 * Verifies the MDC is empty after the filter completes normally.
+	 *
+	 * <p>
+	 * After {@code doFilterInternal} returns, both the request id and user id
+	 * keys must read null, proving the {@code finally} cleanup runs and no
+	 * context leaks onto the next request handled by the same pooled thread.
+	 *
+	 * @throws Exception if {@code doFilterInternal} or the mocked chain throws
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("MDC is cleared after filter chain completes")
 	void mdcClearedAfterChain() throws Exception {
@@ -147,6 +227,20 @@ class MdcLoggingFilterTest {
 		assertThat(MDC.get(MdcLoggingFilter.KEY_USER_ID)).isNull();
 	}
 
+	/**
+	 * Verifies the MDC is cleared even when the downstream chain throws.
+	 *
+	 * <p>
+	 * The chain is stubbed to throw a {@link RuntimeException}; after the
+	 * exception propagates and is swallowed, the request id key must still read
+	 * null. This guards the {@code finally}-block cleanup that is critical for
+	 * thread-pool reuse where a leaked MDC would mislabel later requests.
+	 *
+	 * @throws Exception if {@code doFilterInternal} throws a checked exception
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("MDC is cleared even when filter chain throws an exception")
 	void mdcClearedEvenOnException() throws Exception {
@@ -172,6 +266,19 @@ class MdcLoggingFilterTest {
 
 	// ── IP resolution ─────────────────────────────────────────────────────────
 
+	/**
+	 * Verifies {@code X-Forwarded-For} wins over the socket remote address.
+	 *
+	 * <p>
+	 * When the header carries a {@code "client, proxy"} list, the MDC IP key
+	 * must hold the first (original client) entry, confirming the filter honours
+	 * proxy-forwarding precedence and splits the comma list correctly.
+	 *
+	 * @throws Exception if {@code doFilterInternal} or the mocked chain throws
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("X-Forwarded-For header takes precedence over remote address")
 	void xForwardedForTakesPrecedence() throws Exception {
@@ -194,6 +301,19 @@ class MdcLoggingFilterTest {
 		assertThat(ip[0]).isEqualTo("203.0.113.5"); // first IP from comma-list
 	}
 
+	/**
+	 * Verifies {@code X-Real-IP} is used when {@code X-Forwarded-For} is absent.
+	 *
+	 * <p>
+	 * With no forwarded-for header but an {@code X-Real-IP} present, the MDC IP
+	 * key must equal that value — covering reverse proxies that set only the
+	 * single-IP header.
+	 *
+	 * @throws Exception if {@code doFilterInternal} or the mocked chain throws
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("X-Real-IP used when X-Forwarded-For is absent")
 	void xRealIpFallback() throws Exception {
@@ -215,6 +335,19 @@ class MdcLoggingFilterTest {
 		assertThat(ip[0]).isEqualTo("198.51.100.42");
 	}
 
+	/**
+	 * Verifies the socket remote address is the final IP fallback.
+	 *
+	 * <p>
+	 * With neither forwarding header set, the MDC IP key must equal
+	 * {@code getRemoteAddr()}, confirming the last rung of the resolution
+	 * ladder.
+	 *
+	 * @throws Exception if {@code doFilterInternal} or the mocked chain throws
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("remote address used as final fallback")
 	void remoteAddressFinalFallback() throws Exception {
@@ -239,6 +372,17 @@ class MdcLoggingFilterTest {
 
 	// ── shouldNotFilter ───────────────────────────────────────────────────────
 
+	/**
+	 * Verifies JavaScript assets bypass the filter.
+	 *
+	 * <p>
+	 * {@code shouldNotFilter} must return {@code true} for a {@code .js} URI so
+	 * static chunks do not incur MDC bookkeeping on every fetch.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("shouldNotFilter returns true for .js files")
 	void skipsJsFiles() {
@@ -247,6 +391,17 @@ class MdcLoggingFilterTest {
 		assertThat(filter.shouldNotFilter(req)).isTrue();
 	}
 
+	/**
+	 * Verifies CSS assets bypass the filter.
+	 *
+	 * <p>
+	 * {@code shouldNotFilter} must return {@code true} for a {@code .css} URI,
+	 * mirroring the JavaScript bypass.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("shouldNotFilter returns true for .css files")
 	void skipsCssFiles() {
@@ -254,6 +409,17 @@ class MdcLoggingFilterTest {
 		assertThat(filter.shouldNotFilter(req)).isTrue();
 	}
 
+	/**
+	 * Verifies static HTML files bypass the filter.
+	 *
+	 * <p>
+	 * {@code shouldNotFilter} must return {@code true} for an {@code .html} URI
+	 * so pre-rendered pages skip per-request MDC work.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("shouldNotFilter returns true for .html files")
 	void skipsHtmlFiles() {
@@ -261,6 +427,16 @@ class MdcLoggingFilterTest {
 		assertThat(filter.shouldNotFilter(req)).isTrue();
 	}
 
+	/**
+	 * Verifies favicon/icon files bypass the filter.
+	 *
+	 * <p>
+	 * {@code shouldNotFilter} must return {@code true} for an {@code .ico} URI.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("shouldNotFilter returns true for .ico files")
 	void skipsIcoFiles() {
@@ -268,6 +444,17 @@ class MdcLoggingFilterTest {
 		assertThat(filter.shouldNotFilter(req)).isTrue();
 	}
 
+	/**
+	 * Verifies bundled vendor paths bypass the filter.
+	 *
+	 * <p>
+	 * {@code shouldNotFilter} must return {@code true} for any {@code /vendor/}
+	 * path so third-party bundles are treated as static assets.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("shouldNotFilter returns true for /vendor/ paths")
 	void skipsVendorPaths() {
@@ -275,6 +462,18 @@ class MdcLoggingFilterTest {
 		assertThat(filter.shouldNotFilter(req)).isTrue();
 	}
 
+	/**
+	 * Verifies API paths are filtered (not skipped).
+	 *
+	 * <p>
+	 * {@code shouldNotFilter} must return {@code false} for an {@code /api/...}
+	 * URI so every API request receives a request id and identity context in its
+	 * log lines.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("shouldNotFilter returns false for API paths")
 	void doesNotSkipApiPaths() {
@@ -283,6 +482,17 @@ class MdcLoggingFilterTest {
 		assertThat(filter.shouldNotFilter(req)).isFalse();
 	}
 
+	/**
+	 * Verifies the {@code /admin} route is filtered (not skipped).
+	 *
+	 * <p>
+	 * {@code shouldNotFilter} must return {@code false} for {@code /admin}; it is
+	 * a dynamic route, not a static file, so it must carry MDC context.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Test
 	@DisplayName("shouldNotFilter returns false for /admin path")
 	void doesNotSkipAdminPath() {
