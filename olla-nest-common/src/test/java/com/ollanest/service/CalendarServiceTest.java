@@ -30,8 +30,31 @@ import com.ollanest.testinfra.UserFactory;
 /**
  * OCD-level unit tests for {@link CalendarService}.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Covers calendar CRUD, event CRUD, range queries, and ICS export.
+ * {@link CalendarService} backs the calendar feature: calendars, events, range
+ * queries and ICS export. The tests pin owner-scoping on every mutation (so one
+ * user can never touch another's calendar), the BUG-027 validation regressions
+ * (missing or inverted times must produce a 400, never a NOT-NULL 500), and the
+ * structural correctness of exported iCalendar text.
+ *
+ * <h3>Design notes</h3>
+ * <ul>
+ * <li>Runs under {@link MockitoExtension} with {@link Strictness#LENIENT} so the
+ * shared count/lookup stubs reused across nested groups do not raise
+ * unnecessary-stubbing failures.</li>
+ * <li>{@link JdbcTemplate} and {@link ObjectMapper} are mocked and injected;
+ * {@link #calRow(String)} and {@link #evtRow(String, String)} build
+ * representative rows.</li>
+ * <li>Nested classes mirror the public method surface so a failure name points
+ * straight at the operation under test.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.2.1 — calendar/event CRUD, range queries, ICS export and BUG-027
+ * time-validation coverage.</li>
+ * </ul>
  *
  * @author Ashok Ram
  * @since v2026.2.1
@@ -42,21 +65,44 @@ import com.ollanest.testinfra.UserFactory;
 @DisplayName("CalendarService — unit tests")
 class CalendarServiceTest {
 
+	/** Canonical owner id used across all calendar/event fixtures. */
 	private static final String OWNER = UserFactory.USER_ID;
 
+	/** Mocked JDBC template capturing the SQL the service issues. */
 	@Mock
 	JdbcTemplate db;
+	/** Mocked JSON mapper for event metadata (de)serialisation paths. */
 	@Mock
 	ObjectMapper mapper;
 
+	/** Service under test with mocks injected. */
 	@InjectMocks
 	CalendarService calendarService;
 
+	/**
+	 * Builds a representative calendar DB row for the given id.
+	 *
+	 * @param id the calendar id to embed
+	 * @return an immutable map mirroring a {@code calendars} row
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> calRow(String id) {
 		return Map.of("id", id, "owner", OWNER, "name", "Work", "color", "#F5C800", "is_default", 1, "created_at",
 				"2026-01-01T00:00:00Z");
 	}
 
+	/**
+	 * Builds a representative calendar-event DB row.
+	 *
+	 * @param id    the event id to embed
+	 * @param calId the owning calendar id
+	 * @return an immutable map mirroring a {@code calendar_events} row
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	private Map<String, Object> evtRow(String id, String calId) {
 		return Map.of("id", id, "calendar_id", calId, "uid", "uid-1", "title", "Meeting", "start_at",
 				"2026-06-01T09:00:00Z", "end_at", "2026-06-01T10:00:00Z", "status", "confirmed");
@@ -64,10 +110,28 @@ class CalendarServiceTest {
 
 	// ── createCalendar() ──────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code createCalendar()} — creation, id prefix and ownership.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("createCalendar()")
 	class CreateCalendar {
 
+		/**
+		 * Verifies creating a calendar issues an INSERT carrying the owner.
+		 *
+		 * <p>
+		 * With no existing calendars and the created row stubbed, exactly one
+		 * INSERT into {@code calendars} must fire so the owner is persisted.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("INSERT is called with the owner")
 		void insertsOwner() {
@@ -80,6 +144,17 @@ class CalendarServiceTest {
 			verify(db).update(contains("INSERT INTO calendars"), any(Object[].class));
 		}
 
+		/**
+		 * Verifies the generated calendar id carries the {@code cal-} prefix.
+		 *
+		 * <p>
+		 * The prefix identifies calendar ids across the system; the returned row's
+		 * id must start with {@code "cal-"}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returned id starts with 'cal-'")
 		void idStartsWithPrefix() {
@@ -91,6 +166,17 @@ class CalendarServiceTest {
 			assertThat(result.get("id").toString()).startsWith("cal-");
 		}
 
+		/**
+		 * Verifies the owner is recorded on the created calendar.
+		 *
+		 * <p>
+		 * The returned record's {@code owner} must equal the caller for later
+		 * authorization checks.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("owner is stored in returned record")
 		void ownerStored() {
@@ -104,10 +190,28 @@ class CalendarServiceTest {
 
 	// ── getCalendar() ─────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code getCalendar()} — lookup hit and miss.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("getCalendar()")
 	class GetCalendar {
 
+		/**
+		 * Verifies a miss returns null.
+		 *
+		 * <p>
+		 * An empty result (missing calendar or another owner's) yields
+		 * {@code null}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns null when empty result")
 		void nullWhenEmpty() {
@@ -116,6 +220,17 @@ class CalendarServiceTest {
 			assertThat(calendarService.getCalendar("cal-1", OWNER)).isNull();
 		}
 
+		/**
+		 * Verifies a hit returns the mapped row.
+		 *
+		 * <p>
+		 * When the calendar exists, the result is non-null and its id matches the
+		 * requested id.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns mapped row when found")
 		void returnsMappedRow() {
@@ -129,10 +244,28 @@ class CalendarServiceTest {
 
 	// ── listCalendars() ───────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code listCalendars()} — owner-scoped listing.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("listCalendars()")
 	class ListCalendars {
 
+		/**
+		 * Verifies listing binds the owner as the WHERE parameter.
+		 *
+		 * <p>
+		 * The single stubbed calendar is returned and the owner is confirmed as
+		 * the query parameter, guarding against cross-user leakage.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("queries with owner parameter")
 		void queriesWithOwner() {
@@ -147,10 +280,28 @@ class CalendarServiceTest {
 
 	// ── deleteCalendar() ──────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code deleteCalendar()} — owner-scoped deletion.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("deleteCalendar()")
 	class DeleteCalendar {
 
+		/**
+		 * Verifies deletion is scoped by both id and owner.
+		 *
+		 * <p>
+		 * The DELETE must contain {@code WHERE id=? AND owner=?} to prevent one
+		 * user deleting another's calendar.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DELETE WHERE id=? AND owner=? is called")
 		void deletesWithIdAndOwner() {
@@ -162,10 +313,29 @@ class CalendarServiceTest {
 
 	// ── createEvent() ─────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code createEvent()} — creation and time validation (BUG-027).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("createEvent()")
 	class CreateEvent {
 
+		/**
+		 * Verifies a valid event inserts and gets an {@code evt-}-prefixed id.
+		 *
+		 * <p>
+		 * With the parent calendar present, exactly one INSERT into
+		 * {@code calendar_events} fires and the returned id starts with
+		 * {@code "evt-"}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("INSERT is called, id starts with 'evt-'")
 		void insertsEvent() {
@@ -179,6 +349,17 @@ class CalendarServiceTest {
 			assertThat(result.get("id").toString()).startsWith("evt-");
 		}
 
+		/**
+		 * Verifies the parent {@code calendar_id} is stored on the event.
+		 *
+		 * <p>
+		 * The returned record's {@code calendar_id} must equal the parent so
+		 * events can be listed by calendar.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("calendar_id is stored in returned record")
 		void calendarIdStored() {
@@ -191,6 +372,19 @@ class CalendarServiceTest {
 			assertThat(result.get("calendar_id")).isEqualTo("cal-1");
 		}
 
+		/**
+		 * Verifies missing start/end times raise a 400, not a NOT-NULL 500
+		 * (BUG-027 regression).
+		 *
+		 * <p>
+		 * Omitting the NOT-NULL {@code start_at}/{@code end_at} columns must throw
+		 * {@link IllegalArgumentException} before any INSERT, rather than letting a
+		 * null reach the database.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("rejects an event with missing start_at/end_at (400, not a 500 NOT-NULL crash) — BUG-027")
 		void rejectsMissingTimes() {
@@ -202,6 +396,17 @@ class CalendarServiceTest {
 			verify(db, never()).update(contains("INSERT INTO calendar_events"), any(Object[].class));
 		}
 
+		/**
+		 * Verifies an event whose end precedes its start is rejected.
+		 *
+		 * <p>
+		 * An inverted time range must throw {@link IllegalArgumentException} and
+		 * never persist a malformed event.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("rejects an event whose end is before its start (400, not a stored bad event)")
 		void rejectsEndBeforeStart() {
@@ -216,10 +421,28 @@ class CalendarServiceTest {
 
 	// ── updateEvent() ─────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code updateEvent()} — id-scoped updates.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("updateEvent()")
 	class UpdateEvent {
 
+		/**
+		 * Verifies updating an existing event issues an UPDATE by id.
+		 *
+		 * <p>
+		 * With the event present and its parent calendar owned by the caller, the
+		 * service must issue an {@code UPDATE calendar_events} statement.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("UPDATE WHERE id=? is called")
 		void updatesById() {
@@ -234,10 +457,28 @@ class CalendarServiceTest {
 
 	// ── deleteEvent() ─────────────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code deleteEvent()} — present and missing event paths.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("deleteEvent()")
 	class DeleteEvent {
 
+		/**
+		 * Verifies an existing event is deleted by id.
+		 *
+		 * <p>
+		 * When the event exists in the owner's calendar, a
+		 * {@code DELETE FROM calendar_events WHERE id=?} must fire for that id.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("DELETE WHERE id=? is called when event exists")
 		void deletesWhenFound() {
@@ -249,6 +490,16 @@ class CalendarServiceTest {
 			verify(db).update(contains("DELETE FROM calendar_events WHERE id=?"), eq("evt-1"));
 		}
 
+		/**
+		 * Verifies a missing event triggers no delete.
+		 *
+		 * <p>
+		 * When the lookup returns no rows, the service must not issue any DELETE.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("no delete when event not found")
 		void noDeleteWhenMissing() {
@@ -262,10 +513,28 @@ class CalendarServiceTest {
 
 	// ── listEventsInRange() ───────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code listEventsInRange()} — owner/from/to filtering.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("listEventsInRange()")
 	class ListEventsInRange {
 
+		/**
+		 * Verifies the range query binds owner, from and to.
+		 *
+		 * <p>
+		 * All three parameters must reach the query for correct date filtering;
+		 * the single stubbed in-range event is returned.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("queries with owner, from, to parameters")
 		void queriesWithAllParams() {
@@ -281,10 +550,28 @@ class CalendarServiceTest {
 
 	// ── exportCalendarAsIcs() ─────────────────────────────────────────────────
 
+	/**
+	 * Tests for {@code exportCalendarAsIcs()} — iCalendar serialisation.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.2.1
+	 * @version v2026.2.1
+	 */
 	@Nested
 	@DisplayName("exportCalendarAsIcs()")
 	class ExportCalendarAsIcs {
 
+		/**
+		 * Verifies the export is wrapped in a VCALENDAR envelope.
+		 *
+		 * <p>
+		 * Valid iCalendar output must start with {@code BEGIN:VCALENDAR} and
+		 * contain {@code END:VCALENDAR}.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("returns string starting with BEGIN:VCALENDAR")
 		void returnsValidIcs() {
@@ -298,6 +585,17 @@ class CalendarServiceTest {
 			assertThat(ics).contains("END:VCALENDAR");
 		}
 
+		/**
+		 * Verifies each event is serialised into a VEVENT block with its title.
+		 *
+		 * <p>
+		 * A single titled event must produce {@code BEGIN:VEVENT}/
+		 * {@code END:VEVENT} blocks containing the event title in the output.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.2.1
+		 * @version v2026.2.1
+		 */
 		@Test
 		@DisplayName("contains event data in ICS output")
 		void containsEventData() {
