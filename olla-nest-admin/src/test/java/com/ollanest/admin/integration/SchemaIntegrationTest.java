@@ -26,27 +26,35 @@ import com.ollanest.service.WhisperServerManager;
  * Schema integration tests — verifies Flyway migrations produce the correct
  * schema against an in-memory SQLite database.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Uses {@code @SpringBootTest} with the {@code test} profile so Flyway runs all
- * migrations (V1–V6) against a fresh in-memory SQLite instance. The
- * {@link DatabaseService} is mocked to prevent seeding side-effects. All
- * production tables, V6 performance indexes, and NOT NULL / FK constraints are
- * verified without touching any real database.
+ * The database schema is owned by versioned Flyway migrations (V1–V6); a dropped
+ * table, a missing performance index, or a silently-disabled foreign-key pragma
+ * is the kind of regression that only surfaces in production. These tests boot
+ * the real migration path against a fresh in-memory SQLite instance and assert
+ * every production table, every expected index, the migration history, the
+ * critical columns, and that foreign keys are actually enforced (BUG-033).
  *
- * <p>
- * <b>Coverage:</b>
+ * <h3>Design notes</h3>
  * <ul>
- * <li>All 30+ production tables exist after migration</li>
- * <li>All 14 V6 performance indexes exist</li>
- * <li>V1 baseline indexes exist</li>
- * <li>Flyway version count matches expected migrations</li>
- * <li>Critical NOT NULL and CHECK constraints enforced</li>
- * <li>Foreign key constraints are enforced</li>
- * <li>Settings table functions correctly with the in-memory schema</li>
+ * <li>Runs as a non-web {@link SpringBootTest} with the {@code test} profile so
+ * Flyway applies all migrations to a fresh SQLite instance.</li>
+ * <li>{@link DatabaseService} and external services (Ollama, Whisper) are
+ * replaced with {@link MockitoBean}s so the context loads without seeding
+ * side-effects or infrastructure dependencies.</li>
+ * <li>Table/index existence is checked via {@code sqlite_master}; column
+ * presence via {@code PRAGMA table_info}; everything is read-only except a few
+ * self-cleaning settings writes.</li>
+ * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.0 — SQL hardening: schema migration validation across V1–V6.</li>
  * </ul>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — SQL hardening: schema migration validation
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @SpringBootTest(classes = OllaNestAdminApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
@@ -54,23 +62,46 @@ import com.ollanest.service.WhisperServerManager;
 @DisplayName("Schema Integration — Flyway migration validation (V1–V6)")
 class SchemaIntegrationTest {
 
+	/** Live SQLite JDBC template used to inspect the migrated schema. */
 	@Autowired
 	JdbcTemplate db;
 
 	// Mock external services so the context loads without infrastructure deps
+	/** Mocked database service so seeding side-effects do not run during context load. */
 	@MockitoBean
 	DatabaseService databaseService;
+	/** Mocked Ollama service so no local model runtime is required. */
 	@MockitoBean
 	OllamaService ollamaService;
+	/** Mocked Whisper manager so no speech runtime is required. */
 	@MockitoBean
 	WhisperServerManager whisperServerManager;
 
 	// ── Table existence ───────────────────────────────────────────────────
 
+	/**
+	 * Tests that every production table exists after migration.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	@Nested
 	@DisplayName("Core tables — all production tables exist after migration")
 	class CoreTablesExist {
 
+		/**
+		 * Verifies a single production table exists in {@code sqlite_master}.
+		 *
+		 * <p>
+		 * Parameterized over every table created by V1–V5; each must resolve to
+		 * exactly one matching {@code type='table'} row.
+		 *
+		 * @param tableName the production table name supplied by the value source
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@ParameterizedTest(name = "table ''{0}'' exists")
 		@ValueSource(strings = {
 				// V1 tables
@@ -96,10 +127,25 @@ class SchemaIntegrationTest {
 
 	// ── V6 performance indexes ────────────────────────────────────────────
 
+	/**
+	 * Tests that all V6 performance indexes were created.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	@Nested
 	@DisplayName("V6 performance indexes — all 14 indexes created")
 	class V6PerformanceIndexes {
 
+		/**
+		 * Verifies a single V6 index exists in {@code sqlite_master}.
+		 *
+		 * @param indexName the V6 index name supplied by the value source
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@ParameterizedTest(name = "index ''{0}'' exists")
 		@ValueSource(strings = { "idx_models_provider", "idx_models_status", "idx_models_provider_status",
 				"idx_users_email", "idx_users_role", "idx_users_active", "idx_users_email_active",
@@ -117,10 +163,25 @@ class SchemaIntegrationTest {
 
 	// ── V1 baseline indexes ───────────────────────────────────────────────
 
+	/**
+	 * Tests that the foundational V1 baseline indexes exist.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	@Nested
 	@DisplayName("V1 baseline indexes — foundational indexes from initial migration")
 	class V1BaselineIndexes {
 
+		/**
+		 * Verifies a single V1 baseline index exists in {@code sqlite_master}.
+		 *
+		 * @param indexName the V1 index name supplied by the value source
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@ParameterizedTest(name = "index ''{0}'' exists")
 		@ValueSource(strings = { "idx_sessions_user", "idx_sessions_expires", "idx_chat_messages_session_id",
 				"idx_chat_messages_user_date", "idx_chat_messages_created_at", "idx_chat_sessions_user_active",
@@ -135,10 +196,27 @@ class SchemaIntegrationTest {
 
 	// ── Flyway migration count ────────────────────────────────────────────
 
+	/**
+	 * Tests the Flyway migration history is complete and clean.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	@Nested
 	@DisplayName("Flyway migration history — all versions applied")
 	class FlywayMigrationHistory {
 
+		/**
+		 * Verifies at least six successful migrations are recorded.
+		 *
+		 * <p>
+		 * Flyway records one row per script (V1–V6); all must be marked successful.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("exactly 6 migration versions recorded in flyway_schema_history")
 		void sixMigrationsApplied() {
@@ -148,6 +226,13 @@ class SchemaIntegrationTest {
 			assertThat(count).as("All 6 Flyway migrations must be recorded as successful").isGreaterThanOrEqualTo(6);
 		}
 
+		/**
+		 * Verifies no failed migrations are recorded.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("no failed migrations in flyway_schema_history")
 		void noFailedMigrations() {
@@ -156,6 +241,13 @@ class SchemaIntegrationTest {
 			assertThat(failCount).as("No failed Flyway migrations must exist").isZero();
 		}
 
+		/**
+		 * Verifies the V6 migration is present in history.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("V6 migration version is present in history")
 		void v6MigrationPresent() {
@@ -167,10 +259,24 @@ class SchemaIntegrationTest {
 
 	// ── Critical column constraints ───────────────────────────────────────
 
+	/**
+	 * Tests that critical tables expose the columns the application relies on.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	@Nested
 	@DisplayName("Critical schema constraints — NOT NULL and column presence")
 	class SchemaConstraints {
 
+		/**
+		 * Verifies the settings table has {@code key} and {@code value} columns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("settings table has 'key' and 'value' columns")
 		void settingsHasKeyValueColumns() {
@@ -179,6 +285,13 @@ class SchemaIntegrationTest {
 			assertThat(colNames).contains("key", "value");
 		}
 
+		/**
+		 * Verifies the users table has all required auth columns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("users table has all required auth columns")
 		void usersHasAuthColumns() {
@@ -189,6 +302,13 @@ class SchemaIntegrationTest {
 					"auth_provider", "active");
 		}
 
+		/**
+		 * Verifies the chat_sessions table has all required columns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("chat_sessions table has all required columns")
 		void chatSessionsHasRequiredColumns() {
@@ -198,6 +318,13 @@ class SchemaIntegrationTest {
 					"created_at", "updated_at");
 		}
 
+		/**
+		 * Verifies the chat_messages table includes the {@code latency_ms} column.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("chat_messages table has all required columns including latency_ms")
 		void chatMessagesHasLatencyColumn() {
@@ -207,6 +334,13 @@ class SchemaIntegrationTest {
 					"latency_ms", "created_at");
 		}
 
+		/**
+		 * Verifies the models table has the governance columns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("models table has governance columns")
 		void modelsHasGovernanceColumns() {
@@ -216,6 +350,13 @@ class SchemaIntegrationTest {
 					"sensitive_allowed", "max_context_size");
 		}
 
+		/**
+		 * Verifies the audit_events table has actor/action/detail columns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("audit_events table has actor, action, detail columns")
 		void auditEventsHasRequiredColumns() {
@@ -224,6 +365,13 @@ class SchemaIntegrationTest {
 			assertThat(colNames).contains("id", "actor", "action", "detail", "created_at");
 		}
 
+		/**
+		 * Verifies the sessions table has token/user_id/expires_at columns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("sessions table has token, user_id, expires_at columns")
 		void sessionsHasRequiredColumns() {
@@ -232,6 +380,13 @@ class SchemaIntegrationTest {
 			assertThat(colNames).contains("token", "user_id", "expires_at");
 		}
 
+		/**
+		 * Verifies the connector_configs table has the V3 columns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("connector_configs table has V3 columns")
 		void connectorConfigsHasV3Columns() {
@@ -240,6 +395,13 @@ class SchemaIntegrationTest {
 			assertThat(colNames).contains("id", "name", "type", "enabled", "created_at");
 		}
 
+		/**
+		 * Verifies the sso_providers table has the V4 columns.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("sso_providers table has V4 columns")
 		void ssoProvidersHasV4Columns() {
@@ -251,10 +413,29 @@ class SchemaIntegrationTest {
 
 	// ── Foreign key enforcement ───────────────────────────────────────────
 
+	/**
+	 * Tests that SQLite foreign-key enforcement is actually on (BUG-033).
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	@Nested
 	@DisplayName("Foreign key enforcement — PRAGMA foreign_keys=ON")
 	class ForeignKeyEnforcement {
 
+		/**
+		 * Verifies foreign keys are enabled by the datasource config, not the test.
+		 *
+		 * <p>
+		 * BUG-033: a multi-statement init-SQL only ran its first PRAGMA under the
+		 * Xerial driver, silently leaving {@code foreign_keys} OFF. This asserts FK
+		 * is ON without the test enabling it.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("foreign_keys is ENABLED by the datasource config (no manual PRAGMA) — BUG-033 guard")
 		void foreignKeysEnabledByConfig() {
@@ -270,6 +451,17 @@ class SchemaIntegrationTest {
 			assertThat(fkEnabled).as("datasource must enable foreign_keys without a manual PRAGMA").isEqualTo(1);
 		}
 
+		/**
+		 * Verifies the driver supports per-connection {@code PRAGMA foreign_keys=ON}.
+		 *
+		 * <p>
+		 * Enables the pragma directly and confirms it reports as on, proving driver
+		 * support independent of the datasource config.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("foreign_keys PRAGMA can be enabled per-connection in SQLite")
 		void foreignKeysEnabled() {
@@ -289,10 +481,27 @@ class SchemaIntegrationTest {
 
 	// ── Settings table read/write ─────────────────────────────────────────
 
+	/**
+	 * Tests basic settings read/write against the live migrated schema.
+	 *
+	 * @author Ashok Ram
+	 * @since v2026.1.0
+	 * @version v2026.1.0
+	 */
 	@Nested
 	@DisplayName("Settings table — basic read/write against live schema")
 	class SettingsTableFunctionality {
 
+		/**
+		 * Verifies a value can be inserted into and read back from settings.
+		 *
+		 * <p>
+		 * The test row is removed afterwards so it does not leak into other cases.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("can INSERT and SELECT from settings table")
 		void settingsInsertAndSelect() {
@@ -306,6 +515,17 @@ class SchemaIntegrationTest {
 			db.update("DELETE FROM settings WHERE key = ?", "schema_test_key");
 		}
 
+		/**
+		 * Verifies {@code INSERT OR REPLACE} overwrites without a PK violation.
+		 *
+		 * <p>
+		 * Two writes to the same key must leave the latest value; the row is then
+		 * cleaned up.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("INSERT OR REPLACE overwrites existing setting (no PK violation)")
 		void settingsInsertOrReplaceIdempotent() {
@@ -321,6 +541,17 @@ class SchemaIntegrationTest {
 			db.update("DELETE FROM settings WHERE key = ?", "schema_idempotent_key");
 		}
 
+		/**
+		 * Verifies the total table count stays within an expected floor.
+		 *
+		 * <p>
+		 * A sanity guard: if a migration accidentally drops or renames a table, the
+		 * production-table count falls below 28.
+		 *
+		 * @author Ashok Ram
+		 * @since v2026.1.0
+		 * @version v2026.1.0
+		 */
 		@Test
 		@DisplayName("total schema object count is within expected range")
 		void schemaObjectCountSane() {
