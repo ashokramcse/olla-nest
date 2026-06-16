@@ -145,7 +145,8 @@ public class PromptTemplateService {
 						: "");
 		vars.put("ragSection", ragContext != null && !ragContext.isBlank() ? ragContext : "");
 
-		PromptTemplate pt = new PromptTemplate(BASE_TEMPLATE);
+		// Spring AI 2.0 favours immutable builders over constructors.
+		PromptTemplate pt = PromptTemplate.builder().template(BASE_TEMPLATE).build();
 		return pt.render(vars).trim();
 	}
 
