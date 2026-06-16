@@ -10,13 +10,13 @@
 	       olla-nest-common  — shared services, models, connectors, config
 	       olla-nest-admin   — admin control panel  (port 8080)
 	       olla-nest-user    — employee workspace   (port 8081)
-	     Runtime : Oracle Java 26 JVM  |  Spring Boot 4.0.7
+	     Runtime : Oracle Java 26 JVM  |  Spring Boot 4.1.0
 	     =================================================================== -->
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.0.7</version>
+		<version>4.1.0</version>
 		<relativePath />
 	</parent>
 
