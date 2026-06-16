@@ -50,7 +50,13 @@
 			<artifactId>sqlite-jdbc</artifactId>
 		</dependency>
 
-		<!-- ── Flyway -->
+		<!-- ── Flyway. Spring Boot 4 moved FlywayAutoConfiguration out of
+		     spring-boot-autoconfigure into the dedicated spring-boot-flyway
+		     module, so it must be declared explicitly for migrations to run. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-flyway</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-core</artifactId>
@@ -89,7 +95,7 @@
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
-			<version>5.3.0</version>
+			<version>5.5.1</version>
 			<exclusions>
 				<exclusion>
 					<groupId>commons-logging</groupId>
@@ -116,26 +122,26 @@
 		<dependency>
 			<groupId>org.mnode.ical4j</groupId>
 			<artifactId>ical4j</artifactId>
-			<version>4.0.8</version>
+			<version>4.2.5</version>
 		</dependency>
 
 		<!-- ── HTML parsing (Jsoup — email HTML, web content extraction) -->
 		<dependency>
 			<groupId>org.jsoup</groupId>
 			<artifactId>jsoup</artifactId>
-			<version>1.18.3</version>
+			<version>1.22.2</version>
 		</dependency>
 
 		<!-- ── QR code generation (ZXing — companion pairing) -->
 		<dependency>
 			<groupId>com.google.zxing</groupId>
 			<artifactId>core</artifactId>
-			<version>3.5.3</version>
+			<version>3.5.4</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.zxing</groupId>
 			<artifactId>javase</artifactId>
-			<version>3.5.3</version>
+			<version>3.5.4</version>
 		</dependency>
 
 		<!-- ── TOTP (2FA — Google Authenticator compatible) -->

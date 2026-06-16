@@ -27,6 +27,13 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Spring Boot 4 split MockMvc test auto-config into its own module;
+		     spring-boot-starter-test no longer pulls it in transitively. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>

@@ -14,7 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
@@ -47,7 +47,7 @@ import com.ollanest.service.WhisperServerManager;
  *
  * <h3>Design notes</h3>
  * <ul>
- * <li>Runs a full {@link SpringBootTest} on a random port with
+ * <li>Runs a full {@link SpringBootTest} in the mock servlet environment with
  * {@link AutoConfigureMockMvc} and the {@code test} profile, seeded from
  * {@code /test-data.sql} once per class.</li>
  * <li>An H2 in-memory database (SQLite-mode) backs the test; external services
@@ -67,7 +67,7 @@ import com.ollanest.service.WhisperServerManager;
  * @since v2026.2.1
  * @version v2026.2.1
  */
-@SpringBootTest(classes = OllaNestAdminApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = OllaNestAdminApplication.class, webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Sql(scripts = { "/test-data.sql" }, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_CLASS)

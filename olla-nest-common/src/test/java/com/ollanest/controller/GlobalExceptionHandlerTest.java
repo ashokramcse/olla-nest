@@ -52,9 +52,10 @@ class GlobalExceptionHandlerTest {
 	@Test
 	@DisplayName("NoResourceFoundException → 404 with ok=false")
 	void handlesNoResourceFound() throws Exception {
-		// Use reflection to instantiate — constructor is package-private in some
-		// versions
-		NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "/static/missing.js");
+		// Spring Framework 7 (Boot 4) added a third request-path argument to the
+		// public constructor; pass the resource path for both positions.
+		NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "/static/missing.js",
+				"/static/missing.js");
 		ResponseEntity<Map<String, Object>> r = handler.handleNotFound(ex);
 		// Static resource 404 must produce the same envelope as route 404
 		assertThat(r.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);

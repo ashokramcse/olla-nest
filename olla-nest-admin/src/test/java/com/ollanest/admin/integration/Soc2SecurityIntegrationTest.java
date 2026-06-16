@@ -17,7 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
@@ -50,7 +50,7 @@ import jakarta.servlet.http.Cookie;
  *
  * <h3>Design notes</h3>
  * <ul>
- * <li>Runs a full {@link SpringBootTest} on a random port with
+ * <li>Runs a full {@link SpringBootTest} in the mock servlet environment with
  * {@link AutoConfigureMockMvc} and the {@code test} profile.</li>
  * <li>An H2/SQLite in-memory database backs the test; external services
  * (Ollama, Whisper) are {@link MockitoBean}s so the suite runs offline.</li>
@@ -70,7 +70,7 @@ import jakarta.servlet.http.Cookie;
  * @since v2026.2.0
  * @version v2026.2.0
  */
-@SpringBootTest(classes = OllaNestAdminApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = OllaNestAdminApplication.class, webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
