@@ -1333,7 +1333,7 @@ class Soc2AuditTest {
 		@Test
 		@DisplayName("audit events use parameterized INSERT (no SQL injection)")
 		void auditEvents_useParameterizedInsert() {
-			DatabaseService dbSvc = new DatabaseService(db, mock(AppConfig.class));
+			DatabaseService dbSvc = new DatabaseService(db, mock(AppConfig.class), null);
 			dbSvc.setSetting("test.key", "test.value");
 
 			ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
@@ -2014,7 +2014,7 @@ class Soc2AuditTest {
 		@Test
 		@DisplayName("DatabaseService.getSetting uses parameterized query")
 		void getSetting_usesParameterizedQuery() {
-			DatabaseService svc = new DatabaseService(db, mock(AppConfig.class));
+			DatabaseService svc = new DatabaseService(db, mock(AppConfig.class), null);
 			when(db.queryForList(anyString(), anyString())).thenReturn(List.of());
 			svc.getSetting("'; DROP TABLE settings; --", "default");
 

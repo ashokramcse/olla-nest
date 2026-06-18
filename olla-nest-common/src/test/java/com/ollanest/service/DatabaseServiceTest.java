@@ -87,7 +87,7 @@ class DatabaseServiceTest {
 	 */
 	@BeforeEach
 	void setUp() {
-		service = new DatabaseService(db, appConfig);
+		service = new DatabaseService(db, appConfig, null);
 	}
 
 	// ── getSetting ────────────────────────────────────────────────────────────

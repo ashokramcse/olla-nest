@@ -178,7 +178,7 @@ class SqlSafetyTest {
 		 */
 		@BeforeEach
 		void setUp() {
-			service = new DatabaseService(db, appConfig);
+			service = new DatabaseService(db, appConfig, null);
 		}
 
 		/**
@@ -325,7 +325,7 @@ class SqlSafetyTest {
 		void getSettingIsParameterized() {
 			when(db.queryForList(anyString(), anyString())).thenReturn(List.of());
 			AppConfig cfg = mock(AppConfig.class);
-			DatabaseService svc = new DatabaseService(db, cfg);
+			DatabaseService svc = new DatabaseService(db, cfg, null);
 			svc.getSetting("myKey", "fallback");
 
 			ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);

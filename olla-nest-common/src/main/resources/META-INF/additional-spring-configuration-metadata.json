@@ -1,0 +1,122 @@
+{
+  "properties": [
+    {
+      "name": "app.version",
+      "type": "java.lang.String",
+      "description": "Application version string surfaced to clients (defaults to the Maven project version)."
+    },
+    {
+      "name": "app.data-dir",
+      "type": "java.lang.String",
+      "description": "Base directory for the SQLite database, logs and runtime data.",
+      "defaultValue": "./data"
+    },
+    {
+      "name": "app.static-dir",
+      "type": "java.lang.String",
+      "description": "Directory served as static web assets.",
+      "defaultValue": "./public"
+    },
+    {
+      "name": "app.base-url",
+      "type": "java.lang.String",
+      "description": "Public base URL this application is reached at (used for links and redirects)."
+    },
+    {
+      "name": "app.cookie-secure",
+      "type": "java.lang.Boolean",
+      "description": "Whether the session cookie sets the Secure flag (enable behind HTTPS).",
+      "defaultValue": false
+    },
+    {
+      "name": "app.trusted-proxy",
+      "type": "java.lang.String",
+      "description": "IP address of a trusted reverse proxy whose X-Forwarded-For header is honoured."
+    },
+    {
+      "name": "app.session-cookie-name",
+      "type": "java.lang.String",
+      "description": "Name of the session cookie.",
+      "defaultValue": "olla_nest_session"
+    },
+    {
+      "name": "app.default-admin-email",
+      "type": "java.lang.String",
+      "description": "Email of the admin user seeded on first boot.",
+      "defaultValue": "admin@ollanest.local"
+    },
+    {
+      "name": "app.default-admin-password",
+      "type": "java.lang.String",
+      "description": "Password of the admin user seeded on first boot."
+    },
+    {
+      "name": "app.default-user-password",
+      "type": "java.lang.String",
+      "description": "Default password for non-admin users seeded on first boot."
+    },
+    {
+      "name": "app.ollama-base-url",
+      "type": "java.lang.String",
+      "description": "Ollama base URL override (used by the test profile)."
+    },
+    {
+      "name": "app.whisper-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether the bundled local Whisper speech-to-text server is started.",
+      "defaultValue": true
+    },
+    {
+      "name": "encryption.key",
+      "type": "java.lang.String",
+      "description": "Symmetric key used to encrypt secrets at rest (connector credentials, API keys)."
+    },
+    {
+      "name": "ollama.url",
+      "type": "java.lang.String",
+      "description": "Base URL of the Ollama server used for local model inference.",
+      "defaultValue": "http://localhost:11434"
+    },
+    {
+      "name": "rag.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable retrieval-augmented generation over indexed documents.",
+      "defaultValue": true
+    },
+    {
+      "name": "rag.top-k",
+      "type": "java.lang.Integer",
+      "description": "Number of nearest document chunks retrieved per RAG query.",
+      "defaultValue": 5
+    },
+    {
+      "name": "rag.similarity-threshold",
+      "type": "java.lang.Double",
+      "description": "Minimum cosine similarity for a document chunk to be included in RAG context.",
+      "defaultValue": 0.30
+    },
+    {
+      "name": "functions.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable model function/tool calling.",
+      "defaultValue": true
+    },
+    {
+      "name": "loki.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable shipping application logs to a Grafana Loki endpoint.",
+      "defaultValue": false
+    },
+    {
+      "name": "loki.url",
+      "type": "java.lang.String",
+      "description": "Grafana Loki push API endpoint."
+    },
+    {
+      "name": "spring.ai.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Project-level flag toggling Spring AI integration (the app's LLM layer is otherwise bespoke).",
+      "defaultValue": false
+    }
+  ]
+}

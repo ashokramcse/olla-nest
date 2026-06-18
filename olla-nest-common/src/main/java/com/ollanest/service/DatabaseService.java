@@ -6,7 +6,6 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -73,8 +72,7 @@ public class DatabaseService {
 	private String encryptionKey;
 
 	/** Active Spring profiles — used to detect dev vs production environment. */
-	@Autowired
-	private Environment springEnv;
+	private final Environment springEnv;
 
 	/**
 	 * Constructs the service with its required collaborators.
@@ -82,11 +80,14 @@ public class DatabaseService {
 	 * @param db        Spring JDBC template bound to the application's SQLite data
 	 *                  source
 	 * @param appConfig application-level configuration properties
+	 * @param springEnv Spring {@link Environment} used to detect the active
+	 *                  profiles (dev vs production)
 	 * @since v2026.1.0
 	 */
-	public DatabaseService(JdbcTemplate db, AppConfig appConfig) {
+	public DatabaseService(JdbcTemplate db, AppConfig appConfig, Environment springEnv) {
 		this.db = db;
 		this.appConfig = appConfig;
+		this.springEnv = springEnv;
 	}
 
 	/**
