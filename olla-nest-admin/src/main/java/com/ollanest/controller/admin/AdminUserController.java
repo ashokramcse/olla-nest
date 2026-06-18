@@ -36,43 +36,51 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Full user lifecycle management for admin users.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Provides CRUD operations for user accounts, session management, access
- * overrides, and password resets. Only admins may call these endpoints.
+ * Admins need complete control over accounts: creating and editing users,
+ * resetting passwords, computing effective access, granting/revoking permission
+ * overrides, and managing live sessions (including force-logout). This
+ * controller is that admin-only surface over the {@code users},
+ * {@code user_overrides}, and {@code sessions} tables.
  *
- * <p>
- * Endpoints:
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code GET /api/admin/users} — paginated user list with optional
- * search</li>
- * <li>{@code POST /api/admin/users} — create a new user account</li>
- * <li>{@code GET /api/admin/users/{id}} — get a specific user</li>
- * <li>{@code PATCH /api/admin/users/{id}} — update user fields</li>
- * <li>{@code DELETE /api/admin/users/{id}} — delete a user account</li>
- * <li>{@code POST /api/admin/users/{id}/reset-password} — reset password</li>
- * <li>{@code GET /api/admin/users/{id}/effective-access} — computed access</li>
- * <li>{@code POST /api/admin/users/{id}/overrides} — add a permission
- * override</li>
- * <li>{@code DELETE /api/admin/overrides/{id}} — remove an override</li>
- * <li>{@code GET /api/admin/overrides} — list all overrides</li>
- * <li>{@code GET /api/admin/sessions/active} — list active sessions</li>
- * <li>{@code DELETE /api/admin/sessions/user/{userId}} — force-logout a
- * user</li>
+ * <li><b>Security (LOW-7):</b> an admin cannot delete their own account, to
+ * prevent accidental lockout.</li>
+ * <li><b>Security (LOW-8):</b> session tokens are truncated to 8 characters in
+ * the active-sessions list so valid tokens never reach the browser.</li>
+ * <li><b>Validation (MED-12):</b> user updates enforce enum and bounds checks so
+ * malformed input is a 400 rather than corrupt data.</li>
+ * <li>Effective access is computed from role + department + overrides so the UI
+ * can show exactly what a user can do.</li>
  * </ul>
  *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- * <li>Admins cannot delete their own account (LOW-7 fix) to prevent accidental
- * lockout.</li>
- * <li>Session tokens are truncated to 8 characters in the active sessions list
- * to prevent leakage of valid tokens to the browser.</li>
+ * <li>v2026.1.0 — initial Java Spring Boot migration</li>
+ * <li>v2026.1.10 — MED-12 enum/bounds validation on user update; LOW-7/LOW-8
+ * hardening</li>
  * </ul>
+ *
+ * <pre>
+ *   GET    /api/admin/users                          — paginated user list (+search)
+ *   POST   /api/admin/users                          — create a user
+ *   GET    /api/admin/users/{id}                     — get a user
+ *   PATCH  /api/admin/users/{id}                     — update user fields
+ *   DELETE /api/admin/users/{id}                     — delete a user
+ *   POST   /api/admin/users/{id}/reset-password      — reset a password
+ *   GET    /api/admin/users/{id}/effective-access    — computed access
+ *   POST   /api/admin/users/{id}/overrides           — add a permission override
+ *   DELETE /api/admin/overrides/{id}                 — remove an override
+ *   GET    /api/admin/overrides                      — list all overrides
+ *   GET    /api/admin/sessions/active                — list active sessions
+ *   DELETE /api/admin/sessions/user/{userId}         — force-logout a user
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.10 — MED-12 enum+bounds validation on user update; security
- *          hardening (LOW-7, LOW-8)
+ * @since v2026.1.0
+ * @version v2026.1.10
  */
 @RestController
 @RequestMapping("/api/admin")

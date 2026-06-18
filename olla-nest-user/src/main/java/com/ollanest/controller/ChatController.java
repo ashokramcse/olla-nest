@@ -38,15 +38,18 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Primary chat API for Olla Nest.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Handles two chat execution paths:
- * <ul>
- * <li>{@code POST /api/chat} — synchronous (blocking) response</li>
- * <li>{@code POST /api/chat/stream} — SSE streaming response</li>
- * </ul>
+ * This is the heart of the product — the endpoint that turns a user message
+ * into an AI response. It orchestrates the entire request: authorization,
+ * quota, privacy gating, model routing, RAG, prompt assembly, the provider
+ * call, persistence, and side effects. It serves both a blocking path
+ * ({@code POST /api/chat}) and an SSE streaming path
+ * ({@code POST /api/chat/stream}).
  *
+ * <h3>Request pipeline</h3>
  * <p>
- * Both paths follow the same orchestration pipeline:
+ * Both paths follow the same stages:
  * <ol>
  * <li>Auth check + rate limit + daily token quota</li>
  * <li>Privacy gate: detect sensitive content and block external providers</li>
@@ -57,33 +60,38 @@ import jakarta.servlet.http.HttpServletRequest;
  * ({@link ChatService#buildSystemPromptWithRag})</li>
  * <li>Provider call: function calling (Ollama) or direct streaming call</li>
  * <li>DB persist: user and assistant messages</li>
- * <li>Auto-title: set session title from first message</li>
+ * <li>Auto-title: set session title from the first message</li>
  * <li>Workspace artifacts: optionally write code fences to disk</li>
  * </ol>
  *
- * <p>
- * Additional endpoints:
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code POST /api/chat/clear} — archive the active session</li>
- * <li>{@code DELETE /api/chat} — permanently delete the active session and
- * messages</li>
- * <li>{@code POST /api/feedback} — submit thumbs-up/down on a message</li>
+ * <li>Streaming runs on a Java virtual thread (Project Loom) so a multi-minute
+ * AI response never ties up a Tomcat worker.</li>
+ * <li>Function calling on Ollama is a synchronous pre-call; if tool calls are
+ * returned, the results are injected and the follow-up is streamed.</li>
+ * <li>All 4xx error responses include {@code ok:false} (L-4, MED-1) so the
+ * frontend can branch uniformly on the flag.</li>
  * </ul>
  *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- * <li>Streaming runs on a Java virtual thread (Project Loom) to avoid blocking
- * the Tomcat thread pool for potentially multi-minute AI responses.</li>
- * <li>Function calling on Ollama is done as a synchronous pre-call; if tool
- * calls are returned the results are injected and the follow-up is
- * streamed.</li>
+ * <li>v2026.1.0 — initial Java Spring Boot migration</li>
+ * <li>v2026.1.10 — L-4: {@code ok:false} on all 4xx responses; MED-1: 403
+ * {@code chat:use} response includes {@code ok:false}</li>
  * </ul>
+ *
+ * <pre>
+ *   POST   /api/chat         — synchronous (blocking) chat response
+ *   POST   /api/chat/stream  — SSE streaming chat response
+ *   POST   /api/chat/clear   — archive the active session
+ *   DELETE /api/chat         — delete the active session and its messages
+ *   POST   /api/feedback     — submit thumbs-up/down on a message
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.10 — L-4: ok:false added to all 4xx error responses; MED-1:
- *          403 chat:use response includes ok:false
+ * @since v2026.1.0
+ * @version v2026.1.10
  */
 @RestController
 @RequestMapping("/api")
