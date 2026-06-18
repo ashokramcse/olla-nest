@@ -71,7 +71,7 @@ public class PersonalDocumentController extends BaseController {
 	 * @since v2026.2.1
 	 */
 	@PostMapping("/upload")
-	public ResponseEntity<?> upload(HttpServletRequest req, @RequestParam("file") MultipartFile file) {
+	public ResponseEntity<?> upload(HttpServletRequest req, @RequestParam MultipartFile file) {
 		User user = requireAuth(req);
 		try {
 			var result = personalDocService.upload(user.id, file.getBytes(), file.getOriginalFilename());
@@ -93,7 +93,7 @@ public class PersonalDocumentController extends BaseController {
 	 * @since v2026.2.1
 	 */
 	@PostMapping("/extract-text")
-	public ResponseEntity<?> extractText(HttpServletRequest req, @RequestParam("file") MultipartFile file) {
+	public ResponseEntity<?> extractText(HttpServletRequest req, @RequestParam MultipartFile file) {
 		requireAuth(req);
 		try {
 			String text = personalDocService.extractText(file.getBytes(), file.getOriginalFilename());

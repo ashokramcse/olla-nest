@@ -144,7 +144,7 @@ public class GalleryController extends BaseController {
 	 * @since v2026.2.1
 	 */
 	@PostMapping("/upload")
-	public ResponseEntity<?> upload(HttpServletRequest req, @RequestParam("file") MultipartFile file,
+	public ResponseEntity<?> upload(HttpServletRequest req, @RequestParam MultipartFile file,
 			@RequestParam(required = false) String albumId) {
 		User user = requireAuth(req);
 		try {
