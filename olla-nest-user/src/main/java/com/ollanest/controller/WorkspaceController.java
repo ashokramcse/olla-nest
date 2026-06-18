@@ -29,33 +29,37 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Workspace file system operations for the authenticated user.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Provides directory browsing and per-user workspace configuration. All path
- * inputs are validated against the user's home directory and the application
- * data directory to prevent path traversal attacks (HIGH-4 fix).
+ * The workspace feature lets permitted users point the AI at a local directory.
+ * This controller provides the directory browsing and per-user workspace
+ * configuration behind that feature, with strict path validation so it cannot
+ * be turned into an arbitrary filesystem reader.
  *
- * <p>
- * Endpoints:
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code GET /api/workspace/browse} — list subdirectories of a path</li>
- * <li>{@code POST /api/workspace/local-settings} — save the user's chosen
- * workspace root and permission mode</li>
+ * <li><b>Security (HIGH-4):</b> all path inputs are validated against the user's
+ * home directory and the application data directory to prevent path-traversal.</li>
+ * <li>Hidden directories (names starting with {@code .}) are excluded so
+ * sensitive config folders are never listed.</li>
+ * <li>Browsing requires the {@code workspace:build} right — not every
+ * authenticated user gets filesystem access.</li>
  * </ul>
  *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- * <li>Only directories visible to the JVM user are listed; hidden directories
- * (names starting with {@code .}) are excluded to avoid exposing sensitive
- * config folders.</li>
- * <li>The browse endpoint requires the {@code workspace:build} right — not all
- * authenticated users have filesystem access.</li>
+ * <li>v2026.1.0 — initial Java Spring Boot migration; HIGH-4 hardening
+ * restricted browsing to the user home directory</li>
  * </ul>
+ *
+ * <pre>
+ *   GET  /api/workspace/browse          — list subdirectories of a path
+ *   POST /api/workspace/local-settings  — save workspace root + permission mode
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — security hardening: restrict browse to user home
- *          directory (HIGH-4)
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/workspace")

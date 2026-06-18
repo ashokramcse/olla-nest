@@ -36,26 +36,36 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Admin model management endpoints.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Provides:
+ * Admins need to verify Ollama connectivity and govern which models are
+ * available and under what policy. This controller exposes the Ollama ping
+ * (connectivity + model discovery) and the governance update for any model in
+ * the registry (status, tier, GPU flag, etc.).
+ *
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code GET /api/admin/ollama/ping} — test connectivity to an Ollama
- * server and list its available models</li>
- * <li>{@code PATCH /api/admin/models/{id}/governance} — update governance
- * fields on any model in the registry (status, tier, GPU flag, etc.)</li>
+ * <li>The ping endpoint never propagates a connection error as a 500 — it
+ * returns 200 with {@code ok: false} and a message so the frontend can show a
+ * friendly status (fixed in v2026.1.0).</li>
+ * <li>Governance fields are written through {@link ModelService} so DB rows and
+ * the in-memory {@link com.ollanest.model.ModelRecord} view stay consistent.</li>
  * </ul>
  *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- * <li>The ping endpoint previously returned HTTP 500 on connection errors; this
- * was fixed in v2026.1.0 to always return 200 with {@code ok: false} and an
- * error message so the frontend can display a user-friendly status.</li>
+ * <li>v2026.1.0 — initial Java Spring Boot migration; fixed HTTP 500 on
+ * {@code /ping} when Ollama is unreachable</li>
  * </ul>
+ *
+ * <pre>
+ *   GET   /api/admin/ollama/ping             — test Ollama connectivity + list models
+ *   PATCH /api/admin/models/{id}/governance  — update a model's governance fields
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — bug fix: fixed HTTP 500 on /ping when Ollama unreachable
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/admin")

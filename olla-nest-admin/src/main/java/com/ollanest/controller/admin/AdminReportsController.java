@@ -21,32 +21,35 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Admin analytics and reporting endpoints.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Provides aggregated usage statistics over a configurable time window (default
- * 30 days). All queries are read-only and run against the SQLite database
- * directly. This controller is admin-only.
+ * The admin dashboard needs aggregated usage analytics over a configurable time
+ * window (default 30 days). This controller computes those read-only
+ * aggregations directly against SQLite and is admin-only.
  *
- * <p>
- * Endpoints:
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code GET /api/admin/reports} — comprehensive usage report including
- * daily activity, model usage, token leaderboard, department breakdown, latency
- * by model, live vs failed counts, and audit timeline</li>
- * <li>{@code GET /api/admin/feedback} — thumbs-up/down ratings per model with
- * sample comments</li>
+ * <li>Every query is bounded by a {@code since} parameter; unbounded scans on
+ * large tables would be unacceptably slow on SQLite.</li>
+ * <li>The {@code days} window is supplied by the caller; no server-side cap is
+ * enforced because admin users are trusted.</li>
+ * <li>All queries are read-only — this controller never mutates state.</li>
  * </ul>
  *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- * <li>All queries use a {@code since} parameter to bound the scan window;
- * unbounded queries on large tables would be unacceptably slow on SQLite.</li>
- * <li>The {@code days} parameter is capped by the caller; no server-side cap is
- * enforced here since admin users are trusted.</li>
+ * <li>v2026.1.0 — initial Java Spring Boot migration</li>
  * </ul>
+ *
+ * <pre>
+ *   GET /api/admin/reports   — usage report (activity, model usage, token
+ *                              leaderboard, dept breakdown, latency, audit)
+ *   GET /api/admin/feedback  — per-model thumbs ratings with sample comments
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/admin")

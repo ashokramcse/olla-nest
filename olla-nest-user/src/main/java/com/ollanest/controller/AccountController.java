@@ -28,31 +28,39 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Handles user self-service account operations for the authenticated user.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * All endpoints require a valid session cookie (checked via
- * {@link BaseController#requireAuthWithCsrf}). Endpoints provided:
+ * Employees manage their own account without admin involvement — changing their
+ * password, editing mutable profile fields, and viewing their token usage
+ * against quota. This controller owns those self-service endpoints, all scoped
+ * to the caller's own session.
+ *
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code POST /api/account/password} — change own password (BCrypt cost
- * 12)</li>
- * <li>{@code PATCH /api/account/profile} — update own mutable profile
- * fields</li>
- * <li>{@code GET /api/account/profile} — retrieve own profile including
- * department name</li>
- * <li>{@code GET /api/account/usage} — retrieve daily and monthly token usage
- * vs limits</li>
+ * <li>Every endpoint requires a valid session and CSRF header via
+ * {@link BaseController#requireAuthWithCsrf}.</li>
+ * <li>Profile updates use a field allowlist to prevent mass-assignment
+ * attacks.</li>
+ * <li>Enterprise users (non-local auth provider) may not edit designation,
+ * team, or branch — those are owned by the identity provider.</li>
+ * <li>Password changes are re-hashed with BCrypt cost 12.</li>
  * </ul>
  *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- * <li>Enterprise users (non-local auth provider) may not update designation,
- * team, or branch — those fields are owned by the identity provider.</li>
- * <li>Profile field updates use an allowlist to prevent mass-assignment
- * attacks.</li>
+ * <li>v2026.1.0 — initial Java Spring Boot migration</li>
  * </ul>
+ *
+ * <pre>
+ *   POST  /api/account/password — change own password (BCrypt cost 12)
+ *   PATCH /api/account/profile  — update own mutable profile fields
+ *   GET   /api/account/profile  — own profile incl. department name
+ *   GET   /api/account/usage    — daily/monthly token usage vs limits
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/account")
