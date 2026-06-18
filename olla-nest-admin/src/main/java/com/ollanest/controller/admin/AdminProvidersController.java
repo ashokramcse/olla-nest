@@ -37,48 +37,47 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Admin API provider management: CRUD, model sync, and connectivity testing.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Manages the {@code api_providers} and {@code api_models} tables. API keys are
- * encrypted at rest via AES-256-GCM ({@link CryptoService}) and never returned
- * to the browser after initial save. SSRF protection on provider URLs is
- * enforced via {@link UrlValidator} (HIGH-3 security fix).
+ * External model providers (OpenAI, Anthropic, etc.) and their available models
+ * are configured here. This controller owns the {@code api_providers} and
+ * {@code api_models} tables — creating/editing providers, testing connectivity,
+ * syncing each provider's model catalogue, and governing which models are
+ * approved.
  *
- * <p>
- * Endpoints:
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code GET /api/admin/providers} — list all providers (keys
- * redacted)</li>
- * <li>{@code POST /api/admin/providers} — create a new provider</li>
- * <li>{@code PUT /api/admin/providers/{id}} — update an existing provider</li>
- * <li>{@code DELETE /api/admin/providers/{id}} — delete a provider and its
- * models</li>
- * <li>{@code POST /api/admin/providers/{id}/test} — call a test message to
- * verify connectivity</li>
- * <li>{@code POST /api/admin/providers/{id}/sync} — sync available models from
- * the provider API</li>
- * <li>{@code GET /api/admin/providers/{id}/models} — list synced models for a
- * provider</li>
- * <li>{@code PUT /api/admin/providers/{id}/models/{modelId}} — update model
- * approval/governance</li>
- * <li>{@code POST /api/admin/providers/{id}/models} — manually add a model</li>
- * <li>{@code DELETE /api/admin/providers/{id}/models/{modelId}} — remove a
- * model</li>
+ * <li><b>Security:</b> API keys are encrypted at rest via AES-256-GCM
+ * ({@link CryptoService}); the decrypted key is used only during provider
+ * calls/sync and is never returned to the browser after the initial save.</li>
+ * <li><b>Security (HIGH-3):</b> provider URLs are validated with
+ * {@link UrlValidator} to prevent SSRF.</li>
+ * <li>{@code api_models} rows use a composite {@code providerId:modelId} key to
+ * guarantee global uniqueness across providers.</li>
  * </ul>
  *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- * <li>API key values are never stored in plaintext; only the encrypted form is
- * persisted. The decrypted key is used only during provider calls and
- * sync.</li>
- * <li>Model IDs in {@code api_models} use a composite key
- * {@code providerId:modelId} to ensure global uniqueness across providers.</li>
+ * <li>v2026.1.0 — initial Java Spring Boot migration; HIGH-3 SSRF protection on
+ * provider URLs</li>
  * </ul>
+ *
+ * <pre>
+ *   GET    /api/admin/providers                          — list providers (keys redacted)
+ *   POST   /api/admin/providers                          — create a provider
+ *   PUT    /api/admin/providers/{id}                     — update a provider
+ *   DELETE /api/admin/providers/{id}                     — delete a provider + models
+ *   POST   /api/admin/providers/{id}/test                — test connectivity
+ *   POST   /api/admin/providers/{id}/sync                — sync available models
+ *   GET    /api/admin/providers/{id}/models              — list synced models
+ *   PUT    /api/admin/providers/{id}/models/{modelId}    — update model governance
+ *   POST   /api/admin/providers/{id}/models              — manually add a model
+ *   DELETE /api/admin/providers/{id}/models/{modelId}    — remove a model
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — security hardening: SSRF protection via UrlValidator
- *          (HIGH-3)
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/admin/providers")

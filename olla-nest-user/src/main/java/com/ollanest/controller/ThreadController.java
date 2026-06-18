@@ -25,30 +25,39 @@ import jakarta.servlet.http.HttpServletRequest;
  * Manages chat thread (session) lifecycle operations for the authenticated
  * user.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * All endpoints are scoped to the current user's own sessions — IDOR protection
- * is enforced by including {@code user_id = ?} in every DB query. Endpoints:
+ * The workspace sidebar lets users organise their conversations — listing,
+ * renaming, pinning, archiving, deleting, activating, and forking threads. This
+ * controller owns those session-lifecycle endpoints, all scoped strictly to the
+ * caller's own sessions.
+ *
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code GET /api/threads} — list active and history sessions</li>
- * <li>{@code DELETE /api/threads/{id}} — delete a thread and all its
- * messages</li>
- * <li>{@code PATCH /api/threads/{id}} — update title, pinned, archived, or
- * unread</li>
- * <li>{@code POST /api/threads/{id}/activate} — make a history thread
- * active</li>
- * <li>{@code POST /api/threads/{id}/fork} — create a new thread copied from an
- * existing one</li>
+ * <li><b>Security (IDOR):</b> every query includes {@code user_id = ?}, so a
+ * user can never read or mutate another user's threads.</li>
+ * <li>The PATCH handler uses an allowlist of updatable columns so the request
+ * body cannot overwrite arbitrary DB columns.</li>
+ * <li>Fork copies an existing thread into a new session rather than mutating the
+ * original.</li>
  * </ul>
  *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- * <li>The PATCH handler uses an allowlist of known updatable columns so the
- * request body cannot overwrite arbitrary DB columns.</li>
+ * <li>v2026.1.0 — initial Java Spring Boot migration</li>
  * </ul>
+ *
+ * <pre>
+ *   GET    /api/threads               — list active + history sessions
+ *   DELETE /api/threads/{id}          — delete a thread and its messages
+ *   PATCH  /api/threads/{id}          — update title/pinned/archived/unread
+ *   POST   /api/threads/{id}/activate — make a history thread active
+ *   POST   /api/threads/{id}/fork     — copy a thread into a new one
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/threads")

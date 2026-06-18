@@ -29,35 +29,40 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * REST API for RAG document management.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Provides endpoints to list, upload, and delete documents stored in the
- * {@code rag_documents} table. Uploaded documents are ingested by
- * {@link RagService}: text is extracted, chunked, embedded, and stored in
- * {@code rag_chunks} for retrieval during chat.
+ * Users feed their own documents into retrieval-augmented chat. This controller
+ * is the HTTP surface for that corpus — listing, uploading, and deleting rows in
+ * {@code rag_documents}. Uploads are handed to {@link RagService}, which
+ * extracts text, chunks, embeds, and stores it in {@code rag_chunks} for
+ * retrieval during chat.
  *
- * <p>
- * Endpoints:
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code GET /api/documents} — list all documents visible to the user</li>
- * <li>{@code POST /api/documents/upload} — upload a PDF or text file (max 10
- * MB)</li>
- * <li>{@code DELETE /api/documents/{id}} — remove a document and its
- * chunks</li>
- * </ul>
- *
- * <p>
- * <b>Design decisions:</b>
- * <ul>
- * <li>A 10 MB hard limit is enforced here (before streaming to disk) to prevent
+ * <li>A 10&nbsp;MB hard limit is enforced before streaming to disk to prevent
  * memory exhaustion from large uploads.</li>
- * <li>Document IDs are generated from a combination of timestamp and random
- * base-36 string to avoid sequential enumeration.</li>
+ * <li><b>Security:</b> delete performs an IDOR ownership check (HIGH-1) and
+ * upload validates the MIME type (HIGH-4) so only PDFs/text are ingested.</li>
+ * <li>Document IDs combine a timestamp with a random base-36 suffix to avoid
+ * sequential enumeration.</li>
  * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.2 — introduced with Spring AI 1.0.0 integration</li>
+ * <li>v2026.1.10 — HIGH-1 IDOR ownership check on delete; HIGH-4 MIME-type
+ * validation</li>
+ * </ul>
+ *
+ * <pre>
+ *   GET    /api/documents         — list documents visible to the user
+ *   POST   /api/documents/upload  — upload a PDF or text file (max 10 MB)
+ *   DELETE /api/documents/{id}    — remove a document and its chunks
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.2 — introduced with Spring AI 1.0.0 integration
- * @version v2026.1.10 — HIGH-1 IDOR ownership check on delete; HIGH-4 MIME type
- *          validation
+ * @since v2026.1.2
+ * @version v2026.1.10
  */
 @RestController
 @RequestMapping("/api/documents")

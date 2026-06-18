@@ -32,38 +32,39 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Admin settings management: read and write all application configuration.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Persists settings to the {@code settings} table via {@link DatabaseService}.
- * URL-type settings are validated with {@link UrlValidator} before saving
- * (HIGH-3, HIGH-5 security fixes). Workspace root is normalised to an absolute
- * path.
+ * Almost every tunable in the system is a row in the {@code settings} table.
+ * This controller is the admin write/read surface for that configuration —
+ * plus department default-rights and on-demand DB backups — persisting through
+ * {@link DatabaseService} with validation applied before anything is stored.
  *
- * <p>
- * Endpoints:
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code POST /api/admin/settings} — save one or more settings in a single
- * request</li>
- * <li>{@code GET /api/admin/departments} — list departments with their default
- * rights</li>
- * <li>{@code PATCH /api/admin/departments/{id}/rights} — update default rights
- * for a dept</li>
- * <li>{@code POST /api/admin/settings/backup} — trigger an on-demand DB
- * backup</li>
+ * <li><b>Security (HIGH-3):</b> all base-URL fields are validated with
+ * {@link UrlValidator} to prevent SSRF.</li>
+ * <li><b>Security (HIGH-5):</b> the workspace-root setting is blocked from
+ * pointing at system paths; only reasonable OS directories are accepted, and the
+ * value is normalised to an absolute path.</li>
+ * <li>Multiple settings can be saved in a single request for atomic UI saves.</li>
  * </ul>
  *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Version history</h3>
  * <ul>
- * <li>The workspace root setting is blocked from pointing to system paths
- * (HIGH-5). Only paths under reasonable OS directories are accepted.</li>
- * <li>All base URL fields are validated with {@link UrlValidator} to prevent
- * SSRF (HIGH-3).</li>
+ * <li>v2026.1.0 — initial Java Spring Boot migration; HIGH-5 safe workspace-root
+ * restriction and HIGH-3 SSRF protection on URL fields</li>
  * </ul>
+ *
+ * <pre>
+ *   POST  /api/admin/settings                    — save one or more settings
+ *   GET   /api/admin/departments                 — list depts with default rights
+ *   PATCH /api/admin/departments/{id}/rights     — update a dept's default rights
+ *   POST  /api/admin/settings/backup             — trigger an on-demand DB backup
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — security hardening: restrict workspace root to safe
- *          paths (HIGH-5); SSRF protection on URL fields (HIGH-3)
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/admin")
