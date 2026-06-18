@@ -17,33 +17,43 @@ import com.ollanest.config.AppConfig;
 /**
  * Provides the minimal data the frontend needs before the user has logged in.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * GET {@code /api/bootstrap} is the first API call made by the browser on page
- * load. It returns:
+ * {@code GET /api/bootstrap} is the first API call the browser makes on page
+ * load, before any session exists. It tells the UI the server is up and whether
+ * to show the first-boot setup wizard, returning:
  * <ul>
- * <li>{@code ready} — always {@code true}; indicates the server is up</li>
+ * <li>{@code ready} — always {@code true}; the server is up</li>
  * <li>{@code firstBoot} — {@code true} when the admin account still has the
- * factory-default password, prompting the UI to show the setup wizard</li>
+ * factory-default password, prompting the setup wizard</li>
  * </ul>
  *
- * <p>
- * This endpoint is intentionally unauthenticated. Since the security hardening
- * update (CRIT-6), it does <em>not</em> return the admin email address or any
- * other sensitive configuration to prevent information leakage to anonymous
- * callers.
- *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Design notes</h3>
  * <ul>
- * <li>First-boot detection is done by BCrypt-checking the stored hash against
- * the known default password rather than storing a separate flag, so it is
- * automatically {@code false} once the admin changes their password.</li>
+ * <li>Intentionally unauthenticated, so since the CRIT-6 hardening it returns
+ * <em>no</em> sensitive data (no admin email, paths, or config) to anonymous
+ * callers.</li>
+ * <li>First-boot is detected by BCrypt-checking the stored hash against the
+ * known default password rather than a separate flag, so it becomes
+ * {@code false} automatically once the admin changes their password.</li>
+ * <li>The BCrypt check (~250ms at cost 12) is cached for 60s so it does not run
+ * on every page load (PERF-1).</li>
  * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.0 — initial Java Spring Boot migration; CRIT-6 hardening removed
+ * the admin email from the unauthenticated response</li>
+ * <li>v2026.1.9 — PERF-1: cache the first-boot BCrypt check</li>
+ * </ul>
+ *
+ * <pre>
+ *   GET /api/bootstrap — readiness + first-boot flag (unauthenticated)
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — security hardening: removed admin email from
- *          unauthenticated response (CRIT-6)
+ * @since v2026.1.0
+ * @version v2026.1.9
  */
 @RestController
 @RequestMapping("/api/bootstrap")
@@ -61,7 +71,11 @@ public class BootstrapController {
 	 * invalidated after 60 seconds to detect a password change without a restart.
 	 */
 	private final AtomicBoolean cachedFirstBoot = new AtomicBoolean(false);
+
+	/** Epoch-millis timestamp at which {@link #cachedFirstBoot} expires. */
 	private final AtomicLong cacheExpiry = new AtomicLong(0);
+
+	/** Time-to-live for the cached first-boot result (60 seconds). */
 	private static final long CACHE_TTL_MS = 60_000L;
 
 	/**

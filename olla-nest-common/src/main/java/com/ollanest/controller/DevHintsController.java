@@ -19,41 +19,47 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Provides dev-mode login hints to the browser on localhost only.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * {@code GET /api/dev/hints} returns the seeded demo account credentials so the
- * browser dev quick-login panel can auto-fill them — without embedding any
- * credentials in the HTML source code that is committed to git.
+ * The dev quick-login panel needs the seeded demo account credentials to
+ * auto-fill the login form, but those must never be embedded in committed HTML.
+ * This controller exposes {@code GET /api/dev/hints}, returning the live seed
+ * credentials at runtime so nothing sensitive lives in source control.
  *
- * <p>
- * <b>Security contract:</b>
+ * <h3>Design notes</h3>
  * <ul>
- * <li>The endpoint returns {@code 404 Not Found} for every caller that is
- * <em>not</em> connecting from a loopback address ({@code 127.0.0.1},
- * {@code ::1}, {@code localhost}). This is enforced server-side and cannot be
- * bypassed by spoofing headers.</li>
- * <li>The response only includes credentials for accounts that exist in the
- * database — it does not expose the raw configured values.</li>
- * <li>This endpoint is disabled entirely in production by design: the loopback
- * check guarantees it is unreachable from any non-local network interface.</li>
- * </ul>
- *
- * <p>
- * <b>Design decisions:</b>
- * <ul>
+ * <li><b>Security:</b> returns {@code 404 Not Found} for every caller not on a
+ * loopback address ({@code 127.0.0.1}, {@code ::1}, {@code localhost}). The
+ * check uses the real TCP peer and cannot be bypassed by spoofing
+ * {@code X-Forwarded-For}; the endpoint is therefore unreachable in
+ * production.</li>
  * <li>Credentials are read from the running Spring config (backed by env vars),
- * not hardcoded, so they rotate correctly when the operator changes the seed
+ * not hardcoded, so they rotate when the operator changes the seed
  * passwords.</li>
- * <li>Only accounts present in the {@code users} table are returned — avoids
- * leaking configured-but-not-yet-seeded credentials.</li>
+ * <li>Only accounts that actually exist in the {@code users} table (and whose
+ * password is not a placeholder) are returned — avoids leaking
+ * configured-but-not-yet-seeded credentials.</li>
  * </ul>
+ *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.9 — replaced hardcoded HTML credentials with this loopback-only
+ * endpoint</li>
+ * </ul>
+ *
+ * <pre>
+ *   GET /api/dev/hints — seeded demo credentials (loopback callers only)
+ * </pre>
  *
  * @author Ashok Ram
- * @since v2026.1.9 — replaced hardcoded HTML credentials
+ * @since v2026.1.9
+ * @version v2026.1.9
  */
 @RestController
 @RequestMapping("/api/dev")
 public class DevHintsController {
 
+	/** Logger for blocked non-loopback access attempts. */
 	private static final Logger log = LoggerFactory.getLogger(DevHintsController.class);
 
 	/** Application configuration; provides seeded demo account credentials. */
@@ -83,6 +89,7 @@ public class DevHintsController {
 	 *
 	 * @param req the HTTP request used to verify the caller is on loopback
 	 * @return 200 with account list on localhost; 404 otherwise
+	 * @since v2026.1.9
 	 */
 	@GetMapping("/hints")
 	public ResponseEntity<Map<String, Object>> hints(HttpServletRequest req) {

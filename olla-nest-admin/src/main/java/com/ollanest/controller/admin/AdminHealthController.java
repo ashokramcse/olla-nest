@@ -17,28 +17,39 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Admin-only health check endpoint for the Olla Nest server.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * GET {@code /api/admin/health} returns JVM memory usage, server uptime, HTTP
- * request/error counters from {@link MonitorService}, and DB-level stats
- * (active users, active models, live sessions, total chats, enabled providers).
+ * The admin dashboard needs a single call that summarises live server health.
+ * This controller exposes {@code GET /api/admin/health}, combining JVM-level
+ * metrics (uptime, memory, HTTP request/error counters from
+ * {@link MonitorService}) with DB-level stats (active users, active models, live
+ * sessions, total chats, enabled providers) into one response.
  *
- * <p>
- * All fields in the response are named consistently with the frontend
- * dashboard: {@code uptimeMs}, {@code memoryUsedMb}, {@code memoryTotalMb},
- * {@code requests}, {@code errors}.
- *
- * <p>
- * <b>Design decisions:</b>
+ * <h3>Design notes</h3>
  * <ul>
+ * <li>Response field names are kept consistent with the frontend dashboard:
+ * {@code uptimeMs}, {@code memoryUsedMb}, {@code memoryTotalMb},
+ * {@code requests}, {@code errors}.</li>
  * <li>A key-name bug was fixed in v2026.1.0 (commit 95f508b): the original
- * response used different key names ({@code uptime}, {@code usedMb}) that did
- * not match what the frontend expected.</li>
+ * response used names ({@code uptime}, {@code usedMb}) that did not match what
+ * the frontend expected.</li>
+ * <li>All counts null-coalesce to {@code 0} so a transiently empty table never
+ * produces a null in the payload.</li>
  * </ul>
  *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.0 — initial Java Spring Boot migration; fixed response key-name
+ * mismatch (uptimeMs, memoryUsedMb, memoryTotalMb)</li>
+ * </ul>
+ *
+ * <pre>
+ *   GET /api/admin/health — server + DB health snapshot (admin-only)
+ * </pre>
+ *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
- * @version v2026.1.0 — bug fix: fixed key name mismatch (uptimeMs,
- *          memoryUsedMb, memoryTotalMb)
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/admin")
