@@ -23,23 +23,37 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Admin CRUD operations for organisational teams.
  *
+ * <h3>Why this class exists</h3>
  * <p>
- * Manages the {@code teams} table and the {@code user_groups} membership join
- * table. Teams are used to group users for reporting and permission management
- * purposes.
+ * Teams group users for reporting and permission management. This controller
+ * gives the admin UI full CRUD over the {@code teams} table and keeps the
+ * {@code user_groups} membership join table consistent (e.g. removing
+ * memberships when a team is deleted).
  *
- * <p>
- * Endpoints:
+ * <h3>Design notes</h3>
  * <ul>
- * <li>{@code GET /api/admin/teams} — list all teams with member counts</li>
- * <li>{@code POST /api/admin/teams} — create a new team</li>
- * <li>{@code PATCH /api/admin/teams/{id}} — rename a team</li>
- * <li>{@code DELETE /api/admin/teams/{id}} — delete a team and its
- * memberships</li>
+ * <li>Member counts in the list response are derived live from
+ * {@code user_groups}.</li>
+ * <li>Team names are unique — create rejects duplicates with a 400.</li>
+ * <li>Every lifecycle change (create/update/delete) is written to the audit log
+ * via {@link ChatService#appendAudit}.</li>
  * </ul>
  *
+ * <h3>Version history</h3>
+ * <ul>
+ * <li>v2026.1.0 — initial Java Spring Boot migration</li>
+ * </ul>
+ *
+ * <pre>
+ *   GET    /api/admin/teams       — list all teams with member counts
+ *   POST   /api/admin/teams       — create a new team
+ *   PATCH  /api/admin/teams/{id}  — rename a team
+ *   DELETE /api/admin/teams/{id}  — delete a team and its memberships
+ * </pre>
+ *
  * @author Ashok Ram
- * @since v2026.1.0 — initial Java Spring Boot migration
+ * @since v2026.1.0
+ * @version v2026.1.0
  */
 @RestController
 @RequestMapping("/api/admin/teams")
