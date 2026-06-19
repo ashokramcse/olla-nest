@@ -76,7 +76,18 @@ Coverage (all live HTTP + DB-asserted): P3 auth/session (valid/wrong-pw/enumerat
 | `/api/jobs/active` user → 403 | **correct RBAC** | endpoint calls `requireAdminUser()` — admin-only by design; harness expected 200 |
 | tasks `schedule:"INVALID"` → 201 | **MINOR (loose validation)** | `schedule` is free-form; unknown value stored, yields no `next_run` (never fires) instead of a 400. Hardening opportunity, not a defect. |
 
-SKIP: note title stores raw `<script>` at rest → XSS-safety depends on frontend output encoding; deferred to the Playwright render check (§6).
+SKIP (now **RESOLVED**, see §4d): note title stores raw `<script>` at rest → the Playwright render check proved the payload is **output-encoded and does not execute** in `/app`. Not a vulnerability.
+
+## 4d. Frontend E2E / responsive / a11y — Phase 18 (EXECUTED, 2026-06-19, Playwright+Chromium)
+
+Real headless-Chromium run (`evidence/TEST_EVIDENCE/*.png`): **11 PASS / 0 FAIL**.
+- User `/login` and admin `/admin-login` load HTTP 200; correct title `Olla Nest — Sign in`; email+password fields present.
+- **0 uncaught JS pageerrors, 0 console errors** (excluding expected pre-auth 401s) on login.
+- **Responsive: no horizontal overflow at 320 / 768 / 1440 px** (scrollWidth == viewport at each).
+- Login flow (fill + Enter) redirects to `/app`.
+- **Stored-XSS render (Finding D):** seeded a note with `<script>` + `<img onerror>` via API, loaded `/app` — payload **did not execute** (no dialog, `window.__XSS__` unset). Output encoding confirmed.
+
+Still NOT re-run this session: full a11y axe-core sweep, dark-mode visual diff, and every authenticated panel's empty/loading/error states (prior `UI_UX_AUDIT_REPORT.md` carries forward).
 
 ## 4c. Load + backup + integrity — Phases 17 & 19 (EXECUTED, 2026-06-19)
 
@@ -92,9 +103,9 @@ SKIP: note title stores raw `<script>` at rest → XSS-safety depends on fronten
 
 ## 6. NOT EXECUTED this session (honest gaps — require external inputs or long wall-clock)
 
-Now narrowed after this session's execution (k6 load **done** this session):
-1. **Playwright** a11y/responsive/visual E2E + the §4b stored-XSS render check on the current frontend (not installed in this env; prior `UI_UX_AUDIT_REPORT.md` carries forward). **NOT EXECUTED.**
-2. **Multi-hour soak** for memory-leak/heap-growth on current build (20s k6 done; long soak NOT EXECUTED — needs wall-clock).
+Narrowed sharply after this session — k6 load **and** Playwright E2E/responsive/XSS-render now executed. Genuinely remaining:
+1. **Full a11y axe-core sweep + dark-mode visual diff + every authenticated panel's empty/loading/error state** (login flow + responsive + XSS-render done in §4d; deep a11y NOT EXECUTED — prior `UI_UX_AUDIT_REPORT.md` carries forward).
+2. **Multi-hour soak** for memory-leak/heap-growth (20s k6 done; long soak NOT EXECUTED — needs wall-clock).
 3. **Live external providers**: real IMAP/SMTP send-poll, DALL·E/OpenAI-TTS with real keys (paths proven to degrade to 503 "not configured"). **NOT EXECUTED** (need keys).
 4. **Git-history secret purge** (process item, not a runtime defect).
 
