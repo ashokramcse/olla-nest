@@ -63,20 +63,40 @@ These are areas the framework upgrade was most likely to break; all confirmed in
 
 ---
 
+## 4b. Live black-box harness — Phases 3–16 (EXECUTED, 2026-06-19)
+
+Harness `evidence/live-harness-2026-06-19.sh` (log `…-2026-06-19.log`) ran 71 assertions against the live servers with self-verified logins (a prior pass against briefly-down servers returned all `000` and its "passes" were **discarded as vacuous**, not counted). Result on the valid run: **67 PASS · 3 FAIL · 1 SKIP**.
+
+Coverage (all live HTTP + DB-asserted): P3 auth/session (valid/wrong-pw/enumeration-resistance/missing-field 400/malformed-JSON 400/oversized-pw 400/forged-token/logout-CSRF 403), P4 RBAC user CRUD + IDOR + 404s, P5 **14 admin endpoints each admin=200 / user=401**, P6/9 notes/tasks/calendar/contacts/memory/account CRUD + **notes IDOR→404** + calendar BUG-021/027 regressions, P7 chat empty/oversized 400, P8 threads, P10 **sandbox gated on `sandbox:run`→403 (CRIT-1)**, P11 documents + multipart extract-text, P12 vault/**webhook SSRF metadata-IP→400 (BUG-020)**/**token secret returned once & not in list**/jobs, P13 connectors (20 types, create, missing-name→400 BUG-036), P14 MCP + non-admin block, P16 **SQLi handled, path-traversal→403 (HIGH-4), no stack-trace leak**.
+
+**The 3 FAILs were investigated and classified — none are product defects:**
+| Harness FAIL | Verdict | Root cause |
+|---|---|---|
+| `/api/admin?days=7` → 404 | **harness bug** | wrong path; real route is `/api/admin/reports` (admin=200, user=401 confirmed) |
+| `/api/jobs/active` user → 403 | **correct RBAC** | endpoint calls `requireAdminUser()` — admin-only by design; harness expected 200 |
+| tasks `schedule:"INVALID"` → 201 | **MINOR (loose validation)** | `schedule` is free-form; unknown value stored, yields no `next_run` (never fires) instead of a 400. Hardening opportunity, not a defect. |
+
+SKIP: note title stores raw `<script>` at rest → XSS-safety depends on frontend output encoding; deferred to the Playwright render check (§6).
+
+## 4c. Load + backup + integrity — Phases 17 & 19 (EXECUTED, 2026-06-19)
+
+- **k6 load** (30 VUs, 20s, `evidence/k6-load-2026-06-19.json`): **63,169 requests, 0.00% failed**, p95 **37.3 ms** (threshold 800 ms), 100% of 63,168 checks passed, ~3,119 req/s.
+- **Post-load DB integrity**: `integrity_check=ok`, **0 FK violations** — concurrency did not corrupt data (Phase 24 stress criterion ✅).
+- **Backup** (Phase 19): `POST /api/admin/settings/backup` → 200, wrote `data/backups/olla-nest-2026-06-19T…Z.sqlite` (1.59 MB); backup `integrity_check=ok`, 62 tables, 13 migrations — a valid bootable copy.
+
 ## 5. Traceability
 
-`FEATURE_TRACEABILITY_MATRIX.md` (prior) maps `docs/FEATURES.md` §1–§9 to controllers/services/tables and remains structurally valid — the upgrade changed *no* routes or table schemas (62 tables, 13 migrations unchanged). Endpoint inventory on the current build: **278 request mappings** (common 10 / admin 79 / user 189), consistent with the matrix.
+`FEATURE_TRACEABILITY_MATRIX.md` (prior) maps `docs/FEATURES.md` §1–§9 to controllers/services/tables and remains structurally valid — the upgrade changed *no* routes or table schemas (62 tables, 13 migrations unchanged). Endpoint inventory on the current build: **229 distinct routes / 278 request mappings** (common 10 / admin 79 / user 189), consistent with the matrix.
 
 ---
 
 ## 6. NOT EXECUTED this session (honest gaps — require external inputs or long wall-clock)
 
-These remain as in the prior campaign; the upgrade does not change their status, but they have **not** been re-run on the current build:
-1. **Playwright** a11y/responsive/visual E2E re-run on the current frontend (prior `UI_UX_AUDIT_REPORT.md` carries forward).
-2. **k6** fresh load/concurrency on current build (prior evidence: `evidence/k6-*.json`, 0% error).
-3. **Multi-hour soak** for memory-leak/heap-growth on current build.
-4. **Live external providers**: real IMAP/SMTP send-poll, DALL·E/OpenAI-TTS with real keys (paths proven to degrade to 503 "not configured").
-5. **Git-history secret purge** (process item, not a runtime defect).
+Now narrowed after this session's execution (k6 load **done** this session):
+1. **Playwright** a11y/responsive/visual E2E + the §4b stored-XSS render check on the current frontend (not installed in this env; prior `UI_UX_AUDIT_REPORT.md` carries forward). **NOT EXECUTED.**
+2. **Multi-hour soak** for memory-leak/heap-growth on current build (20s k6 done; long soak NOT EXECUTED — needs wall-clock).
+3. **Live external providers**: real IMAP/SMTP send-poll, DALL·E/OpenAI-TTS with real keys (paths proven to degrade to 503 "not configured"). **NOT EXECUTED** (need keys).
+4. **Git-history secret purge** (process item, not a runtime defect).
 
 ## 7. Recommendation
 

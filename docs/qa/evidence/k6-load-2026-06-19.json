@@ -1,0 +1,150 @@
+{
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "me 200": {
+                    "name": "me 200",
+                    "path": "::me 200",
+                    "id": "30e7556edf82eff0e3762598c402eb40",
+                    "passes": 21512,
+                    "fails": 0
+                },
+                "notes 200": {
+                    "name": "notes 200",
+                    "path": "::notes 200",
+                    "id": "4363d3328afc7cc5aa35e11c23bd665c",
+                    "passes": 21512,
+                    "fails": 0
+                },
+                "state 200": {
+                    "fails": 0,
+                    "name": "state 200",
+                    "path": "::state 200",
+                    "id": "a2fc965ddd6df76dbfc7771fbab2fbcd",
+                    "passes": 21512
+                }
+            }
+    },
+    "metrics": {
+        "http_req_connecting": {
+            "med": 0,
+            "max": 2.302,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.0015484915629793766,
+            "min": 0
+        },
+        "http_req_receiving": {
+            "min": 0.004,
+            "med": 0.012,
+            "max": 6.646,
+            "p(90)": 0.03,
+            "p(95)": 0.041,
+            "avg": 0.020454963819204246
+        },
+        "data_received": {
+            "count": 472029788,
+            "rate": 23320978.83631213
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 64537,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "http_reqs": {
+            "count": 64537,
+            "rate": 3188.497949538464
+        },
+        "http_req_sending": {
+            "max": 4.035,
+            "p(90)": 0.004,
+            "p(95)": 0.005,
+            "avg": 0.003280304321553418,
+            "min": 0.001,
+            "med": 0.002
+        },
+        "vus_max": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(95)": 37.32,
+            "avg": 9.280445124502252,
+            "min": 0.064,
+            "med": 2.908,
+            "max": 215.02,
+            "p(90)": 28.3644
+        },
+        "iteration_duration": {
+            "max": 120.205417,
+            "p(90)": 48.16689160000001,
+            "p(95)": 56.4836413,
+            "avg": 27.90272367195048,
+            "min": 1.23975,
+            "med": 25.3854585
+        },
+        "http_req_waiting": {
+            "med": 2.875,
+            "max": 213.904,
+            "p(90)": 28.3294,
+            "p(95)": 37.29,
+            "avg": 9.256709856361574,
+            "min": 0.05
+        },
+        "http_req_blocked": {
+            "med": 0.001,
+            "max": 5.224,
+            "p(90)": 0.001,
+            "p(95)": 0.001,
+            "avg": 0.0029452252196434984,
+            "min": 0
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0
+        },
+        "http_req_duration": {
+            "p(90)": 28.3644,
+            "p(95)": 37.32,
+            "avg": 9.280445124502252,
+            "min": 0.064,
+            "med": 2.908,
+            "max": 215.02,
+            "thresholds": {
+                "p(95)<800": false
+            }
+        },
+        "data_sent": {
+            "count": 16628974,
+            "rate": 821566.6904555283
+        },
+        "checks": {
+            "passes": 64536,
+            "fails": 0,
+            "value": 1
+        },
+        "iterations": {
+            "count": 21512,
+            "rate": 1062.8161812676672
+        },
+        "vus": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        }
+    },
+    "setup_data": {
+        "cookie": "olla_nest_user_session=b12e8614b5364c3c45cb4ec3c5c3ade149f629d2d6eda775ee114f6ade3397cb; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200"
+    }
+}
