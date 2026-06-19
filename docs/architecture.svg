@@ -199,6 +199,6 @@
 
   <!-- Footer -->
   <line x1="24" y1="510" x2="796" y2="510" stroke="#2a2a30" stroke-width="1"/>
-  <text x="410" y="519" text-anchor="middle" font-family="'Courier New',Courier,monospace" font-size="8" fill="#3f3f46" letter-spacing="0.06em">OLLA NEST · Self-hosted Company AI Workspace · github.com/ashokramcse/olla-nest</text>
+  <text x="410" y="519" text-anchor="middle" font-family="'Courier New',Courier,monospace" font-size="8" fill="#3f3f46" letter-spacing="0.06em">OLLA NEST · Self-hosted Company AI Workspace · Spring Boot 4.1 · Spring AI 2.0 · github.com/ashokramcse/olla-nest</text>
 
 </svg>

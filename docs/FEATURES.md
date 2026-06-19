@@ -22,7 +22,7 @@
 - **Local Whisper STT server** — auto-started Python `faster-whisper` HTTP server on port **8765** (`WhisperServerManager`).
 
 ### 1.2 Runtime / Build
-- Java 26 runtime, Maven multi-module build (`mvn clean package`), Spring Boot embedded Tomcat.
+- Java 26 runtime, Maven multi-module build (`mvn clean package`), Spring Boot 4.1.0 (Spring Framework 7) + Spring AI 2.0.0, embedded Tomcat.
 - Native access flag (`--enable-native-access=ALL-UNNAMED`) for SQLite JDBC.
 - Fully configurable ports/base URLs/cookie names per service (any port supported).
 

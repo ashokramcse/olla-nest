@@ -12,8 +12,8 @@
 [![Version](https://img.shields.io/badge/version-v2026.2.1-f5c842?style=for-the-badge&logo=git&logoColor=black)](https://github.com/ashokramcse/olla-nest/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-26-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org)
-[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.14-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Spring AI](https://img.shields.io/badge/Spring_AI-1.0.0-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1.0-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Spring AI](https://img.shields.io/badge/Spring_AI-2.0.0-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL_mode-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
 
 <br/>
@@ -711,7 +711,7 @@ Maven multi-module project — three modules built from a single parent POM.
 
 ```
 olla-nest/
-├── pom.xml                                         # Parent POM — Spring Boot 3.5.14, Spring AI 1.0.0
+├── pom.xml                                         # Parent POM — Spring Boot 4.1.0, Spring AI 2.0.0
 │
 ├── olla-nest-common/                               # Shared library (JAR) — all services, models, connectors
 │   └── src/main/java/com/ollanest/

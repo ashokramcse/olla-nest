@@ -4,6 +4,36 @@ All notable changes to Olla Nest are documented here.
 
 ---
 
+## v2026.2.2 — 2026-06-19
+
+### 🧰 Tooling & Quality
+
+- **Config metadata** — added `spring-boot-configuration-processor` + `META-INF/additional-spring-configuration-metadata.json` documenting all custom `@Value` properties (`app.*`, `rag.*`, `ollama.url`, `encryption.key`, `loki.*`, …); IDE "unknown property" warnings cleared.
+- **Constructor injection** — `DatabaseService` now constructor-injects `Environment` (was field `@Autowired`).
+- **Tests** — new `UserApplicationIntegrationTest` (the user app previously had no full-context test); admin test profile now exercises the production `autoconfigure.exclude`. Suite: **88 classes, 2,190 tests, 0 failures**.
+- **Comment skeleton** — canonical Javadoc (`Why this class exists` / `Design notes` / `Version history` + `@author/@since/@version`) applied to **all 144 main classes**.
+- **QA** — regression-confirmation campaign on the Boot 4.1 build: live RBAC/IDOR/auth sweep, k6 load (63k requests, 0% fail, p95 37 ms), Playwright E2E (responsive 320/768/1440, XSS-render safe), backup verified bootable. See `docs/qa/QA_SESSION_2026-06-19.md`.
+
+## v2026.2.1 — 2026-06-16
+
+### ⬆️ Spring Boot 4.1.0
+
+- Bumped Spring Boot **4.0.7 → 4.1.0** (Spring AI 2.0 supports both 4.0 and 4.1); no code changes required.
+- Adopted the Spring AI 2.0 `PromptTemplate.builder()` idiom in `PromptTemplateService`.
+
+## v2026.2.0 — 2026-06-16
+
+### ⬆️ Major Framework Upgrade — Spring Boot 4 + Spring AI 2.0
+
+- **Spring Boot 3.5 → 4.0** (Spring Framework 6 → 7), **Spring AI 1.0.0 → 2.0.0**, Java compile target release 21.
+- **Boot 4 module-split fixes** (auto-config relocated into per-tech modules):
+  - Added `spring-boot-flyway` — Boot 4 moved `FlywayAutoConfiguration` out of `spring-boot-autoconfigure`; without it migrations silently stop running.
+  - Added `spring-boot-webmvc-test` and updated the `@AutoConfigureMockMvc` import to `org.springframework.boot.webmvc.test.autoconfigure`.
+  - Fixed the production `spring.autoconfigure.exclude` to the relocated `org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration` (was crashing startup).
+  - Updated `NoResourceFoundException` construction for the Spring 7 3-arg constructor.
+- Rolled in pending minor bumps: POI 5.5.1, ical4j 4.2.5, jsoup 1.22.2, ZXing 3.5.4.
+- Full reactor green after upgrade (2,234 test invocations, 0 failures).
+
 ## v2026.1.10 — 2026-05-31
 
 ### 🔴 Critical & High Security Fixes (Full Audit Remediation)

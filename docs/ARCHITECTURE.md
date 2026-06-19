@@ -12,9 +12,9 @@ Maven Multi-Module Build (mvn clean package)
 
 Runtime — two Java processes, one shared SQLite database
 ├── java -jar olla-nest-admin-*.jar   (port 8080)
-│   └── Spring Boot 3.5.14 + embedded Tomcat
+│   └── Spring Boot 4.1.0 + embedded Tomcat
 ├── java -jar olla-nest-user-*.jar    (port 8081)
-│   └── Spring Boot 3.5.14 + embedded Tomcat
+│   └── Spring Boot 4.1.0 + embedded Tomcat
 ├── public/                           ← Static frontend (login, workspace, admin)
 ├── scripts/
 │   ├── whisper_server.py             ← OpenAI-compatible faster-whisper HTTP server (port 8765)
@@ -35,7 +35,7 @@ Host machine
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| Runtime | Java 26 + Spring Boot 3.5.14 | Embedded Tomcat HTTP server |
+| Runtime | Java 26 + Spring Boot 4.1.0 (Spring Framework 7) | Embedded Tomcat HTTP server |
 | Frontend | HTML / CSS / Vanilla JS | Served as static files from `public/` |
 | Database | SQLite via JDBC (sqlite-jdbc 3.49) | Users, groups, models, permissions, chat, settings |
 | Connection pool | HikariCP (pool-size=1) | SQLite single-writer constraint |
@@ -102,7 +102,7 @@ olla-nest-common/src/main/java/com/ollanest/
 │   ├── ChatService.java                  # Context assembly, system prompts, appendAudit()
 │   ├── CodeSandboxService.java           # ProcessBuilder: Python/JS/Ruby/Java/Bash; 10s kill
 │   ├── CryptoService.java                # AES-256-GCM, 12-byte random IV
-│   ├── DatabaseService.java              # Flyway V1–V6, seed data, settings helpers
+│   ├── DatabaseService.java              # Flyway V1–V12, seed data, settings helpers
 │   ├── DeepResearchService.java          # Plan → Search → Synthesise pipeline
 │   ├── EmbeddingService.java             # Ollama embeddings + cosine similarity
 │   ├── FunctionCallService.java          # 4 built-in AI tools
